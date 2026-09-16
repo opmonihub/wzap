@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/url"
 	"os"
 	"strings"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waAdv"
 	"go.mau.fi/whatsmeow/proto/waE2E"
@@ -396,7 +396,7 @@ func TestParsePresence(t *testing.T) {
 }
 
 func TestNewSessionRejectsNilDevice(t *testing.T) {
-	if _, err := newSession(uuid.New(), nil, nil, nil, testMediaLimit); err == nil {
+	if _, err := newSession(uuid.New(), nil, zerolog.Nop(), nil, testMediaLimit); err == nil {
 		t.Fatal("newSession accepted a nil device")
 	}
 }
@@ -424,7 +424,7 @@ func TestDeviceStoreIntegration(t *testing.T) {
 }
 
 func TestRegisterRestoredIsAtomic(t *testing.T) {
-	manager := &Manager{sessions: make(map[uuid.UUID]*instanceSession), log: slog.Default()}
+	manager := &Manager{sessions: make(map[uuid.UUID]*instanceSession), log: zerolog.Nop()}
 	id := uuid.New()
 	first := &instanceSession{instanceID: id}
 	second := &instanceSession{instanceID: id}
@@ -548,7 +548,7 @@ func TestCreateMissingDeviceReturnsErrNoDevice(t *testing.T) {
 }
 
 func TestConnectDeletedDeviceReturnsErrNoDevice(t *testing.T) {
-	sess, err := newSession(uuid.New(), &store.Device{Deleted: true}, nil, nil, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{Deleted: true}, zerolog.Nop(), nil, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
@@ -599,7 +599,7 @@ func (r *fakeInstanceRepo) Delete(context.Context, uuid.UUID) error {
 func TestRestoreAllSkipsInstancesWithoutCredentials(t *testing.T) {
 	manager := &Manager{
 		instances: &fakeInstanceRepo{instances: []model.Instance{{ID: uuid.New(), Status: "disconnected"}}},
-		log:       slog.Default(),
+		log:       zerolog.Nop(),
 		sessions:  make(map[uuid.UUID]*instanceSession),
 	}
 	restored := false
@@ -668,7 +668,7 @@ func TestRestoreAllReflectsCancellation(t *testing.T) {
 	instance := model.Instance{ID: uuid.New(), Status: "connected", WhatsAppJID: "5511999999999@s.whatsapp.net"}
 	manager := &Manager{
 		instances: &fakeInstanceRepo{instances: []model.Instance{instance}},
-		log:       slog.Default(),
+		log:       zerolog.Nop(),
 		sessions:  make(map[uuid.UUID]*instanceSession),
 		sink:      sink,
 	}
@@ -737,7 +737,7 @@ func createIsolatedSchema(t *testing.T, dsn string) string {
 func newTestManager(t *testing.T) *Manager {
 	t.Helper()
 
-	manager, err := NewManager(context.Background(), createIsolatedSchema(t, requireTestDSN(t)), nil, slog.Default(), nil, testMediaLimit)
+	manager, err := NewManager(context.Background(), createIsolatedSchema(t, requireTestDSN(t)), nil, zerolog.Nop(), nil, testMediaLimit)
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
 	}

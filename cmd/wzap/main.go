@@ -190,8 +190,8 @@ func serve() error {
 	// Advertise the latest WhatsApp web client before any session connects: a
 	// WhatsApp version bump must not silently break pairing until the library
 	// is updated. A lookup failure only warns and keeps the pinned version.
-	whatsmeow.RefreshWAVersion(ctx, slogLog)
-	sessions, err := whatsmeow.NewManager(ctx, cfg.DatabaseURL, instances, slogLog, runtime, cfg.MaxMediaBytes)
+	whatsmeow.RefreshWAVersion(ctx, log)
+	sessions, err := whatsmeow.NewManager(ctx, cfg.DatabaseURL, instances, log, runtime, cfg.MaxMediaBytes)
 	if err != nil {
 		return fmt.Errorf("session manager: %w", err)
 	}

@@ -29,8 +29,7 @@ func (s *instanceSession) dispatch(evt any) {
 		// pinned library exposes; without one it falls back to the primary
 		// JID and warns, so LID-less peers stay visible in the logs.
 		if e.Info.SenderAlt.IsEmpty() {
-			s.log.Warn("message without alt sender address, using primary JID",
-				"instance_id", s.instanceID, "chat", e.Info.Chat.String(), "message_id", e.Info.ID)
+			s.log.Warn().Str("instance_id", s.instanceID.String()).Str("chat", e.Info.Chat.String()).Str("message_id", e.Info.ID).Msg("message without alt sender address, using primary JID")
 		}
 		// The pinned library surfaces live edits and deletes as Message events
 		// carrying a MESSAGE_EDIT/REVOKE protocol message (already unwrapped
@@ -50,8 +49,7 @@ func (s *instanceSession) dispatch(evt any) {
 			if originalID, ok := messageDeleteTarget(e); ok {
 				s.sink.OnMessageDelete(context.Background(), deleteMessage(s.instanceID, e, originalID))
 			} else {
-				s.log.Warn("dropping revoke without original message key",
-					"instance_id", s.instanceID, "chat", e.Info.Chat.String())
+				s.log.Warn().Str("instance_id", s.instanceID.String()).Str("chat", e.Info.Chat.String()).Msg("dropping revoke without original message key")
 			}
 			return
 		}

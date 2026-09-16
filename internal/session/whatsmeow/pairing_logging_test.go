@@ -1,7 +1,9 @@
 package whatsmeow
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -14,6 +16,7 @@ import (
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/types"
 
+	"wzap/internal/logger"
 	"wzap/internal/session"
 )
 
@@ -110,11 +113,62 @@ func assertNoSecret(t *testing.T, h *memoryHandler, value string) {
 
 func newLoggedSession(t *testing.T, device *store.Device, h *memoryHandler, sink session.EventSink) *instanceSession {
 	t.Helper()
-	sess, err := newSession(uuid.New(), device, slog.New(h), sink, testMediaLimit)
+	// The memoryHandler stays until Task 4.1 unifies the test helpers: the
+	// session logger comes from logger.NewTestLogger with its output decoded
+	// back into the handler, so the boundary assertions keep observing
+	// records without rewriting them here.
+	_, base := logger.NewTestLogger()
+	sess, err := newSession(uuid.New(), device, base.Output(handlerWriter{h: h}), sink, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
 	return sess
+}
+
+// handlerWriter decodes zerolog JSON lines into the memoryHandler.
+type handlerWriter struct {
+	h *memoryHandler
+}
+
+func (w handlerWriter) Write(p []byte) (int, error) {
+	dec := json.NewDecoder(bytes.NewReader(p))
+	for {
+		var fields map[string]any
+		if err := dec.Decode(&fields); err != nil {
+			return len(p), nil
+		}
+		w.h.addJSONRecord(fields)
+	}
+}
+
+// addJSONRecord stores one decoded zerolog event as a captured record,
+// honouring the handler minimum level like Enabled does for slog records.
+func (h *memoryHandler) addJSONRecord(fields map[string]any) {
+	var level slog.Level
+	switch fields["level"] {
+	case "trace", "debug":
+		level = slog.LevelDebug
+	case "warn":
+		level = slog.LevelWarn
+	case "error", "fatal", "panic":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+	if level < h.min {
+		return
+	}
+	msg, _ := fields["message"].(string)
+	attrs := make(map[string]any, len(fields))
+	for k, v := range fields {
+		if k == "level" || k == "message" || k == "time" {
+			continue
+		}
+		attrs[k] = v
+	}
+	h.core.mu.Lock()
+	h.core.records = append(h.core.records, capturedRecord{level: level, msg: msg, attrs: attrs})
+	h.core.mu.Unlock()
 }
 
 // TestMonitorQRLogsSuccess verifies the success terminal emits its boundary
@@ -134,7 +188,7 @@ func TestMonitorQRLogsSuccess(t *testing.T) {
 	if rec.level != slog.LevelInfo {
 		t.Errorf("pairing succeeded level = %v, want info", rec.level)
 	}
-	if rec.attrs["instance_id"] != sess.instanceID {
+	if rec.attrs["instance_id"] != sess.instanceID.String() {
 		t.Errorf("pairing succeeded instance_id = %v, want %v", rec.attrs["instance_id"], sess.instanceID)
 	}
 	assertNoSecret(t, h, "QR-SUCCESS-LOG")
@@ -187,7 +241,7 @@ func TestMonitorQRLogsError(t *testing.T) {
 	if rec.level != slog.LevelWarn {
 		t.Errorf("pairing failed level = %v, want warn", rec.level)
 	}
-	if rec.attrs["instance_id"] != sess.instanceID {
+	if rec.attrs["instance_id"] != sess.instanceID.String() {
 		t.Errorf("pairing failed instance_id = %v, want %v", rec.attrs["instance_id"], sess.instanceID)
 	}
 	warn := waitForRecord(t, h, "session entered error status")
@@ -255,7 +309,7 @@ func TestSetStatusLogsTransition(t *testing.T) {
 	if rec.level != slog.LevelDebug {
 		t.Errorf("session status changed level = %v, want debug", rec.level)
 	}
-	if rec.attrs["from"] != session.StatusDisconnected || rec.attrs["to"] != session.StatusPairing {
+	if rec.attrs["from"] != string(session.StatusDisconnected) || rec.attrs["to"] != string(session.StatusPairing) {
 		t.Errorf("session status changed from/to = %v/%v, want disconnected/pairing",
 			rec.attrs["from"], rec.attrs["to"])
 	}

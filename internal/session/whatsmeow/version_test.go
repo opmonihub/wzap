@@ -3,15 +3,17 @@ package whatsmeow
 import (
 	"context"
 	"errors"
-	"io"
-	"log/slog"
 	"testing"
 
+	"github.com/rs/zerolog"
 	"go.mau.fi/whatsmeow/store"
+
+	"wzap/internal/logger"
 )
 
-func discardLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
+func discardLogger() zerolog.Logger {
+	_, log := logger.NewTestLogger()
+	return log
 }
 
 // TestRefreshWAVersionAdvertisesLatest verifies the startup hardening: a

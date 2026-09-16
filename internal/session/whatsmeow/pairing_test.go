@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/types"
@@ -39,7 +40,7 @@ func currentQR(sess *instanceSession) (string, error) {
 // TestPairingQRReissuedAfterExpiry verifies task 4.5: when a QR code expires,
 // the next pairing round delivers a fresh code that replaces the expired one.
 func TestPairingQRReissuedAfterExpiry(t *testing.T) {
-	sess, err := newSession(uuid.New(), &store.Device{}, nil, nil, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
@@ -78,7 +79,7 @@ func TestPairingSuccessRegistersPublicJID(t *testing.T) {
 	jid := types.NewJID("5511999999999", types.DefaultUserServer)
 	device := &store.Device{ID: &jid}
 	sink := &recordingSink{}
-	sess, err := newSession(uuid.New(), device, nil, sink, testMediaLimit)
+	sess, err := newSession(uuid.New(), device, zerolog.Nop(), sink, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
@@ -123,7 +124,7 @@ func TestPairingTerminalChannelErrorsAreExplicit(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			sink := &recordingSink{}
-			sess, err := newSession(uuid.New(), &store.Device{}, nil, sink, testMediaLimit)
+			sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), sink, testMediaLimit)
 			if err != nil {
 				t.Fatalf("newSession: %v", err)
 			}
@@ -151,7 +152,7 @@ func TestPairingTerminalChannelErrorsAreExplicit(t *testing.T) {
 // The connection must live on the pairing context and only stop when the
 // session cancels the QR flow.
 func TestPairingSurvivesCallerContextCancellation(t *testing.T) {
-	sess, err := newSession(uuid.New(), &store.Device{}, nil, nil, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}

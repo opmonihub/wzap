@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import * as z from 'zod'
+import type { FormSubmitEvent } from '#ui/types'
 import { ApiError } from '~/composables/useApi'
 import DeleteInstanceModal from '~/components/instances/DeleteInstanceModal.vue'
 import InstanceStatusBadge from '~/components/instances/InstanceStatusBadge.vue'
@@ -22,8 +24,12 @@ const pending = ref(true)
 const notFound = ref(false)
 const failure = ref<string | null>(null)
 
-const editName = ref('')
-const editExternalRef = ref('')
+const schema = z.object({
+  name: z.string().min(1, t('instances.create.nameRequired')).max(255),
+  external_ref: z.string().max(255)
+})
+type Schema = z.output<typeof schema>
+const state = reactive<Partial<Schema>>({ name: '', external_ref: '' })
 const saving = ref(false)
 const saveFailure = ref<string | null>(null)
 
@@ -50,8 +56,8 @@ async function load() {
   failure.value = null
   try {
     instance.value = await getInstance(id.value)
-    editName.value = instance.value.name
-    editExternalRef.value = instance.value.external_ref
+    state.name = instance.value.name
+    state.external_ref = instance.value.external_ref
     keySeen.value = hasSeenInstanceKey(instance.value.id)
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
@@ -64,11 +70,11 @@ async function load() {
   }
 }
 
-async function onSave() {
+async function onSave(event: FormSubmitEvent<Schema>) {
   if (!instance.value || saving.value) {
     return
   }
-  const trimmedName = editName.value.trim()
+  const trimmedName = (event.data.name ?? '').trim()
   if (trimmedName === '') {
     saveFailure.value = t('instances.create.nameRequired')
     return
@@ -78,7 +84,7 @@ async function onSave() {
   try {
     instance.value = await updateInstance(instance.value.id, {
       name: trimmedName,
-      external_ref: editExternalRef.value.trim()
+      external_ref: (event.data.external_ref ?? '').trim()
     })
     toast.add({ title: t('instances.detail.saved'), color: 'success' })
   } catch (error) {
@@ -304,7 +310,13 @@ await load()
               {{ t('instances.fields.name') }}
             </h2>
           </template>
-          <form class="flex flex-col gap-4" @submit.prevent="onSave">
+          <UForm
+            id="instance-name"
+            :schema="schema"
+            :state="state"
+            class="flex flex-col gap-4"
+            @submit="onSave"
+          >
             <UAlert
               v-if="saveFailure"
               color="error"
@@ -314,21 +326,20 @@ await load()
 
             <UFormField :label="t('instances.fields.name')" name="name" required>
               <UInput
-                v-model="editName"
-                required
+                v-model="state.name"
                 maxlength="255"
                 class="w-full"
               />
             </UFormField>
 
             <UFormField :label="t('instances.fields.externalRef')" :hint="t('instances.fields.externalRefHint')" name="external_ref">
-              <UInput v-model="editExternalRef" maxlength="255" class="w-full" />
+              <UInput v-model="state.external_ref" maxlength="255" class="w-full" />
             </UFormField>
 
             <div class="flex justify-end">
               <UButton type="submit" :loading="saving" :label="saving ? t('common.saving') : t('common.save')" />
             </div>
-          </form>
+          </UForm>
         </UCard>
 
         <UCard v-if="isAdmin">

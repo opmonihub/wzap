@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import * as z from 'zod'
+import type { FormSubmitEvent } from '#ui/types'
 import { ApiError } from '~/composables/useApi'
 import OneTimeKeyDisplay from '~/components/instances/OneTimeKeyDisplay.vue'
 import type { CreatedInstance } from '~/types/api'
@@ -14,15 +16,19 @@ const { createInstance } = useInstances()
 
 const open = defineModel<boolean>('open', { default: false })
 
-const name = ref('')
-const externalRef = ref('')
+const schema = z.object({
+  name: z.string().min(1, t('instances.create.nameRequired')).max(255),
+  external_ref: z.string().max(255)
+})
+type Schema = z.output<typeof schema>
+const state = reactive<Partial<Schema>>({ name: '', external_ref: '' })
 const pending = ref(false)
 const failure = ref<string | null>(null)
 const created = ref<CreatedInstance | null>(null)
 
 function reset() {
-  name.value = ''
-  externalRef.value = ''
+  state.name = ''
+  state.external_ref = ''
   pending.value = false
   failure.value = null
   created.value = null
@@ -34,11 +40,11 @@ watch(open, (value) => {
   }
 })
 
-async function onSubmit() {
+async function onSubmit(event: FormSubmitEvent<Schema>) {
   if (pending.value) {
     return
   }
-  const trimmedName = name.value.trim()
+  const trimmedName = (event.data.name ?? '').trim()
   if (trimmedName === '') {
     failure.value = t('instances.create.nameRequired')
     return
@@ -46,7 +52,7 @@ async function onSubmit() {
   pending.value = true
   failure.value = null
   try {
-    created.value = await createInstance({ name: trimmedName, external_ref: externalRef.value })
+    created.value = await createInstance({ name: trimmedName, external_ref: event.data.external_ref ?? '' })
     markInstanceKeySeen(created.value.id)
     emit('created', created.value)
   } catch (error) {
@@ -70,7 +76,14 @@ function friendlyCreateError(error: ApiError): string {
 <template>
   <UModal v-model:open="open" :title="created ? t('instances.create.successTitle') : t('instances.create.title')" :description="created ? t('instances.create.successBody') : t('instances.create.body')">
     <template #body>
-      <form v-if="!created" class="flex flex-col gap-4" @submit.prevent="onSubmit">
+      <UForm
+        v-if="!created"
+        id="create-instance"
+        :schema="schema"
+        :state="state"
+        class="flex flex-col gap-4"
+        @submit="onSubmit"
+      >
         <UAlert
           v-if="failure"
           color="error"
@@ -80,33 +93,36 @@ function friendlyCreateError(error: ApiError): string {
 
         <UFormField :label="t('instances.fields.name')" name="name" required>
           <UInput
-            v-model="name"
-            required
+            v-model="state.name"
             maxlength="255"
             class="w-full"
           />
         </UFormField>
 
         <UFormField :label="t('instances.fields.externalRef')" :hint="t('instances.fields.externalRefHint')" name="external_ref">
-          <UInput v-model="externalRef" maxlength="255" class="w-full" />
+          <UInput v-model="state.external_ref" maxlength="255" class="w-full" />
         </UFormField>
-
-        <div class="flex justify-end gap-2">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            :label="t('common.cancel')"
-            @click="open = false"
-          />
-          <UButton type="submit" :loading="pending" :label="pending ? t('instances.create.creating') : t('instances.create.submit')" />
-        </div>
-      </form>
+      </UForm>
 
       <OneTimeKeyDisplay v-else :api-key="created.instance_api_key" />
     </template>
 
-    <template v-if="created" #footer>
-      <div class="flex justify-end">
+    <template #footer>
+      <div v-if="!created" class="flex justify-end gap-2">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          :label="t('common.cancel')"
+          @click="open = false"
+        />
+        <UButton
+          type="submit"
+          form="create-instance"
+          :loading="pending"
+          :label="pending ? t('instances.create.creating') : t('instances.create.submit')"
+        />
+      </div>
+      <div v-else class="flex justify-end">
         <UButton :label="t('common.done')" @click="open = false" />
       </div>
     </template>

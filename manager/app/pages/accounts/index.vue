@@ -23,8 +23,10 @@ interface AccountsTableApi {
 // instances answers 409 and removes nothing.
 const { t } = useI18n()
 const toast = useToast()
-const { isAdmin } = useAuth()
+const { isAdmin, user: sessionUser } = useAuth()
 const { listUsers, createUser, deleteUser, updateUserQuota } = useAccounts()
+const { listInstances } = useInstances()
+const { copy } = useClipboard()
 
 if (!isAdmin.value) {
   await navigateTo('/')
@@ -33,6 +35,9 @@ if (!isAdmin.value) {
 const users = ref<AccountUser[]>([])
 const pending = ref(true)
 const failure = ref<string | null>(null)
+// Instances owned per account, counted client-side: GET /users exposes no
+// usage field, so the quota cell pairs the stored quota with this count.
+const usageByOwner = ref<Record<string, number>>({})
 
 const {
   columns,
@@ -142,11 +147,25 @@ const selectedCount = computed(() => {
   return table.value?.tableApi?.getFilteredSelectedRowModel().rows.length ?? fallback
 })
 
+function selectedUsers(): AccountUser[] {
+  return table.value?.tableApi?.getFilteredSelectedRowModel().rows.map(row => row.original)
+    ?? users.value.filter(user => rowSelection.value[user.id])
+}
+
 function clearSelection() {
   if (table.value?.tableApi) {
     table.value.tableApi.resetRowSelection()
   } else {
     rowSelection.value = {}
+  }
+}
+
+async function copySelectedEmails() {
+  try {
+    await copy(selectedUsers().map(user => user.email).join('\n'))
+    toast.add({ title: t('accounts.table.copiedEmails'), color: 'success' })
+  } catch {
+    toast.add({ title: t('accounts.table.copyFailed'), color: 'error' })
   }
 }
 
@@ -233,10 +252,33 @@ async function load() {
   failure.value = null
   try {
     users.value = await listUsers()
+    await loadUsage()
   } catch (error) {
     failure.value = error instanceof ApiError ? error.message : t('accounts.loadFailed')
   } finally {
     pending.value = false
+  }
+}
+
+// Usage comes from the instance list (no usage field on GET /users):
+// accumulate every cursor page best-effort and count owners. A failed usage
+// load never fails the accounts list; cells fall back to 0 used.
+async function loadUsage() {
+  const counts: Record<string, number> = {}
+  try {
+    let cursor: string | undefined
+    do {
+      const page = await listInstances(cursor)
+      for (const instance of page.items) {
+        if (instance.owner_user_id) {
+          counts[instance.owner_user_id] = (counts[instance.owner_user_id] ?? 0) + 1
+        }
+      }
+      cursor = page.next_cursor === '' ? undefined : page.next_cursor
+    } while (cursor !== undefined)
+    usageByOwner.value = counts
+  } catch {
+    usageByOwner.value = counts
   }
 }
 
@@ -341,6 +383,12 @@ async function onSaveQuota() {
 }
 
 function openDelete(user: AccountUser) {
+  // Self-delete is blocked client-side (the row menu also disables it): an
+  // admin removing their own account would lock themselves out.
+  if (sessionUser.value && user.id === sessionUser.value.id) {
+    toast.add({ title: t('accounts.delete.selfBlocked'), color: 'error' })
+    return
+  }
   deleteTarget.value = user
   deleting.value = false
   deleteFailure.value = null
@@ -371,6 +419,57 @@ function friendlyDeleteError(error: ApiError): string {
     return t('accounts.delete.ownsInstances')
   }
   return error.message
+}
+
+// Bulk delete over the selected rows: the signed-in account is always
+// skipped, owners that still own instances fail with the 409 message, and the
+// summary toast reports deleted vs failed counts.
+const bulkOpen = ref(false)
+const bulkDeleting = ref(false)
+const bulkFailure = ref<string | null>(null)
+
+function openBulkDelete() {
+  bulkFailure.value = null
+  bulkDeleting.value = false
+  bulkOpen.value = true
+}
+
+async function onBulkDelete() {
+  if (bulkDeleting.value) {
+    return
+  }
+  const selfId = sessionUser.value?.id
+  const targets = selectedUsers().filter(user => user.id !== selfId)
+  if (targets.length === 0) {
+    bulkOpen.value = false
+    toast.add({ title: t('accounts.bulkDelete.selfSkipped'), color: 'warning' })
+    return
+  }
+  bulkDeleting.value = true
+  bulkFailure.value = null
+  let deleted = 0
+  let failed = 0
+  for (const target of targets) {
+    try {
+      await deleteUser(target.id)
+      deleted += 1
+    } catch {
+      failed += 1
+    }
+  }
+  if (failed === 0) {
+    // Clean run: drop the rows locally without a reload.
+    const removedIds = new Set(targets.map(target => target.id))
+    users.value = users.value.filter(user => !removedIds.has(user.id))
+    toast.add({ title: t('accounts.bulkDelete.deleted', { count: deleted }), color: 'success' })
+  } else {
+    // Partial run: reload so the rows reflect exactly what the server kept.
+    await load()
+    toast.add({ title: t('accounts.bulkDelete.partial', { deleted, failed }), color: 'warning' })
+  }
+  clearSelection()
+  bulkOpen.value = false
+  bulkDeleting.value = false
 }
 
 if (isAdmin.value) {
@@ -464,6 +563,22 @@ if (isAdmin.value) {
             color="neutral"
             variant="ghost"
             size="sm"
+            icon="i-lucide-copy"
+            :label="t('accounts.table.copyEmails')"
+            @click="copySelectedEmails"
+          />
+          <UButton
+            color="error"
+            variant="ghost"
+            size="sm"
+            icon="i-lucide-trash-2"
+            :label="t('accounts.table.deleteSelected')"
+            @click="openBulkDelete"
+          />
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="sm"
             icon="i-lucide-x"
             :label="t('accounts.table.clearSelection')"
             @click="clearSelection"
@@ -503,8 +618,8 @@ if (isAdmin.value) {
 
           <template #email-header="{ column }">
             <UButton
-              color="neutral"
-              variant="ghost"
+              :color="column.getIsSorted() ? 'primary' : 'neutral'"
+              :variant="column.getIsSorted() ? 'soft' : 'ghost'"
               size="sm"
               class="min-h-11"
               :label="t('common.email')"
@@ -516,8 +631,8 @@ if (isAdmin.value) {
 
           <template #role-header="{ column }">
             <UButton
-              color="neutral"
-              variant="ghost"
+              :color="column.getIsSorted() ? 'primary' : 'neutral'"
+              :variant="column.getIsSorted() ? 'soft' : 'ghost'"
               size="sm"
               class="min-h-11"
               :label="t('common.role')"
@@ -529,8 +644,8 @@ if (isAdmin.value) {
 
           <template #instance_quota-header="{ column }">
             <UButton
-              color="neutral"
-              variant="ghost"
+              :color="column.getIsSorted() ? 'primary' : 'neutral'"
+              :variant="column.getIsSorted() ? 'soft' : 'ghost'"
               size="sm"
               class="min-h-11"
               :label="t('accounts.quotaLabel')"
@@ -551,12 +666,13 @@ if (isAdmin.value) {
           </template>
 
           <template #instance_quota-cell="{ row }">
-            <AccountsTableQuotaCell :user="row.original" />
+            <AccountsTableQuotaCell :user="row.original" :usage="usageByOwner[row.original.id] ?? 0" />
           </template>
 
           <template #actions-cell="{ row }">
             <AccountsTableActionsCell
               :user="row.original"
+              :is-self="sessionUser?.id === row.original.id"
               @edit-quota="openQuota($event)"
               @remove="openDelete($event)"
             />
@@ -732,6 +848,33 @@ if (isAdmin.value) {
           :loading="deleting"
           :label="deleting ? t('accounts.delete.deleting') : t('accounts.delete.submit')"
           @click="onDelete"
+        />
+      </div>
+    </template>
+  </UModal>
+
+  <UModal v-model:open="bulkOpen" :title="t('accounts.bulkDelete.title')" :description="t('accounts.bulkDelete.body', { count: selectedCount })">
+    <template #body>
+      <UAlert
+        v-if="bulkFailure"
+        color="error"
+        variant="subtle"
+        :title="bulkFailure"
+      />
+    </template>
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          :label="t('common.cancel')"
+          @click="bulkOpen = false"
+        />
+        <UButton
+          color="error"
+          :loading="bulkDeleting"
+          :label="bulkDeleting ? t('accounts.bulkDelete.deleting') : t('accounts.bulkDelete.submit')"
+          @click="onBulkDelete"
         />
       </div>
     </template>

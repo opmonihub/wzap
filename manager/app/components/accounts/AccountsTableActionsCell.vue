@@ -1,35 +1,44 @@
 <script setup lang="ts">
+import type { DropdownMenuItem } from '@nuxt/ui'
 import type { AccountUser } from '~/types/api'
 
-// Row actions for the accounts table. The cell only emits: the page keeps
-// openQuota / openDelete (and all API logic), mapping edit-quota -> openQuota
-// and remove -> openDelete.
-defineProps<{
+// Row actions for the accounts table behind an overflow menu. The cell only
+// emits: the page keeps openQuota / openDelete (and all API logic), mapping
+// edit-quota -> openQuota and remove -> openDelete. Deleting the signed-in
+// account is blocked: the item stays disabled with a hint.
+const props = defineProps<{
   user: AccountUser
+  isSelf: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'edit-quota' | 'remove', user: AccountUser): void
 }>()
 
 const { t } = useI18n()
+
+const items = computed<DropdownMenuItem[]>(() => [
+  {
+    label: t('accounts.quota.edit'),
+    icon: 'i-lucide-pencil',
+    onSelect: () => emit('edit-quota', props.user)
+  },
+  {
+    label: props.isSelf ? t('accounts.delete.selfBlocked') : t('accounts.delete.action'),
+    icon: 'i-lucide-trash-2',
+    disabled: props.isSelf,
+    onSelect: () => emit('remove', props.user)
+  }
+])
 </script>
 
 <template>
-  <div class="flex gap-2">
+  <UDropdownMenu :items="items" :content="{ align: 'end' }">
     <UButton
       color="neutral"
-      variant="soft"
-      icon="i-lucide-pencil"
-      :label="t('accounts.quota.edit')"
-      @click="$emit('edit-quota', user)"
+      variant="ghost"
+      icon="i-lucide-ellipsis"
+      :aria-label="t('accounts.table.actions')"
     />
-    <UButton
-      color="error"
-      variant="soft"
-      icon="i-lucide-trash-2"
-      :label="t('accounts.delete.action')"
-      @click="$emit('remove', user)"
-    />
-  </div>
+  </UDropdownMenu>
 </template>

@@ -290,7 +290,12 @@
       "visibility": "Columns",
       "filtersLabel": "Filters",
       "clearFilters": "Clear filters",
-      "pageSize": "Rows per page"
+      "pageSize": "Rows per page",
+      "actions": "Row actions",
+      "copyEmails": "Copy emails",
+      "copiedEmails": "Account emails copied.",
+      "copyFailed": "Could not copy account emails.",
+      "deleteSelected": "Delete selected"
     },
     "create": {
       "title": "New account",
@@ -311,6 +316,7 @@
       "hint": "Whole number 0 or above. 0 means unlimited.",
       "edit": "Edit quota",
       "quotaInvalid": "Quota must be a whole number 0 or above.",
+      "usageTitle": "{used} instances used of {quota} allowed",
       "updated": "Quota updated.",
       "saveFailed": "Could not save the quota."
     },
@@ -322,7 +328,17 @@
       "deleting": "Deleting...",
       "failed": "Could not delete the account.",
       "ownsInstances": "This account still owns instances. Remove its instances first.",
+      "selfBlocked": "You cannot delete your own account.",
       "deleted": "Account deleted."
+    },
+    "bulkDelete": {
+      "title": "Delete selected accounts",
+      "body": "This permanently removes {count} accounts. Your own account is always skipped; owners that still own instances fail and are kept.",
+      "submit": "Delete permanently",
+      "deleting": "Deleting...",
+      "deleted": "{count} accounts deleted.",
+      "partial": "{deleted} deleted, {failed} failed. Owners with instances were kept.",
+      "selfSkipped": "Only your own account was selected. Nothing was deleted."
     }
   }
 }

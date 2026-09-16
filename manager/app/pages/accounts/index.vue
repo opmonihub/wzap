@@ -9,12 +9,20 @@ import type { AccountRole, AccountUser } from '~/types/api'
 
 // Structural view of the UTable API this page drives (stable component
 // instance typing without importing @tanstack/*, which stays transitive-only).
+interface AccountsTableColumn {
+  id: string
+  getCanHide: () => boolean
+  getIsVisible: () => boolean
+  toggleVisibility: (visible: boolean) => void
+}
+
 interface AccountsTableApi {
   getFilteredRowModel: () => { rows: TableRow<AccountUser>[] }
   getFilteredSelectedRowModel: () => { rows: TableRow<AccountUser>[] }
   setPageIndex: (index: number) => void
   setPageSize: (size: number) => void
   resetRowSelection: () => void
+  getAllColumns: () => AccountsTableColumn[]
 }
 
 // Account management is admin-only: the sidebar hides this screen for user
@@ -107,14 +115,8 @@ const roleFilterItems = computed(() => [
 ])
 
 // Select and actions never hide (bulk bar + per-row edit/delete stay
-// reachable); every other column is user-toggleable.
-const hideableColumnIds = computed<string[]>(() =>
-  columns.value
-    .filter(column => column.id !== 'select' && column.id !== 'actions')
-    .map(column => column.id ?? '')
-    .filter(id => id !== '')
-)
-
+// reachable); the dropdown only lists columns where the table API reports
+// getCanHide().
 function columnLabel(columnId: string): string {
   switch (columnId) {
     case 'email':
@@ -128,18 +130,18 @@ function columnLabel(columnId: string): string {
   }
 }
 
-const visibilityItems = computed<DropdownMenuItem[]>(() =>
-  hideableColumnIds.value.map(columnId => ({
-    label: columnLabel(columnId),
-    type: 'checkbox' as const,
-    checked: columnVisibility.value[columnId] ?? true,
-    onUpdateChecked: (checked: boolean) => {
-      columnVisibility.value = { ...columnVisibility.value, [columnId]: checked }
-    },
-    onSelect: (event: Event) => {
-      event.preventDefault()
-    }
-  }))
+const columnItems = computed<DropdownMenuItem[]>(() =>
+  table.value?.tableApi?.getAllColumns()
+    .filter(column => column.getCanHide())
+    .map(column => ({
+      label: columnLabel(column.id),
+      type: 'checkbox' as const,
+      checked: column.getIsVisible(),
+      onUpdateChecked: (checked: boolean) => column.toggleVisibility(checked),
+      onSelect: (event: Event) => {
+        event.preventDefault()
+      }
+    })) ?? []
 )
 
 const selectedCount = computed(() => {
@@ -519,34 +521,38 @@ if (isAdmin.value) {
       </UAlert>
 
       <div v-else class="flex flex-col gap-3">
-        <div role="group" :aria-label="t('accounts.table.filtersLabel')" class="flex flex-wrap items-center gap-2">
-          <UInput
-            v-model="searchInput"
-            icon="i-lucide-search"
-            :placeholder="t('accounts.table.search')"
-            :aria-label="t('accounts.table.search')"
-            class="min-w-52 flex-1"
-          />
-          <USelect
-            v-model="roleFilter"
-            :items="roleFilterItems"
-            :aria-label="t('accounts.table.roleFilter')"
-            class="min-w-40"
-          />
-          <UDropdownMenu
-            :items="visibilityItems"
-            :content="{ align: 'end' }"
-          >
-            <UButton
-              :label="t('accounts.table.visibility')"
-              color="neutral"
-              variant="outline"
-              trailing-icon="i-lucide-chevron-down"
-              class="min-h-11"
-              :aria-label="t('accounts.table.visibility')"
+        <UDashboardToolbar role="group" :aria-label="t('accounts.table.filtersLabel')">
+          <template #left>
+            <UInput
+              v-model="searchInput"
+              icon="i-lucide-search"
+              :placeholder="t('accounts.table.search')"
+              :aria-label="t('accounts.table.search')"
+              class="min-w-52 flex-1"
             />
-          </UDropdownMenu>
-        </div>
+          </template>
+          <template #right>
+            <USelect
+              v-model="roleFilter"
+              :items="roleFilterItems"
+              :aria-label="t('accounts.table.roleFilter')"
+              class="min-w-40"
+            />
+            <UDropdownMenu
+              :items="[columnItems]"
+              :content="{ align: 'end' }"
+            >
+              <UButton
+                :label="t('accounts.table.visibility')"
+                color="neutral"
+                variant="outline"
+                trailing-icon="i-lucide-chevron-down"
+                class="min-h-11"
+                :aria-label="t('accounts.table.visibility')"
+              />
+            </UDropdownMenu>
+          </template>
+        </UDashboardToolbar>
 
         <p class="text-sm text-muted">
           {{ loadedLabel }}
@@ -679,17 +685,21 @@ if (isAdmin.value) {
           </template>
 
           <template #empty>
-            <div class="flex flex-col items-center gap-3 py-8 text-center">
-              <template v-if="users.length === 0">
-                <p class="text-sm text-muted">
-                  {{ t('accounts.empty') }}
-                </p>
+            <UEmpty
+              v-if="users.length === 0"
+              icon="i-lucide-search-x"
+              :title="t('accounts.empty')"
+            >
+              <template #actions>
                 <UButton icon="i-lucide-plus" :label="t('accounts.create.title')" @click="createOpen = true" />
               </template>
-              <template v-else>
-                <p class="text-sm text-muted">
-                  {{ t('accounts.table.noResults') }}
-                </p>
+            </UEmpty>
+            <UEmpty
+              v-else
+              icon="i-lucide-search-x"
+              :title="t('accounts.table.noResults')"
+            >
+              <template #actions>
                 <UButton
                   color="neutral"
                   variant="soft"
@@ -697,11 +707,11 @@ if (isAdmin.value) {
                   @click="clearFilters"
                 />
               </template>
-            </div>
+            </UEmpty>
           </template>
         </UTable>
 
-        <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center justify-between gap-3 border-t border-default pt-4 mt-auto">
           <p class="text-sm text-muted">
             {{ pageLabel }}
           </p>

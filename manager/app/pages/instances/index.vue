@@ -15,12 +15,20 @@ import type { CreatedInstance, Instance, InstanceStatus } from '~/types/api'
 
 // Structural view of the UTable API this page drives (stable component
 // instance typing without importing @tanstack/*, which stays transitive-only).
+interface InstancesTableColumn {
+  id: string
+  getCanHide: () => boolean
+  getIsVisible: () => boolean
+  toggleVisibility: (visible: boolean) => void
+}
+
 interface InstancesTableApi {
   getFilteredRowModel: () => { rows: TableRow<Instance>[] }
   getFilteredSelectedRowModel: () => { rows: TableRow<Instance>[] }
   setPageIndex: (index: number) => void
   setPageSize: (size: number) => void
   resetRowSelection: () => void
+  getAllColumns: () => InstancesTableColumn[]
 }
 
 const { t } = useI18n()
@@ -138,15 +146,9 @@ const statusFilterItems = computed(() => [
   ...instanceStatuses.map(status => ({ label: t(`instances.status.${status}`), value: status }))
 ])
 
-// Name, status and actions are essential and locked (enableHiding:false in
-// the composable); external_ref, owner and JID stay user-toggleable.
-const hideableColumnIds = computed<string[]>(() =>
-  columns.value
-    .filter(column => column.id !== 'select' && column.id !== 'name' && column.id !== 'status' && column.id !== 'actions')
-    .map(column => column.id ?? '')
-    .filter(id => id !== '')
-)
-
+// Name, status, select and actions are essential and locked
+// (enableHiding:false in the composable); the dropdown only lists columns
+// where the table API reports getCanHide().
 function columnLabel(columnId: string): string {
   switch (columnId) {
     case 'name':
@@ -164,18 +166,18 @@ function columnLabel(columnId: string): string {
   }
 }
 
-const visibilityItems = computed<DropdownMenuItem[]>(() =>
-  hideableColumnIds.value.map(columnId => ({
-    label: columnLabel(columnId),
-    type: 'checkbox' as const,
-    checked: columnVisibility.value[columnId] ?? true,
-    onUpdateChecked: (checked: boolean) => {
-      columnVisibility.value = { ...columnVisibility.value, [columnId]: checked }
-    },
-    onSelect: (event: Event) => {
-      event.preventDefault()
-    }
-  }))
+const columnItems = computed<DropdownMenuItem[]>(() =>
+  table.value?.tableApi?.getAllColumns()
+    .filter(column => column.getCanHide())
+    .map(column => ({
+      label: columnLabel(column.id),
+      type: 'checkbox' as const,
+      checked: column.getIsVisible(),
+      onUpdateChecked: (checked: boolean) => column.toggleVisibility(checked),
+      onSelect: (event: Event) => {
+        event.preventDefault()
+      }
+    })) ?? []
 )
 
 const selectedCount = computed(() => {
@@ -435,34 +437,38 @@ await loadFirst()
       </UAlert>
 
       <div v-else class="flex flex-col gap-3">
-        <div role="group" :aria-label="t('instances.table.filtersLabel')" class="flex flex-wrap items-center gap-2">
-          <UInput
-            v-model="searchInput"
-            icon="i-lucide-search"
-            :placeholder="t('instances.table.search')"
-            :aria-label="t('instances.table.search')"
-            class="min-w-52 flex-1"
-          />
-          <USelect
-            v-model="statusFilter"
-            :items="statusFilterItems"
-            :aria-label="t('instances.table.statusFilter')"
-            class="min-w-40"
-          />
-          <UDropdownMenu
-            :items="visibilityItems"
-            :content="{ align: 'end' }"
-          >
-            <UButton
-              :label="t('instances.table.visibility')"
-              color="neutral"
-              variant="outline"
-              trailing-icon="i-lucide-chevron-down"
-              class="min-h-11"
-              :aria-label="t('instances.table.visibility')"
+        <UDashboardToolbar role="group" :aria-label="t('instances.table.filtersLabel')">
+          <template #left>
+            <UInput
+              v-model="searchInput"
+              icon="i-lucide-search"
+              :placeholder="t('instances.table.search')"
+              :aria-label="t('instances.table.search')"
+              class="min-w-52 flex-1"
             />
-          </UDropdownMenu>
-        </div>
+          </template>
+          <template #right>
+            <USelect
+              v-model="statusFilter"
+              :items="statusFilterItems"
+              :aria-label="t('instances.table.statusFilter')"
+              class="min-w-40"
+            />
+            <UDropdownMenu
+              :items="[columnItems]"
+              :content="{ align: 'end' }"
+            >
+              <UButton
+                :label="t('instances.table.visibility')"
+                color="neutral"
+                variant="outline"
+                trailing-icon="i-lucide-chevron-down"
+                class="min-h-11"
+                :aria-label="t('instances.table.visibility')"
+              />
+            </UDropdownMenu>
+          </template>
+        </UDashboardToolbar>
 
         <p class="text-sm text-muted">
           {{ loadedLabel }}
@@ -592,17 +598,21 @@ await loadFirst()
           </template>
 
           <template #empty>
-            <div class="flex flex-col items-center gap-3 py-8 text-center">
-              <template v-if="items.length === 0">
-                <p class="text-sm text-muted">
-                  {{ t('instances.empty') }}
-                </p>
+            <UEmpty
+              v-if="items.length === 0"
+              icon="i-lucide-search-x"
+              :title="t('instances.empty')"
+            >
+              <template #actions>
                 <UButton icon="i-lucide-plus" :label="t('instances.create.title')" @click="createOpen = true" />
               </template>
-              <template v-else>
-                <p class="text-sm text-muted">
-                  {{ t('instances.table.noResults') }}
-                </p>
+            </UEmpty>
+            <UEmpty
+              v-else
+              icon="i-lucide-search-x"
+              :title="t('instances.table.noResults')"
+            >
+              <template #actions>
                 <UButton
                   color="neutral"
                   variant="soft"
@@ -610,11 +620,11 @@ await loadFirst()
                   @click="clearFilters"
                 />
               </template>
-            </div>
+            </UEmpty>
           </template>
         </UTable>
 
-        <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center justify-between gap-3 border-t border-default pt-4 mt-auto">
           <p class="text-sm text-muted">
             {{ pageLabel }}
           </p>

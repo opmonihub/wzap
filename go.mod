@@ -8,6 +8,7 @@ require (
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/nats-io/nats.go v1.53.1
 	github.com/pressly/goose/v3 v3.28.0
+	github.com/rs/zerolog v1.35.1
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.6
@@ -39,7 +40,6 @@ require (
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/petermattis/goid v0.0.0-20260816044145-ed329add6b1b // indirect
 	github.com/rogpeppe/go-internal v1.16.0 // indirect
-	github.com/rs/zerolog v1.35.1 // indirect
 	github.com/sethvargo/go-retry v0.4.0 // indirect
 	github.com/swaggo/files v1.0.1 // indirect
 	github.com/vektah/gqlparser/v2 v2.5.27 // indirect

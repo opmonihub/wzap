@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/swaggo/http-swagger"
 
 	_ "wzap/docs"
@@ -57,10 +58,14 @@ type Deps struct {
 // public Swagger UI subtree (no credential) and /manager/ is the public
 // embedded console (no credential): both are more specific than the "/"
 // below, so longest-prefix routing keeps them outside Authenticate.
-func New(cfg config.Config, log *slog.Logger, deps Deps) *http.Server {
+func New(cfg config.Config, log zerolog.Logger, deps Deps) *http.Server {
+	// Scoped bridge for the handlers below that still take *slog.Logger
+	// (handleReadyz, Idempotency); Logging/Recover take log directly. The
+	// bridge shrinks as those handlers migrate to zerolog.
+	slogLog := slog.New(zerolog.NewSlogHandler(log))
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handleHealthz)
-	mux.HandleFunc("GET /readyz", handleReadyz(deps.ReadyChecker, log))
+	mux.HandleFunc("GET /readyz", handleReadyz(deps.ReadyChecker, slogLog))
 	mux.Handle("/swagger/", httpSwagger.WrapHandler)
 	mux.Handle("/manager/", manager.Handler())
 	mux.Handle("GET /manager", manager.Handler())
@@ -85,10 +90,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) *http.Server {
 	api.HandleFunc("GET /instances/{id}/qr", handleQRInstance(deps.Instances))
 	api.HandleFunc("GET /instances/{id}/status", handleInstanceStatus(deps.Instances))
 	api.HandleFunc("POST /instances/{id}/numbers/check", handleCheckNumber(deps.Instances, deps.Numbers))
-	api.Handle("POST /instances/{id}/messages/text", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleSendText(deps.Instances, deps.Messages)))
-	api.Handle("POST /instances/{id}/messages/location", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleSendLocation(deps.Instances, deps.Messages)))
-	api.Handle("POST /instances/{id}/messages/contact", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleSendContact(deps.Instances, deps.Messages)))
-	api.Handle("POST /instances/{id}/messages/media", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleSendMedia(deps.Instances, deps.Messages, deps.Media, cfg.MaxMediaBytes)))
+	api.Handle("POST /instances/{id}/messages/text", Idempotency(deps.Idempotency, slogLog, cfg.MaxMediaBytes)(handleSendText(deps.Instances, deps.Messages)))
+	api.Handle("POST /instances/{id}/messages/location", Idempotency(deps.Idempotency, slogLog, cfg.MaxMediaBytes)(handleSendLocation(deps.Instances, deps.Messages)))
+	api.Handle("POST /instances/{id}/messages/contact", Idempotency(deps.Idempotency, slogLog, cfg.MaxMediaBytes)(handleSendContact(deps.Instances, deps.Messages)))
+	api.Handle("POST /instances/{id}/messages/media", Idempotency(deps.Idempotency, slogLog, cfg.MaxMediaBytes)(handleSendMedia(deps.Instances, deps.Messages, deps.Media, cfg.MaxMediaBytes)))
 	api.HandleFunc("GET /instances/{id}/messages", handleListMessages(deps.Instances, deps.Messages))
 	api.HandleFunc("GET /instances/{id}/messages/{message_id}", handleGetMessage(deps.Instances, deps.Messages))
 	api.HandleFunc("GET /media/{id}", handleGetMedia(deps.Instances, deps.Media))

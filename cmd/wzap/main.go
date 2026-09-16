@@ -361,7 +361,7 @@ func serve() error {
 
 	outboxWorker := message.NewOutbox(messageRepo, sessions, webhookWriter, mediaStorage, slogLog, cfg.OutboxWorkers, instancelock.New(), cfg.Humanize)
 
-	srv := httpapi.New(cfg, slogLog, httpapi.Deps{
+	srv := httpapi.New(cfg, log, httpapi.Deps{
 		ReadyChecker:     checker,
 		Instances:        service,
 		Numbers:          numbers,

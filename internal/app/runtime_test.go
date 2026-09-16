@@ -326,8 +326,8 @@ func TestRuntimeOnConnectionLogsConnectedProjection(t *testing.T) {
 		ID: id, Name: "loja", Status: string(session.StatusDisconnected),
 	})
 	writer := &fakeWriter{}
-	logger, logs := debugLogBuffer()
-	runtime := NewRuntime(repo, writer, nil, nil, "", 0, logger)
+	log, logs := debugLogBuffer()
+	runtime := NewRuntime(repo, writer, nil, nil, "", 0, log)
 
 	const jid = "5511999999999@s.whatsapp.net"
 	runtime.OnConnection(context.Background(), id, session.StatusConnected, jid, "")
@@ -360,8 +360,8 @@ func TestRuntimeOnConnectionLogsFailureProjection(t *testing.T) {
 		WhatsAppJID: "5511@wa",
 	})
 	writer := &fakeWriter{}
-	logger, logs := debugLogBuffer()
-	runtime := NewRuntime(repo, writer, nil, nil, "", 0, logger)
+	log, logs := debugLogBuffer()
+	runtime := NewRuntime(repo, writer, nil, nil, "", 0, log)
 
 	runtime.OnConnection(context.Background(), id, session.StatusError, "", "temporary ban")
 
@@ -382,8 +382,8 @@ func TestRuntimeOnConnectionLogsFailureProjection(t *testing.T) {
 
 func TestRuntimeOnConnectionLogsUnknownInstanceSkip(t *testing.T) {
 	writer := &fakeWriter{}
-	logger, logs := debugLogBuffer()
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "", 0, logger)
+	log, logs := debugLogBuffer()
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "", 0, log)
 
 	const jid = "5511@wa"
 	runtime.OnConnection(context.Background(), uuid.New(), session.StatusConnected, jid, "")

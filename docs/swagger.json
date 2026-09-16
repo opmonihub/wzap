@@ -328,6 +328,63 @@
                 }
             }
         },
+        "/instances/stats": {
+            "get": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "instances"
+                ],
+                "summary": "Instance stats",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global key or user session credential scope",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Totals in scope, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.instanceStatsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Instance keys own no collection view",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/instances/{id}": {
             "get": {
                 "security": [
@@ -2434,6 +2491,20 @@
                 },
                 "whatsapp_jid": {
                     "type": "string"
+                }
+            }
+        },
+        "httpapi.instanceStatsResponse": {
+            "type": "object",
+            "properties": {
+                "by_status": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },

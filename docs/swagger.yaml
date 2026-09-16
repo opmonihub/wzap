@@ -122,6 +122,15 @@ definitions:
       whatsapp_jid:
         type: string
     type: object
+  httpapi.instanceStatsResponse:
+    properties:
+      by_status:
+        additionalProperties:
+          type: integer
+        type: object
+      total:
+        type: integer
+    type: object
   httpapi.loginRequest:
     properties:
       email:
@@ -1416,6 +1425,42 @@ paths:
       summary: Get connection status
       tags:
       - connection
+  /instances/stats:
+    get:
+      parameters:
+      - description: Global key or user session credential scope
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Totals in scope, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.instanceStatsResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Instance keys own no collection view
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Instance stats
+      tags:
+      - instances
   /media/{id}:
     get:
       parameters:

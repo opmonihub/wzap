@@ -74,6 +74,7 @@ func New(cfg config.Config, log zerolog.Logger, deps Deps) *http.Server {
 
 	api := http.NewServeMux()
 	api.HandleFunc("POST /instances", handleCreateInstance(deps.Instances, deps.Users, deps.Keys, cfg.MaxInstances))
+	api.HandleFunc("GET /instances/stats", handleInstanceStats(deps.Instances))
 	api.HandleFunc("GET /instances", handleListInstances(deps.Instances))
 	api.HandleFunc("GET /instances/{id}", handleGetInstance(deps.Instances))
 	api.HandleFunc("PATCH /instances/{id}", handleUpdateInstance(deps.Instances))

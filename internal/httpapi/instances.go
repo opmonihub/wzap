@@ -281,6 +281,14 @@ func writeQuotaError(w http.ResponseWriter, r *http.Request, err error) {
 	Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
 }
 
+// instanceStatsResponse is the JSON representation of GET /instances/stats:
+// the total in scope plus the breakdown by connection status. Unknown
+// statuses fold into disconnected so the four buckets always sum to total.
+type instanceStatsResponse struct {
+	Total    int            `json:"total"`
+	ByStatus map[string]int `json:"by_status"`
+}
+
 // handleListInstances answers one page of instances with its next cursor. An
 // instance key owns no collection view and answers 403; a user session sees
 // exactly its own rows while the global scope and admin sessions see all.
@@ -324,6 +332,66 @@ func handleListInstances(instances InstanceService) http.HandlerFunc {
 			response.Items = append(response.Items, newInstanceResponse(&items[i]))
 		}
 		JSON(w, r, http.StatusOK, response)
+	}
+}
+
+// handleInstanceStats answers the scoped instance counts for the overview
+// Home: the total plus the breakdown by connection status. An instance key
+// owns no collection view and answers 403 like the list; a user session
+// counts exactly its own rows while the global scope and admin sessions count
+// all. Pages accumulate through instances.List at max page size, so no
+// repository change is needed; a service failure answers 500.
+//
+// @Summary Instance stats
+// @Tags instances
+// @Produce json
+// @Security apikey
+// @Param apikey header string true "Global key or user session credential scope"
+// @Param X-Request-Id header string false "Correlation id, echoed back"
+// @Success 200 {object} instanceStatsResponse "Totals in scope, wrapped in the data envelope"
+// @Failure 401 {object} errorEnvelope "Missing or invalid credential"
+// @Failure 403 {object} errorEnvelope "Instance keys own no collection view"
+// @Failure 500 {object} errorEnvelope "Internal error"
+// @Router /instances/stats [get]
+func handleInstanceStats(instances InstanceService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := authorizeCollection(r); err != nil {
+			writeForbidden(w, r)
+			return
+		}
+		scope, ok := auth.ScopeFromContext(r.Context())
+		if !ok {
+			writeForbidden(w, r)
+			return
+		}
+
+		byStatus := map[string]int{
+			"connected":    0,
+			"disconnected": 0,
+			"pairing":      0,
+			"error":        0,
+		}
+		total := 0
+		for cursor := ""; ; {
+			items, next, err := instances.List(r.Context(), maxInstancesLimit, cursor)
+			if err != nil {
+				writeInstanceError(w, r, err)
+				return
+			}
+			for _, item := range filterInstancesByOwner(scope, items) {
+				total++
+				if _, known := byStatus[item.Status]; known {
+					byStatus[item.Status]++
+				} else {
+					byStatus["disconnected"]++
+				}
+			}
+			if next == "" {
+				break
+			}
+			cursor = next
+		}
+		JSON(w, r, http.StatusOK, instanceStatsResponse{Total: total, ByStatus: byStatus})
 	}
 }
 

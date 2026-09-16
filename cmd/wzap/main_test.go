@@ -2,12 +2,13 @@ package main
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog"
 )
 
 func TestReadyURL(t *testing.T) {
@@ -92,7 +93,7 @@ func TestStopComponentsStopsInOrder(t *testing.T) {
 	close(done)
 	var order []string
 
-	stopComponents(context.Background(), slog.Default(),
+	stopComponents(context.Background(), zerolog.Nop(),
 		shutdownComponent{name: "outbox", stop: func() { order = append(order, "outbox") }, done: done},
 		shutdownComponent{name: "media cleaner", stop: func() { order = append(order, "media cleaner") }, done: done},
 		shutdownComponent{name: "event relay", stop: func() { order = append(order, "event relay") }, done: done},
@@ -110,7 +111,7 @@ func TestStopComponentsBoundsTheWait(t *testing.T) {
 	cancel()
 
 	start := time.Now()
-	stopComponents(ctx, slog.Default(),
+	stopComponents(ctx, zerolog.Nop(),
 		shutdownComponent{name: "stuck", stop: func() {}, done: never},
 	)
 

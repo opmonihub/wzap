@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/auth"
 	"wzap/internal/config"
@@ -26,7 +26,7 @@ type ownerBackfiller interface {
 // duplicating the admin, never touching owners) and when both admin variables
 // are unset. A half-configured seed warns, creates nothing and lets boot
 // proceed.
-func seedAdmin(ctx context.Context, cfg config.Config, users storage.UserRepository, instances ownerBackfiller, log *slog.Logger) error {
+func seedAdmin(ctx context.Context, cfg config.Config, users storage.UserRepository, instances ownerBackfiller, log zerolog.Logger) error {
 	count, err := users.Count(ctx)
 	if err != nil {
 		return fmt.Errorf("seed admin: count users: %w", err)
@@ -40,7 +40,7 @@ func seedAdmin(ctx context.Context, cfg config.Config, users storage.UserReposit
 	case email == "" && password == "":
 		return nil
 	case email == "" || password == "":
-		log.Warn("admin seed skipped: set both WZAP_ADMIN_EMAIL and WZAP_ADMIN_PASSWORD to create the initial admin")
+		log.Warn().Msg("admin seed skipped: set both WZAP_ADMIN_EMAIL and WZAP_ADMIN_PASSWORD to create the initial admin")
 		return nil
 	}
 
@@ -70,6 +70,6 @@ func seedAdmin(ctx context.Context, cfg config.Config, users storage.UserReposit
 		return fmt.Errorf("seed admin: backfill instance owners: %w", err)
 	}
 
-	log.Info("admin seed created initial admin", "email", email, "claimed_instances", claimed)
+	log.Info().Str("email", email).Int64("claimed_instances", claimed).Msg("admin seed created initial admin")
 	return nil
 }

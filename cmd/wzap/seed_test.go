@@ -3,12 +3,11 @@ package main
 import (
 	"context"
 	"errors"
-	"io"
-	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/auth"
 	"wzap/internal/config"
@@ -37,8 +36,8 @@ func seedTestConfig(email, password string) config.Config {
 	}
 }
 
-func seedTestLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
+func seedTestLogger() zerolog.Logger {
+	return zerolog.Nop()
 }
 
 func createSeedUser(t *testing.T, users *postgres.UserRepository, email string) *model.User {

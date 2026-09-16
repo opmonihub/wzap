@@ -47,8 +47,13 @@ const messagesRefresh = ref(0)
 
 // Message history split (template inbox pattern): at lg+ it renders as a
 // side panel, below lg it opens as a slideover via the messages button.
-// Each variant mounts only in its viewport (hidden wrappers + ClientOnly),
-// so the history mounts once per viewport.
+// Visibility is CSS-gated (hidden/lg: wrappers), which does not prevent
+// mount: the desktop aside mounts and fetches once per page load on every
+// viewport, while the slideover content mounts lazily on first open (its
+// Presence unmounts on close). Opening the slideover on mobile therefore
+// issues one redundant history fetch; accepted (no v-if gating, which would
+// reintroduce the SSR-breakpoint double-mount, and no lifted fetch, which
+// would change child-card contracts).
 const isMessagesOpen = ref(false)
 
 // The slideover closes on navigation, mirroring the dashboard slideover.

@@ -239,7 +239,7 @@ await load()
         </template>
       </UAlert>
 
-      <div v-else-if="instance" class="flex max-w-3xl flex-col gap-4">
+      <div v-else-if="instance" class="flex w-full flex-col gap-4">
         <UCard>
           <template #header>
             <h2 class="font-medium text-highlighted">

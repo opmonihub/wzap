@@ -5,6 +5,7 @@
 package config
 
 import (
+	"net"
 	"net/url"
 	"strings"
 
@@ -44,6 +45,12 @@ func Validate(c model.ChatwootConfig) error {
 		if parsed.Hostname() == "" {
 			return &ErrField{Field: "url", Message: "url has no host"}
 		}
+		// The token travels as api_access_token on every call: plain http
+		// would expose it on the wire, so only loopback (local dev) may
+		// stay unencrypted.
+		if strings.EqualFold(parsed.Scheme, "http") && !isLoopbackHost(parsed.Hostname()) {
+			return &ErrField{Field: "url", Message: "http requires a loopback host, use https"}
+		}
 	default:
 		return &ErrField{Field: "url", Message: "scheme must be http or https"}
 	}
@@ -54,6 +61,21 @@ func Validate(c model.ChatwootConfig) error {
 		return &ErrField{Field: "token", Message: "token is required"}
 	}
 	return nil
+}
+
+// isLoopbackHost reports whether host is a loopback destination without DNS:
+// "localhost" (case-insensitive, optional trailing dot) or a literal IP in
+// 127.0.0.0/8 or ::1. It mirrors the webhook gate so both boundaries agree on
+// the local-dev exception.
+func isLoopbackHost(host string) bool {
+	trimmed := strings.TrimSuffix(host, ".")
+	if strings.EqualFold(trimmed, "localhost") {
+		return true
+	}
+	if ip := net.ParseIP(trimmed); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
 }
 
 // DefaultInbox returns the inbox name used when name_inbox is empty: the

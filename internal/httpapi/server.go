@@ -44,6 +44,9 @@ type Deps struct {
 	// ChatwootWebhookLimiter limita o webhook aberto por instância; nil usa
 	// o default (120/min).
 	ChatwootWebhookLimiter *ChatwootRateLimiter
+	// LoginLimiter limita palpites de senha por IP no /auth/login; nil usa o
+	// default (10/min por IP).
+	LoginLimiter *LoginRateLimiter
 }
 
 // New builds the HTTP server with the middleware chain, the exact public
@@ -119,7 +122,11 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) *http.Server {
 	// guard at their prefix-less paths.
 	secure := secureCookies(cfg.PublicURL)
 	authMux := http.NewServeMux()
-	authMux.HandleFunc("POST /auth/login", handleLogin(deps.Users, deps.JWTSecret, secure))
+	loginLimiter := deps.LoginLimiter
+	if loginLimiter == nil {
+		loginLimiter = NewLoginRateLimiter(defaultLoginLimit, 0)
+	}
+	authMux.Handle("POST /auth/login", loginLimit(loginLimiter, handleLogin(deps.Users, deps.JWTSecret, secure)))
 	authMux.HandleFunc("POST /auth/logout", handleLogout(secure))
 	authMux.HandleFunc("GET /auth/me", handleMe(deps.Users, deps.JWTSecret))
 	mux.Handle("/auth/", envelopeFallback(authMux))

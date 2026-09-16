@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
     environment:
       WZAP_API_KEY: ${WZAP_API_KEY:-dev-wzap-token}
-      WZAP_JWT_SECRET: ${WZAP_JWT_SECRET:-dev-jwt-secret}
+      WZAP_JWT_SECRET: ${WZAP_JWT_SECRET:-dev-jwt-secret-0123456789abcdef01}
       WZAP_ADMIN_EMAIL: ${WZAP_ADMIN_EMAIL:-}
       WZAP_ADMIN_PASSWORD: ${WZAP_ADMIN_PASSWORD:-}
       WZAP_DATABASE_URL: postgres://wzap:${POSTGRES_PASSWORD:-secret}@postgres:5432/wzap?sslmode=disable

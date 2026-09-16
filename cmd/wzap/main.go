@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -169,6 +170,10 @@ func serve() error {
 	// hooks all producers with no per-producer wiring. The NATS relay replays
 	// from the DB outbox, NOT through Writer, so there is no double delivery.
 	webhookWorker := webhook.NewWorker(instances, webhook.Keys, webhook.Deliver, cfg.MaxMediaBytes, log)
+	// Durable dead letters: exhausted deliveries persist for operator
+	// inspection besides the dead-letter log. The sink is best-effort by
+	// design; its failure never breaks the worker.
+	webhookWorker.WithDeadLetterSink(postgres.NewDeadLetterRepository(pool))
 	webhookWriter := webhookWorker.Fanout(eventWriter)
 
 	runtime := app.NewRuntime(
@@ -197,7 +202,27 @@ func serve() error {
 	// wrappers): the REST set/find and the open webhook need them to answer
 	// the global 400 gate and the disabled-with-empty-fields reads even
 	// when the mirror consumer stays down.
-	chatwootConfigs, chatwootMessages := postgres.NewChatwootRepositories(pool)
+	chatwootTokenKey, err := decodeChatwootTokenKey(cfg)
+	if err != nil {
+		return err
+	}
+	chatwootConfigs, chatwootMessages := postgres.NewChatwootRepositories(pool, chatwootTokenKey)
+	if chatwootTokenKey != nil {
+		// One-time seal of tokens written before the key existed. Best
+		// effort: reads keep working through the plaintext passthrough,
+		// so a backfill failure warns instead of failing boot.
+		backfillCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		sealed, backfillErr := chatwootConfigs.BackfillTokenSeal(backfillCtx)
+		cancel()
+		switch {
+		case backfillErr != nil:
+			log.Warn("chatwoot token backfill failed, plaintext rows remain", "error", backfillErr)
+		case sealed > 0:
+			log.Info("chatwoot tokens sealed at rest", "sealed", sealed)
+		}
+	} else if cfg.Chatwoot.Enabled {
+		log.Warn("chatwoot tokens stored in plaintext: set WZAP_CHATWOOT_TOKEN_KEY to seal tokens at rest")
+	}
 	var mirrorWorker *mirror.Worker
 	// The history importer backs the manual REST trigger, the post-pairing
 	// auto import and the lost-messages cron. Without the import URI every
@@ -643,6 +668,22 @@ func readyURL(addr string) (string, error) {
 		host = "127.0.0.1"
 	}
 	return "http://" + net.JoinHostPort(host, port) + "/readyz", nil
+}
+
+// decodeChatwootTokenKey decodes the validated WZAP_CHATWOOT_TOKEN_KEY into
+// the 32-byte seal for the config repository. Empty stays nil (legacy
+// plaintext storage); a malformed value fails boot naming the variable even
+// though config.Load already validates the shape (defense in depth across
+// the wiring boundary).
+func decodeChatwootTokenKey(cfg config.Config) ([]byte, error) {
+	if cfg.Chatwoot.TokenKey == "" {
+		return nil, nil
+	}
+	raw, err := base64.StdEncoding.DecodeString(cfg.Chatwoot.TokenKey)
+	if err != nil || len(raw) != 32 {
+		return nil, fmt.Errorf("invalid configuration: WZAP_CHATWOOT_TOKEN_KEY must be base64-encoded 32 bytes")
+	}
+	return raw, nil
 }
 
 // newLogger builds the structured logger from the configuration.

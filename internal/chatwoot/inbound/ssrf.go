@@ -1,6 +1,7 @@
 package inbound
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/url"
@@ -123,6 +124,42 @@ func isBlockedIP(ip net.IP) bool {
 		return true
 	}
 	return carrierGradeNAT.Contains(ip)
+}
+
+// pinnedAttachmentDialContext resolves once per dial, enforces the
+// attachment SSRF policy against allowHost, and connects the validated IP.
+// One resolution feeds both check and connect, closing the TOCTOU between
+// validateAttachmentURL and the transport dial (DNS rebinding): even if the
+// upfront validation saw a benign address, the dial re-resolves and refuses
+// whatever the name points at now.
+func pinnedAttachmentDialContext(allowHost string) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, err
+		}
+		trimmed := strings.TrimSuffix(strings.ToLower(host), ".")
+		ips, err := resolveAttachmentHost(trimmed)
+		if err != nil || len(ips) == 0 {
+			return nil, fmt.Errorf("attachment dial rejected: cannot resolve host %q", host)
+		}
+		for _, ip := range ips {
+			if isAlwaysBlocked(ip) {
+				return nil, fmt.Errorf("attachment dial rejected: host %q resolves to blocked address", host)
+			}
+		}
+		if !chatwootHostMatches(trimmed, ips, allowHost) {
+			for _, ip := range ips {
+				if isBlockedIP(ip) {
+					return nil, fmt.Errorf("attachment dial rejected: host %q resolves to non-public address", host)
+				}
+			}
+		}
+		dialer := &net.Dialer{}
+		// Dial the first validated IP: the pinning uses the same
+		// resolution validated above, without re-resolving.
+		return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0].String(), port))
+	}
 }
 
 // chatwootHostMatches reports the self-hosted exception: host equals the

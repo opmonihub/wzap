@@ -77,16 +77,6 @@ func (h *memoryHandler) snapshot() []capturedRecord {
 	return append([]capturedRecord{}, h.core.records...)
 }
 
-func findRecords(records []capturedRecord, msg string) []capturedRecord {
-	var out []capturedRecord
-	for _, r := range records {
-		if r.msg == msg {
-			out = append(out, r)
-		}
-	}
-	return out
-}
-
 func waitForRecord(t *testing.T, h *memoryHandler, msg string) capturedRecord {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)

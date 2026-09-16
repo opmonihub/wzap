@@ -684,3 +684,139 @@ func TestWorkerShutdownDropsPending(t *testing.T) {
 		t.Errorf("stop log lacks the dropped pending count:\n%s", buf.str())
 	}
 }
+
+// stubDeadLetterSink records exhausted deliveries in memory for the sink
+// tests, optionally failing to prove sink errors never break the worker.
+type stubDeadLetterSink struct {
+	mu      sync.Mutex
+	records []deadLetterRecord
+	err     error
+}
+
+type deadLetterRecord struct {
+	instanceID uuid.UUID
+	eventID    uuid.UUID
+	eventType  string
+	payload    []byte
+	attempts   int
+	lastError  string
+}
+
+func (s *stubDeadLetterSink) RecordDeadLetter(_ context.Context, instanceID, eventID uuid.UUID, eventType string, payload []byte, attempts int, lastError string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.err != nil {
+		return s.err
+	}
+	s.records = append(s.records, deadLetterRecord{
+		instanceID: instanceID, eventID: eventID, eventType: eventType,
+		payload: append([]byte(nil), payload...), attempts: attempts, lastError: lastError,
+	})
+	return nil
+}
+
+func (s *stubDeadLetterSink) count() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.records)
+}
+
+func (s *stubDeadLetterSink) first() deadLetterRecord {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.records[0]
+}
+
+// TestWorkerDeadLetterRecordedToSink pins that an exhausted job is persisted
+// with its identity, payload and attempt metadata besides the log line.
+func TestWorkerDeadLetterRecordedToSink(t *testing.T) {
+	failing := newFlakyReceptor(t, http.StatusInternalServerError)
+	srv := httptest.NewServer(failing.handler())
+	t.Cleanup(srv.Close)
+
+	instance := webhookTestInstance(srv.URL)
+	keys := NewKeyCache()
+	keys.Store(instance.ID, "test-key-sink")
+	var buf syncBuffer
+	sink := &stubDeadLetterSink{}
+	worker := instantWorker(newStubLoader(instance), keys, Deliver, testBufferLogger(&buf))
+	worker.WithDeadLetterSink(sink)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stopped := make(chan struct{})
+	go func() { defer close(stopped); worker.Run(ctx) }()
+
+	env := testEnvelope(t, "message", instance.ID)
+	if err := worker.Fanout(&stubWriter{}).Write(ctx, "subject", env); err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+
+	waitFor(t, 5*time.Second, func() bool { return sink.count() == 1 }, "sink to record the dead letter")
+	rec := sink.first()
+	if rec.instanceID != instance.ID {
+		t.Errorf("record instance = %s, want %s", rec.instanceID, instance.ID)
+	}
+	if rec.eventID != env.EventID {
+		t.Errorf("record event = %s, want %s", rec.eventID, env.EventID)
+	}
+	if rec.eventType != "message" {
+		t.Errorf("record type = %q, want %q", rec.eventType, "message")
+	}
+	if rec.attempts != MaxAttempts {
+		t.Errorf("record attempts = %d, want %d", rec.attempts, MaxAttempts)
+	}
+	if !bytes.Contains(rec.payload, []byte(env.EventID.String())) {
+		t.Errorf("record payload lacks the event id: %s", rec.payload)
+	}
+	if rec.lastError == "" {
+		t.Error("record last error is empty, want the final failure")
+	}
+	if bytes.Contains(rec.payload, []byte("test-key-sink")) {
+		t.Error("record payload exposes the instance key")
+	}
+	waitFor(t, 5*time.Second, func() bool { return buf.contains("dead letter") }, "dead-letter log alongside the sink")
+
+	cancel()
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Second):
+		t.Fatal("worker did not stop after cancel")
+	}
+}
+
+// TestWorkerDeadLetterSinkFailureKeepsLog pins that a failing sink never
+// breaks the worker: the dead-letter log still lands and the run stops
+// cleanly.
+func TestWorkerDeadLetterSinkFailureKeepsLog(t *testing.T) {
+	failing := newFlakyReceptor(t, http.StatusInternalServerError)
+	srv := httptest.NewServer(failing.handler())
+	t.Cleanup(srv.Close)
+
+	instance := webhookTestInstance(srv.URL)
+	keys := NewKeyCache()
+	keys.Store(instance.ID, "test-key-sink-failure")
+	var buf syncBuffer
+	sink := &stubDeadLetterSink{err: errors.New("sink down")}
+	worker := instantWorker(newStubLoader(instance), keys, Deliver, testBufferLogger(&buf))
+	worker.WithDeadLetterSink(sink)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stopped := make(chan struct{})
+	go func() { defer close(stopped); worker.Run(ctx) }()
+
+	env := testEnvelope(t, "message", instance.ID)
+	if err := worker.Fanout(&stubWriter{}).Write(ctx, "subject", env); err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+
+	waitFor(t, 5*time.Second, func() bool { return buf.contains("dead letter") }, "dead-letter log despite sink failure")
+	waitFor(t, 5*time.Second, func() bool { return buf.contains("dead-letter sink failed") }, "sink failure warning")
+	cancel()
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Second):
+		t.Fatal("worker did not stop after cancel")
+	}
+}

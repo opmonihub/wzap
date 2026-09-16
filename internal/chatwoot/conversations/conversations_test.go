@@ -96,9 +96,11 @@ func TestConversationKeyScopesByInstance(t *testing.T) {
 
 // TestResolveConvergesConcurrentSenders ensures a burst for one sender opens a
 // single conversation: the real locker plus double-check collapse 20
-// goroutines into one CreateConversation call.
+// goroutines into one CreateConversation call. The fake answers GET 100 as
+// open (like production right after creation), so late starters validate the
+// fast-path cache instead of dropping it on 404 and recreating.
 func TestResolveConvergesConcurrentSenders(t *testing.T) {
-	f := &convFixture{list: `[]`, get: map[string]string{}}
+	f := &convFixture{list: `[]`, get: map[string]string{"100": `{"id":100,"status":"open","inbox_id":42}`}}
 	srv := httptest.NewServer(f.handler(t))
 	defer srv.Close()
 	resolver := newConvResolver(srv, model.ChatwootConfig{})

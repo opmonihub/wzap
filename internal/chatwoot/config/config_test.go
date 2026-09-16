@@ -82,6 +82,41 @@ func TestValidateEnabledValidPasses(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsPlainHTTPForNonLoopback(t *testing.T) {
+	for _, raw := range []string{
+		"http://chatwoot.example.com",
+		"http://chatwoot.example.com:3000",
+		"http://10.0.0.5",
+		"http://192.168.1.10:3000",
+	} {
+		cfg := enabledConfig()
+		cfg.URL = raw
+		err := Validate(cfg)
+		var field *ErrField
+		if !errors.As(err, &field) {
+			t.Errorf("Validate(url=%q) error = %v (%T), want *ErrField (token would travel in cleartext)", raw, err, err)
+			continue
+		}
+		if field.Field != "url" {
+			t.Errorf("Validate(url=%q) field = %q, want %q", raw, field.Field, "url")
+		}
+	}
+}
+
+func TestValidateAllowsPlainHTTPForLoopback(t *testing.T) {
+	for _, raw := range []string{
+		"http://127.0.0.1:3000",
+		"http://localhost:3000",
+		"http://[::1]:3000",
+	} {
+		cfg := enabledConfig()
+		cfg.URL = raw
+		if err := Validate(cfg); err != nil {
+			t.Errorf("Validate(url=%q) = %v, want nil (loopback dev exception)", raw, err)
+		}
+	}
+}
+
 func TestDefaults(t *testing.T) {
 	if got := DefaultInbox("my-instance"); got != "my-instance" {
 		t.Errorf("DefaultInbox = %q, want %q", got, "my-instance")

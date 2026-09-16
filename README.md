@@ -53,7 +53,7 @@ inicialização com mensagem nomeando a variável.
 | Variável | Obrigatória | Padrão | Descrição |
 | --- | --- | --- | --- |
 | `WZAP_API_KEY` | sim | — | **BREAKING:** substitui `WZAP_SERVICE_TOKEN` (ignorada se presente). Key global de máquina, enviada no header `apikey:`, com acesso total. |
-| `WZAP_JWT_SECRET` | sim | — | Segredo HMAC das sessões do manager (cookies JWT). |
+| `WZAP_JWT_SECRET` | sim | — | Segredo HMAC das sessões do manager (cookies JWT). **BREAKING:** mínimo de 32 caracteres (256 bits para HS256); segredos curtos falham o boot. `POST /auth/login` é limitado a 10 tentativas/min por IP (`429 rate_limited`). |
 | `WZAP_ADMIN_EMAIL` | não | vazio | Seed do primeiro admin no boot quando não há contas; sem ela (ou sem `WZAP_ADMIN_PASSWORD`) nada é criado. |
 | `WZAP_ADMIN_PASSWORD` | não | vazio | Senha inicial do admin seed (troque após instalar). |
 | `WZAP_MAX_INSTANCES` | não | `0` | Teto global de instâncias; `0` = ilimitado. Acima responde `403 quota_exceeded`. |
@@ -161,7 +161,9 @@ A entrega é um POST JSON com o envelope versionado acrescido do `event` cru
 marcada, a mídia segue pela URL do envelope) e a instance key vigente no
 header `apikey:` — sem HMAC, a confidencialidade depende de HTTPS. Falhas
 (rede, timeout, status fora de 2xx) geram retries exponenciais limitados;
-esgotados, a entrega é descartada como dead-letter em log sem travar as
+esgotados, a entrega é descartada como dead-letter em log e persistida na
+tabela `webhook_dead_letters` (deduplicada por `event_id`, cauda limitada a
+500 por instância, inspecionável via SQL) sem travar as
 seguintes. A entrega é at-least-once: deduplique pelo `event_id` estável.
 
 ### Manager e Swagger
@@ -221,12 +223,14 @@ e importa o histórico via SQL direto no Postgres do Chatwoot. Sem
 | `WZAP_CHATWOOT_MESSAGE_DELETE` | `false` | Sincroniza revogações nos dois sentidos. |
 | `WZAP_CHATWOOT_IMPORT_DB_URL` | vazio | URI do Postgres do Chatwoot para o import; vazia desliga o import. |
 | `WZAP_CHATWOOT_IMPORT_PLACEHOLDER` | `false` | Mensagem sem conteúdo vira `(mídia não importada)` em vez de ser pulada. |
+| `WZAP_CHATWOOT_TOKEN_KEY` | vazio | Chave base64 de 32 bytes que cifra os `token`s no banco (`enc:v1:` AES-256-GCM); vazia mantém texto claro com `warn` no boot. Malformada falha o boot. Tokens antigos são cifrados no boot (best-effort). Perder a chave exige recadastrar os tokens. |
 
 | Método e rota | Corpo/Resposta |
 | --- | --- |
-| `PUT /instances/{id}/chatwoot` | Configuração do conector → `200`; validação falha → `422`. O `token` é aceito só na escrita e nunca volta nas respostas. |
+| `PUT /instances/{id}/chatwoot` | Configuração do conector → `200`; validação falha → `422`. O `token` é aceito só na escrita e nunca volta nas respostas. **BREAKING:** `url` com `http` exige host loopback (`localhost`, `127.0.0.0/8`, `::1`); demais hosts exigem `https` para o token não trafegar em texto claro. |
 | `GET /instances/{id}/chatwoot` | `200` com a configuração (sem o `token`) e a `webhook_url`. |
 | `POST /instances/{id}/chatwoot/import` | Import manual → `202` com `{"imported":N}`, onde N conta mensagens importadas (contatos não entram na conta). |
+| `POST /instances/{id}/chatwoot/command` | Comando operacional autenticado (dual auth) → `200` com `{"ok":true}`. Corpo `{"command":"status\|init[:number]\|clearcache\|disconnect","conversation_id":N}`; confirma na conversa. O webhook aberto nunca executa comandos. |
 | `POST /chatwoot/webhook/{id}` | Webhook aberto por desenho (sem auth), responde corpo de bot. |
 
 O espelho cobre texto, mídias (imagem, vídeo, áudio, documento e figurinha

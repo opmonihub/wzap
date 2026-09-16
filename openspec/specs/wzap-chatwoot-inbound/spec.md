@@ -51,3 +51,12 @@ Na conversa operacional, `init[:number]` SHALL parear (por código com número, 
 
 - **WHEN** o operador envia `status` na conversa operacional
 - **THEN** o estado atual da instância é respondido lá
+
+### Requirement: Rota autenticada de comandos operacionais
+
+`POST /instances/{id}/chatwoot/command` SHALL executar comandos operacionais atrás da auth dual (global ou por instância, com ownership), aceitando `{"command":"status|init[:number]|clearcache|disconnect","conversation_id":N}` e respondendo `200` com `{"ok":true}` mais confirmação na conversa. O conector desabilitado SHALL responder `400`; instância sem configuração SHALL responder `404`. O webhook aberto `POST /chatwoot/webhook/{id}` SHALL nunca executar comandos (descarta `200` sem efeito).
+
+#### Scenario: Comando via rota autenticada
+
+- **WHEN** cliente autenticado envia `{"command":"status","conversation_id":7}`
+- **THEN** responde `200` com `{"ok":true}` e confirma na conversa 7

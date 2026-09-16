@@ -197,3 +197,13 @@ type ChatwootMessageRepository interface {
 	LatestByConversation(ctx context.Context, instanceID uuid.UUID, conversationID int64) (*model.ChatwootMessage, error)
 	DeleteByInstance(ctx context.Context, instanceID uuid.UUID) (int64, error)
 }
+
+// DeadLetterRepository persists exhausted webhook deliveries for operator
+// inspection. The NATS outbox stays the source of truth for redelivery; the
+// dead-letter table is the durable counterpart of the dead-letter log.
+type DeadLetterRepository interface {
+	// RecordDeadLetter stores one exhausted delivery, deduplicated by
+	// event_id (a replayed event re-records silently). Rows per instance
+	// are trimmed to a bounded tail so the table cannot grow without bound.
+	RecordDeadLetter(ctx context.Context, instanceID, eventID uuid.UUID, eventType string, payload []byte, attempts int, lastError string) error
+}

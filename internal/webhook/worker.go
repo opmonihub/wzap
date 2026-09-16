@@ -33,6 +33,10 @@ const (
 	// até 5s contra endpoint externo, então 16 concorrentes limitam FDs e
 	// memória sob burst sem serializar o retry.
 	MaxInflight = 16
+	// deadLetterSinkTimeout bounds one persistence attempt of an exhausted
+	// delivery. It runs detached from the worker context so the final record
+	// still lands while the run is stopping.
+	deadLetterSinkTimeout = 5 * time.Second
 )
 
 // DeliverFunc delivers payload to url with the vigente instance key. It
@@ -45,6 +49,14 @@ type DeliverFunc func(ctx context.Context, url, key string, payload []byte) erro
 // immediately, even mid-backoff. storage.InstanceRepository implements it.
 type InstanceLoader interface {
 	Get(ctx context.Context, id uuid.UUID) (*model.Instance, error)
+}
+
+// DeadLetterSink persists exhausted webhook deliveries for operator
+// inspection. storage.DeadLetterRepository implements it. Implementations
+// must be safe for concurrent use; a sink failure is logged and never breaks
+// the worker, and the dead-letter log always lands regardless of the sink.
+type DeadLetterSink interface {
+	RecordDeadLetter(ctx context.Context, instanceID, eventID uuid.UUID, eventType string, payload []byte, attempts int, lastError string) error
 }
 
 // job is one queued webhook delivery: the envelope plus the fields the
@@ -76,6 +88,8 @@ type Worker struct {
 	// de destacar o handle e libera no fim, então a fila continua
 	// bufferizando enquanto o paralelismo externo fica limitado.
 	sem chan struct{}
+	// sink persists exhausted deliveries; nil keeps the log-only behavior.
+	sink DeadLetterSink
 }
 
 // NewWorker builds a webhook worker over the instance loader, the process
@@ -102,6 +116,13 @@ func NewWorker(loader InstanceLoader, keys *KeyCache, deliver DeliverFunc, maxMe
 		queue:         make(chan job, BufferSize),
 		sem:           make(chan struct{}, MaxInflight),
 	}
+}
+
+// WithDeadLetterSink attaches the persistence for exhausted deliveries and
+// returns the worker for chaining. A nil sink keeps the log-only behavior.
+func (w *Worker) WithDeadLetterSink(sink DeadLetterSink) *Worker {
+	w.sink = sink
+	return w
 }
 
 // Dropped reports how many events were dropped on a full queue so far.
@@ -215,10 +236,31 @@ func (w *Worker) handle(ctx context.Context, j job) {
 	}
 	// Dead-letter: exactly ONE error log per exhausted job, then continue
 	// with the next job. It carries instance, event and attempt metadata but
-	// never the key.
+	// never the key. The durable record follows best-effort through the
+	// sink; a sink failure never requeues the job.
 	w.log.ErrorContext(ctx, "webhook dead letter",
 		"instance_id", j.instanceID, "event_id", j.eventID, "event_type", j.eventType,
 		"attempts", MaxAttempts, "last_error", lastErr)
+	w.recordDeadLetter(j, payload, lastErr)
+}
+
+// recordDeadLetter persists one exhausted delivery through the sink, if any.
+// The payload is the envelope JSON: identity and attempt metadata, never the
+// instance key.
+func (w *Worker) recordDeadLetter(j job, payload []byte, lastErr error) {
+	if w.sink == nil {
+		return
+	}
+	last := ""
+	if lastErr != nil {
+		last = lastErr.Error()
+	}
+	recordCtx, cancel := context.WithTimeout(context.Background(), deadLetterSinkTimeout)
+	defer cancel()
+	if err := w.sink.RecordDeadLetter(recordCtx, j.instanceID, j.eventID, j.eventType, payload, MaxAttempts, last); err != nil {
+		w.log.WarnContext(context.Background(), "webhook dead-letter sink failed",
+			"instance_id", j.instanceID, "event_id", j.eventID, "event_type", j.eventType, "error", err)
+	}
 }
 
 // attempt runs one delivery attempt. It reports done=true when the job is

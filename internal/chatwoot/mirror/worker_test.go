@@ -900,7 +900,7 @@ func TestHandleMessageDedupsViaPostgresCorrelation(t *testing.T) {
 	if err := postgres.Migrate(ctx, pool); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	cfgRepo, msgRepo := postgres.NewChatwootRepositories(pool)
+	cfgRepo, msgRepo := postgres.NewChatwootRepositories(pool, nil)
 	instanceID := uuid.New()
 	if _, err := postgres.NewInstanceRepository(pool).Create(ctx, model.Instance{
 		ID:     instanceID,

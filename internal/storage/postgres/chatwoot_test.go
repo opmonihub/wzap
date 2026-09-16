@@ -30,7 +30,7 @@ func TestChatwootConfigPutAndGet(t *testing.T) {
 		t.Fatalf("create instance: %v", err)
 	}
 
-	cfgRepo, _ := NewChatwootRepositories(pool)
+	cfgRepo, _ := NewChatwootRepositories(pool, nil)
 	want := model.ChatwootConfig{
 		InstanceID:          instance.ID,
 		Enabled:             true,
@@ -138,7 +138,7 @@ func TestChatwootConfigPutNilAndEmptyIgnoreJIDs(t *testing.T) {
 	}
 
 	instances := NewInstanceRepository(pool)
-	cfgRepo, _ := NewChatwootRepositories(pool)
+	cfgRepo, _ := NewChatwootRepositories(pool, nil)
 
 	for _, tc := range []struct {
 		name       string
@@ -196,7 +196,7 @@ func TestChatwootMessagePutGetDeleteByInstance(t *testing.T) {
 		t.Fatalf("create instance: %v", err)
 	}
 
-	_, msgRepo := NewChatwootRepositories(pool)
+	_, msgRepo := NewChatwootRepositories(pool, nil)
 	want := model.ChatwootMessage{
 		InstanceID:        instance.ID,
 		WAKey:             "WAID:ABC123",
@@ -294,7 +294,7 @@ func TestLatestByConversationTiebreaksDeterministically(t *testing.T) {
 		t.Fatalf("seed tied rows: %v", err)
 	}
 
-	_, msgRepo := NewChatwootRepositories(pool)
+	_, msgRepo := NewChatwootRepositories(pool, nil)
 	got, err := msgRepo.LatestByConversation(ctx, instance.ID, 55)
 	if err != nil {
 		t.Fatalf("LatestByConversation: %v", err)
@@ -308,5 +308,104 @@ func TestLatestByConversationTiebreaksDeterministically(t *testing.T) {
 
 	if _, err := msgRepo.LatestByConversation(ctx, instance.ID, 999); !errors.Is(err, storage.ErrNotFound) {
 		t.Errorf("LatestByConversation(unknown) err = %v, want %v", err, storage.ErrNotFound)
+	}
+}
+
+func TestChatwootConfigTokenSealedAtRest(t *testing.T) {
+	ctx := context.Background()
+	pool := postgrestest.NewPool(t)
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatalf("migrate test schema: %v", err)
+	}
+
+	instances := NewInstanceRepository(pool)
+	instance, err := instances.Create(ctx, model.Instance{
+		ID:     uuid.New(),
+		Name:   "chatwoot-sealed",
+		Status: "disconnected",
+	})
+	if err != nil {
+		t.Fatalf("create instance: %v", err)
+	}
+
+	key := []byte("0123456789abcdef0123456789abcdef")
+	cfgRepo, _ := NewChatwootRepositories(pool, key)
+	stored, err := cfgRepo.Put(ctx, model.ChatwootConfig{
+		InstanceID: instance.ID,
+		Enabled:    true,
+		URL:        "https://chatwoot.example.com",
+		AccountID:  "42",
+		Token:      "super-secret-token",
+	})
+	if err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	if stored.Token != "super-secret-token" {
+		t.Errorf("Put Token = %q, want plaintext back on the in-memory row", stored.Token)
+	}
+
+	var raw string
+	if err := pool.QueryRow(ctx, `SELECT token FROM chatwoot_configs WHERE instance_id = $1`, instance.ID).Scan(&raw); err != nil {
+		t.Fatalf("read raw token: %v", err)
+	}
+	if raw == "super-secret-token" {
+		t.Error("stored token is plaintext, want the sealed envelope")
+	}
+
+	got, err := cfgRepo.Get(ctx, instance.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.Token != "super-secret-token" {
+		t.Errorf("Get Token = %q, want the opened plaintext", got.Token)
+	}
+
+	wrongRepo, _ := NewChatwootRepositories(pool, []byte("fedcba9876543210fedcba9876543210"))
+	if _, err := wrongRepo.Get(ctx, instance.ID); err == nil {
+		t.Error("Get with wrong key = nil, want authentication failure")
+	}
+}
+
+func TestChatwootConfigBackfillTokenSeal(t *testing.T) {
+	ctx := context.Background()
+	pool := postgrestest.NewPool(t)
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatalf("migrate test schema: %v", err)
+	}
+
+	instances := NewInstanceRepository(pool)
+	legacy, err := instances.Create(ctx, model.Instance{ID: uuid.New(), Name: "chatwoot-legacy", Status: "disconnected"})
+	if err != nil {
+		t.Fatalf("create instance: %v", err)
+	}
+	plainRepo, _ := NewChatwootRepositories(pool, nil)
+	if _, err := plainRepo.Put(ctx, model.ChatwootConfig{
+		InstanceID: legacy.ID, Enabled: true, URL: "https://chatwoot.example.com", AccountID: "42", Token: "legacy-token",
+	}); err != nil {
+		t.Fatalf("Put plaintext: %v", err)
+	}
+
+	key := []byte("0123456789abcdef0123456789abcdef")
+	keyedRepo, _ := NewChatwootRepositories(pool, key)
+	sealed, err := keyedRepo.BackfillTokenSeal(ctx)
+	if err != nil {
+		t.Fatalf("BackfillTokenSeal: %v", err)
+	}
+	if sealed != 1 {
+		t.Errorf("BackfillTokenSeal sealed = %d, want 1", sealed)
+	}
+	got, err := keyedRepo.Get(ctx, legacy.ID)
+	if err != nil {
+		t.Fatalf("Get after backfill: %v", err)
+	}
+	if got.Token != "legacy-token" {
+		t.Errorf("Get Token = %q, want the legacy plaintext opened", got.Token)
+	}
+	again, err := keyedRepo.BackfillTokenSeal(ctx)
+	if err != nil {
+		t.Fatalf("BackfillTokenSeal again: %v", err)
+	}
+	if again != 0 {
+		t.Errorf("BackfillTokenSeal again = %d, want 0 (idempotent)", again)
 	}
 }

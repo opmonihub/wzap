@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	chatwootcfg "wzap/internal/chatwoot/config"
 	"wzap/internal/model"
 	"wzap/internal/storage"
 )
@@ -22,8 +23,13 @@ const chatwootMessageColumns = `instance_id, wa_key, chatwoot_message_id, ` +
 	`conversation_id, inbox_id, contact_source_id, is_read, created_at`
 
 // ChatwootConfigRepository is the pgx-backed storage.ChatwootConfigRepository.
+// When tokenKey is non-nil the token column holds sealed values (enc:v1:):
+// Put seals plaintext before writing and Get opens after reading, so the
+// in-memory contract stays plaintext while the database never holds the
+// credential in cleartext. A nil key keeps legacy plaintext storage.
 type ChatwootConfigRepository struct {
-	pool *pgxpool.Pool
+	pool     *pgxpool.Pool
+	tokenKey []byte
 }
 
 // ChatwootMessageRepository is the pgx-backed storage.ChatwootMessageRepository.
@@ -34,9 +40,11 @@ type ChatwootMessageRepository struct {
 var _ storage.ChatwootConfigRepository = (*ChatwootConfigRepository)(nil)
 var _ storage.ChatwootMessageRepository = (*ChatwootMessageRepository)(nil)
 
-// NewChatwootConfigRepository returns a Chatwoot config repository backed by pool.
-func NewChatwootConfigRepository(pool *pgxpool.Pool) *ChatwootConfigRepository {
-	return &ChatwootConfigRepository{pool: pool}
+// NewChatwootConfigRepository returns a Chatwoot config repository backed by
+// pool. A nil tokenKey keeps plaintext storage; a 32-byte key seals tokens
+// at rest (see SealToken).
+func NewChatwootConfigRepository(pool *pgxpool.Pool, tokenKey []byte) *ChatwootConfigRepository {
+	return &ChatwootConfigRepository{pool: pool, tokenKey: tokenKey}
 }
 
 // NewChatwootMessageRepository returns a Chatwoot message repository backed by pool.
@@ -45,29 +53,46 @@ func NewChatwootMessageRepository(pool *pgxpool.Pool) *ChatwootMessageRepository
 }
 
 // NewChatwootRepositories returns the Chatwoot config and message repositories
-// backed by the same pool.
-func NewChatwootRepositories(pool *pgxpool.Pool) (*ChatwootConfigRepository, *ChatwootMessageRepository) {
-	return NewChatwootConfigRepository(pool), NewChatwootMessageRepository(pool)
+// backed by the same pool. tokenKey seals config tokens at rest; nil keeps
+// plaintext storage.
+func NewChatwootRepositories(pool *pgxpool.Pool, tokenKey []byte) (*ChatwootConfigRepository, *ChatwootMessageRepository) {
+	return NewChatwootConfigRepository(pool, tokenKey), NewChatwootMessageRepository(pool)
 }
 
 // Get returns the Chatwoot config of an instance or storage.ErrNotFound when
-// the instance was never configured.
+// the instance was never configured. Sealed tokens are opened with the
+// repository key, so callers always see plaintext.
 func (r *ChatwootConfigRepository) Get(ctx context.Context, instanceID uuid.UUID) (*model.ChatwootConfig, error) {
 	cfg, err := scanChatwootConfig(r.pool.QueryRow(ctx,
 		`SELECT `+chatwootConfigColumns+` FROM chatwoot_configs WHERE instance_id = $1`, instanceID))
 	if err != nil {
 		return nil, mapChatwootError("get chatwoot config", err)
 	}
+	opened, err := chatwootcfg.OpenToken(cfg.Token, r.tokenKey)
+	if err != nil {
+		return nil, fmt.Errorf("get chatwoot config: %w", err)
+	}
+	cfg.Token = opened
 	return cfg, nil
 }
 
 // Put upserts the Chatwoot config of an instance and returns the stored row
-// with database timestamps.
+// with database timestamps. The token is sealed before writing when the
+// repository holds a key; the returned row carries the plaintext back, so
+// the in-memory contract never exposes the storage envelope.
 func (r *ChatwootConfigRepository) Put(ctx context.Context, cfg model.ChatwootConfig) (*model.ChatwootConfig, error) {
 	// pgx encodes a nil slice as NULL, which would violate the
 	// ignore_jids NOT NULL constraint; an absent list means "ignore none".
 	if cfg.IgnoreJIDs == nil {
 		cfg.IgnoreJIDs = []string{}
+	}
+	sealed := cfg.Token
+	if r.tokenKey != nil {
+		var err error
+		sealed, err = chatwootcfg.SealToken(cfg.Token, r.tokenKey)
+		if err != nil {
+			return nil, fmt.Errorf("put chatwoot config: %w", err)
+		}
 	}
 	stored, err := scanChatwootConfig(r.pool.QueryRow(ctx, `
 		INSERT INTO chatwoot_configs (instance_id, enabled, url, account_id, token,
@@ -86,7 +111,7 @@ func (r *ChatwootConfigRepository) Put(ctx context.Context, cfg model.ChatwootCo
 			organization = EXCLUDED.organization, logo = EXCLUDED.logo,
 			ignore_jids = EXCLUDED.ignore_jids, updated_at = now()
 		RETURNING `+chatwootConfigColumns,
-		cfg.InstanceID, cfg.Enabled, cfg.URL, cfg.AccountID, cfg.Token,
+		cfg.InstanceID, cfg.Enabled, cfg.URL, cfg.AccountID, sealed,
 		cfg.NameInbox, cfg.SignMsg, cfg.SignDelimiter, cfg.ReopenConversation, cfg.ConversationPending,
 		cfg.MergeBrazilContacts, cfg.ImportContacts, cfg.ImportMessages, cfg.DaysLimit, cfg.AutoCreate,
 		cfg.Organization, cfg.Logo, cfg.IgnoreJIDs,
@@ -94,7 +119,57 @@ func (r *ChatwootConfigRepository) Put(ctx context.Context, cfg model.ChatwootCo
 	if err != nil {
 		return nil, mapChatwootError("put chatwoot config", err)
 	}
+	stored.Token = cfg.Token
 	return stored, nil
+}
+
+// BackfillTokenSeal seals every legacy plaintext token row with the
+// repository key, returning how many rows were sealed. It is a no-op without
+// a key (nil keeps plaintext storage by design). Serve calls it once at boot
+// so enabling the key also protects tokens written before it existed;
+// failures are boot warnings, never fatal, since reads keep working through
+// the plaintext passthrough.
+func (r *ChatwootConfigRepository) BackfillTokenSeal(ctx context.Context) (int64, error) {
+	if r.tokenKey == nil {
+		return 0, nil
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT instance_id, token FROM chatwoot_configs
+		WHERE token <> '' AND token NOT LIKE '`+chatwootcfg.SealedTokenPrefix+`%'`)
+	if err != nil {
+		return 0, fmt.Errorf("backfill chatwoot token seal: %w", err)
+	}
+	type pending struct {
+		id    uuid.UUID
+		token string
+	}
+	var seals []pending
+	for rows.Next() {
+		var p pending
+		if err := rows.Scan(&p.id, &p.token); err != nil {
+			rows.Close()
+			return 0, fmt.Errorf("backfill chatwoot token seal: %w", err)
+		}
+		sealed, err := chatwootcfg.SealToken(p.token, r.tokenKey)
+		if err != nil {
+			rows.Close()
+			return 0, fmt.Errorf("backfill chatwoot token seal: %w", err)
+		}
+		seals = append(seals, pending{id: p.id, token: sealed})
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("backfill chatwoot token seal: %w", err)
+	}
+	var done int64
+	for _, p := range seals {
+		tag, err := r.pool.Exec(ctx, `UPDATE chatwoot_configs SET token = $2, updated_at = now() WHERE instance_id = $1`, p.id, p.token)
+		if err != nil {
+			return done, fmt.Errorf("backfill chatwoot token seal: %w", err)
+		}
+		done += tag.RowsAffected()
+	}
+	return done, nil
 }
 
 // Delete removes the Chatwoot config of an instance. It reports

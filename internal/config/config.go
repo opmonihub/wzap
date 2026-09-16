@@ -3,6 +3,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strconv"
@@ -38,7 +39,9 @@ type Config struct {
 // operational contact identifier; empty means unset. ImportDBURL is the
 // Chatwoot Postgres URI for history import; empty disables the import.
 // ImportPlaceholder turns content-less history messages into a placeholder
-// text instead of skipping them.
+// text instead of skipping them. TokenKey is the base64-encoded 32-byte key
+// sealing per-instance Chatwoot tokens at rest; empty keeps legacy
+// plaintext storage.
 type Chatwoot struct {
 	Enabled           bool
 	BotContact        string
@@ -46,6 +49,7 @@ type Chatwoot struct {
 	MessageDelete     bool
 	ImportDBURL       string
 	ImportPlaceholder bool
+	TokenKey          string
 }
 
 const (
@@ -59,6 +63,9 @@ const (
 	defaultLogLevel           = "info"
 	defaultLogFormat          = "json"
 	defaultAutoMigrate        = true
+	// minJWTSecretLength is the minimum HMAC key size for manager session
+	// tokens: 32 characters (256 bits), the floor for HS256.
+	minJWTSecretLength = 32
 )
 
 // Load reads the configuration from the environment, applies defaults for
@@ -95,6 +102,9 @@ func Load() (Config, error) {
 			problems = append(problems, required.name+" is required")
 		}
 	}
+	if cfg.JWTSecret != "" && len(cfg.JWTSecret) < minJWTSecretLength {
+		problems = append(problems, fmt.Sprintf("WZAP_JWT_SECRET must be at least %d characters", minJWTSecretLength))
+	}
 
 	cfg.EventRetentionDays = positiveIntValue("WZAP_EVENT_RETENTION_DAYS", defaultEventRetentionDays, &problems)
 	cfg.MediaTTLSeconds = positiveIntValue("WZAP_MEDIA_TTL_SECONDS", defaultMediaTTLSeconds, &problems)
@@ -110,6 +120,13 @@ func Load() (Config, error) {
 	cfg.Chatwoot.MessageDelete = boolValue("WZAP_CHATWOOT_MESSAGE_DELETE", false, &problems)
 	cfg.Chatwoot.ImportDBURL = os.Getenv("WZAP_CHATWOOT_IMPORT_DB_URL")
 	cfg.Chatwoot.ImportPlaceholder = boolValue("WZAP_CHATWOOT_IMPORT_PLACEHOLDER", false, &problems)
+	cfg.Chatwoot.TokenKey = os.Getenv("WZAP_CHATWOOT_TOKEN_KEY")
+	if cfg.Chatwoot.TokenKey != "" {
+		raw, err := base64.StdEncoding.DecodeString(cfg.Chatwoot.TokenKey)
+		if err != nil || len(raw) != 32 {
+			problems = append(problems, "WZAP_CHATWOOT_TOKEN_KEY must be base64-encoded 32 bytes")
+		}
+	}
 
 	if len(problems) > 0 {
 		return Config{}, fmt.Errorf("invalid configuration: %s", strings.Join(problems, "; "))

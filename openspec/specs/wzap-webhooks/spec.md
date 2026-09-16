@@ -98,8 +98,11 @@ imediatamente.
 
 Falha de entrega (erro de rede, timeout ou status fora de 2xx) SHALL gerar
 retentativas com espera exponencial até um limite de tentativas/tempo; ao
-esgotar, a entrega MUST ser descartada e registrada como dead-letter em log,
-sem bloquear entregas seguintes. Entrega 2xx SHALL encerrar as retentativas.
+esgotar, a entrega MUST ser descartada e registrada como dead-letter em log e
+persistida na tabela `webhook_dead_letters` (deduplicada por `event_id`, cauda
+limitada por instância), sem bloquear entregas seguintes. A persistência é
+best-effort: sua falha SHALL ser registrada em log sem reenfileirar a entrega.
+Entrega 2xx SHALL encerrar as retentativas.
 
 #### Scenario: Sucesso após falha
 

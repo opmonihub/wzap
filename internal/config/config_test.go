@@ -31,6 +31,8 @@ var allEnvKeys = []string{
 	"WZAP_CHATWOOT_MESSAGE_READ",
 	"WZAP_CHATWOOT_MESSAGE_DELETE",
 	"WZAP_CHATWOOT_IMPORT_DB_URL",
+	"WZAP_CHATWOOT_IMPORT_PLACEHOLDER",
+	"WZAP_CHATWOOT_TOKEN_KEY",
 }
 
 // clearWZAPEnv clears every WZAP_* variable for the test, overriding and later
@@ -45,7 +47,7 @@ func clearWZAPEnv(t *testing.T) {
 func setRequiredEnv(t *testing.T) {
 	t.Helper()
 	t.Setenv("WZAP_API_KEY", "test-api-key")
-	t.Setenv("WZAP_JWT_SECRET", "test-jwt-secret")
+	t.Setenv("WZAP_JWT_SECRET", "test-jwt-secret-0123456789abcdef01")
 	t.Setenv("WZAP_DATABASE_URL", "postgres://wzap:secret@127.0.0.1:5432/wzap")
 	t.Setenv("WZAP_NATS_URL", "nats://127.0.0.1:4222")
 }
@@ -58,7 +60,7 @@ func TestLoadFullConfig(t *testing.T) {
 		"WZAP_API_KEY":                     "api-key",
 		"WZAP_ADMIN_EMAIL":                 "admin@example.com",
 		"WZAP_ADMIN_PASSWORD":              "s3cret",
-		"WZAP_JWT_SECRET":                  "jwt-secret",
+		"WZAP_JWT_SECRET":                  "full-config-jwt-secret-0123456789",
 		"WZAP_MAX_INSTANCES":               "10",
 		"WZAP_DEFAULT_USER_INSTANCE_QUOTA": "3",
 		"WZAP_DATABASE_URL":                "postgres://wzap:secret@db:5432/wzap",
@@ -94,7 +96,7 @@ func TestLoadFullConfig(t *testing.T) {
 		APIKey:             "api-key",
 		AdminEmail:         "admin@example.com",
 		AdminPassword:      "s3cret",
-		JWTSecret:          "jwt-secret",
+		JWTSecret:          "full-config-jwt-secret-0123456789",
 		MaxInstances:       10,
 		DefaultUserQuota:   3,
 		DatabaseURL:        "postgres://wzap:secret@db:5432/wzap",
@@ -138,7 +140,7 @@ func TestLoadDefaults(t *testing.T) {
 		APIKey:             "test-api-key",
 		AdminEmail:         "",
 		AdminPassword:      "",
-		JWTSecret:          "test-jwt-secret",
+		JWTSecret:          "test-jwt-secret-0123456789abcdef01",
 		MaxInstances:       0,
 		DefaultUserQuota:   0,
 		DatabaseURL:        "postgres://wzap:secret@127.0.0.1:5432/wzap",
@@ -160,9 +162,23 @@ func TestLoadDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsShortJWTSecret(t *testing.T) {
+	clearWZAPEnv(t)
+	setRequiredEnv(t)
+	t.Setenv("WZAP_JWT_SECRET", "too-short")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("Load() error = nil, want error naming WZAP_JWT_SECRET")
+	}
+	if !strings.Contains(err.Error(), "WZAP_JWT_SECRET") {
+		t.Errorf("Load() error = %q, want it to mention WZAP_JWT_SECRET", err)
+	}
+}
+
 func TestLoadMissingAPIKey(t *testing.T) {
 	clearWZAPEnv(t)
-	t.Setenv("WZAP_JWT_SECRET", "jwt-secret")
+	t.Setenv("WZAP_JWT_SECRET", "missing-api-key-jwt-secret-012345")
 	t.Setenv("WZAP_DATABASE_URL", "postgres://wzap:secret@127.0.0.1:5432/wzap")
 	t.Setenv("WZAP_NATS_URL", "nats://127.0.0.1:4222")
 
@@ -295,7 +311,7 @@ func TestLoadRejectsNonNumericQuotas(t *testing.T) {
 func TestLoadMissingDatabaseAndNATS(t *testing.T) {
 	clearWZAPEnv(t)
 	t.Setenv("WZAP_API_KEY", "api-key")
-	t.Setenv("WZAP_JWT_SECRET", "jwt-secret")
+	t.Setenv("WZAP_JWT_SECRET", "missing-db-nats-jwt-secret-01234567")
 
 	_, err := Load()
 	if err == nil {
@@ -443,6 +459,39 @@ func TestLoadChatwootRejectsInvalidBool(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), tt.key) {
 				t.Errorf("Load() error = %q, want it to mention %s", err, tt.key)
+			}
+		})
+	}
+}
+
+func TestLoadChatwootTokenKeyValid(t *testing.T) {
+	clearWZAPEnv(t)
+	setRequiredEnv(t)
+	// base64 of 32 0x01 bytes.
+	t.Setenv("WZAP_CHATWOOT_TOKEN_KEY", "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=")
+
+	got, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if got.Chatwoot.TokenKey != "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=" {
+		t.Errorf("Load().Chatwoot.TokenKey = %q, want the configured key", got.Chatwoot.TokenKey)
+	}
+}
+
+func TestLoadChatwootTokenKeyRejectsMalformed(t *testing.T) {
+	for _, raw := range []string{"not-base64!!", "dG9vLXNob3J0", "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="[:40]} {
+		t.Run(raw, func(t *testing.T) {
+			clearWZAPEnv(t)
+			setRequiredEnv(t)
+			t.Setenv("WZAP_CHATWOOT_TOKEN_KEY", raw)
+
+			_, err := Load()
+			if err == nil {
+				t.Fatal("Load() error = nil, want error naming WZAP_CHATWOOT_TOKEN_KEY")
+			}
+			if !strings.Contains(err.Error(), "WZAP_CHATWOOT_TOKEN_KEY") {
+				t.Errorf("Load() error = %q, want it to mention WZAP_CHATWOOT_TOKEN_KEY", err)
 			}
 		})
 	}

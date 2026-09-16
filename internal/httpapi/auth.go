@@ -30,6 +30,13 @@ type logoutResponse struct {
 	Status string `json:"status"`
 }
 
+// dummyPasswordHash is a valid bcrypt hash burned on unknown emails so the
+// 401 path costs one comparison like a wrong password, closing the
+// timing oracle between "unknown email" (immediate) and "wrong password"
+// (~60ms of bcrypt). The value is a hash of an undisclosed password and
+// never matches a real login.
+const dummyPasswordHash = "$2a$10$Q2IcRv3W7hJBMOYy5JOOU.3qrWu7zjQhOp9LqZzrTVLIZvVToCr/C"
+
 // handleLogin verifies the credentials and answers 200 with the identity plus
 // the session cookie. An unknown email and a wrong password share one 401
 // response so neither field is revealed.
@@ -57,6 +64,9 @@ func handleLogin(users storage.UserRepository, jwtSecret string, secure bool) ht
 		user, err := users.GetByEmail(r.Context(), request.Email)
 		switch {
 		case errors.Is(err, storage.ErrNotFound):
+			// Burn one bcrypt comparison so unknown emails cost the same as
+			// wrong passwords (see dummyPasswordHash).
+			_ = auth.CheckPassword(dummyPasswordHash, request.Password)
 			Error(w, r, http.StatusUnauthorized, "unauthorized", "invalid credentials")
 			return
 		case err != nil:

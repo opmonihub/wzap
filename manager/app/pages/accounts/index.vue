@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import * as z from 'zod'
+import type { FormSubmitEvent } from '#ui/types'
 import type { DropdownMenuItem, TableRow } from '@nuxt/ui'
 import { ApiError } from '~/composables/useApi'
 import { useAccountsTable } from '~/composables/useAccountsTable'
@@ -227,16 +229,24 @@ function sortActionLabel(columnId: string): string {
 // state travels in the button aria-label (sortAsc/sortDesc) instead.
 
 const createOpen = ref(false)
-const createEmail = ref('')
-const createPassword = ref('')
-const createRole = ref<AccountRole>('user')
-const createQuota = ref('')
+const createSchema = z.object({
+  email: z.string().min(1, t('accounts.create.emailRequired')).max(255),
+  password: z.string().min(1, t('accounts.create.passwordRequired')),
+  role: z.enum(['admin', 'user']),
+  instance_quota: z.string()
+})
+type CreateSchema = z.output<typeof createSchema>
+const createState = reactive<Partial<CreateSchema>>({ email: '', password: '', role: 'user', instance_quota: '' })
 const creating = ref(false)
 const createFailure = ref<string | null>(null)
 
 const quotaTarget = ref<AccountUser | null>(null)
 const quotaOpen = ref(false)
-const quotaValue = ref('')
+const quotaSchema = z.object({
+  instance_quota: z.string()
+})
+type QuotaSchema = z.output<typeof quotaSchema>
+const quotaState = reactive<Partial<QuotaSchema>>({ instance_quota: '' })
 const quotaSaving = ref(false)
 const quotaFailure = ref<string | null>(null)
 
@@ -285,10 +295,10 @@ async function loadUsage() {
 }
 
 function resetCreate() {
-  createEmail.value = ''
-  createPassword.value = ''
-  createRole.value = 'user'
-  createQuota.value = ''
+  createState.email = ''
+  createState.password = ''
+  createState.role = 'user'
+  createState.instance_quota = ''
   creating.value = false
   createFailure.value = null
 }
@@ -313,20 +323,20 @@ function parseQuota(raw: string): number | undefined | null {
   return parsed
 }
 
-async function onCreate() {
+async function onCreate(event: FormSubmitEvent<CreateSchema>) {
   if (creating.value) {
     return
   }
-  const email = createEmail.value.trim()
+  const email = (event.data.email ?? '').trim()
   if (email === '') {
     createFailure.value = t('accounts.create.emailRequired')
     return
   }
-  if (createPassword.value === '') {
+  if ((event.data.password ?? '') === '') {
     createFailure.value = t('accounts.create.passwordRequired')
     return
   }
-  const quota = parseQuota(createQuota.value)
+  const quota = parseQuota(event.data.instance_quota ?? '')
   if (quota === null) {
     createFailure.value = t('accounts.create.quotaInvalid')
     return
@@ -334,7 +344,7 @@ async function onCreate() {
   creating.value = true
   createFailure.value = null
   try {
-    const created = await createUser({ email, password: createPassword.value, role: createRole.value, instance_quota: quota })
+    const created = await createUser({ email, password: event.data.password ?? '', role: event.data.role ?? 'user', instance_quota: quota })
     users.value = [created, ...users.value]
     createOpen.value = false
     toast.add({ title: t('accounts.create.createdToast'), color: 'success' })
@@ -354,17 +364,17 @@ function friendlyCreateError(error: ApiError): string {
 
 function openQuota(user: AccountUser) {
   quotaTarget.value = user
-  quotaValue.value = String(user.instance_quota)
+  quotaState.instance_quota = String(user.instance_quota)
   quotaSaving.value = false
   quotaFailure.value = null
   quotaOpen.value = true
 }
 
-async function onSaveQuota() {
+async function onSaveQuota(event: FormSubmitEvent<QuotaSchema>) {
   if (!quotaTarget.value || quotaSaving.value) {
     return
   }
-  const quota = parseQuota(quotaValue.value)
+  const quota = parseQuota(event.data.instance_quota ?? '')
   if (quota === null || quota === undefined) {
     quotaFailure.value = t('accounts.quota.quotaInvalid')
     return
@@ -737,7 +747,13 @@ if (isAdmin.value) {
 
   <UModal v-model:open="createOpen" :title="t('accounts.create.title')" :description="t('accounts.create.body')">
     <template #body>
-      <form class="flex flex-col gap-4" @submit.prevent="onCreate">
+      <UForm
+        id="create-account"
+        :schema="createSchema"
+        :state="createState"
+        class="flex flex-col gap-4"
+        @submit="onCreate"
+      >
         <UAlert
           v-if="createFailure"
           color="error"
@@ -747,9 +763,8 @@ if (isAdmin.value) {
 
         <UFormField :label="t('common.email')" name="email" required>
           <UInput
-            v-model="createEmail"
+            v-model="createState.email"
             type="email"
-            required
             maxlength="255"
             class="w-full"
           />
@@ -757,16 +772,15 @@ if (isAdmin.value) {
 
         <UFormField :label="t('auth.password')" name="password" required>
           <UInput
-            v-model="createPassword"
+            v-model="createState.password"
             type="password"
-            required
             class="w-full"
           />
         </UFormField>
 
         <UFormField :label="t('common.role')" name="role" required>
           <USelect
-            v-model="createRole"
+            v-model="createState.role"
             :items="['admin', 'user']"
             class="w-full"
           />
@@ -774,9 +788,8 @@ if (isAdmin.value) {
 
         <UFormField :label="t('accounts.quotaLabel')" :hint="t('accounts.create.quotaHint')" name="instance_quota">
           <UInput
-            v-model="createQuota"
+            v-model="createState.instance_quota"
             type="number"
-            min="0"
             step="1"
             class="w-full"
           />
@@ -792,13 +805,19 @@ if (isAdmin.value) {
           />
           <UButton type="submit" :loading="creating" :label="creating ? t('accounts.create.creating') : t('accounts.create.submit')" />
         </div>
-      </form>
+      </UForm>
     </template>
   </UModal>
 
   <UModal v-model:open="quotaOpen" :title="t('accounts.quota.title')" :description="t('accounts.quota.body', { email: quotaTarget?.email ?? '' })">
     <template #body>
-      <form class="flex flex-col gap-4" @submit.prevent="onSaveQuota">
+      <UForm
+        id="edit-quota"
+        :schema="quotaSchema"
+        :state="quotaState"
+        class="flex flex-col gap-4"
+        @submit="onSaveQuota"
+      >
         <UAlert
           v-if="quotaFailure"
           color="error"
@@ -813,10 +832,8 @@ if (isAdmin.value) {
           required
         >
           <UInput
-            v-model="quotaValue"
+            v-model="quotaState.instance_quota"
             type="number"
-            required
-            min="0"
             step="1"
             class="w-full"
           />
@@ -832,7 +849,7 @@ if (isAdmin.value) {
           />
           <UButton type="submit" :loading="quotaSaving" :label="quotaSaving ? t('common.saving') : t('common.save')" />
         </div>
-      </form>
+      </UForm>
     </template>
   </UModal>
 

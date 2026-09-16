@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import * as z from 'zod'
+import type { FormSubmitEvent } from '#ui/types'
 import { ApiError } from '~/composables/useApi'
 import { WEBHOOK_EVENT_TYPES } from '~/types/api'
 import type { Instance } from '~/types/api'
@@ -21,27 +23,48 @@ const { t } = useI18n()
 const toast = useToast()
 const { updateInstanceWebhook } = useInstances()
 
-const url = ref(props.instance.webhook_url ?? '')
-const enabled = ref(props.instance.webhook_enabled)
-const selected = ref<Record<string, boolean>>(fromEvents(props.instance.webhook_events))
+const schema = z.object({
+  url: z.string().max(2048),
+  enabled: z.boolean(),
+  events: z.array(z.string()).min(1, t('instances.webhook.eventsRequired'))
+}).refine(data => !data.enabled || /^https?:\/\//.test(data.url), {
+  message: t('instances.webhook.urlRequired'),
+  path: ['url']
+})
+type Schema = z.output<typeof schema>
+const state = reactive<Partial<Schema>>({
+  url: props.instance.webhook_url ?? '',
+  enabled: props.instance.webhook_enabled,
+  events: [...props.instance.webhook_events]
+})
 const saving = ref(false)
 const failure = ref<string | null>(null)
 
-function fromEvents(events: string[]): Record<string, boolean> {
-  return Object.fromEntries(WEBHOOK_EVENT_TYPES.map(type => [type, events.includes(type)]))
+const subscribedCount = computed(() => state.events?.length ?? 0)
+
+function isSubscribed(type: string): boolean {
+  return state.events?.includes(type) ?? false
 }
 
-const subscribedCount = computed(() => WEBHOOK_EVENT_TYPES.filter(type => selected.value[type]).length)
+function setSubscribed(type: string, value: boolean) {
+  const current = new Set(state.events ?? [])
+  if (value) {
+    current.add(type)
+  } else {
+    current.delete(type)
+  }
+  state.events = WEBHOOK_EVENT_TYPES.filter(entry => current.has(entry))
+}
 
 function selectAll() {
-  selected.value = Object.fromEntries(WEBHOOK_EVENT_TYPES.map(type => [type, true]))
+  state.events = [...WEBHOOK_EVENT_TYPES]
 }
 
 function selectNone() {
-  selected.value = Object.fromEntries(WEBHOOK_EVENT_TYPES.map(type => [type, false]))
+  state.events = []
 }
 
-async function onSave() {
+async function onSave(event: FormSubmitEvent<Schema>) {
   if (saving.value) {
     return
   }
@@ -49,9 +72,9 @@ async function onSave() {
   failure.value = null
   try {
     const updated = await updateInstanceWebhook(props.instance.id, {
-      webhook_url: url.value.trim(),
-      webhook_enabled: enabled.value,
-      webhook_events: WEBHOOK_EVENT_TYPES.filter(type => selected.value[type])
+      webhook_url: (event.data.url ?? '').trim(),
+      webhook_enabled: event.data.enabled ?? false,
+      webhook_events: event.data.events ?? []
     })
     emit('updated', updated)
     toast.add({ title: t('instances.webhook.saved'), color: 'success' })
@@ -65,9 +88,9 @@ async function onSave() {
 // A fresh instance row (after pairing reloads or navigation) replaces the
 // edited values with the stored configuration.
 watch(() => props.instance.id, () => {
-  url.value = props.instance.webhook_url ?? ''
-  enabled.value = props.instance.webhook_enabled
-  selected.value = fromEvents(props.instance.webhook_events)
+  state.url = props.instance.webhook_url ?? ''
+  state.enabled = props.instance.webhook_enabled
+  state.events = [...props.instance.webhook_events]
   failure.value = null
 })
 </script>
@@ -80,7 +103,13 @@ watch(() => props.instance.id, () => {
       </h2>
     </template>
 
-    <form class="flex flex-col gap-4" @submit.prevent="onSave">
+    <UForm
+      id="webhook"
+      :schema="schema"
+      :state="state"
+      class="flex flex-col gap-4"
+      @submit="onSave"
+    >
       <UAlert
         v-if="failure"
         color="error"
@@ -88,9 +117,9 @@ watch(() => props.instance.id, () => {
         :title="failure"
       />
 
-      <UFormField :label="t('instances.webhook.url')" :hint="t('instances.webhook.urlHint')" name="webhook_url">
+      <UFormField :label="t('instances.webhook.url')" :hint="t('instances.webhook.urlHint')" name="url">
         <UInput
-          v-model="url"
+          v-model="state.url"
           type="url"
           maxlength="2048"
           placeholder="https://hooks.example.com/wzap"
@@ -98,51 +127,54 @@ watch(() => props.instance.id, () => {
         />
       </UFormField>
 
-      <UFormField :label="t('instances.webhook.enabled')" name="webhook_enabled">
-        <USwitch v-model="enabled" />
+      <UFormField :label="t('instances.webhook.enabled')" name="enabled">
+        <USwitch v-model="state.enabled" />
       </UFormField>
 
-      <div class="flex flex-col gap-2">
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-sm font-medium text-highlighted">{{ t('instances.webhook.events') }}</span>
-          <div class="flex gap-1">
-            <UButton
-              type="button"
-              color="neutral"
-              variant="ghost"
-              size="xs"
-              :label="t('instances.webhook.selectAll')"
-              @click="selectAll"
-            />
-            <UButton
-              type="button"
-              color="neutral"
-              variant="ghost"
-              size="xs"
-              :label="t('instances.webhook.selectNone')"
-              @click="selectNone"
+      <UFormField name="events">
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-sm font-medium text-highlighted">{{ t('instances.webhook.events') }}</span>
+            <div class="flex gap-1">
+              <UButton
+                type="button"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                :label="t('instances.webhook.selectAll')"
+                @click="selectAll"
+              />
+              <UButton
+                type="button"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                :label="t('instances.webhook.selectNone')"
+                @click="selectNone"
+              />
+            </div>
+          </div>
+          <p class="text-sm text-muted">
+            {{ t('instances.webhook.eventsHint') }}
+          </p>
+          <div class="flex flex-col gap-2">
+            <UCheckbox
+              v-for="type in WEBHOOK_EVENT_TYPES"
+              :key="type"
+              :model-value="isSubscribed(type)"
+              :label="type"
+              @update:model-value="(value: boolean | 'indeterminate') => setSubscribed(type, value === true)"
             />
           </div>
-        </div>
-        <p class="text-sm text-muted">
-          {{ t('instances.webhook.eventsHint') }}
-        </p>
-        <div class="flex flex-col gap-2">
-          <UCheckbox
-            v-for="type in WEBHOOK_EVENT_TYPES"
-            :key="type"
-            v-model="selected[type]"
-            :label="type"
+          <UAlert
+            v-if="subscribedCount === 0"
+            color="warning"
+            variant="subtle"
+            :title="t('instances.webhook.noEventsTitle')"
+            :description="t('instances.webhook.noEventsBody')"
           />
         </div>
-        <UAlert
-          v-if="subscribedCount === 0"
-          color="warning"
-          variant="subtle"
-          :title="t('instances.webhook.noEventsTitle')"
-          :description="t('instances.webhook.noEventsBody')"
-        />
-      </div>
+      </UFormField>
 
       <div class="flex justify-end">
         <UButton
@@ -152,6 +184,6 @@ watch(() => props.instance.id, () => {
           :label="saving ? t('common.saving') : t('common.save')"
         />
       </div>
-    </form>
+    </UForm>
   </UCard>
 </template>

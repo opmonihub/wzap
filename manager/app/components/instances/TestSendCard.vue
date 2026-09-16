@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import * as z from 'zod'
+import type { FormSubmitEvent } from '#ui/types'
 import { ApiError } from '~/composables/useApi'
 import MessageStatusBadge from '~/components/instances/MessageStatusBadge.vue'
 import type { InstanceStatus, MediaKind, NumberCheckResult, OutboundMessage } from '~/types/api'
@@ -33,21 +35,29 @@ const checking = ref(false)
 const checkResult = ref<NumberCheckResult | null>(null)
 const checkFailure = ref<string | null>(null)
 
-const textTo = ref('')
-const textBody = ref('')
+const textSchema = z.object({
+  text_to: z.string().min(1, t('instances.send.phoneRequired')).max(64),
+  text_body: z.string().min(1, t('instances.send.textRequired')).max(4096)
+})
+type TextSchema = z.output<typeof textSchema>
+const textState = reactive<Partial<TextSchema>>({ text_to: '', text_body: '' })
 const sendingText = ref(false)
 const sendFailure = ref<string | null>(null)
 
-const mediaTo = ref('')
-const mediaCaption = ref('')
-const mediaFilename = ref('')
+const mediaSchema = z.object({
+  media_to: z.string().min(1, t('instances.send.phoneRequired')).max(64),
+  media_caption: z.string().max(1024),
+  media_filename: z.string().max(255)
+})
+type MediaSchema = z.output<typeof mediaSchema>
+const mediaState = reactive<Partial<MediaSchema>>({ media_to: '', media_caption: '', media_filename: '' })
+const mediaFile = ref<File | null>(null)
 const mediaPtt = ref(false)
 const sendingMedia = ref(false)
 const mediaFailure = ref<string | null>(null)
 const mediaUnsupported = ref<string | null>(null)
 const mediaKind = ref<MediaKind | null>(null)
 const mediaName = ref('')
-const fileInput = ref<HTMLInputElement | null>(null)
 
 const acceptedId = ref<string | null>(null)
 const tracked = ref<OutboundMessage | null>(null)
@@ -72,20 +82,18 @@ function reset() {
   checkPhone.value = ''
   checkResult.value = null
   checkFailure.value = null
-  textTo.value = ''
-  textBody.value = ''
+  textState.text_to = ''
+  textState.text_body = ''
   sendFailure.value = null
-  mediaTo.value = ''
-  mediaCaption.value = ''
-  mediaFilename.value = ''
+  mediaState.media_to = ''
+  mediaState.media_caption = ''
+  mediaState.media_filename = ''
+  mediaFile.value = null
   mediaPtt.value = false
   mediaFailure.value = null
   mediaUnsupported.value = null
   mediaKind.value = null
   mediaName.value = ''
-  if (fileInput.value) {
-    fileInput.value.value = ''
-  }
   acceptedId.value = null
   tracked.value = null
   tracking.value = false
@@ -124,23 +132,23 @@ function friendlyCheckError(error: unknown): string {
   return t('instances.send.checkFailed')
 }
 
-async function onSendText() {
+async function onSendText(event: FormSubmitEvent<TextSchema>) {
   if (sendingText.value) {
     return
   }
-  const to = textTo.value.trim()
+  const to = (event.data.text_to ?? '').trim()
   if (to === '') {
     sendFailure.value = t('instances.send.phoneRequired')
     return
   }
-  if (textBody.value.trim() === '') {
+  if ((event.data.text_body ?? '').trim() === '') {
     sendFailure.value = t('instances.send.textRequired')
     return
   }
   sendingText.value = true
   sendFailure.value = null
   try {
-    const accepted = await sendText(props.instanceId, to, textBody.value)
+    const accepted = await sendText(props.instanceId, to, event.data.text_body ?? '')
     toast.add({ title: t('instances.send.sentToast'), color: 'success' })
     emit('sent', accepted.message_id)
     void track(accepted.message_id)
@@ -151,37 +159,36 @@ async function onSendText() {
   }
 }
 
-function onFileChange(event: Event) {
+function onFileChange(file: File | File[] | null | undefined) {
   mediaUnsupported.value = null
   mediaKind.value = null
   mediaName.value = ''
-  const target = event.target as HTMLInputElement | null
-  const file = target?.files?.[0] ?? null
-  if (!file) {
+  const selected = Array.isArray(file) ? file[0] ?? null : file ?? null
+  if (!selected) {
     return
   }
-  const kind = kindForFile(file)
+  const kind = kindForFile(selected)
   if (!kind) {
     mediaUnsupported.value = t('instances.send.unsupportedFile')
     return
   }
   mediaKind.value = kind
-  mediaName.value = file.name
+  mediaName.value = selected.name
   if (kind !== 'audio') {
     mediaPtt.value = false
   }
 }
 
-async function onSendMedia() {
+async function onSendMedia(event: FormSubmitEvent<MediaSchema>) {
   if (sendingMedia.value) {
     return
   }
-  const to = mediaTo.value.trim()
+  const to = (event.data.media_to ?? '').trim()
   if (to === '') {
     mediaFailure.value = t('instances.send.phoneRequired')
     return
   }
-  const file = fileInput.value?.files?.[0] ?? null
+  const file = mediaFile.value
   if (!file) {
     mediaFailure.value = t('instances.send.fileRequired')
     return
@@ -197,8 +204,8 @@ async function onSendMedia() {
     const accepted = await sendMedia(props.instanceId, {
       to,
       type: kind,
-      caption: mediaCaption.value,
-      filename: mediaFilename.value.trim(),
+      caption: event.data.media_caption ?? '',
+      filename: (event.data.media_filename ?? '').trim(),
       ptt: kind === 'audio' ? mediaPtt.value : false,
       file
     })
@@ -451,7 +458,13 @@ onUnmounted(() => {
         </div>
       </form>
 
-      <form class="flex flex-col gap-3" @submit.prevent="onSendText">
+      <UForm
+        id="test-send-text"
+        :schema="textSchema"
+        :state="textState"
+        class="flex flex-col gap-3"
+        @submit="onSendText"
+      >
         <h3 class="text-sm font-medium text-highlighted">
           {{ t('instances.send.textTitle') }}
         </h3>
@@ -463,8 +476,7 @@ onUnmounted(() => {
         />
         <UFormField :label="t('instances.send.to')" name="text_to" required>
           <UInput
-            v-model="textTo"
-            required
+            v-model="textState.text_to"
             maxlength="64"
             :placeholder="t('instances.send.phonePlaceholder')"
             class="w-full font-mono"
@@ -472,8 +484,7 @@ onUnmounted(() => {
         </UFormField>
         <UFormField :label="t('instances.send.text')" name="text_body" required>
           <UTextarea
-            v-model="textBody"
-            required
+            v-model="textState.text_body"
             maxlength="4096"
             :rows="3"
             class="w-full"
@@ -488,9 +499,15 @@ onUnmounted(() => {
             :label="sendingText ? t('instances.send.sending') : t('instances.send.send')"
           />
         </div>
-      </form>
+      </UForm>
 
-      <form class="flex flex-col gap-3" @submit.prevent="onSendMedia">
+      <UForm
+        id="test-send-media"
+        :schema="mediaSchema"
+        :state="mediaState"
+        class="flex flex-col gap-3"
+        @submit="onSendMedia"
+      >
         <h3 class="text-sm font-medium text-highlighted">
           {{ t('instances.send.mediaTitle') }}
         </h3>
@@ -508,8 +525,7 @@ onUnmounted(() => {
         />
         <UFormField :label="t('instances.send.to')" name="media_to" required>
           <UInput
-            v-model="mediaTo"
-            required
+            v-model="mediaState.media_to"
             maxlength="64"
             :placeholder="t('instances.send.phonePlaceholder')"
             class="w-full font-mono"
@@ -521,22 +537,21 @@ onUnmounted(() => {
           name="media_file"
           required
         >
-          <input
-            ref="fileInput"
-            type="file"
-            required
-            class="w-full text-sm text-highlighted file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white"
-            @change="onFileChange"
-          >
+          <UFileUpload
+            v-model="mediaFile"
+            accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
+            variant="area"
+            @update:model-value="onFileChange"
+          />
         </UFormField>
         <p v-if="mediaKind" class="font-mono text-sm text-muted">
           {{ mediaName }} — {{ t('instances.send.detectedKind', { kind: mediaKind }) }}
         </p>
         <UFormField :label="t('instances.send.caption')" name="media_caption">
-          <UInput v-model="mediaCaption" maxlength="1024" class="w-full" />
+          <UInput v-model="mediaState.media_caption" maxlength="1024" class="w-full" />
         </UFormField>
         <UFormField :label="t('instances.send.filename')" :hint="t('instances.send.filenameHint')" name="media_filename">
-          <UInput v-model="mediaFilename" maxlength="255" class="w-full font-mono" />
+          <UInput v-model="mediaState.media_filename" maxlength="255" class="w-full font-mono" />
         </UFormField>
         <UCheckbox
           v-if="mediaKind === 'audio'"
@@ -552,7 +567,7 @@ onUnmounted(() => {
             :label="sendingMedia ? t('instances.send.sending') : t('instances.send.sendMedia')"
           />
         </div>
-      </form>
+      </UForm>
 
       <div v-if="acceptedId" class="flex flex-col gap-3 border-t border-default pt-4">
         <h3 class="text-sm font-medium text-highlighted">

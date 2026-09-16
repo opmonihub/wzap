@@ -213,6 +213,8 @@
       "selectNone": "None",
       "noEventsTitle": "No events subscribed",
       "noEventsBody": "Nothing will be delivered until at least one type is selected.",
+      "urlRequired": "Enter an http(s) URL to enable the webhook.",
+      "eventsRequired": "Select at least one event type.",
       "saved": "Webhook updated.",
       "saveFailed": "Could not save the webhook."
     },

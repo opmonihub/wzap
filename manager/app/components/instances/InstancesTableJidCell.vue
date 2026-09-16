@@ -10,4 +10,5 @@ defineProps<{
   <span v-if="instance.whatsapp_jid" class="font-mono text-sm text-muted">
     {{ instance.whatsapp_jid }}
   </span>
+  <span v-else class="text-sm text-muted" aria-hidden="true">—</span>
 </template>

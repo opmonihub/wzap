@@ -88,13 +88,35 @@
       "visibility": "Columns",
       "filtersLabel": "Filters",
       "clearFilters": "Clear filters",
-      "pageSize": "Rows per page"
+      "pageSize": "Rows per page",
+      "actions": "Row actions"
     },
     "status": {
       "disconnected": "disconnected",
       "pairing": "pairing",
       "connected": "connected",
       "error": "error"
+    },
+    "statusCell": {
+      "connect": "Connect",
+      "viewQr": "View QR"
+    },
+    "actions": {
+      "open": "Open details",
+      "connect": "Connect",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "connect": {
+      "pairingStarted": "Pairing started. Scan the QR on the details page.",
+      "alreadyConnected": "Instance is already connected.",
+      "failed": "Could not start pairing."
+    },
+    "edit": {
+      "title": "Edit instance",
+      "body": "Rename {name} or change its external reference.",
+      "saved": "Instance updated.",
+      "saveFailed": "Could not save the instance."
     },
     "fields": {
       "name": "Name",

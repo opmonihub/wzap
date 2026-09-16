@@ -33,10 +33,11 @@ export function useInstancesTable(
 
   // Resolves the owner column value, mirroring the card list it replaces
   // (ownerLabel in pages/instances/index.vue): the account email when known,
-  // the short id as best-effort fallback, Not set when ownerless.
+  // the short id as best-effort fallback, an em dash when ownerless (empty
+  // table cells always render as —).
   function ownerLabel(instance: Instance): string {
     if (!instance.owner_user_id) {
-      return t('common.notSet')
+      return '—'
     }
     return ownerEmails.value[instance.owner_user_id] ?? instance.owner_user_id.slice(0, 8)
   }
@@ -141,6 +142,14 @@ export function useInstancesTable(
         header: t('instances.columns.jid'),
         enableSorting: false,
         enableHiding: true
+      },
+      // Display column: no accessor, never sorts, never hides (the page keeps
+      // the connect/edit/delete flows; InstancesTableActionsCell only emits).
+      {
+        id: 'actions',
+        header: t('instances.table.actions'),
+        enableSorting: false,
+        enableHiding: false
       }
     ]
   })

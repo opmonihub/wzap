@@ -4,6 +4,9 @@ import { useMediaQuery } from '@vueuse/core'
 import { ApiError } from '~/composables/useApi'
 import { useInstancesTable } from '~/composables/useInstancesTable'
 import CreateInstanceModal from '~/components/instances/CreateInstanceModal.vue'
+import DeleteInstanceModal from '~/components/instances/DeleteInstanceModal.vue'
+import EditInstanceModal from '~/components/instances/EditInstanceModal.vue'
+import InstancesTableActionsCell from '~/components/instances/InstancesTableActionsCell.vue'
 import InstancesTableJidCell from '~/components/instances/InstancesTableJidCell.vue'
 import InstancesTableNameCell from '~/components/instances/InstancesTableNameCell.vue'
 import InstancesTableOwnerCell from '~/components/instances/InstancesTableOwnerCell.vue'
@@ -23,7 +26,7 @@ interface InstancesTableApi {
 const { t } = useI18n()
 const toast = useToast()
 const { isAdmin } = useAuth()
-const { listInstances, listAccounts } = useInstances()
+const { listInstances, listAccounts, connectInstance } = useInstances()
 const { copy } = useClipboard()
 
 const items = ref<Instance[]>([])
@@ -135,11 +138,11 @@ const statusFilterItems = computed(() => [
   ...instanceStatuses.map(status => ({ label: t(`instances.status.${status}`), value: status }))
 ])
 
-// Name + status are essential and locked (enableHiding:false in the
-// composable); external_ref, owner and JID stay user-toggleable.
+// Name, status and actions are essential and locked (enableHiding:false in
+// the composable); external_ref, owner and JID stay user-toggleable.
 const hideableColumnIds = computed<string[]>(() =>
   columns.value
-    .filter(column => column.id !== 'select' && column.id !== 'name' && column.id !== 'status')
+    .filter(column => column.id !== 'select' && column.id !== 'name' && column.id !== 'status' && column.id !== 'actions')
     .map(column => column.id ?? '')
     .filter(id => id !== '')
 )
@@ -253,10 +256,19 @@ function sortActionLabel(columnId: string): string {
 }
 
 // UTable exposes no th slot, so aria-sort stays off the header buttons; sort
-// state travels in the button aria-label (sortAsc/sortDesc) instead.
+// state travels visibly (primary + soft when the column drives the order) and
+// in the button aria-label (sortAsc/sortDesc) instead.
 
-// Row click selects only; detail navigation lives on the name NuxtLink, so
-// no @select prop exists and UTable renders no focusable tr (accounts same).
+// Clickable rows: the table's onSelect navigates to the detail screen, except
+// when the click lands on an interactive element (links, buttons, inputs,
+// checkboxes, menu items), which keeps its own behavior.
+function onRowSelect(event: Event, row: { original: Instance }) {
+  const target = event.target as HTMLElement | null
+  if (target?.closest('a, button, input, [role="menuitem"], [role="menuitemcheckbox"]')) {
+    return
+  }
+  void navigateTo(`/instances/${row.original.id}`)
+}
 
 useSeoMeta({
   title: 'Instances'
@@ -314,6 +326,68 @@ function onCreated(instance: CreatedInstance) {
   const { instance_api_key: _omit, ...rest } = instance
   items.value = [rest, ...items.value]
   toast.add({ title: t('instances.create.createdToast'), color: 'success' })
+}
+
+// Row actions: connect starts pairing inline (the QR itself lives on the
+// detail screen), edit opens the inline rename modal, remove opens the typed
+// delete confirmation. All API work stays in these handlers; the actions cell
+// only emits.
+const connectingId = ref<string | null>(null)
+const editTarget = ref<Instance | null>(null)
+const editOpen = ref(false)
+const deleteTarget = ref<Instance | null>(null)
+const deleteOpen = ref(false)
+
+function openDetails(instance: Instance) {
+  void navigateTo(`/instances/${instance.id}`)
+}
+
+async function onConnect(instance: Instance) {
+  if (connectingId.value) {
+    return
+  }
+  connectingId.value = instance.id
+  try {
+    const result = await connectInstance(instance.id)
+    items.value = items.value.map(entry =>
+      entry.id === instance.id ? { ...entry, status: result.status } : entry
+    )
+    if (result.status === 'connected' || !result.qr_code) {
+      toast.add({ title: t('instances.connect.alreadyConnected'), color: 'success' })
+      return
+    }
+    toast.add({ title: t('instances.connect.pairingStarted'), color: 'success' })
+    await navigateTo(`/instances/${instance.id}`)
+  } catch (error) {
+    toast.add({
+      title: error instanceof ApiError ? error.message : t('instances.connect.failed'),
+      color: 'error'
+    })
+  } finally {
+    connectingId.value = null
+  }
+}
+
+function openEdit(instance: Instance) {
+  editTarget.value = instance
+  editOpen.value = true
+}
+
+function onUpdated(updated: Instance) {
+  items.value = items.value.map(entry => entry.id === updated.id ? updated : entry)
+  editTarget.value = null
+  toast.add({ title: t('instances.edit.saved'), color: 'success' })
+}
+
+function openDelete(instance: Instance) {
+  deleteTarget.value = instance
+  deleteOpen.value = true
+}
+
+function onDeleted(id: string) {
+  items.value = items.value.filter(entry => entry.id !== id)
+  deleteTarget.value = null
+  toast.add({ title: t('instances.detail.deleted'), color: 'success' })
 }
 
 await loadFirst()
@@ -433,6 +507,7 @@ await loadFirst()
           :pagination-options="paginationOptions"
           :get-row-id="getRowId"
           :auto-reset-all="false"
+          :on-select="onRowSelect"
         >
           <template #select-header="{ table: api }">
             <UCheckbox
@@ -452,8 +527,8 @@ await loadFirst()
 
           <template #name-header="{ column }">
             <UButton
-              color="neutral"
-              variant="ghost"
+              :color="column.getIsSorted() ? 'primary' : 'neutral'"
+              :variant="column.getIsSorted() ? 'soft' : 'ghost'"
               size="sm"
               class="min-h-11"
               :label="t('instances.columns.name')"
@@ -465,8 +540,8 @@ await loadFirst()
 
           <template #status-header="{ column }">
             <UButton
-              color="neutral"
-              variant="ghost"
+              :color="column.getIsSorted() ? 'primary' : 'neutral'"
+              :variant="column.getIsSorted() ? 'soft' : 'ghost'"
               size="sm"
               class="min-h-11"
               :label="t('instances.columns.status')"
@@ -486,13 +561,14 @@ await loadFirst()
           </template>
 
           <template #external_ref-cell="{ row }">
-            <span class="block min-w-0 truncate" :title="row.original.external_ref ?? ''">
+            <span v-if="row.original.external_ref" class="block min-w-0 truncate" :title="row.original.external_ref ?? ''">
               {{ row.original.external_ref }}
             </span>
+            <span v-else class="text-sm text-muted" aria-hidden="true">—</span>
           </template>
 
           <template #status-cell="{ row }">
-            <InstancesTableStatusCell :status="row.original.status" />
+            <InstancesTableStatusCell :instance="row.original" @connect="onConnect" />
           </template>
 
           <template #owner-cell="{ row }">
@@ -503,6 +579,16 @@ await loadFirst()
             <div class="min-w-0 truncate" :title="row.original.whatsapp_jid">
               <InstancesTableJidCell :instance="row.original" />
             </div>
+          </template>
+
+          <template #actions-cell="{ row }">
+            <InstancesTableActionsCell
+              :instance="row.original"
+              @open="openDetails"
+              @connect="onConnect"
+              @edit="openEdit"
+              @remove="openDelete"
+            />
           </template>
 
           <template #empty>
@@ -563,4 +649,13 @@ await loadFirst()
   </UDashboardPanel>
 
   <CreateInstanceModal v-model:open="createOpen" @created="onCreated" />
+
+  <EditInstanceModal v-model:open="editOpen" :target="editTarget" @updated="onUpdated" />
+
+  <DeleteInstanceModal
+    v-if="deleteTarget"
+    v-model:open="deleteOpen"
+    :instance="deleteTarget"
+    @deleted="onDeleted"
+  />
 </template>

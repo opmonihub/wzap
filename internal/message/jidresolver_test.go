@@ -4,20 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/session"
 	"wzap/internal/session/sessiontest"
 )
 
 // discardLogger returns a logger that drops every record.
-func discardLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
+func discardLogger() zerolog.Logger {
+	return zerolog.Nop()
 }
 
 // fakeJIDCache is an in-memory storage.JIDCacheRepository that records every

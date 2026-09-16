@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/model"
 	"wzap/internal/storage"
@@ -59,7 +60,7 @@ func (w *OutboxWriter) Write(ctx context.Context, subject string, env Envelope) 
 type Relay struct {
 	outbox        storage.EventOutboxRepository
 	publisher     Publisher
-	log           *slog.Logger
+	log           zerolog.Logger
 	retentionDays int
 
 	batchSize       int
@@ -69,14 +70,15 @@ type Relay struct {
 	cleanupInterval time.Duration
 	now             func() time.Time
 	sleep           func(ctx context.Context, d time.Duration) error
+
+	mu        sync.Mutex
+	lastWarn  map[string]time.Time
+	warnEvery time.Duration // default time.Minute, test-overridable field
 }
 
 // NewRelay returns a relay that publishes outbox pending events through
 // publisher and drops published events older than retentionDays days.
-func NewRelay(outbox storage.EventOutboxRepository, publisher Publisher, log *slog.Logger, retentionDays int) *Relay {
-	if log == nil {
-		log = slog.Default()
-	}
+func NewRelay(outbox storage.EventOutboxRepository, publisher Publisher, log zerolog.Logger, retentionDays int) *Relay {
 	return &Relay{
 		outbox:          outbox,
 		publisher:       publisher,
@@ -89,7 +91,22 @@ func NewRelay(outbox storage.EventOutboxRepository, publisher Publisher, log *sl
 		cleanupInterval: defaultRelayCleanupInterval,
 		now:             time.Now,
 		sleep:           sleepContext,
+		lastWarn:        make(map[string]time.Time),
+		warnEvery:       time.Minute,
 	}
+}
+
+func (r *Relay) warnThrottled(key, msg string, fields func(*zerolog.Event) *zerolog.Event) {
+	r.mu.Lock()
+	now := time.Now()
+	last, ok := r.lastWarn[key]
+	if ok && now.Sub(last) < r.warnEvery {
+		r.mu.Unlock()
+		return
+	}
+	r.lastWarn[key] = now
+	r.mu.Unlock()
+	fields(r.log.Warn()).Msg(msg)
 }
 
 // Run publishes pending outbox events until ctx is canceled. The stream is
@@ -116,7 +133,9 @@ func (r *Relay) Run(ctx context.Context) {
 					return
 				}
 				failures++
-				r.log.WarnContext(ctx, "event stream not ready", "error", err)
+				r.warnThrottled("stream", "event stream not ready", func(e *zerolog.Event) *zerolog.Event {
+					return e.Err(err)
+				})
 				if r.wait(ctx, r.backoff(failures)) != nil {
 					return
 				}
@@ -131,7 +150,9 @@ func (r *Relay) Run(ctx context.Context) {
 				return
 			}
 			failures++
-			r.log.WarnContext(ctx, "claim pending events", "error", err)
+			r.warnThrottled("claim", "claim pending events", func(e *zerolog.Event) *zerolog.Event {
+				return e.Err(err)
+			})
 			if r.wait(ctx, r.backoff(failures)) != nil {
 				return
 			}
@@ -152,7 +173,9 @@ func (r *Relay) Run(ctx context.Context) {
 			}
 			failures++
 			ensured = false
-			r.log.WarnContext(ctx, "publish pending events", "pending", len(pending), "error", err)
+			r.warnThrottled("publish", "publish pending events", func(e *zerolog.Event) *zerolog.Event {
+				return e.Int("pending", len(pending)).Err(err)
+			})
 			if r.wait(ctx, r.backoff(failures)) != nil {
 				return
 			}
@@ -195,7 +218,7 @@ func (r *Relay) PublishNow(ctx context.Context, pending []model.OutboxEvent) err
 // markAttempt records a failed publish, leaving the event pending.
 func (r *Relay) markAttempt(ctx context.Context, id uuid.UUID, cause error) {
 	if err := r.outbox.MarkAttempt(ctx, id, cause.Error()); err != nil {
-		r.log.ErrorContext(ctx, "record event attempt", "event_id", id, "error", err)
+		r.log.Error().Str("event_id", id.String()).Err(err).Msg("record event attempt")
 	}
 }
 
@@ -204,11 +227,11 @@ func (r *Relay) cleanup(ctx context.Context) {
 	cutoff := r.now().Add(-time.Duration(r.retentionDays) * 24 * time.Hour)
 	removed, err := r.outbox.DeletePublishedBefore(ctx, cutoff)
 	if err != nil {
-		r.log.WarnContext(ctx, "cleanup published events", "error", err)
+		r.log.Warn().Err(err).Msg("cleanup published events")
 		return
 	}
 	if removed > 0 {
-		r.log.InfoContext(ctx, "cleaned published events", "removed", removed)
+		r.log.Info().Int64("removed", removed).Msg("cleaned published events")
 	}
 }
 

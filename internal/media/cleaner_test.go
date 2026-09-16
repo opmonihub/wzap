@@ -3,10 +3,10 @@ package media
 import (
 	"context"
 	"errors"
-	"io"
-	"log/slog"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog"
 )
 
 // fakeExpiredDeleter records every DeleteExpired call.
@@ -23,8 +23,8 @@ func (f *fakeExpiredDeleter) DeleteExpired(_ context.Context, now time.Time) (in
 	return f.removed, f.err
 }
 
-func discardLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
+func discardLogger() zerolog.Logger {
+	return zerolog.Nop()
 }
 
 func TestCleanerRunCleansUntilCanceled(t *testing.T) {

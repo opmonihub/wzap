@@ -1,12 +1,10 @@
 package message
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 	"sync"
 	"testing"
@@ -16,6 +14,7 @@ import (
 
 	"wzap/internal/events"
 	"wzap/internal/instancelock"
+	"wzap/internal/logger"
 	"wzap/internal/model"
 	"wzap/internal/session"
 	"wzap/internal/session/sessiontest"
@@ -570,8 +569,8 @@ func TestOutboxHumanizePresenceFailureIsBestEffort(t *testing.T) {
 	fixture.outbox.humanizer = Humanizer{Enabled: true, Sleep: func(context.Context, time.Duration) error { return nil }}
 	fixture.session.SendPresenceErr = errors.New("websocket write failed")
 
-	var logs bytes.Buffer
-	fixture.outbox.log = slog.New(slog.NewTextHandler(&logs, nil))
+	logs, testLog := logger.NewTestLogger()
+	fixture.outbox.log = testLog
 
 	runOutbox(t, fixture)
 

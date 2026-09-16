@@ -6,13 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/session"
 	"wzap/internal/storage"
@@ -45,7 +44,7 @@ const (
 type JIDResolver struct {
 	sessions session.Manager
 	cache    storage.JIDCacheRepository
-	log      *slog.Logger
+	log      zerolog.Logger
 
 	// now, positiveTTL and negativeTTL are fields so tests can control time.
 	now         func() time.Time
@@ -59,10 +58,7 @@ type JIDResolver struct {
 
 // NewJIDResolver builds the resolver over the session manager and the positive
 // JID cache.
-func NewJIDResolver(sessions session.Manager, cache storage.JIDCacheRepository, log *slog.Logger) *JIDResolver {
-	if log == nil {
-		log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	}
+func NewJIDResolver(sessions session.Manager, cache storage.JIDCacheRepository, log zerolog.Logger) *JIDResolver {
 	return &JIDResolver{
 		sessions:    sessions,
 		cache:       cache,
@@ -97,7 +93,7 @@ func (r *JIDResolver) Resolve(ctx context.Context, instanceID uuid.UUID, phone s
 	}
 
 	if jid, ok, err := r.cache.Get(ctx, digits); err != nil {
-		r.log.Warn("jid cache read failed", "phone", digits, "error", err)
+		r.log.Debug().Str("phone", digits).Err(err).Msg("jid cache read failed")
 	} else if ok {
 		return jid, nil
 	}
@@ -122,7 +118,7 @@ func (r *JIDResolver) Resolve(ctx context.Context, instanceID uuid.UUID, phone s
 	}
 
 	if err := r.cache.Put(ctx, digits, jid, r.now().Add(r.positiveTTL)); err != nil {
-		r.log.Warn("jid cache write failed", "phone", digits, "error", err)
+		r.log.Debug().Str("phone", digits).Err(err).Msg("jid cache write failed")
 	}
 	return jid, nil
 }

@@ -168,7 +168,7 @@ func serve() error {
 	outbox := postgres.NewEventOutboxRepository(pool)
 	mediaStorage := media.NewStorage(cfg.DataDir, postgres.NewMediaRepository(pool),
 		cfg.MaxMediaBytes, time.Duration(cfg.MediaTTLSeconds)*time.Second)
-	relay := events.NewRelay(outbox, publisher, slogLog, cfg.EventRetentionDays)
+	relay := events.NewRelay(outbox, publisher, log, cfg.EventRetentionDays)
 	checker := httpapi.NewChecker(pool, httpapi.NamedProbe{Name: "nats", Run: publisher.Ready})
 
 	eventWriter := events.NewWriter(outbox)
@@ -315,7 +315,7 @@ func serve() error {
 	}
 
 	service := instance.NewService(instances, sessions, mediaStorage, users, keys, log)
-	numbers := message.NewJIDResolver(sessions, postgres.NewJIDCacheRepository(pool), slogLog)
+	numbers := message.NewJIDResolver(sessions, postgres.NewJIDCacheRepository(pool), log)
 	messages := message.NewService(instances, numbers, messageRepo)
 
 	// Chatwoot inbound (capability wzap-chatwoot-inbound): the open webhook
@@ -359,7 +359,7 @@ func serve() error {
 		log.Warn().Err(restoreErr).Msg("restore sessions not completed")
 	}
 
-	outboxWorker := message.NewOutbox(messageRepo, sessions, webhookWriter, mediaStorage, slogLog, cfg.OutboxWorkers, instancelock.New(), cfg.Humanize)
+	outboxWorker := message.NewOutbox(messageRepo, sessions, webhookWriter, mediaStorage, log, cfg.OutboxWorkers, instancelock.New(), cfg.Humanize)
 
 	srv := httpapi.New(cfg, log, httpapi.Deps{
 		ReadyChecker:     checker,
@@ -400,7 +400,7 @@ func serve() error {
 		relay.Run(relayCtx)
 	}()
 
-	cleaner := media.NewCleaner(mediaStorage, slogLog)
+	cleaner := media.NewCleaner(mediaStorage, log)
 	cleanerCtx, stopCleaner := context.WithCancel(context.Background())
 	defer stopCleaner()
 	cleanerDone := make(chan struct{})

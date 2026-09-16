@@ -2,8 +2,9 @@ package media
 
 import (
 	"context"
-	"log/slog"
 	"time"
+
+	"github.com/rs/zerolog"
 )
 
 // defaultCleanerInterval is how often the cleaner removes expired media.
@@ -22,18 +23,15 @@ var _ ExpiredDeleter = (*Storage)(nil)
 // Cleaner removes expired media files and rows periodically.
 type Cleaner struct {
 	storage  ExpiredDeleter
-	log      *slog.Logger
+	log      zerolog.Logger
 	interval time.Duration
 	now      func() time.Time
 	sleep    func(ctx context.Context, d time.Duration) error
 }
 
 // NewCleaner returns a cleaner over storage that cleans once at boot and then
-// every defaultCleanerInterval. A nil logger falls back to the default one.
-func NewCleaner(storage ExpiredDeleter, log *slog.Logger) *Cleaner {
-	if log == nil {
-		log = slog.Default()
-	}
+// every defaultCleanerInterval.
+func NewCleaner(storage ExpiredDeleter, log zerolog.Logger) *Cleaner {
 	return &Cleaner{
 		storage:  storage,
 		log:      log,
@@ -61,10 +59,10 @@ func (c *Cleaner) Run(ctx context.Context) {
 func (c *Cleaner) cleanup(ctx context.Context) {
 	removed, err := c.storage.DeleteExpired(ctx, c.now())
 	if err != nil {
-		c.log.WarnContext(ctx, "clean expired media", "error", err)
+		c.log.Warn().Err(err).Msg("clean expired media")
 	}
 	if removed > 0 {
-		c.log.InfoContext(ctx, "cleaned expired media", "removed", removed)
+		c.log.Info().Int("removed", removed).Msg("cleaned expired media")
 	}
 }
 

@@ -4,19 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
-	"log/slog"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/model"
 )
 
-func discardLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
+func discardLogger() zerolog.Logger {
+	return zerolog.Nop()
 }
 
 func mustEnvelope(t *testing.T, instanceID uuid.UUID, eventType string) Envelope {

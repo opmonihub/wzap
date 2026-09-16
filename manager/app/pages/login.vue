@@ -56,4 +56,8 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     pending.value = false
   }
 }
+
+useSeoMeta({
+  title: 'Sign in'
+})
 </script>

@@ -516,6 +516,14 @@ await loadFirst()
           :get-row-id="getRowId"
           :auto-reset-all="false"
           :on-select="onRowSelect"
+          class="shrink-0"
+          :ui="{
+            base: 'table-fixed border-separate border-spacing-0',
+            thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
+            tbody: '[&>tr]:last:[&>td]:border-b-0',
+            th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
+            td: 'border-b border-default'
+          }"
         >
           <template #select-header="{ table: api }">
             <UCheckbox
@@ -642,6 +650,7 @@ await loadFirst()
               :page="pagination.pageIndex + 1"
               :items-per-page="pagination.pageSize"
               :total="totalFiltered"
+              size="sm"
               @update:page="onUpdatePage"
             />
           </div>

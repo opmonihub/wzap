@@ -72,7 +72,7 @@ const total = computed(() => data.value.reduce((sum, point) => sum + point.count
 
 function formatBucket(date: Date): string {
   if (props.period === 'monthly') {
-    return format(date, 'MMM yyy')
+    return format(date, 'MMM yyyy')
   }
   return format(date, 'd MMM')
 }
@@ -99,6 +99,9 @@ function tooltip(point: BucketPoint): string {
         </p>
         <p class="text-3xl text-highlighted font-semibold">
           {{ total }}
+        </p>
+        <p class="mt-1 text-xs text-muted">
+          {{ t('overview.chart.rangeNote') }}
         </p>
       </div>
     </template>

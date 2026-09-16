@@ -15,6 +15,6 @@ const { t } = useI18n()
       </div>
     </template>
 
-    <div class="h-96" />
+    <USkeleton class="h-96 w-full" />
   </UCard>
 </template>

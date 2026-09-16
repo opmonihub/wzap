@@ -82,11 +82,27 @@ func TestNewTextAliasEmitsDeprecation(t *testing.T) {
 	}
 }
 
+func TestNewTextAliasDeprecationVisibleAtErrorLevel(t *testing.T) {
+	var buf bytes.Buffer
+	l, err := newWithWriter("error", "text", &buf)
+	if err != nil {
+		t.Fatalf("newWithWriter(error, text): unexpected error: %v", err)
+	}
+	if lowered := strings.ToLower(buf.String()); !strings.Contains(lowered, "deprecat") {
+		t.Fatalf("error+text emitted no visible deprecation warning: %q", buf.String())
+	}
+	if got := l.GetLevel(); got != zerolog.ErrorLevel {
+		t.Errorf("GetLevel() = %v, want error (gate must be kept)", got)
+	}
+}
+
 func TestNewInvalidLevel(t *testing.T) {
-	if _, err := New("verbose", "json"); err == nil {
-		t.Fatal("expected error for invalid level, got nil")
-	} else if !strings.Contains(err.Error(), "WZAP_LOG_LEVEL") {
-		t.Errorf("error does not name WZAP_LOG_LEVEL: %v", err)
+	for _, level := range []string{"verbose", "", "trace", "fatal", "panic", "disabled"} {
+		if _, err := New(level, "json"); err == nil {
+			t.Errorf("level %q: expected error, got nil", level)
+		} else if !strings.Contains(err.Error(), "WZAP_LOG_LEVEL") {
+			t.Errorf("level %q: error does not name WZAP_LOG_LEVEL: %v", level, err)
+		}
 	}
 }
 

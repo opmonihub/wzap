@@ -29,19 +29,31 @@ func newWithWriter(level, format string, out io.Writer) (zerolog.Logger, error) 
 	if err != nil {
 		return zerolog.Nop(), fmt.Errorf("invalid WZAP_LOG_LEVEL %q: must be one of debug, info, warn, error: %w", level, err)
 	}
+	switch lvl {
+	case zerolog.DebugLevel, zerolog.InfoLevel, zerolog.WarnLevel, zerolog.ErrorLevel:
+	default:
+		return zerolog.Nop(), fmt.Errorf("invalid WZAP_LOG_LEVEL %q: must be one of debug, info, warn, error", level)
+	}
 	var l zerolog.Logger
 	switch format {
 	case "json":
 		l = zerolog.New(out).With().Timestamp().Logger().Level(lvl)
 	case "console":
-		l = zerolog.New(zerolog.ConsoleWriter{Out: out}).With().Timestamp().Logger().Level(lvl)
+		l = newConsole(out, lvl)
 	case "text":
-		l = zerolog.New(zerolog.ConsoleWriter{Out: out}).With().Timestamp().Logger().Level(lvl)
-		l.Warn().Msg(`WZAP_LOG_FORMAT "text" is deprecated, use "console"`)
+		// The deprecation Warn bypasses the configured gate so it stays
+		// visible even at error level; the returned logger keeps the gate.
+		dep := newConsole(out, zerolog.DebugLevel)
+		dep.Warn().Msg(`WZAP_LOG_FORMAT "text" is deprecated, use "console"`)
+		l = newConsole(out, lvl)
 	default:
 		return zerolog.Nop(), fmt.Errorf("invalid WZAP_LOG_FORMAT %q: must be one of json, console, text", format)
 	}
 	return l, nil
+}
+
+func newConsole(out io.Writer, lvl zerolog.Level) zerolog.Logger {
+	return zerolog.New(zerolog.ConsoleWriter{Out: out}).With().Timestamp().Logger().Level(lvl)
 }
 
 // NewTestLogger returns a JSON logger at debug level writing into the
@@ -54,7 +66,7 @@ func NewTestLogger() (*bytes.Buffer, zerolog.Logger) {
 
 // AssertNoSecret fails the test when any of the given secrets (tokens,
 // phone numbers, JIDs, ...) shows up in the logged output.
-func AssertNoSecret(t *testing.T, buf *bytes.Buffer, secrets ...string) {
+func AssertNoSecret(t testing.TB, buf *bytes.Buffer, secrets ...string) {
 	t.Helper()
 	if found := findSecret(buf.String(), secrets...); found != "" {
 		t.Errorf("log output leaks secret %q: %q", found, buf.String())

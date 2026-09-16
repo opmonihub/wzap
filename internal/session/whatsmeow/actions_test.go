@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store"
@@ -31,7 +32,7 @@ type markReadCapture struct {
 
 func actionSession(t *testing.T) *instanceSession {
 	t.Helper()
-	sess, err := newSession(uuid.New(), &store.Device{}, nil, nil, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}

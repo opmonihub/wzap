@@ -15,7 +15,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -24,6 +23,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/chatwoot/client"
 	"wzap/internal/chatwoot/contacts"
@@ -197,7 +197,7 @@ type Deps struct {
 	ContactsFor      func(cli ChatwootClient, cfg model.ChatwootConfig) ContactResolver
 	ConversationsFor func(cli ChatwootClient, cfg model.ChatwootConfig, inboxID int64) ConversationResolver
 	ImportTrigger    func(ctx context.Context, instanceID uuid.UUID) error
-	Log              *slog.Logger
+	Log              zerolog.Logger
 }
 
 // Worker mirrors inbound events into Chatwoot. It is safe for concurrent use;
@@ -215,7 +215,7 @@ type Worker struct {
 	contactsFor      func(cli ChatwootClient, cfg model.ChatwootConfig) ContactResolver
 	conversationsFor func(cli ChatwootClient, cfg model.ChatwootConfig, inboxID int64) ConversationResolver
 	importTrigger    func(ctx context.Context, instanceID uuid.UUID) error
-	log              *slog.Logger
+	log              zerolog.Logger
 
 	mu       sync.Mutex
 	runtimes map[uuid.UUID]*instanceRuntime
@@ -243,12 +243,9 @@ type noticeStamp struct {
 	at     time.Time
 }
 
-// New builds a Worker over deps. A nil log discards output.
+// New builds a Worker over deps.
 func New(deps Deps) *Worker {
 	log := deps.Log
-	if log == nil {
-		log = slog.Default()
-	}
 	return &Worker{
 		conn:             deps.Conn,
 		stream:           deps.Stream,
@@ -276,7 +273,7 @@ func New(deps Deps) *Worker {
 // Persistent Chatwoot/storage failures return an error so the broker
 // redelivers.
 func (w *Worker) HandleMessage(ctx context.Context, instanceID, eventID uuid.UUID, msg MessagePayload) error {
-	log := w.log.With("instance_id", instanceID, "event_id", eventID, "wa_key", msg.MessageID)
+	log := w.log.With().Str("instance_id", instanceID.String()).Str("event_id", eventID.String()).Str("wa_key", msg.MessageID).Logger()
 	if !w.global.Enabled {
 		return nil
 	}
@@ -285,7 +282,7 @@ func (w *Worker) HandleMessage(ctx context.Context, instanceID, eventID uuid.UUI
 		return err
 	}
 	if ignoredJID(cfg, msg.FromJID, msg.ChatJID) || isStatusTraffic(msg.FromJID, msg.ChatJID) {
-		log.Debug("skipping filtered sender")
+		log.Debug().Msg("skipping filtered sender")
 		return nil
 	}
 	if w.alreadySeen(eventID) {
@@ -295,7 +292,7 @@ func (w *Worker) HandleMessage(ctx context.Context, instanceID, eventID uuid.UUI
 	if err != nil || skip {
 		return err
 	}
-	contact, err := w.resolveContact(ctx, rt, msg.FromJID, msg.ChatJID, msg.IsGroup)
+	contact, err := w.resolveContact(ctx, log, rt, msg.FromJID, msg.ChatJID, msg.IsGroup)
 	if err != nil || contact == nil {
 		// resolveContact already warned: creation failures skip the
 		// message, never the worker.
@@ -303,7 +300,7 @@ func (w *Worker) HandleMessage(ctx context.Context, instanceID, eventID uuid.UUI
 	}
 	conversationID, err := rt.convs.Resolve(ctx, instanceID, msg.ChatJID, contact.ID)
 	if err != nil {
-		log.Warn("conversation resolution failed", "error", err)
+		log.Warn().Err(err).Msg("conversation resolution failed")
 		return err
 	}
 	if _, err := w.messages.GetByWAKey(ctx, instanceID, msg.MessageID); err == nil {
@@ -315,7 +312,7 @@ func (w *Worker) HandleMessage(ctx context.Context, instanceID, eventID uuid.UUI
 
 	content, thumbnail := w.messageContent(msg)
 	if content == "" && msg.Media == nil && len(thumbnail) == 0 {
-		log.Warn("skipping message with unmappable type", "type", msg.Type)
+		log.Debug().Str("reason", "unsupported_type").Str("type", msg.Type).Msg("skipping message with unmappable type")
 		return nil
 	}
 
@@ -342,7 +339,7 @@ func (w *Worker) HandleMessage(ctx context.Context, instanceID, eventID uuid.UUI
 		})
 	}
 	if err != nil {
-		log.Warn("chatwoot message creation failed", "error", err)
+		log.Warn().Err(err).Msg("chatwoot message creation failed")
 		return err
 	}
 	corr := model.ChatwootMessage{
@@ -356,7 +353,7 @@ func (w *Worker) HandleMessage(ctx context.Context, instanceID, eventID uuid.UUI
 	// storeCorrelation reconciles the post-Create window so a Put failure
 	// never Naks into a visible duplicate on redelivery.
 	if err := w.storeCorrelation(ctx, log, rt.cli, corr); err != nil {
-		log.Warn("correlation store failed", "error", err)
+		log.Warn().Err(err).Msg("correlation store failed")
 		return err
 	}
 	w.markSeen(eventID)
@@ -367,7 +364,7 @@ func (w *Worker) HandleMessage(ctx context.Context, instanceID, eventID uuid.UUI
 // via source_reply_id and marked "(editada)". Without a local correlation
 // the edit has no anchor and is skipped with a warn.
 func (w *Worker) HandleEdit(ctx context.Context, instanceID, eventID uuid.UUID, edit EditPayload) error {
-	log := w.log.With("instance_id", instanceID, "event_id", eventID, "wa_key", edit.MessageID)
+	log := w.log.With().Str("instance_id", instanceID.String()).Str("event_id", eventID.String()).Str("wa_key", edit.MessageID).Logger()
 	if !w.global.Enabled {
 		return nil
 	}
@@ -376,7 +373,7 @@ func (w *Worker) HandleEdit(ctx context.Context, instanceID, eventID uuid.UUID, 
 		return err
 	}
 	if ignoredJID(cfg, edit.FromJID, edit.ChatJID) || isStatusTraffic(edit.FromJID, edit.ChatJID) {
-		log.Debug("skipping filtered sender")
+		log.Debug().Msg("skipping filtered sender")
 		return nil
 	}
 	if w.alreadySeen(eventID) {
@@ -392,7 +389,7 @@ func (w *Worker) HandleEdit(ctx context.Context, instanceID, eventID uuid.UUID, 
 	original, err := w.messages.GetByWAKey(ctx, instanceID, edit.MessageID)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
-			log.Warn("skipping edit without mirrored original")
+			log.Debug().Str("reason", "missing_original").Msg("skipping edit without mirrored original")
 			return nil
 		}
 		return err
@@ -418,7 +415,7 @@ func (w *Worker) HandleEdit(ctx context.Context, instanceID, eventID uuid.UUID, 
 		SourceReplyID:     strconv.FormatInt(original.ChatwootMessageID, 10),
 	})
 	if err != nil {
-		log.Warn("chatwoot edit creation failed", "error", err)
+		log.Warn().Err(err).Msg("chatwoot edit creation failed")
 		return err
 	}
 	corr := model.ChatwootMessage{
@@ -432,7 +429,7 @@ func (w *Worker) HandleEdit(ctx context.Context, instanceID, eventID uuid.UUID, 
 	// storeCorrelation reconciles the post-Create window so a Put failure
 	// never Naks into a visible duplicate on redelivery.
 	if err := w.storeCorrelation(ctx, log, rt.cli, corr); err != nil {
-		log.Warn("correlation store failed", "error", err)
+		log.Warn().Err(err).Msg("correlation store failed")
 		return err
 	}
 	w.markSeen(eventID)
@@ -443,7 +440,7 @@ func (w *Worker) HandleEdit(ctx context.Context, instanceID, eventID uuid.UUID, 
 // gated by the global message-delete flag; without a local correlation there
 // is nothing to remove and the event is skipped with a warn.
 func (w *Worker) HandleDelete(ctx context.Context, instanceID, eventID uuid.UUID, del DeletePayload) error {
-	log := w.log.With("instance_id", instanceID, "event_id", eventID, "wa_key", del.MessageID)
+	log := w.log.With().Str("instance_id", instanceID.String()).Str("event_id", eventID.String()).Str("wa_key", del.MessageID).Logger()
 	if !w.global.Enabled || !w.global.MessageDelete {
 		return nil
 	}
@@ -452,7 +449,7 @@ func (w *Worker) HandleDelete(ctx context.Context, instanceID, eventID uuid.UUID
 		return err
 	}
 	if ignoredJID(cfg, del.FromJID, del.ChatJID) || isStatusTraffic(del.FromJID, del.ChatJID) {
-		log.Debug("skipping filtered sender")
+		log.Debug().Msg("skipping filtered sender")
 		return nil
 	}
 	if w.alreadySeen(eventID) {
@@ -461,7 +458,7 @@ func (w *Worker) HandleDelete(ctx context.Context, instanceID, eventID uuid.UUID
 	original, err := w.messages.GetByWAKey(ctx, instanceID, del.MessageID)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
-			log.Warn("skipping delete without mirrored original")
+			log.Debug().Str("reason", "missing_original").Msg("skipping delete without mirrored original")
 			return nil
 		}
 		return err
@@ -471,7 +468,7 @@ func (w *Worker) HandleDelete(ctx context.Context, instanceID, eventID uuid.UUID
 		return err
 	}
 	if _, err := rt.cli.DeleteMessage(ctx, original.ConversationID, original.ChatwootMessageID); err != nil {
-		log.Warn("chatwoot message deletion failed", "error", err)
+		log.Warn().Err(err).Msg("chatwoot message deletion failed")
 		return err
 	}
 	w.markSeen(eventID)
@@ -482,7 +479,7 @@ func (w *Worker) HandleDelete(ctx context.Context, instanceID, eventID uuid.UUID
 // read/played statuses qualify; the sync is gated by the global
 // message-read flag.
 func (w *Worker) HandleRead(ctx context.Context, instanceID, eventID uuid.UUID, read ReadPayload) error {
-	log := w.log.With("instance_id", instanceID, "event_id", eventID)
+	log := w.log.With().Str("instance_id", instanceID.String()).Str("event_id", eventID.String()).Logger()
 	if !w.global.Enabled || !w.global.MessageRead {
 		return nil
 	}
@@ -494,7 +491,7 @@ func (w *Worker) HandleRead(ctx context.Context, instanceID, eventID uuid.UUID, 
 		return err
 	}
 	if ignoredJID(cfg, read.ChatJID, read.ChatJID) || isStatusTraffic(read.ChatJID, read.ChatJID) {
-		log.Debug("skipping filtered sender")
+		log.Debug().Msg("skipping filtered sender")
 		return nil
 	}
 	if w.alreadySeen(eventID) {
@@ -504,17 +501,17 @@ func (w *Worker) HandleRead(ctx context.Context, instanceID, eventID uuid.UUID, 
 	if err != nil || skip {
 		return err
 	}
-	contact, err := w.resolveContact(ctx, rt, read.ChatJID, read.ChatJID, isGroupJID(read.ChatJID))
+	contact, err := w.resolveContact(ctx, log, rt, read.ChatJID, read.ChatJID, isGroupJID(read.ChatJID))
 	if err != nil || contact == nil {
 		return err
 	}
 	conversationID, err := rt.convs.Resolve(ctx, instanceID, read.ChatJID, contact.ID)
 	if err != nil {
-		log.Warn("conversation resolution failed", "error", err)
+		log.Warn().Err(err).Msg("conversation resolution failed")
 		return err
 	}
 	if _, err := rt.cli.UpdateLastSeen(ctx, conversationID); err != nil {
-		log.Warn("chatwoot last_seen update failed", "error", err)
+		log.Warn().Err(err).Msg("chatwoot last_seen update failed")
 		return err
 	}
 	w.markSeen(eventID)
@@ -531,7 +528,7 @@ func (w *Worker) HandleRead(ctx context.Context, instanceID, eventID uuid.UUID, 
 // may repost one status line, which is operator-visible noise, never user data
 // loss or a duplicate chat message.
 func (w *Worker) HandleConnection(ctx context.Context, instanceID, eventID uuid.UUID, notice ConnectionNotice) error {
-	log := w.log.With("instance_id", instanceID, "event_id", eventID, "status", notice.Status)
+	log := w.log.With().Str("instance_id", instanceID.String()).Str("event_id", eventID.String()).Str("status", notice.Status).Logger()
 	if !w.global.Enabled {
 		return nil
 	}
@@ -556,7 +553,7 @@ func (w *Worker) HandleConnection(ctx context.Context, instanceID, eventID uuid.
 		w.mu.Unlock()
 	}
 	if w.throttled(instanceID, notice.Status) {
-		log.Debug("throttling repeated connection notice")
+		log.Debug().Msg("throttling repeated connection notice")
 		// Throttle suppresses sending, not dedup bookkeeping: the throttled
 		// event_id must still be marked seen, or its redelivery after the
 		// 30s window would post a duplicate notice.
@@ -570,12 +567,12 @@ func (w *Worker) HandleConnection(ctx context.Context, instanceID, eventID uuid.
 	contactID := w.operationalContactID()
 	contact, cerr := rt.cts.Resolve(ctx, contactID, false, "Operacional", "", contactID)
 	if cerr != nil || contact == nil {
-		log.Warn("operational contact resolution failed, skipping notice", "error", cerr)
+		log.Warn().Err(cerr).Msg("operational contact resolution failed, skipping notice")
 		return nil
 	}
 	conversationID, err := rt.convs.Resolve(ctx, instanceID, OperationalConversationKey, contact.ID)
 	if err != nil {
-		log.Warn("operational conversation resolution failed", "error", err)
+		log.Warn().Err(err).Msg("operational conversation resolution failed")
 		return err
 	}
 
@@ -604,7 +601,7 @@ func (w *Worker) HandleConnection(ctx context.Context, instanceID, eventID uuid.
 		})
 	}
 	if err != nil {
-		log.Warn("operational notice creation failed", "error", err)
+		log.Warn().Err(err).Msg("operational notice creation failed")
 		return err
 	}
 	w.stampNotice(instanceID, notice.Status)
@@ -642,7 +639,7 @@ func (w *Worker) maybeAutoImport(instanceID uuid.UUID) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 		if err := trigger(ctx, instanceID); err != nil {
-			w.log.Warn("chatwoot auto import failed", "instance_id", instanceID, "error", err)
+			w.log.Warn().Str("instance_id", instanceID.String()).Err(err).Msg("chatwoot auto import failed")
 		}
 	}()
 }
@@ -657,7 +654,7 @@ func (w *Worker) Wait() {
 // import triggers use it for their start/result notices. A missing connector
 // configuration skips silently; Chatwoot failures are returned.
 func (w *Worker) NotifyOperational(ctx context.Context, instanceID uuid.UUID, text string) error {
-	log := w.log.With("instance_id", instanceID)
+	log := w.log.With().Str("instance_id", instanceID.String()).Logger()
 	if !w.global.Enabled {
 		return nil
 	}
@@ -672,12 +669,12 @@ func (w *Worker) NotifyOperational(ctx context.Context, instanceID uuid.UUID, te
 	contactID := w.operationalContactID()
 	contact, cerr := rt.cts.Resolve(ctx, contactID, false, "Operacional", "", contactID)
 	if cerr != nil || contact == nil {
-		log.Warn("operational contact resolution failed, skipping notice", "error", cerr)
+		log.Warn().Err(cerr).Msg("operational contact resolution failed, skipping notice")
 		return nil
 	}
 	conversationID, err := rt.convs.Resolve(ctx, instanceID, OperationalConversationKey, contact.ID)
 	if err != nil {
-		log.Warn("operational conversation resolution failed", "error", err)
+		log.Warn().Err(err).Msg("operational conversation resolution failed")
 		return err
 	}
 	_, err = rt.cli.CreateMessage(ctx, conversationID, client.CreateMessageRequest{
@@ -686,7 +683,7 @@ func (w *Worker) NotifyOperational(ctx context.Context, instanceID uuid.UUID, te
 		SourceID:    waSourceID("operational/" + uuid.NewString()),
 	})
 	if err != nil {
-		log.Warn("operational notice creation failed", "error", err)
+		log.Warn().Err(err).Msg("operational notice creation failed")
 		return err
 	}
 	return nil
@@ -696,22 +693,22 @@ func (w *Worker) NotifyOperational(ctx context.Context, instanceID uuid.UUID, te
 // renders it as PNG bytes. Any failure (no provider, no session, expired
 // code, encoder error) warns and returns nil so the caller posts the
 // text-only notice; the lookup never fails the worker.
-func (w *Worker) pairingQRImage(ctx context.Context, log *slog.Logger, instanceID uuid.UUID) []byte {
+func (w *Worker) pairingQRImage(ctx context.Context, log zerolog.Logger, instanceID uuid.UUID) []byte {
 	if w.qr == nil {
 		return nil
 	}
 	code, _, err := w.qr.QRCode(ctx, instanceID)
 	if err != nil {
-		log.Warn("pairing qr lookup failed, posting text-only notice", "error", err)
+		log.Debug().Err(err).Msg("pairing qr lookup failed, posting text-only notice")
 		return nil
 	}
 	if code == "" {
-		log.Warn("pairing qr lookup returned empty code, posting text-only notice")
+		log.Debug().Msg("pairing qr lookup returned empty code, posting text-only notice")
 		return nil
 	}
 	png, err := EncodeQR(code)
 	if err != nil {
-		log.Warn("pairing qr encoding failed, posting text-only notice", "error", err)
+		log.Debug().Err(err).Msg("pairing qr encoding failed, posting text-only notice")
 		return nil
 	}
 	return png
@@ -724,11 +721,11 @@ func (w *Worker) pairingQRImage(ctx context.Context, log *slog.Logger, instanceI
 func (w *Worker) Run(ctx context.Context) {
 	defer w.Wait()
 	if !w.global.Enabled {
-		w.log.Info("chatwoot mirror disabled, consumer not started")
+		w.log.Info().Msg("chatwoot mirror disabled, consumer not started")
 		return
 	}
 	if w.conn == nil {
-		w.log.Warn("chatwoot mirror has no NATS connection, consumer not started")
+		w.log.Warn().Msg("chatwoot mirror has no NATS connection, consumer not started")
 		return
 	}
 	stream := w.stream
@@ -741,7 +738,7 @@ func (w *Worker) Run(ctx context.Context) {
 		}
 		js, err := w.conn.JetStream()
 		if err != nil {
-			w.log.Warn("chatwoot mirror jetstream unavailable, retrying", "error", err)
+			w.log.Warn().Err(err).Msg("chatwoot mirror jetstream unavailable, retrying")
 			if sleepContext(ctx, 5*time.Second) != nil {
 				return
 			}
@@ -750,7 +747,7 @@ func (w *Worker) Run(ctx context.Context) {
 		if _, err := js.StreamInfo(stream, nats.Context(ctx)); err != nil {
 			// The relay owns the stream: wait for it instead of creating a
 			// competing one.
-			w.log.Warn("chatwoot mirror stream not ready, retrying", "stream", stream, "error", err)
+			w.log.Warn().Str("stream", stream).Err(err).Msg("chatwoot mirror stream not ready, retrying")
 			if sleepContext(ctx, 5*time.Second) != nil {
 				return
 			}
@@ -763,13 +760,13 @@ func (w *Worker) Run(ctx context.Context) {
 			nats.MaxDeliver(10),
 		)
 		if err != nil {
-			w.log.Warn("chatwoot mirror subscribe failed, retrying", "error", err)
+			w.log.Warn().Err(err).Msg("chatwoot mirror subscribe failed, retrying")
 			if sleepContext(ctx, 5*time.Second) != nil {
 				return
 			}
 			continue
 		}
-		w.log.Info("chatwoot mirror consuming", "durable", DurableConsumer, "stream", stream)
+		w.log.Info().Str("durable", DurableConsumer).Str("stream", stream).Msg("chatwoot mirror consuming")
 		<-ctx.Done()
 		_ = sub.Drain()
 		return
@@ -781,7 +778,7 @@ func (w *Worker) Run(ctx context.Context) {
 func (w *Worker) handleNATSMessage(msg *nats.Msg) {
 	var env events.Envelope
 	if err := json.Unmarshal(msg.Data, &env); err != nil {
-		w.log.Warn("dropping undecodable event", "subject", msg.Subject, "error", err)
+		w.log.Warn().Str("subject", msg.Subject).Err(err).Msg("dropping undecodable event")
 		_ = msg.Term()
 		return
 	}
@@ -793,7 +790,7 @@ func (w *Worker) handleNATSMessage(msg *nats.Msg) {
 	case "message":
 		var payload MessagePayload
 		if derr := json.Unmarshal(env.Payload, &payload); derr != nil {
-			w.log.Warn("dropping undecodable message payload", "event_id", env.EventID, "error", derr)
+			w.log.Warn().Str("event_id", env.EventID.String()).Err(derr).Msg("dropping undecodable message payload")
 			_ = msg.Term()
 			return
 		}
@@ -802,7 +799,7 @@ func (w *Worker) handleNATSMessage(msg *nats.Msg) {
 	case "message.edit":
 		var payload EditPayload
 		if derr := json.Unmarshal(env.Payload, &payload); derr != nil {
-			w.log.Warn("dropping undecodable edit payload", "event_id", env.EventID, "error", derr)
+			w.log.Warn().Str("event_id", env.EventID.String()).Err(derr).Msg("dropping undecodable edit payload")
 			_ = msg.Term()
 			return
 		}
@@ -810,7 +807,7 @@ func (w *Worker) handleNATSMessage(msg *nats.Msg) {
 	case "message.delete":
 		var payload DeletePayload
 		if derr := json.Unmarshal(env.Payload, &payload); derr != nil {
-			w.log.Warn("dropping undecodable delete payload", "event_id", env.EventID, "error", derr)
+			w.log.Warn().Str("event_id", env.EventID.String()).Err(derr).Msg("dropping undecodable delete payload")
 			_ = msg.Term()
 			return
 		}
@@ -818,7 +815,7 @@ func (w *Worker) handleNATSMessage(msg *nats.Msg) {
 	case "receipt":
 		var payload ReadPayload
 		if derr := json.Unmarshal(env.Payload, &payload); derr != nil {
-			w.log.Warn("dropping undecodable receipt payload", "event_id", env.EventID, "error", derr)
+			w.log.Warn().Str("event_id", env.EventID.String()).Err(derr).Msg("dropping undecodable receipt payload")
 			_ = msg.Term()
 			return
 		}
@@ -826,7 +823,7 @@ func (w *Worker) handleNATSMessage(msg *nats.Msg) {
 	case "connection":
 		var payload ConnectionNotice
 		if derr := json.Unmarshal(env.Payload, &payload); derr != nil {
-			w.log.Warn("dropping undecodable connection payload", "event_id", env.EventID, "error", derr)
+			w.log.Warn().Str("event_id", env.EventID.String()).Err(derr).Msg("dropping undecodable connection payload")
 			_ = msg.Term()
 			return
 		}
@@ -837,7 +834,7 @@ func (w *Worker) handleNATSMessage(msg *nats.Msg) {
 		_ = msg.Ack()
 		return
 	default:
-		w.log.Warn("dropping event with unknown type", "event_id", env.EventID, "type", env.Type)
+		w.log.Warn().Str("event_id", env.EventID.String()).Str("type", env.Type).Msg("dropping event with unknown type")
 		_ = msg.Ack()
 		return
 	}
@@ -904,12 +901,12 @@ func (w *Worker) runtimeFor(ctx context.Context, cfg *model.ChatwootConfig) (*in
 func (w *Worker) resolveInbox(ctx context.Context, cli ChatwootClient, cfg *model.ChatwootConfig) (int64, bool, error) {
 	name := strings.TrimSpace(cfg.NameInbox)
 	if name == "" {
-		w.log.Warn("skipping mirror without inbox name", "instance_id", cfg.InstanceID)
+		w.log.Debug().Str("instance_id", cfg.InstanceID.String()).Str("reason", "missing_inbox_name").Msg("skipping mirror without inbox name")
 		return 0, true, nil
 	}
 	inboxes, err := cli.ListInboxes(ctx)
 	if err != nil {
-		w.log.Warn("inbox listing failed", "instance_id", cfg.InstanceID, "error", err)
+		w.log.Warn().Str("instance_id", cfg.InstanceID.String()).Err(err).Msg("inbox listing failed")
 		return 0, false, err
 	}
 	for _, inbox := range inboxes {
@@ -917,21 +914,21 @@ func (w *Worker) resolveInbox(ctx context.Context, cli ChatwootClient, cfg *mode
 			return inbox.ID, false, nil
 		}
 	}
-	w.log.Warn("skipping mirror without provisioned inbox", "instance_id", cfg.InstanceID, "inbox", name)
+	w.log.Debug().Str("instance_id", cfg.InstanceID.String()).Str("reason", "missing_inbox").Str("inbox", name).Msg("skipping mirror without provisioned inbox")
 	return 0, true, nil
 }
 
 // resolveContact resolves the Chatwoot contact of a sender: groups by their
 // own chat JID, individuals by the sender phone. A creation failure warns
 // and returns nil without an error so the caller skips the message.
-func (w *Worker) resolveContact(ctx context.Context, rt *instanceRuntime, senderJID, chatJID string, isGroup bool) (*contacts.Contact, error) {
+func (w *Worker) resolveContact(ctx context.Context, log zerolog.Logger, rt *instanceRuntime, senderJID, chatJID string, isGroup bool) (*contacts.Contact, error) {
 	phone, jid := senderJID, senderJID
 	if isGroup {
 		phone, jid = "", chatJID
 	}
 	contact, err := rt.cts.Resolve(ctx, phone, isGroup, "", "", jid)
 	if err != nil || contact == nil {
-		w.log.Warn("contact resolution failed, skipping message mirror", "jid", jid, "error", err)
+		log.Warn().Err(err).Msg("contact resolution failed, skipping message mirror")
 		return nil, nil
 	}
 	return contact, nil
@@ -958,14 +955,14 @@ func (w *Worker) messageContent(msg MessagePayload) (string, []byte) {
 // mirrorAttachment uploads stored inbound media with its caption. When the
 // bytes are gone the text still mirrors, so an expired TTL never loses the
 // conversation.
-func (w *Worker) mirrorAttachment(ctx context.Context, log *slog.Logger, rt *instanceRuntime, conversationID int64, msg MessagePayload, content string) (*client.Message, error) {
+func (w *Worker) mirrorAttachment(ctx context.Context, log zerolog.Logger, rt *instanceRuntime, conversationID int64, msg MessagePayload, content string) (*client.Message, error) {
 	data, mime, name, err := w.openMedia(ctx, msg.Media)
 	if err != nil {
 		reason := "unavailable"
 		if msg.MediaOmitted != nil && msg.MediaOmitted.Reason != "" {
 			reason = msg.MediaOmitted.Reason
 		}
-		log.Warn("inbound media unavailable, mirroring text only", "reason", reason, "error", err)
+		log.Warn().Str("reason", reason).Err(err).Msg("inbound media unavailable, mirroring text only")
 		if strings.TrimSpace(content) == "" {
 			content = "(mídia não espelhada: " + reason + ")"
 		}
@@ -977,9 +974,9 @@ func (w *Worker) mirrorAttachment(ctx context.Context, log *slog.Logger, rt *ins
 		})
 	}
 	if kind, asDocument := mapper.AttachmentKind(mime, filepath.Ext(name)); asDocument {
-		log.Debug("mirroring attachment as document", "kind", kind, "mime", mime)
+		log.Debug().Str("kind", kind).Str("mime", mime).Msg("mirroring attachment as document")
 	} else {
-		log.Debug("mirroring attachment", "kind", kind, "mime", mime)
+		log.Debug().Str("kind", kind).Str("mime", mime).Msg("mirroring attachment")
 	}
 	return rt.cli.CreateMessageWithAttachment(ctx, conversationID, client.CreateMessageWithAttachmentRequest{
 		Content:           content,
@@ -1103,7 +1100,7 @@ func (w *Worker) Clear(instanceID uuid.UUID) {
 // would Create again. It needs a lost correlation plus a duplicate envelope,
 // which the outbox relay (Nats-Msg-Id = event_id) already dedups; closing it
 // needs a Chatwoot-side source_id lookup the pinned client lacks.
-func (w *Worker) storeCorrelation(ctx context.Context, log *slog.Logger, cli ChatwootClient, msg model.ChatwootMessage) error {
+func (w *Worker) storeCorrelation(ctx context.Context, log zerolog.Logger, cli ChatwootClient, msg model.ChatwootMessage) error {
 	if _, err := w.messages.Put(ctx, msg); err == nil {
 		return nil
 	} else {
@@ -1112,9 +1109,9 @@ func (w *Worker) storeCorrelation(ctx context.Context, log *slog.Logger, cli Cha
 		if gerr == nil {
 			if existing.ChatwootMessageID != msg.ChatwootMessageID {
 				if _, derr := cli.DeleteMessage(ctx, msg.ConversationID, msg.ChatwootMessageID); derr != nil {
-					log.Warn("duplicate orphan cleanup failed, keeping single retry guard", "error", derr)
+					log.Warn().Err(derr).Msg("duplicate orphan cleanup failed, keeping single retry guard")
 				} else {
-					log.Warn("duplicate orphan removed after correlation race")
+					log.Debug().Msg("duplicate orphan removed after correlation race")
 				}
 			}
 			return nil
@@ -1127,7 +1124,7 @@ func (w *Worker) storeCorrelation(ctx context.Context, log *slog.Logger, cli Cha
 		} else {
 			putErr = err
 		}
-		log.Warn("correlation store failed, keeping visible message without correlation", "error", putErr)
+		log.Warn().Err(putErr).Msg("correlation store failed, keeping visible message without correlation")
 		return nil
 	}
 }

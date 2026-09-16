@@ -2,11 +2,11 @@ package whatsmeow
 
 import (
 	"context"
-	"log/slog"
 	"sync"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/model"
 	"wzap/internal/session"
@@ -19,7 +19,7 @@ func TestManagerRestartKeepsPersistedSessions(t *testing.T) {
 	schemaDSN := createIsolatedSchema(t, requireTestDSN(t))
 	ctx := context.Background()
 
-	first, err := NewManager(ctx, schemaDSN, nil, slog.Default(), nil, testMediaLimit)
+	first, err := NewManager(ctx, schemaDSN, nil, zerolog.Nop(), nil, testMediaLimit)
 	if err != nil {
 		t.Fatalf("NewManager before restart: %v", err)
 	}
@@ -28,7 +28,7 @@ func TestManagerRestartKeepsPersistedSessions(t *testing.T) {
 		t.Fatalf("Close before restart: %v", err)
 	}
 
-	second, err := NewManager(ctx, schemaDSN, nil, slog.Default(), nil, testMediaLimit)
+	second, err := NewManager(ctx, schemaDSN, nil, zerolog.Nop(), nil, testMediaLimit)
 	if err != nil {
 		t.Fatalf("NewManager after restart: %v", err)
 	}

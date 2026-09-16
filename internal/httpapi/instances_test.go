@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
 	"wzap/internal/instance"
@@ -136,7 +137,7 @@ func instancesServer(t *testing.T, svc InstanceService) *http.Server {
 	if svc == nil {
 		svc = &fakeInstanceService{}
 	}
-	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, discardLogger(),
+	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, zerolog.Nop(),
 		Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    svc,

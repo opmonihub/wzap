@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
 	"wzap/internal/media"
@@ -107,7 +108,7 @@ func mediaUploadServer(t *testing.T, svc MessageService, store MediaStore, repo 
 		repo = newFakeIdempotency()
 	}
 	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, MaxMediaBytes: testMaxMediaBytes},
-		discardLogger(),
+		zerolog.Nop(),
 		Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    &fakeInstanceService{},

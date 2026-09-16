@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/chatwoot/inbound"
 	"wzap/internal/config"
@@ -19,7 +20,7 @@ func TestChatwootWebhookRateLimited(t *testing.T) {
 	id := uuid.New()
 	srv := New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, PublicURL: "https://wzap.example.com", Chatwoot: chatwootOn()},
-		discardLogger(),
+		zerolog.Nop(),
 		Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances: &fakeInstanceService{
@@ -63,7 +64,7 @@ func TestChatwootCommandAuthenticated(t *testing.T) {
 	}
 	srv := New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, PublicURL: "https://wzap.example.com", Chatwoot: chatwootOn()},
-		discardLogger(),
+		zerolog.Nop(),
 		Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances: &fakeInstanceService{

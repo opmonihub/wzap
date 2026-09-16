@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/model"
 	"wzap/internal/storage"
@@ -146,7 +147,7 @@ const testMultipartLimit = testMultipartBytes + fingerprintMultipartOverhead
 // serveIdempotency runs req through the middleware wrapping next.
 func serveIdempotency(repo storage.IdempotencyRepository, next http.Handler, req *http.Request) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
-	Idempotency(repo, discardLogger(), testMultipartBytes)(next).ServeHTTP(rec, req)
+	Idempotency(repo, zerolog.Nop(), testMultipartBytes)(next).ServeHTTP(rec, req)
 	return rec
 }
 
@@ -446,7 +447,7 @@ func TestIdempotencyReleasesOnPanic(t *testing.T) {
 			}
 			Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
 		}()
-		Idempotency(repo, discardLogger(), testMultipartBytes)(panicking).ServeHTTP(w, r)
+		Idempotency(repo, zerolog.Nop(), testMultipartBytes)(panicking).ServeHTTP(w, r)
 	})
 
 	rec := httptest.NewRecorder()

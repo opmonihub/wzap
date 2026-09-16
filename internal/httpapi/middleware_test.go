@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,16 +15,14 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/auth"
+	"wzap/internal/logger"
 	"wzap/internal/storage"
 )
 
 const testToken = "test-service-token"
-
-func discardLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
-}
 
 func okHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -350,7 +347,7 @@ func TestRequestIDGeneratesMissingID(t *testing.T) {
 }
 
 func TestRecoverReturnsInternalErrorEnvelope(t *testing.T) {
-	handler := RequestID(Recover(discardLogger())(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+	handler := RequestID(Recover(zerolog.Nop())(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		panic("boom: database credentials are hunter2")
 	})))
 
@@ -380,7 +377,7 @@ func TestRecoverPassesThroughNormalResponses(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
 
-	Recover(discardLogger())(okHandler()).ServeHTTP(rec, req)
+	Recover(zerolog.Nop())(okHandler()).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
@@ -388,9 +385,8 @@ func TestRecoverPassesThroughNormalResponses(t *testing.T) {
 }
 
 func TestLoggingRecordsRequestFields(t *testing.T) {
-	var logged bytes.Buffer
-	logger := slog.New(slog.NewJSONHandler(&logged, nil))
-	handler := RequestID(Logging(logger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	logs, log := logger.NewTestLogger()
+	handler := RequestID(Logging(log)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		JSON(w, r, http.StatusCreated, map[string]string{"id": "abc"})
 	})))
 
@@ -400,7 +396,7 @@ func TestLoggingRecordsRequestFields(t *testing.T) {
 	handler.ServeHTTP(rec, req)
 
 	var entry map[string]any
-	decodeJSON(t, bytes.TrimSpace(logged.Bytes()), &entry)
+	decodeJSON(t, bytes.TrimSpace(logs.Bytes()), &entry)
 
 	for key, want := range map[string]any{
 		"request_id": "log-correlation",
@@ -414,5 +410,45 @@ func TestLoggingRecordsRequestFields(t *testing.T) {
 	}
 	if _, ok := entry["duration_ms"]; !ok {
 		t.Error("log entry is missing duration_ms")
+	}
+}
+
+func TestLoggingSkipsProbes(t *testing.T) {
+	logs, log := logger.NewTestLogger()
+	handler := RequestID(Logging(log)(okHandler()))
+
+	skipped := []struct{ method, path string }{
+		{http.MethodGet, "/healthz"},
+		{http.MethodGet, "/readyz"},
+		{http.MethodGet, "/swagger/index.html"},
+		{http.MethodGet, "/swagger/doc.json"},
+		{http.MethodGet, "/manager"},
+		{http.MethodGet, "/manager/"},
+		{http.MethodGet, "/manager/assets/app.js"},
+	}
+	for _, tc := range skipped {
+		req := httptest.NewRequest(tc.method, tc.path, nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Errorf("%s %s: status = %d, want %d", tc.method, tc.path, rec.Code, http.StatusOK)
+		}
+	}
+	if logs.Len() != 0 {
+		t.Errorf("probe requests must skip the access log, got %q", logs.String())
+	}
+
+	logged := []struct{ method, path string }{
+		{http.MethodPost, "/healthz"},
+		{http.MethodPost, "/readyz"},
+		{http.MethodGet, "/instances"},
+		{http.MethodGet, "/auth/me"},
+	}
+	for _, tc := range logged {
+		req := httptest.NewRequest(tc.method, tc.path, nil)
+		handler.ServeHTTP(httptest.NewRecorder(), req)
+	}
+	if logs.Len() == 0 {
+		t.Error("non-probe requests must be logged")
 	}
 }

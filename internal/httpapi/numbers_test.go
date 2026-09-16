@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
 	"wzap/internal/instance"
@@ -43,7 +44,7 @@ func numbersServer(t *testing.T, instances InstanceService, numbers NumberResolv
 	if numbers == nil {
 		numbers = &fakeNumberResolver{}
 	}
-	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, discardLogger(),
+	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, zerolog.Nop(),
 		Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    instances,

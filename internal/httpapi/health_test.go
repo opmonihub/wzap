@@ -1,16 +1,17 @@
 package httpapi
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/rs/zerolog"
+
 	"wzap/internal/config"
+	"wzap/internal/logger"
 	"wzap/internal/storage/postgres"
 	"wzap/internal/storage/postgres/postgrestest"
 )
@@ -39,7 +40,7 @@ func (d detailedChecker) Checks(context.Context) map[string]error { return d.res
 
 func readyServer(t *testing.T, checker ReadyChecker) *http.Server {
 	t.Helper()
-	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, discardLogger(),
+	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, zerolog.Nop(),
 		Deps{ReadyChecker: checker})
 }
 
@@ -211,8 +212,7 @@ func TestCheckerReportsMigrationState(t *testing.T) {
 }
 
 func TestReadyzLogsFailureWithRequestID(t *testing.T) {
-	var logs bytes.Buffer
-	log := slog.New(slog.NewTextHandler(&logs, nil))
+	logs, log := logger.NewTestLogger()
 	srv := New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, log,
 		Deps{ReadyChecker: checkFunc(func(context.Context) error { return errors.New("dependency down") })})
 
@@ -230,7 +230,7 @@ func TestReadyzLogsFailureWithRequestID(t *testing.T) {
 	if warning == "" {
 		t.Fatalf("readiness failure was not logged: %s", logs.String())
 	}
-	if !strings.Contains(warning, "request_id=req-abc") {
+	if !strings.Contains(warning, `"request_id":"req-abc"`) {
 		t.Errorf("warning is missing the request id: %s", warning)
 	}
 	if !strings.Contains(warning, "dependency down") {

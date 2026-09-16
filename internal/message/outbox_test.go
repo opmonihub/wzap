@@ -1,21 +1,21 @@
 package message
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/events"
 	"wzap/internal/instancelock"
+	"wzap/internal/logger"
 	"wzap/internal/model"
 	"wzap/internal/session"
 	"wzap/internal/session/sessiontest"
@@ -226,7 +226,7 @@ func newOutboxFixture(messages ...model.OutboundMessage) *outboxFixture {
 	// One worker keeps the claim/process order deterministic; the worker pool
 	// concurrency itself is covered by the locker tests. Humanization stays
 	// off unless a test enables it explicitly.
-	fixture.outbox = NewOutbox(fixture.repo, manager, fixture.writer, fixture.media, discardLogger(), 1, instancelock.New(), false)
+	fixture.outbox = NewOutbox(fixture.repo, manager, fixture.writer, fixture.media, zerolog.Nop(), 1, instancelock.New(), false)
 	fixture.outbox.now = func() time.Time { return fixture.now }
 	return fixture
 }
@@ -570,8 +570,8 @@ func TestOutboxHumanizePresenceFailureIsBestEffort(t *testing.T) {
 	fixture.outbox.humanizer = Humanizer{Enabled: true, Sleep: func(context.Context, time.Duration) error { return nil }}
 	fixture.session.SendPresenceErr = errors.New("websocket write failed")
 
-	var logs bytes.Buffer
-	fixture.outbox.log = slog.New(slog.NewTextHandler(&logs, nil))
+	logs, testLog := logger.NewTestLogger()
+	fixture.outbox.log = testLog
 
 	runOutbox(t, fixture)
 
@@ -666,6 +666,26 @@ func TestOutboxSendsMediaMessage(t *testing.T) {
 	}
 	if calls[0].Type != "image" || calls[0].MediaPath != "/data/media/foto" {
 		t.Errorf("session message = %+v, want the image upload from /data/media/foto", calls[0])
+	}
+}
+
+// TestOutboxWarnThrottled pins the per-key warn throttle: a repeat within
+// the window stays silent, and a call past the window logs again.
+func TestOutboxWarnThrottled(t *testing.T) {
+	buf, log := logger.NewTestLogger()
+	outbox := &Outbox{log: log, lastWarn: make(map[string]time.Time), warnEvery: 30 * time.Millisecond}
+	fields := func(e *zerolog.Event) *zerolog.Event { return e }
+
+	outbox.warnThrottled("throttle-test", "throttled warn", fields)
+	outbox.warnThrottled("throttle-test", "throttled warn", fields)
+	if got := strings.Count(buf.String(), "throttled warn"); got != 1 {
+		t.Fatalf("warn lines after a throttled repeat = %d, want 1", got)
+	}
+
+	time.Sleep(60 * time.Millisecond)
+	outbox.warnThrottled("throttle-test", "throttled warn", fields)
+	if got := strings.Count(buf.String(), "throttled warn"); got != 2 {
+		t.Fatalf("warn lines after the window elapsed = %d, want 2", got)
 	}
 }
 

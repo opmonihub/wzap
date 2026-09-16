@@ -5,14 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/events"
+	"wzap/internal/logger"
 	"wzap/internal/model"
 	"wzap/internal/session"
 	"wzap/internal/storage"
@@ -145,7 +146,7 @@ func TestRuntimeOnConnectionUpdatesInstanceAndEnqueuesEvent(t *testing.T) {
 		WhatsAppJID: "5511@wa", LastError: "old failure",
 	})
 	writer := &fakeWriter{}
-	runtime := NewRuntime(repo, writer, nil, nil, "", 0, nil)
+	runtime := NewRuntime(repo, writer, nil, nil, "", 0, zerolog.Nop())
 
 	runtime.OnConnection(context.Background(), id, session.StatusConnected, "5511999999999@s.whatsapp.net", "")
 
@@ -204,7 +205,7 @@ func TestRuntimeOnConnectionFailureRecordsReason(t *testing.T) {
 		WhatsAppJID: "5511@wa", LastConnectedAt: &connectedAt,
 	})
 	writer := &fakeWriter{}
-	runtime := NewRuntime(repo, writer, nil, nil, "", 0, nil)
+	runtime := NewRuntime(repo, writer, nil, nil, "", 0, zerolog.Nop())
 
 	runtime.OnConnection(context.Background(), id, session.StatusError, "", "temporary ban")
 
@@ -237,7 +238,7 @@ func TestRuntimeOnConnectionFailureRecordsReason(t *testing.T) {
 
 func TestRuntimeOnConnectionUnknownInstanceSkipsEvent(t *testing.T) {
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "", 0, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "", 0, zerolog.Nop())
 
 	runtime.OnConnection(context.Background(), uuid.New(), session.StatusConnected, "5511@wa", "")
 
@@ -251,7 +252,7 @@ func TestRuntimeOnConnectionUpdateFailureSkipsEvent(t *testing.T) {
 	repo := newRuntimeRepo(model.Instance{ID: id, Status: string(session.StatusDisconnected)})
 	repo.updateErr = errors.New("database down")
 	writer := &fakeWriter{}
-	runtime := NewRuntime(repo, writer, nil, nil, "", 0, nil)
+	runtime := NewRuntime(repo, writer, nil, nil, "", 0, zerolog.Nop())
 
 	runtime.OnConnection(context.Background(), id, session.StatusConnected, "5511@wa", "")
 
@@ -277,7 +278,7 @@ func (f *fakeReceiptApplier) Apply(_ context.Context, receipt session.Receipt) e
 func TestRuntimeOnReceiptAppliesReceipt(t *testing.T) {
 	id := uuid.New()
 	applier := &fakeReceiptApplier{}
-	runtime := NewRuntime(newRuntimeRepo(), &fakeWriter{}, applier, nil, "", 0, nil)
+	runtime := NewRuntime(newRuntimeRepo(), &fakeWriter{}, applier, nil, "", 0, zerolog.Nop())
 	receipt := session.Receipt{
 		InstanceID: id,
 		MessageIDs: []string{"wamid.1"},
@@ -295,9 +296,9 @@ func TestRuntimeOnReceiptAppliesReceipt(t *testing.T) {
 }
 
 func TestRuntimeOnReceiptFailureIsLogged(t *testing.T) {
-	var logs bytes.Buffer
+	logs, log := logger.NewTestLogger()
 	applier := &fakeReceiptApplier{err: errors.New("database down")}
-	runtime := NewRuntime(newRuntimeRepo(), &fakeWriter{}, applier, nil, "", 0, slog.New(slog.NewTextHandler(&logs, nil)))
+	runtime := NewRuntime(newRuntimeRepo(), &fakeWriter{}, applier, nil, "", 0, log)
 
 	runtime.OnReceipt(context.Background(), session.Receipt{InstanceID: uuid.New(), MessageIDs: []string{"wamid.1"}})
 
@@ -307,17 +308,16 @@ func TestRuntimeOnReceiptFailureIsLogged(t *testing.T) {
 }
 
 func TestRuntimeOnReceiptWithoutApplierIsNoOp(t *testing.T) {
-	runtime := NewRuntime(newRuntimeRepo(), &fakeWriter{}, nil, nil, "", 0, nil)
+	runtime := NewRuntime(newRuntimeRepo(), &fakeWriter{}, nil, nil, "", 0, zerolog.Nop())
 
 	runtime.OnReceipt(context.Background(), session.Receipt{InstanceID: uuid.New(), MessageIDs: []string{"wamid.1"}})
 }
 
-// debugLogBuffer returns a logger capturing Debug records and the buffer
-// holding their text rendering.
-func debugLogBuffer() (*slog.Logger, *bytes.Buffer) {
-	var logs bytes.Buffer
-	logger := slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	return logger, &logs
+// debugLogBuffer returns a test logger capturing Debug records and the buffer
+// holding their JSON rendering.
+func debugLogBuffer() (zerolog.Logger, *bytes.Buffer) {
+	logs, log := logger.NewTestLogger()
+	return log, logs
 }
 
 func TestRuntimeOnConnectionLogsConnectedProjection(t *testing.T) {
@@ -326,8 +326,8 @@ func TestRuntimeOnConnectionLogsConnectedProjection(t *testing.T) {
 		ID: id, Name: "loja", Status: string(session.StatusDisconnected),
 	})
 	writer := &fakeWriter{}
-	logger, logs := debugLogBuffer()
-	runtime := NewRuntime(repo, writer, nil, nil, "", 0, logger)
+	log, logs := debugLogBuffer()
+	runtime := NewRuntime(repo, writer, nil, nil, "", 0, log)
 
 	const jid = "5511999999999@s.whatsapp.net"
 	runtime.OnConnection(context.Background(), id, session.StatusConnected, jid, "")
@@ -336,13 +336,13 @@ func TestRuntimeOnConnectionLogsConnectedProjection(t *testing.T) {
 	if !strings.Contains(out, "connection change received") {
 		t.Errorf("logs = %q, want the connection entry line", out)
 	}
-	if !strings.Contains(out, "jid_present=true") {
+	if !strings.Contains(out, `"jid_present":true`) {
 		t.Errorf("logs = %q, want jid_present=true on the entry line", out)
 	}
 	if !strings.Contains(out, "connection state recorded") {
 		t.Errorf("logs = %q, want the projection success line", out)
 	}
-	if !strings.Contains(out, "connected_at_set=true") {
+	if !strings.Contains(out, `"connected_at_set":true`) {
 		t.Errorf("logs = %q, want connected_at_set=true after a connect", out)
 	}
 	if strings.Contains(out, jid) {
@@ -360,8 +360,8 @@ func TestRuntimeOnConnectionLogsFailureProjection(t *testing.T) {
 		WhatsAppJID: "5511@wa",
 	})
 	writer := &fakeWriter{}
-	logger, logs := debugLogBuffer()
-	runtime := NewRuntime(repo, writer, nil, nil, "", 0, logger)
+	log, logs := debugLogBuffer()
+	runtime := NewRuntime(repo, writer, nil, nil, "", 0, log)
 
 	runtime.OnConnection(context.Background(), id, session.StatusError, "", "temporary ban")
 
@@ -369,10 +369,10 @@ func TestRuntimeOnConnectionLogsFailureProjection(t *testing.T) {
 	if !strings.Contains(out, "connection change received") {
 		t.Errorf("logs = %q, want the connection entry line", out)
 	}
-	if !strings.Contains(out, "jid_present=false") {
+	if !strings.Contains(out, `"jid_present":false`) {
 		t.Errorf("logs = %q, want jid_present=false on the entry line", out)
 	}
-	if !strings.Contains(out, "connected_at_set=false") {
+	if !strings.Contains(out, `"connected_at_set":false`) {
 		t.Errorf("logs = %q, want connected_at_set=false without a connect", out)
 	}
 	if len(writer.subjects) != 1 {
@@ -382,8 +382,8 @@ func TestRuntimeOnConnectionLogsFailureProjection(t *testing.T) {
 
 func TestRuntimeOnConnectionLogsUnknownInstanceSkip(t *testing.T) {
 	writer := &fakeWriter{}
-	logger, logs := debugLogBuffer()
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "", 0, logger)
+	log, logs := debugLogBuffer()
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "", 0, log)
 
 	const jid = "5511@wa"
 	runtime.OnConnection(context.Background(), uuid.New(), session.StatusConnected, jid, "")

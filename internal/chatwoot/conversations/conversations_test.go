@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/chatwoot/client"
 	"wzap/internal/model"
@@ -81,7 +82,7 @@ func (f *convFixture) handler(t *testing.T) http.HandlerFunc {
 }
 
 func newConvResolver(srv *httptest.Server, cfg model.ChatwootConfig) *Resolver {
-	r := New(client.New(srv.URL, "test-token", "1"), cfg, 42, nil)
+	r := New(client.New(srv.URL, "test-token", "1"), cfg, 42, zerolog.Nop())
 	r.locks.poll = 5 * time.Millisecond
 	return r
 }

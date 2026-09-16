@@ -3,7 +3,6 @@ package whatsmeow
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/types/events"
@@ -156,7 +156,7 @@ func testBackoff() reconnectPolicy {
 func newTransitionSession(sink session.EventSink, sleep sleepFunc, reconnect func(context.Context) error) *instanceSession {
 	return &instanceSession{
 		instanceID:  uuid.New(),
-		log:         slog.Default(),
+		log:         zerolog.Nop(),
 		sink:        sink,
 		status:      session.StatusConnected,
 		jid:         "5511999999999@s.whatsapp.net",
@@ -386,7 +386,7 @@ func TestTerminalTransitionCancelsPendingReconnect(t *testing.T) {
 }
 
 func TestNewSessionDisablesLibraryAutoReconnect(t *testing.T) {
-	sess, err := newSession(uuid.New(), &store.Device{}, nil, nil, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
@@ -397,7 +397,7 @@ func TestNewSessionDisablesLibraryAutoReconnect(t *testing.T) {
 
 func TestDisconnectClearsIdentityAndEmitsEvent(t *testing.T) {
 	sink := &recordingSink{}
-	sess, err := newSession(uuid.New(), &store.Device{}, nil, sink, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), sink, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
@@ -431,7 +431,7 @@ func TestDisconnectClearsIdentityAndEmitsEvent(t *testing.T) {
 
 func TestDisconnectLogsOutFromWhatsApp(t *testing.T) {
 	sink := &recordingSink{}
-	sess, err := newSession(uuid.New(), &store.Device{}, nil, sink, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), sink, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
@@ -452,7 +452,7 @@ func TestDisconnectLogsOutFromWhatsApp(t *testing.T) {
 
 func TestRemoveLogsOutEvenWhenItFails(t *testing.T) {
 	sink := &recordingSink{}
-	sess, err := newSession(uuid.New(), &store.Device{}, nil, sink, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), sink, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
@@ -473,7 +473,7 @@ func TestRemoveLogsOutEvenWhenItFails(t *testing.T) {
 
 func TestRemoveEmitsWhenItChangesStatus(t *testing.T) {
 	sink := &recordingSink{}
-	sess, err := newSession(uuid.New(), &store.Device{}, nil, sink, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), sink, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}

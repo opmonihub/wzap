@@ -8,10 +8,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/chatwoot/mapper"
 	"wzap/internal/config"
@@ -180,7 +180,7 @@ type Deps struct {
 	Downloader   Downloader
 	Cache        CacheClearer
 	Global       config.Chatwoot
-	Log          *slog.Logger
+	Log          zerolog.Logger
 	// ClientFor builds the per-instance Chatwoot API for private notes and
 	// operational confirmations. When set it wins over the static Chats
 	// (tests use Chats directly); production wires client.New here so each
@@ -200,16 +200,13 @@ type Handler struct {
 	downloader   Downloader
 	cache        CacheClearer
 	global       config.Chatwoot
-	log          *slog.Logger
+	log          zerolog.Logger
 	clientFor    func(cfg model.ChatwootConfig) ChatwootAPI
 }
 
-// New builds a Handler over deps. A nil log discards output.
+// New builds a Handler over deps.
 func New(deps Deps) *Handler {
 	log := deps.Log
-	if log == nil {
-		log = slog.Default()
-	}
 	return &Handler{
 		configs:      deps.Configs,
 		correlations: deps.Correlations,
@@ -320,18 +317,18 @@ func (h *Handler) handleMessageUpdated(ctx context.Context, instanceID uuid.UUID
 	corr, err := h.correlations.GetByChatwootID(ctx, instanceID, msg.ID)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
-			h.log.Warn("skipping reverse delete without correlation", "instance_id", instanceID, "chatwoot_message_id", msg.ID)
+			h.log.Debug().Str("instance_id", instanceID.String()).Int64("chatwoot_message_id", msg.ID).Str("reason", "missing_correlation").Msg("skipping reverse delete without correlation")
 			return 200, nil
 		}
 		return 500, err
 	}
 	sess, ok := h.sessions.Get(instanceID)
 	if !ok {
-		h.log.Warn("skipping reverse delete without session", "instance_id", instanceID)
+		h.log.Debug().Str("instance_id", instanceID.String()).Str("reason", "missing_session").Msg("skipping reverse delete without session")
 		return 200, nil
 	}
 	if err := sess.DeleteMessage(ctx, corr.ContactSourceID, corr.WAKey); err != nil {
-		h.log.Warn("reverse delete failed", "instance_id", instanceID, "error", err)
+		h.log.Warn().Str("instance_id", instanceID.String()).Err(err).Msg("reverse delete failed")
 		h.postPrivateNote(ctx, cfg, conversationIDOf(payload), fmt.Sprintf("Falha ao apagar no WhatsApp: %v", err))
 		return 200, nil
 	}
@@ -343,12 +340,12 @@ func (h *Handler) handleOutgoing(ctx context.Context, instanceID uuid.UUID, cfg 
 	msg := payload.Message
 	recipient, err := h.recipient(ctx, instanceID, payload)
 	if err != nil {
-		h.log.Warn("recipient resolution failed", "instance_id", instanceID, "error", err)
+		h.log.Warn().Str("instance_id", instanceID.String()).Err(err).Msg("recipient resolution failed")
 		h.postPrivateNote(ctx, cfg, conversationIDOf(payload), fmt.Sprintf("Falha ao resolver destinatário: %v", err))
 		return 200, nil
 	}
 	if strings.TrimSpace(recipient) == "" {
-		h.log.Warn("skipping outgoing without recipient", "instance_id", instanceID)
+		h.log.Debug().Str("instance_id", instanceID.String()).Str("reason", "missing_recipient").Msg("skipping outgoing without recipient")
 		h.postPrivateNote(ctx, cfg, conversationIDOf(payload), "Falha ao enviar: destinatário desconhecido.")
 		return 200, nil
 	}
@@ -374,7 +371,7 @@ func (h *Handler) handleOutgoing(ctx context.Context, instanceID uuid.UUID, cfg 
 			}
 			data, mime, err := h.downloader.Download(ctx, att.DataURL, cfg.URL)
 			if err != nil {
-				h.log.Warn("attachment download failed", "instance_id", instanceID, "error", err)
+				h.log.Warn().Str("instance_id", instanceID.String()).Err(err).Msg("attachment download failed")
 				h.postPrivateNote(ctx, cfg, conversationIDOf(payload), fmt.Sprintf("Falha ao baixar anexo: %v", err))
 				continue
 			}
@@ -384,7 +381,7 @@ func (h *Handler) handleOutgoing(ctx context.Context, instanceID uuid.UUID, cfg 
 			}
 			stored, err := h.media.Save(ctx, instanceID, mediaDirectionOutbound, fmt.Sprintf("chatwoot-%d-%d", msg.ID, i), mime, filename, data)
 			if err != nil {
-				h.log.Warn("attachment store failed", "instance_id", instanceID, "error", err)
+				h.log.Warn().Str("instance_id", instanceID.String()).Err(err).Msg("attachment store failed")
 				h.postPrivateNote(ctx, cfg, conversationIDOf(payload), fmt.Sprintf("Falha ao armazenar anexo: %v", err))
 				continue
 			}
@@ -397,7 +394,7 @@ func (h *Handler) handleOutgoing(ctx context.Context, instanceID uuid.UUID, cfg 
 				MediaID:  &stored.ID,
 				QuotedID: quotedID,
 			}); err != nil {
-				h.log.Warn("media enqueue failed", "instance_id", instanceID, "error", err)
+				h.log.Warn().Str("instance_id", instanceID.String()).Err(err).Msg("media enqueue failed")
 				h.postPrivateNote(ctx, cfg, conversationIDOf(payload), fmt.Sprintf("Falha ao enviar mídia ao WhatsApp: %v", err))
 				continue
 			}
@@ -413,7 +410,7 @@ func (h *Handler) handleOutgoing(ctx context.Context, instanceID uuid.UUID, cfg 
 				Text:     text,
 				QuotedID: quotedID,
 			}); err != nil {
-				h.log.Warn("text fallback enqueue failed", "instance_id", instanceID, "error", err)
+				h.log.Warn().Str("instance_id", instanceID.String()).Err(err).Msg("text fallback enqueue failed")
 				h.postPrivateNote(ctx, cfg, conversationIDOf(payload), fmt.Sprintf("Falha ao enviar ao WhatsApp: %v", err))
 				return 200, nil
 			}
@@ -433,7 +430,7 @@ func (h *Handler) handleOutgoing(ctx context.Context, instanceID uuid.UUID, cfg 
 		Text:     text,
 		QuotedID: quotedID,
 	}); err != nil {
-		h.log.Warn("text enqueue failed", "instance_id", instanceID, "error", err)
+		h.log.Warn().Str("instance_id", instanceID.String()).Err(err).Msg("text enqueue failed")
 		h.postPrivateNote(ctx, cfg, conversationIDOf(payload), fmt.Sprintf("Falha ao enviar ao WhatsApp: %v", err))
 		return 200, nil
 	}
@@ -607,7 +604,7 @@ func (h *Handler) markReadBestEffort(ctx context.Context, instanceID uuid.UUID, 
 		return
 	}
 	if err := sess.MarkRead(ctx, corr.ContactSourceID, "", corr.WAKey); err != nil {
-		h.log.Warn("mark read failed", "instance_id", instanceID, "error", err)
+		h.log.Warn().Str("instance_id", instanceID.String()).Err(err).Msg("mark read failed")
 	}
 }
 
@@ -630,7 +627,7 @@ func (h *Handler) postPrivateNote(ctx context.Context, cfg *model.ChatwootConfig
 		return
 	}
 	if _, err := chats.CreateMessage(ctx, conversationID, content, true); err != nil {
-		h.log.Warn("private note failed", "conversation_id", conversationID, "error", err)
+		h.log.Warn().Int64("conversation_id", conversationID).Err(err).Msg("private note failed")
 	}
 }
 
@@ -641,7 +638,7 @@ func (h *Handler) postOperationalConfirm(ctx context.Context, cfg *model.Chatwoo
 		return
 	}
 	if _, err := chats.CreateMessage(ctx, conversationID, content, false); err != nil {
-		h.log.Warn("operational confirm failed", "conversation_id", conversationID, "error", err)
+		h.log.Warn().Int64("conversation_id", conversationID).Err(err).Msg("operational confirm failed")
 	}
 }
 

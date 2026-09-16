@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/storage/migrations"
 )
@@ -162,7 +162,7 @@ func handleHealthz(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} readiness "Readiness, wrapped in the data envelope"
 // @Failure 503 {object} readiness "Unready state, wrapped in the data envelope"
 // @Router /readyz [get]
-func handleReadyz(checker ReadyChecker, log *slog.Logger) http.HandlerFunc {
+func handleReadyz(checker ReadyChecker, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		results := map[string]error{}
@@ -196,9 +196,10 @@ func handleReadyz(checker ReadyChecker, log *slog.Logger) http.HandlerFunc {
 		}
 
 		if len(failures) > 0 {
-			log.WarnContext(ctx, "readiness check failed",
-				"request_id", RequestIDFromContext(ctx),
-				"error", errors.Join(failures...))
+			log.Warn().
+				Str("request_id", RequestIDFromContext(ctx)).
+				Err(errors.Join(failures...)).
+				Msg("readiness check failed")
 			JSON(w, r, http.StatusServiceUnavailable, readiness{Status: "unready", Checks: checks})
 			return
 		}

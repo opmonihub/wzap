@@ -1,9 +1,10 @@
 package httpapi
 
 import (
-	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/rs/zerolog"
 
 	"wzap/internal/instance"
 )
@@ -43,7 +44,7 @@ type statusResponse struct {
 // @Failure 409 {object} errorEnvelope "Instance already connected"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Router /instances/{id}/connect [post]
-func handleConnectInstance(instances InstanceService) http.HandlerFunc {
+func handleConnectInstance(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := instanceID(w, r)
 		if !ok {
@@ -52,11 +53,11 @@ func handleConnectInstance(instances InstanceService) http.HandlerFunc {
 		if denyForeignInstanceKey(w, r, id) {
 			return
 		}
-		slog.Debug("connect instance request", "instance_id", id, "op", "connect")
+		log.Debug().Str("instance_id", id.String()).Str("op", "connect").Msg("connect instance request")
 
 		stored, err := instances.Get(r.Context(), id)
 		if err != nil {
-			slog.Warn("connect instance failed", "instance_id", id, "op", "connect", "error", err)
+			log.Warn().Str("instance_id", id.String()).Str("op", "connect").Err(err).Msg("connect instance failed")
 			writeInstanceError(w, r, err)
 			return
 		}
@@ -67,12 +68,16 @@ func handleConnectInstance(instances InstanceService) http.HandlerFunc {
 
 		result, err := instances.Connect(r.Context(), id)
 		if err != nil {
-			slog.Warn("connect instance failed", "instance_id", id, "op", "connect", "error", err)
+			log.Warn().Str("instance_id", id.String()).Str("op", "connect").Err(err).Msg("connect instance failed")
 			writeInstanceError(w, r, err)
 			return
 		}
-		slog.Debug("connect instance result",
-			append([]any{"instance_id", id, "op", "connect"}, connectLogAttrs(result)...)...)
+		ev := log.Debug().Str("instance_id", id.String()).Str("op", "connect").
+			Str("status", string(result.Status)).Bool("qr_present", result.QRCode != "")
+		if result.QRExpiresAt != nil {
+			ev = ev.Time("expires_at", *result.QRExpiresAt)
+		}
+		ev.Msg("connect instance result")
 		JSON(w, r, http.StatusOK, newConnectResponse(result))
 	}
 }
@@ -95,7 +100,7 @@ func handleConnectInstance(instances InstanceService) http.HandlerFunc {
 // @Failure 409 {object} errorEnvelope "Instance already connected"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Router /instances/{id}/qr [get]
-func handleQRInstance(instances InstanceService) http.HandlerFunc {
+func handleQRInstance(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := instanceID(w, r)
 		if !ok {
@@ -104,11 +109,11 @@ func handleQRInstance(instances InstanceService) http.HandlerFunc {
 		if denyForeignInstanceKey(w, r, id) {
 			return
 		}
-		slog.Debug("qr instance request", "instance_id", id, "op", "qr")
+		log.Debug().Str("instance_id", id.String()).Str("op", "qr").Msg("qr instance request")
 
 		stored, err := instances.Get(r.Context(), id)
 		if err != nil {
-			slog.Warn("qr instance failed", "instance_id", id, "op", "qr", "error", err)
+			log.Warn().Str("instance_id", id.String()).Str("op", "qr").Err(err).Msg("qr instance failed")
 			writeInstanceError(w, r, err)
 			return
 		}
@@ -119,12 +124,16 @@ func handleQRInstance(instances InstanceService) http.HandlerFunc {
 
 		result, err := instances.QR(r.Context(), id)
 		if err != nil {
-			slog.Warn("qr instance failed", "instance_id", id, "op", "qr", "error", err)
+			log.Warn().Str("instance_id", id.String()).Str("op", "qr").Err(err).Msg("qr instance failed")
 			writeInstanceError(w, r, err)
 			return
 		}
-		slog.Debug("qr instance result",
-			append([]any{"instance_id", id, "op", "qr"}, connectLogAttrs(result)...)...)
+		ev := log.Debug().Str("instance_id", id.String()).Str("op", "qr").
+			Str("status", string(result.Status)).Bool("qr_present", result.QRCode != "")
+		if result.QRExpiresAt != nil {
+			ev = ev.Time("expires_at", *result.QRExpiresAt)
+		}
+		ev.Msg("qr instance result")
 		JSON(w, r, http.StatusOK, newConnectResponse(result))
 	}
 }
@@ -144,7 +153,7 @@ func handleQRInstance(instances InstanceService) http.HandlerFunc {
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Router /instances/{id}/status [get]
-func handleInstanceStatus(instances InstanceService) http.HandlerFunc {
+func handleInstanceStatus(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := instanceID(w, r)
 		if !ok {
@@ -153,11 +162,11 @@ func handleInstanceStatus(instances InstanceService) http.HandlerFunc {
 		if denyForeignInstanceKey(w, r, id) {
 			return
 		}
-		slog.Debug("instance status request", "instance_id", id, "op", "status")
+		log.Debug().Str("instance_id", id.String()).Str("op", "status").Msg("instance status request")
 
 		found, err := instances.Get(r.Context(), id)
 		if err != nil {
-			slog.Warn("instance status failed", "instance_id", id, "op", "status", "error", err)
+			log.Warn().Str("instance_id", id.String()).Str("op", "status").Err(err).Msg("instance status failed")
 			writeInstanceError(w, r, err)
 			return
 		}
@@ -165,7 +174,7 @@ func handleInstanceStatus(instances InstanceService) http.HandlerFunc {
 			writeForbidden(w, r)
 			return
 		}
-		slog.Debug("instance status result", "instance_id", id, "op", "status", "status", found.Status)
+		log.Debug().Str("instance_id", id.String()).Str("op", "status").Str("status", found.Status).Msg("instance status result")
 		JSON(w, r, http.StatusOK, statusResponse{
 			Status:          found.Status,
 			WhatsAppJID:     found.WhatsAppJID,
@@ -192,7 +201,7 @@ func handleInstanceStatus(instances InstanceService) http.HandlerFunc {
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Router /instances/{id}/disconnect [post]
-func handleDisconnectInstance(instances InstanceService) http.HandlerFunc {
+func handleDisconnectInstance(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := instanceID(w, r)
 		if !ok {
@@ -201,11 +210,11 @@ func handleDisconnectInstance(instances InstanceService) http.HandlerFunc {
 		if denyForeignInstanceKey(w, r, id) {
 			return
 		}
-		slog.Debug("disconnect instance request", "instance_id", id, "op", "disconnect")
+		log.Debug().Str("instance_id", id.String()).Str("op", "disconnect").Msg("disconnect instance request")
 
 		stored, err := instances.Get(r.Context(), id)
 		if err != nil {
-			slog.Warn("disconnect instance failed", "instance_id", id, "op", "disconnect", "error", err)
+			log.Warn().Str("instance_id", id.String()).Str("op", "disconnect").Err(err).Msg("disconnect instance failed")
 			writeInstanceError(w, r, err)
 			return
 		}
@@ -215,11 +224,11 @@ func handleDisconnectInstance(instances InstanceService) http.HandlerFunc {
 		}
 
 		if err := instances.Disconnect(r.Context(), id); err != nil {
-			slog.Warn("disconnect instance failed", "instance_id", id, "op", "disconnect", "error", err)
+			log.Warn().Str("instance_id", id.String()).Str("op", "disconnect").Err(err).Msg("disconnect instance failed")
 			writeInstanceError(w, r, err)
 			return
 		}
-		slog.Debug("disconnect instance result", "instance_id", id, "op", "disconnect", "status", "disconnected")
+		log.Debug().Str("instance_id", id.String()).Str("op", "disconnect").Str("status", "disconnected").Msg("disconnect instance result")
 		JSON(w, r, http.StatusNoContent, nil)
 	}
 }
@@ -231,15 +240,4 @@ func newConnectResponse(result instance.ConnectResult) connectResponse {
 		QRCode:      result.QRCode,
 		QRExpiresAt: result.QRExpiresAt,
 	}
-}
-
-// connectLogAttrs builds the safe result attributes for a pairing outcome:
-// the status plus whether a QR code is present and its expiry. The QR bytes
-// themselves are never logged.
-func connectLogAttrs(result instance.ConnectResult) []any {
-	attrs := []any{"status", string(result.Status), "qr_present", result.QRCode != ""}
-	if result.QRExpiresAt != nil {
-		attrs = append(attrs, "expires_at", *result.QRExpiresAt)
-	}
-	return attrs
 }

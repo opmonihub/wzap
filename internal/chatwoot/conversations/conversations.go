@@ -6,12 +6,11 @@ package conversations
 
 import (
 	"context"
-	"io"
-	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/chatwoot/client"
 	"wzap/internal/model"
@@ -33,7 +32,7 @@ type Resolver struct {
 	inboxID int64
 	pending bool
 	reopen  bool
-	log     *slog.Logger
+	log     zerolog.Logger
 
 	locks *locker
 	mu    sync.Mutex
@@ -43,12 +42,8 @@ type Resolver struct {
 
 // New builds a Resolver for one inbox. Pending mirrors
 // model.ChatwootConfig.ConversationPending (reuse and create pending
-// conversations) and reopen mirrors ReopenConversation. A nil log discards
-// output.
-func New(c *client.Client, cfg model.ChatwootConfig, inboxID int64, log *slog.Logger) *Resolver {
-	if log == nil {
-		log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	}
+// conversations) and reopen mirrors ReopenConversation.
+func New(c *client.Client, cfg model.ChatwootConfig, inboxID int64, log zerolog.Logger) *Resolver {
 	return &Resolver{
 		client:  c,
 		inboxID: inboxID,
@@ -96,7 +91,7 @@ func (r *Resolver) Resolve(ctx context.Context, instanceID uuid.UUID, remoteJID 
 		Status:    r.createStatus(),
 	})
 	if err != nil {
-		r.log.Warn("conversation creation failed", "remote_jid", remoteJID, "error", err)
+		r.log.Warn().Str("instance_id", instanceID.String()).Int64("contact_id", contactID).Err(err).Msg("conversation creation failed")
 		return 0, err
 	}
 	r.store(key, created.ID)
@@ -113,7 +108,7 @@ func (r *Resolver) checkCache(ctx context.Context, key string) (int64, bool) {
 	}
 	conversation, err := r.client.GetConversation(ctx, id)
 	if err != nil {
-		r.log.Warn("cached conversation validation failed", "conversation_id", id, "error", err)
+		r.log.Warn().Int64("conversation_id", id).Err(err).Msg("cached conversation validation failed")
 		r.drop(key)
 		return 0, false
 	}
@@ -161,7 +156,7 @@ func (r *Resolver) reuse(ctx context.Context, conversations []client.Conversatio
 	case resolved != 0 && r.reopen:
 		reopened, err := r.client.ToggleConversationStatus(ctx, resolved, "open")
 		if err != nil {
-			r.log.Warn("conversation reopen failed", "conversation_id", resolved, "error", err)
+			r.log.Warn().Int64("conversation_id", resolved).Err(err).Msg("conversation reopen failed")
 			return 0, false, err
 		}
 		return reopened.ID, true, nil

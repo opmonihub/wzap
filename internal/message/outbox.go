@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/events"
 	"wzap/internal/instancelock"
@@ -60,7 +60,7 @@ type Outbox struct {
 	repo      OutboxStore
 	manager   session.Manager
 	writer    events.Writer
-	log       *slog.Logger
+	log       zerolog.Logger
 	workers   int
 	lock      *instancelock.Locker
 	senders   map[string]Sender
@@ -71,25 +71,26 @@ type Outbox struct {
 	recoveryInterval time.Duration
 	now              func() time.Time
 	sleep            func(ctx context.Context, d time.Duration) error
+
+	mu        sync.Mutex
+	lastWarn  map[string]time.Time
+	warnEvery time.Duration // default time.Minute, test-overridable field
 }
 
-// NewOutbox builds the outbox over its dependencies. A nil logger falls back
-// to the default one, a nil locker to a fresh one and a non-positive worker
-// count to a single worker. Humanization stays off unless humanize is true; a
-// nil media resolver leaves media messages unsupported.
+// NewOutbox builds the outbox over its dependencies. A nil locker falls back
+// to a fresh one and a non-positive worker count to a single worker.
+// Humanization stays off unless humanize is true; a nil media resolver leaves
+// media messages unsupported.
 func NewOutbox(
 	repo OutboxStore,
 	manager session.Manager,
 	writer events.Writer,
 	media MediaPathResolver,
-	log *slog.Logger,
+	log zerolog.Logger,
 	workers int,
 	lock *instancelock.Locker,
 	humanize bool,
 ) *Outbox {
-	if log == nil {
-		log = slog.Default()
-	}
 	if workers <= 0 {
 		workers = 1
 	}
@@ -110,7 +111,22 @@ func NewOutbox(
 		recoveryInterval: defaultOutboxRecoveryInterval,
 		now:              time.Now,
 		sleep:            sleepContext,
+		lastWarn:         make(map[string]time.Time),
+		warnEvery:        time.Minute,
 	}
+}
+
+func (o *Outbox) warnThrottled(key, msg string, fields func(*zerolog.Event) *zerolog.Event) {
+	o.mu.Lock()
+	now := time.Now()
+	last, ok := o.lastWarn[key]
+	if ok && now.Sub(last) < o.warnEvery {
+		o.mu.Unlock()
+		return
+	}
+	o.lastWarn[key] = now
+	o.mu.Unlock()
+	fields(o.log.Warn()).Msg(msg)
 }
 
 // Run recovers the messages stuck in sending, then delivers claimed messages
@@ -145,11 +161,13 @@ func (o *Outbox) StartRecovery(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		o.log.WarnContext(ctx, "requeue stuck messages", "error", err)
+		o.warnThrottled("requeue", "requeue stuck messages", func(e *zerolog.Event) *zerolog.Event {
+			return e.Err(err)
+		})
 		return
 	}
 	if recovered > 0 {
-		o.log.InfoContext(ctx, "requeued stuck messages", "count", recovered)
+		o.log.Info().Int64("count", recovered).Msg("requeued stuck messages")
 	}
 }
 
@@ -181,7 +199,9 @@ func (o *Outbox) worker(ctx context.Context) {
 			if ctx.Err() != nil {
 				return
 			}
-			o.log.WarnContext(ctx, "claim queued messages", "error", err)
+			o.warnThrottled("claim", "claim queued messages", func(e *zerolog.Event) *zerolog.Event {
+				return e.Err(err)
+			})
 			if o.wait(ctx, o.pollInterval) != nil {
 				return
 			}
@@ -255,7 +275,7 @@ func (o *Outbox) simulatePresence(ctx context.Context, sess session.Session, msg
 			// recovery instead of sending it on a dead context.
 			return err
 		}
-		o.log.WarnContext(ctx, "simulate send presence", "message_id", msg.ID, "error", err)
+		o.log.Warn().Str("message_id", msg.ID.String()).Err(err).Msg("simulate send presence")
 	}
 	return nil
 }
@@ -286,7 +306,7 @@ func (o *Outbox) handleSendError(ctx context.Context, msg model.OutboundMessage,
 	if errors.Is(cause, session.ErrTransient) && msg.Attempts < maxSendRetries {
 		nextAttemptAt := o.now().Add(retryDelay(msg.Attempts))
 		if err := o.repo.MarkRetrying(ctx, msg.ID, cause.Error(), nextAttemptAt); err != nil {
-			o.log.ErrorContext(ctx, "schedule message retry", "message_id", msg.ID, "error", err)
+			o.log.Error().Str("message_id", msg.ID.String()).Err(err).Msg("schedule message retry")
 		}
 		return
 	}
@@ -297,7 +317,7 @@ func (o *Outbox) handleSendError(ctx context.Context, msg model.OutboundMessage,
 // complete records a delivered message and enqueues its status event.
 func (o *Outbox) complete(ctx context.Context, msg model.OutboundMessage, whatsappID string) {
 	if err := o.repo.MarkSent(ctx, msg.ID, whatsappID); err != nil {
-		o.log.ErrorContext(ctx, "mark message sent", "message_id", msg.ID, "error", err)
+		o.log.Error().Str("message_id", msg.ID.String()).Err(err).Msg("mark message sent")
 		return
 	}
 	o.emit(ctx, msg, StatusSent, whatsappID, "")
@@ -306,7 +326,7 @@ func (o *Outbox) complete(ctx context.Context, msg model.OutboundMessage, whatsa
 // fail records a definitive failure and enqueues its status event.
 func (o *Outbox) fail(ctx context.Context, msg model.OutboundMessage, errMsg string) {
 	if err := o.repo.MarkFailed(ctx, msg.ID, errMsg); err != nil {
-		o.log.ErrorContext(ctx, "mark message failed", "message_id", msg.ID, "error", err)
+		o.log.Error().Str("message_id", msg.ID.String()).Err(err).Msg("mark message failed")
 		return
 	}
 	o.emit(ctx, msg, StatusFailed, "", errMsg)
@@ -323,11 +343,11 @@ func (o *Outbox) emit(ctx context.Context, msg model.OutboundMessage, status, wh
 		Error:      errMsg,
 	})
 	if err != nil {
-		o.log.ErrorContext(ctx, "build message status event", "message_id", msg.ID, "error", err)
+		o.log.Error().Str("message_id", msg.ID.String()).Err(err).Msg("build message status event")
 		return
 	}
 	if err := o.writer.Write(ctx, events.Subjects.MessageStatus(msg.InstanceID), env); err != nil {
-		o.log.WarnContext(ctx, "enqueue message status event", "message_id", msg.ID, "error", err)
+		o.log.Warn().Str("message_id", msg.ID.String()).Err(err).Msg("enqueue message status event")
 	}
 }
 

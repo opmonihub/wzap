@@ -49,7 +49,7 @@ func (s *instanceSession) Connect(ctx context.Context) (string, time.Time, error
 		cancel()
 		return "", time.Time{}, fmt.Errorf("open qr channel: %w", err)
 	}
-	s.log.Info("pairing connect started", "instance_id", s.instanceID)
+	s.log.Info().Str("instance_id", s.instanceID.String()).Msg("pairing connect started")
 
 	first := make(chan qrResult, 1)
 	s.mu.Lock()
@@ -72,16 +72,16 @@ func (s *instanceSession) Connect(ctx context.Context) (string, time.Time, error
 	select {
 	case res := <-first:
 		if res.err != nil {
-			s.log.Warn("pairing first qr failed", "instance_id", s.instanceID, "error", res.err)
+			s.log.Warn().Str("instance_id", s.instanceID.String()).Err(res.err).Msg("pairing first qr failed")
 			return "", time.Time{}, res.err
 		}
-		s.log.Info("pairing first qr received", "instance_id", s.instanceID, "expires_at", res.expiresAt)
+		s.log.Info().Str("instance_id", s.instanceID.String()).Time("expires_at", res.expiresAt).Msg("pairing first qr received")
 		return res.code, res.expiresAt, nil
 	case <-time.After(pairingFirstQRTimeout):
-		s.log.Warn("pairing timed out waiting for first qr", "instance_id", s.instanceID, "timeout", pairingFirstQRTimeout)
+		s.log.Warn().Str("instance_id", s.instanceID.String()).Dur("timeout", pairingFirstQRTimeout).Msg("pairing timed out waiting for first qr")
 		return "", time.Time{}, fmt.Errorf("%w: timed out waiting for the first qr code", session.ErrTransient)
 	case <-ctx.Done():
-		s.log.Warn("pairing connect cancelled", "instance_id", s.instanceID, "error", ctx.Err())
+		s.log.Warn().Str("instance_id", s.instanceID.String()).Err(ctx.Err()).Msg("pairing connect cancelled")
 		return "", time.Time{}, ctx.Err()
 	}
 }
@@ -111,17 +111,17 @@ func (s *instanceSession) monitorQR(qrChan <-chan whatsmeow.QRChannelItem) {
 			expiresAt := time.Now().Add(item.Timeout)
 			s.storeQR(item.Code, expiresAt)
 			s.deliverFirstQR(qrResult{code: item.Code, expiresAt: expiresAt})
-			s.log.Debug("qr code rotated", "instance_id", s.instanceID, "expires_at", expiresAt)
+			s.log.Debug().Str("instance_id", s.instanceID.String()).Time("expires_at", expiresAt).Msg("qr code rotated")
 		case whatsmeow.QRChannelSuccess.Event:
 			s.storeQR("", time.Time{})
 			s.deliverFirstQR(qrResult{err: errors.New("pairing finished before a qr code was delivered")})
-			s.log.Info("pairing succeeded", "instance_id", s.instanceID)
+			s.log.Info().Str("instance_id", s.instanceID.String()).Msg("pairing succeeded")
 			s.setStatus(session.StatusConnected, s.client.Store.GetJID().String(), "")
 			return
 		case whatsmeow.QRChannelTimeout.Event:
 			s.storeQR("", time.Time{})
 			s.deliverFirstQR(qrResult{err: errors.New("qr pairing timed out")})
-			s.log.Warn("pairing timed out", "instance_id", s.instanceID, "reason", "qr code expired")
+			s.log.Warn().Str("instance_id", s.instanceID.String()).Str("reason", "qr code expired").Msg("pairing timed out")
 			s.setStatus(session.StatusDisconnected, "", "qr code expired")
 			return
 		case whatsmeow.QRChannelEventError:
@@ -142,10 +142,10 @@ func (s *instanceSession) monitorQR(qrChan <-chan whatsmeow.QRChannelItem) {
 			return
 		default:
 			// Passkey handoff and future intermediate events carry no code.
-			s.log.Debug("ignoring qr channel event", "instance_id", s.instanceID, "event", item.Event)
+			s.log.Debug().Str("instance_id", s.instanceID.String()).Str("event", item.Event).Msg("ignoring qr channel event")
 		}
 	}
-	s.log.Warn("pairing qr channel closed", "instance_id", s.instanceID, "reason", "qr channel closed")
+	s.log.Warn().Str("instance_id", s.instanceID.String()).Str("reason", "qr channel closed").Msg("pairing qr channel closed")
 	s.setStatus(session.StatusDisconnected, "", "qr channel closed")
 }
 
@@ -155,7 +155,7 @@ func (s *instanceSession) monitorQR(qrChan <-chan whatsmeow.QRChannelItem) {
 func (s *instanceSession) failPairing(reason string) {
 	s.storeQR("", time.Time{})
 	s.deliverFirstQR(qrResult{err: errors.New(reason)})
-	s.log.Warn("pairing failed", "instance_id", s.instanceID, "error", reason)
+	s.log.Warn().Str("instance_id", s.instanceID.String()).Str("error", reason).Msg("pairing failed")
 	s.setStatus(session.StatusError, "", reason)
 }
 

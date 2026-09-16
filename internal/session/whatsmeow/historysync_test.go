@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/proto/waHistorySync"
@@ -68,7 +69,7 @@ func synthesizedHistorySync() *events.HistorySync {
 // Import plan consumes: one lib chunk becomes progress plus conversation
 // batches plus contacts in the per-instance accumulator.
 func TestDispatchHistorySyncAccumulatesBatchesAndContacts(t *testing.T) {
-	sess, err := newSession(uuid.New(), &store.Device{}, nil, nil, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
@@ -120,7 +121,7 @@ func TestDispatchHistorySyncAccumulatesBatchesAndContacts(t *testing.T) {
 // TestDispatchHistorySyncMergesChunks pins that repeated chunks accumulate
 // without duplicating messages.
 func TestDispatchHistorySyncMergesChunks(t *testing.T) {
-	sess, err := newSession(uuid.New(), &store.Device{}, nil, nil, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
@@ -144,7 +145,7 @@ func TestDispatchHistorySyncMergesChunks(t *testing.T) {
 // TestDispatchHistorySyncGroupMessageKeepsParticipant pins that group history
 // attributes the message to its author, not the group.
 func TestDispatchHistorySyncGroupMessageKeepsParticipant(t *testing.T) {
-	sess, err := newSession(uuid.New(), &store.Device{}, nil, nil, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
@@ -170,7 +171,7 @@ func TestDispatchHistorySyncGroupMessageKeepsParticipant(t *testing.T) {
 // TestDispatchOfflineSyncPreviewAndCompleted pins the progress lifecycle:
 // preview totals then the completion flag.
 func TestDispatchOfflineSyncPreviewAndCompleted(t *testing.T) {
-	sess, err := newSession(uuid.New(), &store.Device{}, nil, nil, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
@@ -192,11 +193,11 @@ func TestDispatchOfflineSyncPreviewAndCompleted(t *testing.T) {
 // TestHistorySyncSnapshotsArePerInstance pins accumulator isolation across
 // sessions: each instance feeds only its own snapshot.
 func TestHistorySyncSnapshotsArePerInstance(t *testing.T) {
-	first, err := newSession(uuid.New(), &store.Device{}, nil, nil, testMediaLimit)
+	first, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
-	second, err := newSession(uuid.New(), &store.Device{}, nil, nil, testMediaLimit)
+	second, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
@@ -214,7 +215,7 @@ func TestHistorySyncSnapshotsArePerInstance(t *testing.T) {
 // TestDispatchHistorySyncNilDataIsDropped pins the guard: a chunk without data
 // never poisons the accumulator.
 func TestDispatchHistorySyncNilDataIsDropped(t *testing.T) {
-	sess, err := newSession(uuid.New(), &store.Device{}, nil, nil, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}

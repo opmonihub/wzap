@@ -105,8 +105,7 @@ func (s *instanceSession) reconnectLoop(ctx context.Context, run *reconnectRun) 
 			return
 		}
 		if err := s.reconnectFn(ctx); err != nil {
-			s.log.Warn("reconnect attempt failed",
-				"instance_id", s.instanceID, "attempt", attempt+1, "error", err)
+			s.log.Warn().Str("instance_id", s.instanceID.String()).Int("attempt", attempt+1).Err(err).Msg("reconnect attempt failed")
 			continue
 		}
 		return

@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/events"
 	"wzap/internal/model"
@@ -76,7 +76,7 @@ type Worker struct {
 	keys          *KeyCache
 	deliver       DeliverFunc
 	maxMediaBytes int64
-	log           *slog.Logger
+	log           zerolog.Logger
 	// Sleep waits out the backoff between attempts. It is a field à la
 	// Humanizer so tests inject an instant sleep; production uses a
 	// context-aware real sleep.
@@ -94,12 +94,8 @@ type Worker struct {
 
 // NewWorker builds a webhook worker over the instance loader, the process
 // key cache, the deliver function and the media limit bounding the envelope
-// event. A nil logger falls back to the default one and a nil cache to a
-// fresh empty one.
-func NewWorker(loader InstanceLoader, keys *KeyCache, deliver DeliverFunc, maxMediaBytes int64, log *slog.Logger) *Worker {
-	if log == nil {
-		log = slog.Default()
-	}
+// event. A nil cache falls back to a fresh empty one.
+func NewWorker(loader InstanceLoader, keys *KeyCache, deliver DeliverFunc, maxMediaBytes int64, log zerolog.Logger) *Worker {
 	if keys == nil {
 		keys = NewKeyCache()
 	}
@@ -162,8 +158,7 @@ func (w *Worker) dispatch(env events.Envelope) {
 	case w.queue <- j:
 	default:
 		dropped := w.dropped.Add(1)
-		w.log.Warn("webhook queue full, dropping event",
-			"instance_id", env.InstanceID, "event_id", env.EventID, "event_type", env.Type, "dropped", dropped)
+		w.log.Warn().Str("instance_id", env.InstanceID.String()).Str("event_id", env.EventID.String()).Str("event_type", env.Type).Int64("dropped", dropped).Msg("webhook queue full, dropping event")
 	}
 }
 
@@ -181,13 +176,13 @@ func (w *Worker) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			w.log.InfoContext(ctx, "webhook worker stopped", "pending", len(w.queue))
+			w.log.Info().Int("pending", len(w.queue)).Msg("webhook worker stopped")
 			return
 		case j := <-w.queue:
 			select {
 			case sem <- struct{}{}:
 			case <-ctx.Done():
-				w.log.InfoContext(ctx, "webhook worker stopped", "pending", len(w.queue)+1)
+				w.log.Info().Int("pending", len(w.queue)+1).Msg("webhook worker stopped")
 				return
 			}
 			go func(job job) {
@@ -213,8 +208,7 @@ func (w *Worker) handle(ctx context.Context, j job) {
 	}
 	payload, err := json.Marshal(env)
 	if err != nil {
-		w.log.ErrorContext(ctx, "webhook delivery: marshal envelope",
-			"instance_id", j.instanceID, "event_id", j.eventID, "error", err)
+		w.log.Error().Str("instance_id", j.instanceID.String()).Str("event_id", j.eventID.String()).Err(err).Msg("webhook delivery: marshal envelope")
 		return
 	}
 
@@ -223,7 +217,7 @@ func (w *Worker) handle(ctx context.Context, j job) {
 		if err := ctx.Err(); err != nil {
 			return
 		}
-		done, err := w.attempt(ctx, j, payload)
+		done, err := w.attempt(ctx, j, payload, attempt)
 		if done {
 			return
 		}
@@ -238,9 +232,7 @@ func (w *Worker) handle(ctx context.Context, j job) {
 	// with the next job. It carries instance, event and attempt metadata but
 	// never the key. The durable record follows best-effort through the
 	// sink; a sink failure never requeues the job.
-	w.log.ErrorContext(ctx, "webhook dead letter",
-		"instance_id", j.instanceID, "event_id", j.eventID, "event_type", j.eventType,
-		"attempts", MaxAttempts, "last_error", lastErr)
+	w.log.Error().Str("instance_id", j.instanceID.String()).Str("event_id", j.eventID.String()).Str("event_type", j.eventType).Int("attempts", MaxAttempts).Err(lastErr).Msg("webhook dead letter")
 	w.recordDeadLetter(j, payload, lastErr)
 }
 
@@ -258,27 +250,24 @@ func (w *Worker) recordDeadLetter(j job, payload []byte, lastErr error) {
 	recordCtx, cancel := context.WithTimeout(context.Background(), deadLetterSinkTimeout)
 	defer cancel()
 	if err := w.sink.RecordDeadLetter(recordCtx, j.instanceID, j.eventID, j.eventType, payload, MaxAttempts, last); err != nil {
-		w.log.WarnContext(context.Background(), "webhook dead-letter sink failed",
-			"instance_id", j.instanceID, "event_id", j.eventID, "event_type", j.eventType, "error", err)
+		w.log.Warn().Str("instance_id", j.instanceID.String()).Str("event_id", j.eventID.String()).Str("event_type", j.eventType).Err(err).Msg("webhook dead-letter sink failed")
 	}
 }
 
 // attempt runs one delivery attempt. It reports done=true when the job is
 // finished (delivered, silently skipped, or terminally dropped) and
 // done=false with the failure when the retry schedule must continue.
-func (w *Worker) attempt(ctx context.Context, j job, payload []byte) (bool, error) {
+func (w *Worker) attempt(ctx context.Context, j job, payload []byte, attempt int) (bool, error) {
 	instance, err := w.loader.Get(ctx, j.instanceID)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
-			w.log.WarnContext(ctx, "webhook drop: instance gone",
-				"instance_id", j.instanceID, "event_id", j.eventID)
+			w.log.Debug().Str("instance_id", j.instanceID.String()).Str("event_id", j.eventID.String()).Msg("webhook drop: instance gone")
 			return true, nil
 		}
 		return false, fmt.Errorf("load instance: %w", err)
 	}
 	if instance == nil {
-		w.log.WarnContext(ctx, "webhook drop: instance gone",
-			"instance_id", j.instanceID, "event_id", j.eventID)
+		w.log.Debug().Str("instance_id", j.instanceID.String()).Str("event_id", j.eventID.String()).Msg("webhook drop: instance gone")
 		return true, nil
 	}
 
@@ -297,8 +286,11 @@ func (w *Worker) attempt(ctx context.Context, j job, payload []byte) (bool, erro
 	// retry schedule — the rotation may land mid-backoff.
 	key, ok := w.keys.Get(j.instanceID)
 	if !ok {
-		w.log.WarnContext(ctx, "webhook delivery failed: no instance key cached",
-			"instance_id", j.instanceID, "event_id", j.eventID, "event_type", j.eventType)
+		ev := w.log.Debug()
+		if attempt == 1 || attempt == MaxAttempts {
+			ev = w.log.Warn()
+		}
+		ev.Str("instance_id", j.instanceID.String()).Str("event_id", j.eventID.String()).Str("event_type", j.eventType).Msg("webhook delivery failed: no instance key cached")
 		return false, errors.New("webhook deliver: no instance key cached")
 	}
 
@@ -308,8 +300,11 @@ func (w *Worker) attempt(ctx context.Context, j job, payload []byte) (bool, erro
 		if errors.Is(err, ErrSkipped) {
 			return true, nil
 		}
-		w.log.WarnContext(ctx, "webhook delivery failed",
-			"instance_id", j.instanceID, "event_id", j.eventID, "event_type", j.eventType, "error", err)
+		ev := w.log.Debug()
+		if attempt == 1 || attempt == MaxAttempts {
+			ev = w.log.Warn()
+		}
+		ev.Str("instance_id", j.instanceID.String()).Str("event_id", j.eventID.String()).Str("event_type", j.eventType).Err(err).Msg("webhook delivery failed")
 		return false, err
 	}
 	return true, nil

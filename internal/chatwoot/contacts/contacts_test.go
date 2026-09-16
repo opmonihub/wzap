@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rs/zerolog"
+
 	"wzap/internal/chatwoot/client"
 	"wzap/internal/model"
 )
@@ -66,7 +68,7 @@ func TestResolveQueriesVariantsWithoutPlus(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	resolver := New(newTestClient(srv.URL), model.ChatwootConfig{}, nil)
+	resolver := New(newTestClient(srv.URL), model.ChatwootConfig{}, zerolog.Nop())
 	_, err := resolver.Resolve(context.Background(), "+5511999999999", false, "Nine", "", "5511999999999@s.whatsapp.net")
 	if err != nil {
 		t.Fatalf("Resolve = %v, want nil", err)
@@ -120,7 +122,7 @@ func TestResolveMergesBrazilDuplicates(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	resolver := New(newTestClient(srv.URL), model.ChatwootConfig{MergeBrazilContacts: true}, nil)
+	resolver := New(newTestClient(srv.URL), model.ChatwootConfig{MergeBrazilContacts: true}, zerolog.Nop())
 	got, err := resolver.Resolve(context.Background(), "+5511999999999", false, "", "", "")
 	if err != nil {
 		t.Fatalf("Resolve = %v, want nil", err)
@@ -149,7 +151,7 @@ func TestResolveSkipsMergeWhenFlagOff(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	resolver := New(newTestClient(srv.URL), model.ChatwootConfig{}, nil)
+	resolver := New(newTestClient(srv.URL), model.ChatwootConfig{}, zerolog.Nop())
 	got, err := resolver.Resolve(context.Background(), "+5511999999999", false, "", "", "")
 	if err != nil {
 		t.Fatalf("Resolve = %v, want nil", err)
@@ -183,7 +185,7 @@ func TestResolveGroupCreatesWithIdentifier(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	resolver := New(newTestClient(srv.URL), model.ChatwootConfig{}, nil)
+	resolver := New(newTestClient(srv.URL), model.ChatwootConfig{}, zerolog.Nop())
 	got, err := resolver.Resolve(context.Background(), "", true, "Team", "", "120363@test@g.us")
 	if err != nil {
 		t.Fatalf("Resolve = %v, want nil", err)
@@ -222,7 +224,7 @@ func TestResolveUpdatesDivergentName(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	resolver := New(newTestClient(srv.URL), model.ChatwootConfig{}, nil)
+	resolver := New(newTestClient(srv.URL), model.ChatwootConfig{}, zerolog.Nop())
 	got, err := resolver.Resolve(context.Background(), "+14155552671", false, "New", "http://img/a.png", "")
 	if err != nil {
 		t.Fatalf("Resolve = %v, want nil", err)
@@ -260,7 +262,7 @@ func TestResolveCreateConflictFallsBackToIdentifier(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	resolver := New(newTestClient(srv.URL), model.ChatwootConfig{}, nil)
+	resolver := New(newTestClient(srv.URL), model.ChatwootConfig{}, zerolog.Nop())
 	got, err := resolver.Resolve(context.Background(), "+5511999999999", false, "Nine", "", "5511999999999@s.whatsapp.net")
 	if err != nil {
 		t.Fatalf("Resolve = %v, want nil", err)
@@ -284,7 +286,7 @@ func TestResolveCreateFailureReturnsNil(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	resolver := New(newTestClient(srv.URL), model.ChatwootConfig{}, nil)
+	resolver := New(newTestClient(srv.URL), model.ChatwootConfig{}, zerolog.Nop())
 	got, err := resolver.Resolve(context.Background(), "+14155552671", false, "Name", "", "")
 	if err == nil {
 		t.Fatal("Resolve error = nil, want failure")

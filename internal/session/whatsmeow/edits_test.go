@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store"
@@ -77,7 +78,7 @@ func historyEditEvent(chat, sender types.JID, originalID, newText string) *event
 
 func dispatchSession(t *testing.T, sink session.EventSink) *instanceSession {
 	t.Helper()
-	sess, err := newSession(uuid.New(), &store.Device{}, nil, sink, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), sink, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}

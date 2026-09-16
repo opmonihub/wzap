@@ -6,12 +6,13 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"errors"
-	"log/slog"
 	"net/http"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/auth"
 	"wzap/internal/storage"
@@ -43,22 +44,36 @@ func RequestID(next http.Handler) http.Handler {
 	})
 }
 
-// Logging emits one structured log line per request with the correlation id.
-func Logging(log *slog.Logger) func(http.Handler) http.Handler {
+// Logging emits one structured log line per request, skipping probes and docs.
+func Logging(log zerolog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if skipAccessLog(r) {
+				next.ServeHTTP(w, r)
+				return
+			}
 			start := time.Now()
 			rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 			next.ServeHTTP(rec, r)
-			log.InfoContext(r.Context(), "http request",
-				"request_id", RequestIDFromContext(r.Context()),
-				"method", r.Method,
-				"path", r.URL.Path,
-				"status", rec.status,
-				"duration_ms", time.Since(start).Milliseconds(),
-			)
+			log.Info().
+				Str("request_id", RequestIDFromContext(r.Context())).
+				Str("method", r.Method).
+				Str("path", r.URL.Path).
+				Int("status", rec.status).
+				Int64("duration_ms", time.Since(start).Milliseconds()).
+				Msg("http request")
 		})
 	}
+}
+
+func skipAccessLog(r *http.Request) bool {
+	if (r.Method == http.MethodGet) && (r.URL.Path == "/healthz" || r.URL.Path == "/readyz") {
+		return true
+	}
+	if strings.HasPrefix(r.URL.Path, "/swagger/") {
+		return true
+	}
+	return r.URL.Path == "/manager" || strings.HasPrefix(r.URL.Path, "/manager/")
 }
 
 // statusRecorder captures the status code written by the inner handler so
@@ -83,7 +98,7 @@ func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter 
 
 // Recover converts a handler panic into a 500 error envelope. The panic value
 // and stack are logged server-side and never written to the client.
-func Recover(log *slog.Logger) func(http.Handler) http.Handler {
+func Recover(log zerolog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
@@ -91,11 +106,11 @@ func Recover(log *slog.Logger) func(http.Handler) http.Handler {
 				if recovered == nil {
 					return
 				}
-				log.ErrorContext(r.Context(), "panic recovered",
-					"request_id", RequestIDFromContext(r.Context()),
-					"panic", recovered,
-					"stack", string(debug.Stack()),
-				)
+				log.Error().
+					Str("request_id", RequestIDFromContext(r.Context())).
+					Any("panic", recovered).
+					Str("stack", string(debug.Stack())).
+					Msg("panic recovered")
 				Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
 			}()
 			next.ServeHTTP(w, r)

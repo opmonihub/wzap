@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/model"
 	"wzap/internal/session"
@@ -44,7 +44,7 @@ type SessionGetter interface {
 
 // SchedulerDeps wires the lost-messages cron. Run imports one instance with
 // the window cut (since = now - Window); ClearCache drops the connector
-// cache of an imported instance. A nil Log discards output.
+// cache of an imported instance.
 type SchedulerDeps struct {
 	Interval   time.Duration
 	Window     time.Duration
@@ -53,7 +53,7 @@ type SchedulerDeps struct {
 	Sessions   SessionGetter
 	Run        func(ctx context.Context, instanceID uuid.UUID, since time.Time) (int, error)
 	ClearCache func(instanceID uuid.UUID)
-	Log        *slog.Logger
+	Log        zerolog.Logger
 }
 
 // Scheduler re-imports recent history on an interval, covering the messages
@@ -66,7 +66,7 @@ type Scheduler struct {
 	sessions   SessionGetter
 	run        func(ctx context.Context, instanceID uuid.UUID, since time.Time) (int, error)
 	clearCache func(instanceID uuid.UUID)
-	log        *slog.Logger
+	log        zerolog.Logger
 }
 
 // NewScheduler builds a Scheduler over deps, applying the default interval
@@ -81,9 +81,6 @@ func NewScheduler(deps SchedulerDeps) *Scheduler {
 		window = DefaultLostWindow
 	}
 	log := deps.Log
-	if log == nil {
-		log = slog.Default()
-	}
 	return &Scheduler{
 		interval:   interval,
 		window:     window,
@@ -101,7 +98,7 @@ func NewScheduler(deps SchedulerDeps) *Scheduler {
 // overlap: when a cycle outlasts the interval the tick is skipped with a warn
 // instead of running two cycles concurrently over the same feeds.
 func (s *Scheduler) Start(ctx context.Context) {
-	s.log.Info("chatwoot import scheduler started", "interval", s.interval)
+	s.log.Info().Dur("interval", s.interval).Msg("chatwoot import scheduler started")
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
 	var running atomic.Bool
@@ -111,11 +108,11 @@ func (s *Scheduler) Start(ctx context.Context) {
 			return
 		case <-ticker.C:
 			if running.Swap(true) {
-				s.log.Warn("chatwoot sync lost messages skipped: previous cycle still running")
+				s.log.Warn().Msg("chatwoot sync lost messages skipped: previous cycle still running")
 				continue
 			}
 			if _, err := s.RunOnce(ctx); err != nil {
-				s.log.Warn("chatwoot sync lost messages failed", "error", err)
+				s.log.Warn().Err(err).Msg("chatwoot sync lost messages failed")
 			}
 			running.Store(false)
 		}
@@ -171,7 +168,7 @@ func (s *Scheduler) syncInstance(ctx context.Context, id uuid.UUID, since time.T
 		if errors.Is(err, storage.ErrNotFound) {
 			return 0, false
 		}
-		s.log.Warn("chatwoot import config lookup failed", "instance_id", id, "error", err)
+		s.log.Warn().Str("instance_id", id.String()).Err(err).Msg("chatwoot import config lookup failed")
 		return 0, false
 	}
 	if cfg == nil || !cfg.Enabled || !cfg.ImportMessages {
@@ -182,7 +179,7 @@ func (s *Scheduler) syncInstance(ctx context.Context, id uuid.UUID, since time.T
 	}
 	n, err := s.run(ctx, id, since)
 	if err != nil {
-		s.log.Warn("chatwoot sync lost messages failed", "instance_id", id, "error", err)
+		s.log.Warn().Str("instance_id", id.String()).Err(err).Msg("chatwoot sync lost messages failed")
 		return 0, false
 	}
 	if n > 0 && s.clearCache != nil {

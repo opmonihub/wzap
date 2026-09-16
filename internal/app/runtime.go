@@ -6,11 +6,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/events"
 	"wzap/internal/message"
@@ -42,7 +42,7 @@ type Runtime struct {
 	media         MediaStore
 	publicURL     string
 	maxMediaBytes int64
-	log           *slog.Logger
+	log           zerolog.Logger
 
 	// mu serializes connection projections so the persisted transitions and
 	// the events describing them keep a consistent order. The repository
@@ -55,9 +55,8 @@ var _ session.EventSink = (*Runtime)(nil)
 // NewRuntime builds the runtime over the instance repository, the outbox
 // writer, the receipt projector and the inbound media store. publicURL is the
 // base of the media download URLs and maxMediaBytes the largest inbound media
-// stored before it is omitted. A nil logger falls back to the default one; a
-// nil receipt projector makes OnReceipt a no-op and a nil media store marks
-// every inbound media as omitted.
+// stored before it is omitted. A nil receipt projector makes OnReceipt a
+// no-op and a nil media store marks every inbound media as omitted.
 func NewRuntime(
 	instances storage.InstanceRepository,
 	writer events.Writer,
@@ -65,11 +64,8 @@ func NewRuntime(
 	mediaStore MediaStore,
 	publicURL string,
 	maxMediaBytes int64,
-	log *slog.Logger,
+	log zerolog.Logger,
 ) *Runtime {
-	if log == nil {
-		log = slog.Default()
-	}
 	return &Runtime{
 		instances:     instances,
 		events:        writer,
@@ -86,8 +82,7 @@ func NewRuntime(
 // down and a message without its media is still delivered to the consumers.
 func (r *Runtime) OnMessage(ctx context.Context, msg session.InboundMessage) {
 	if err := r.handleInbound(ctx, msg); err != nil {
-		r.log.ErrorContext(ctx, "handle inbound message",
-			"instance_id", msg.InstanceID, "message_id", msg.MessageID, "error", err)
+		r.log.Error().Str("instance_id", msg.InstanceID.String()).Str("message_id", msg.MessageID).Err(err).Msg("handle inbound message")
 	}
 }
 
@@ -99,7 +94,7 @@ func (r *Runtime) OnReceipt(ctx context.Context, receipt session.Receipt) {
 		return
 	}
 	if err := r.receipts.Apply(ctx, receipt); err != nil {
-		r.log.ErrorContext(ctx, "apply receipt", "instance_id", receipt.InstanceID, "error", err)
+		r.log.Error().Str("instance_id", receipt.InstanceID.String()).Err(err).Msg("apply receipt")
 	}
 }
 
@@ -112,15 +107,12 @@ func (r *Runtime) OnConnection(ctx context.Context, instanceID uuid.UUID, status
 	defer r.mu.Unlock()
 
 	// The JID itself is never logged: only whether it is present.
-	r.log.DebugContext(ctx, "connection change received",
-		"instance_id", instanceID, "status", status, "jid_present", jid != "", "reason", reason)
+	r.log.Debug().Str("instance_id", instanceID.String()).Str("status", string(status)).Bool("jid_present", jid != "").Str("reason", reason).Msg("connection change received")
 
 	if err := applyConnection(ctx, r.log, r.instances, instanceID, status, jid, reason); err != nil {
-		r.log.ErrorContext(ctx, "record connection change",
-			"instance_id", instanceID, "status", status, "error", err)
+		r.log.Error().Str("instance_id", instanceID.String()).Str("status", string(status)).Err(err).Msg("record connection change")
 		if errors.Is(err, storage.ErrNotFound) {
-			r.log.WarnContext(ctx, "skip connection event for unknown instance",
-				"instance_id", instanceID, "status", status)
+			r.log.Warn().Str("instance_id", instanceID.String()).Str("status", string(status)).Msg("skip connection event for unknown instance")
 		}
 		return
 	}
@@ -131,11 +123,11 @@ func (r *Runtime) OnConnection(ctx context.Context, instanceID uuid.UUID, status
 		Reason:      reason,
 	})
 	if err != nil {
-		r.log.ErrorContext(ctx, "build connection event", "instance_id", instanceID, "error", err)
+		r.log.Error().Str("instance_id", instanceID.String()).Err(err).Msg("build connection event")
 		return
 	}
 	if err := r.events.Write(ctx, events.Subjects.Connection(instanceID), env); err != nil {
-		r.log.ErrorContext(ctx, "enqueue connection event", "instance_id", instanceID, "error", err)
+		r.log.Error().Str("instance_id", instanceID.String()).Err(err).Msg("enqueue connection event")
 	}
 }
 
@@ -143,7 +135,7 @@ func (r *Runtime) OnConnection(ctx context.Context, instanceID uuid.UUID, status
 // update, so a concurrent PATCH cannot be overwritten with stale columns. The
 // JID is kept while it is unknown so a transient failure keeps the paired
 // identity, and last_connected_at is stamped on every transition to connected.
-func applyConnection(ctx context.Context, log *slog.Logger, instances storage.InstanceRepository, instanceID uuid.UUID, status session.Status, jid, reason string) error {
+func applyConnection(ctx context.Context, log zerolog.Logger, instances storage.InstanceRepository, instanceID uuid.UUID, status session.Status, jid, reason string) error {
 	var connectedAt *time.Time
 	if status == session.StatusConnected {
 		now := time.Now().UTC()
@@ -153,10 +145,7 @@ func applyConnection(ctx context.Context, log *slog.Logger, instances storage.In
 	if err := instances.SetConnectionState(ctx, instanceID, string(status), jid, reason, connectedAt); err != nil {
 		return fmt.Errorf("set instance connection: %w", err)
 	}
-	if log != nil {
-		log.DebugContext(ctx, "connection state recorded",
-			"instance_id", instanceID, "status", status, "connected_at_set", connectedAt != nil)
-	}
+	log.Debug().Str("instance_id", instanceID.String()).Str("status", string(status)).Bool("connected_at_set", connectedAt != nil).Msg("connection state recorded")
 	return nil
 }
 

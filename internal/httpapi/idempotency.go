@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -18,6 +17,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/model"
 	"wzap/internal/storage"
@@ -66,7 +66,7 @@ const (
 // middleware wraps; it lets a media upload be fingerprinted exactly instead of
 // falling back to the route. A non-positive value uses a generous fallback.
 func Idempotency(
-	repo storage.IdempotencyRepository, log *slog.Logger, maxUploadBytes int64,
+	repo storage.IdempotencyRepository, log zerolog.Logger, maxUploadBytes int64,
 ) func(http.Handler) http.Handler {
 	multipartLimit := maxUploadBytes + fingerprintMultipartOverhead
 	if maxUploadBytes <= 0 {
@@ -89,9 +89,9 @@ func Idempotency(
 			// do store abaixo continuam fail-open por disponibilidade:
 			// um send nunca é derrubado porque o banco falhou.)
 			if repo == nil {
-				log.ErrorContext(r.Context(), "idempotency repository is not configured",
-					"request_id", RequestIDFromContext(r.Context()),
-				)
+				log.Error().
+					Str("request_id", RequestIDFromContext(r.Context())).
+					Msg("idempotency repository is not configured")
 				Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
 				return
 			}
@@ -129,10 +129,10 @@ func Idempotency(
 			case err != nil:
 				// The store must not be the reason a send is dropped: log and
 				// let the request through unprotected.
-				log.WarnContext(r.Context(), "idempotency store unavailable, proceeding without it",
-					"request_id", RequestIDFromContext(r.Context()),
-					"error", err,
-				)
+				log.Warn().
+					Str("request_id", RequestIDFromContext(r.Context())).
+					Err(err).
+					Msg("idempotency store unavailable, proceeding without it")
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -167,10 +167,10 @@ func Idempotency(
 				// send may have reached WhatsApp before failing, so re-running
 				// it could duplicate the message.
 				if err := repo.Complete(ctx, targetID, key, status, capture.body.Bytes()); err != nil {
-					log.WarnContext(ctx, "store idempotent response",
-						"request_id", RequestIDFromContext(ctx),
-						"error", err,
-					)
+					log.Warn().
+						Str("request_id", RequestIDFromContext(ctx)).
+						Err(err).
+						Msg("store idempotent response")
 				}
 			}()
 
@@ -192,12 +192,12 @@ func replay(w http.ResponseWriter, record *model.IdempotencyRecord) {
 }
 
 // releaseKey frees an idempotency key, logging a failure to free it.
-func releaseKey(ctx context.Context, repo storage.IdempotencyRepository, log *slog.Logger, instanceID uuid.UUID, key string) {
+func releaseKey(ctx context.Context, repo storage.IdempotencyRepository, log zerolog.Logger, instanceID uuid.UUID, key string) {
 	if err := repo.Release(ctx, instanceID, key); err != nil {
-		log.WarnContext(ctx, "release idempotency key",
-			"request_id", RequestIDFromContext(ctx),
-			"error", err,
-		)
+		log.Warn().
+			Str("request_id", RequestIDFromContext(ctx)).
+			Err(err).
+			Msg("release idempotency key")
 	}
 }
 

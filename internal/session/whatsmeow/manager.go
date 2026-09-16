@@ -7,13 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"math/rand/v2"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store"
@@ -41,7 +41,7 @@ const (
 type Manager struct {
 	devices       *sqlstore.Container
 	instances     storage.InstanceRepository
-	log           *slog.Logger
+	log           zerolog.Logger
 	sink          session.EventSink
 	maxMediaBytes int64
 
@@ -59,10 +59,7 @@ var _ session.Manager = (*Manager)(nil)
 // addressed by databaseURL. instances lets RestoreAll map persisted devices
 // back to their instance, sink receives the session events and maxMediaBytes
 // caps how much inbound media a download may buffer.
-func NewManager(ctx context.Context, databaseURL string, instances storage.InstanceRepository, log *slog.Logger, sink session.EventSink, maxMediaBytes int64) (*Manager, error) {
-	if log == nil {
-		log = slog.Default()
-	}
+func NewManager(ctx context.Context, databaseURL string, instances storage.InstanceRepository, log zerolog.Logger, sink session.EventSink, maxMediaBytes int64) (*Manager, error) {
 	devices, err := openDeviceStore(ctx, databaseURL, log)
 	if err != nil {
 		return nil, err
@@ -193,7 +190,7 @@ func (m *Manager) RestoreAll(ctx context.Context) error {
 				return
 			}
 			if err := m.restore(ctx, instance); err != nil {
-				m.log.Warn("restore session failed", "instance_id", instance.ID, "jid", instance.WhatsAppJID, "error", err)
+				m.log.Warn().Str("instance_id", instance.ID.String()).Err(err).Msg("restore session failed")
 				m.emitConnection(instance.ID, session.StatusError, instance.WhatsAppJID, err.Error())
 			}
 		}(instance)
@@ -206,7 +203,7 @@ func (m *Manager) RestoreAll(ctx context.Context) error {
 // so the instance status reflects that it was not restored.
 func (m *Manager) restoreAborted(instance model.Instance, err error) {
 	reason := "restore cancelled: " + err.Error()
-	m.log.Warn("restore session cancelled", "instance_id", instance.ID, "jid", instance.WhatsAppJID, "error", err)
+	m.log.Warn().Str("instance_id", instance.ID.String()).Err(err).Msg("restore session cancelled")
 	m.emitConnection(instance.ID, session.StatusError, instance.WhatsAppJID, reason)
 }
 
@@ -322,7 +319,7 @@ type instanceSession struct {
 	instanceID    uuid.UUID
 	client        *whatsmeow.Client
 	sink          session.EventSink
-	log           *slog.Logger
+	log           zerolog.Logger
 	maxMediaBytes int64
 
 	// sleep and backoff drive the auto-reconnect; tests replace them to assert
@@ -383,12 +380,9 @@ type qrResult struct {
 // newSession wraps device in a connected-aware session and registers the event
 // translation. maxMediaBytes caps how much inbound media a download may
 // buffer.
-func newSession(instanceID uuid.UUID, device *store.Device, log *slog.Logger, sink session.EventSink, maxMediaBytes int64) (*instanceSession, error) {
+func newSession(instanceID uuid.UUID, device *store.Device, log zerolog.Logger, sink session.EventSink, maxMediaBytes int64) (*instanceSession, error) {
 	if device == nil {
 		return nil, errors.New("new session: nil device")
-	}
-	if log == nil {
-		log = slog.Default()
 	}
 	sess := &instanceSession{
 		instanceID:    instanceID,
@@ -458,11 +452,9 @@ func (s *instanceSession) setStatus(status session.Status, jid, reason string) {
 	currentJID := s.jid
 	s.mu.Unlock()
 
-	s.log.Debug("session status changed",
-		"instance_id", s.instanceID, "from", from, "to", status, "jid_present", currentJID != "", "reason", reason)
+	s.log.Debug().Str("instance_id", s.instanceID.String()).Str("from", string(from)).Str("to", string(status)).Bool("jid_present", currentJID != "").Str("reason", reason).Msg("session status changed")
 	if status == session.StatusError {
-		s.log.Warn("session entered error status",
-			"instance_id", s.instanceID, "from", from, "reason", reason)
+		s.log.Warn().Str("instance_id", s.instanceID.String()).Str("from", string(from)).Str("reason", reason).Msg("session entered error status")
 	}
 
 	if s.sink != nil {
@@ -671,7 +663,7 @@ func (s *instanceSession) logoutTolerantly(ctx context.Context) {
 		errors.Is(err, store.ErrDeviceDeleted):
 		return
 	}
-	s.log.Warn("logout from whatsapp failed", "instance_id", s.instanceID, "error", err)
+	s.log.Warn().Str("instance_id", s.instanceID.String()).Err(err).Msg("logout from whatsapp failed")
 }
 
 // connectExisting brings an already paired device online.

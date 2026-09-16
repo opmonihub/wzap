@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/model"
 	"wzap/internal/session/sessiontest"
@@ -120,7 +121,7 @@ func TestServiceCreateEmitsKeyAndPersistsOwnerAndHash(t *testing.T) {
 	owner := model.User{ID: uuid.New(), Email: "dono@example.com", Role: "user"}
 	users := newFakeUserRepo(owner)
 	keys := newFakeKeyRepo()
-	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, users, keys)
+	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, users, keys, zerolog.Nop())
 
 	created, key, err := svc.Create(context.Background(), CreateInput{
 		Name: "loja", ExternalRef: "crm-1", OwnerUserID: ownerPtr(owner.ID),
@@ -157,7 +158,7 @@ func TestServiceCreateEmitsKeyAndPersistsOwnerAndHash(t *testing.T) {
 }
 
 func TestServiceCreateRequiresOwner(t *testing.T) {
-	svc := NewService(newFakeRepo(), sessiontest.New(nil), &fakeMedia{}, newFakeUserRepo(), newFakeKeyRepo())
+	svc := NewService(newFakeRepo(), sessiontest.New(nil), &fakeMedia{}, newFakeUserRepo(), newFakeKeyRepo(), zerolog.Nop())
 
 	_, _, err := svc.Create(context.Background(), CreateInput{Name: "loja"})
 	if !errors.Is(err, ErrOwnerRequired) {
@@ -167,7 +168,7 @@ func TestServiceCreateRequiresOwner(t *testing.T) {
 
 func TestServiceCreateUnknownOwner(t *testing.T) {
 	users := newFakeUserRepo(model.User{ID: uuid.New(), Email: "outro@example.com", Role: "user"})
-	svc := NewService(newFakeRepo(), sessiontest.New(nil), &fakeMedia{}, users, newFakeKeyRepo())
+	svc := NewService(newFakeRepo(), sessiontest.New(nil), &fakeMedia{}, users, newFakeKeyRepo(), zerolog.Nop())
 
 	unknown := uuid.New()
 	_, _, err := svc.Create(context.Background(), CreateInput{Name: "loja", OwnerUserID: ownerPtr(unknown)})
@@ -181,7 +182,7 @@ func TestServiceCreateStoresHashOnly(t *testing.T) {
 	owner := model.User{ID: uuid.New(), Email: "dono@example.com", Role: "admin"}
 	users := newFakeUserRepo(owner)
 	keys := newFakeKeyRepo()
-	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, users, keys)
+	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, users, keys, zerolog.Nop())
 
 	created, key, err := svc.Create(context.Background(), CreateInput{Name: "loja", OwnerUserID: ownerPtr(owner.ID)})
 	if err != nil {
@@ -203,7 +204,7 @@ func TestServiceCreateHashFailure(t *testing.T) {
 	keys := newFakeKeyRepo()
 	keys.setErr = errors.New("database down")
 	repo := newFakeRepo()
-	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, users, keys)
+	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, users, keys, zerolog.Nop())
 
 	_, key, err := svc.Create(context.Background(), CreateInput{Name: "loja", ExternalRef: "crm-1", OwnerUserID: ownerPtr(owner.ID)})
 	if err == nil {
@@ -241,7 +242,7 @@ func TestServiceCreateHashFailureDeleteFails(t *testing.T) {
 	keys.setErr = errors.New("database down")
 	repo := newFakeRepo()
 	repo.deleteErr = errors.New("delete failed")
-	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, users, keys)
+	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, users, keys, zerolog.Nop())
 
 	_, _, err := svc.Create(context.Background(), CreateInput{Name: "loja", OwnerUserID: ownerPtr(owner.ID)})
 	if err == nil {
@@ -261,7 +262,7 @@ func TestServiceOldestAdmin(t *testing.T) {
 	// List order is created_at order: the plain user comes first, so the
 	// lookup must skip it and return the first admin in list order.
 	users := newFakeUserRepo(plain, adminFirst, adminSecond)
-	svc := NewService(newFakeRepo(), sessiontest.New(nil), &fakeMedia{}, users, newFakeKeyRepo())
+	svc := NewService(newFakeRepo(), sessiontest.New(nil), &fakeMedia{}, users, newFakeKeyRepo(), zerolog.Nop())
 
 	got, err := svc.OldestAdmin(context.Background())
 	if err != nil {
@@ -274,7 +275,7 @@ func TestServiceOldestAdmin(t *testing.T) {
 
 func TestServiceOldestAdminWithoutAdmin(t *testing.T) {
 	users := newFakeUserRepo(model.User{ID: uuid.New(), Email: "cliente@example.com", Role: "user"})
-	svc := NewService(newFakeRepo(), sessiontest.New(nil), &fakeMedia{}, users, newFakeKeyRepo())
+	svc := NewService(newFakeRepo(), sessiontest.New(nil), &fakeMedia{}, users, newFakeKeyRepo(), zerolog.Nop())
 
 	_, err := svc.OldestAdmin(context.Background())
 	if !errors.Is(err, ErrNoAdmin) {

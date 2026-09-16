@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 )
 
 // RED: worker deve capar deliveries concorrentes com semáforo.
@@ -32,7 +33,7 @@ func TestWorkerCapsConcurrency(t *testing.T) {
 	inst := webhookTestInstance("https://hooks.example.com/wzap")
 	keys := NewKeyCache()
 	keys.Store(inst.ID, "k")
-	worker := NewWorker(newStubLoader(inst), keys, deliver, 16<<20, nil)
+	worker := NewWorker(newStubLoader(inst), keys, deliver, 16<<20, zerolog.Nop())
 	worker.Sleep = func(context.Context, time.Duration) error { return nil }
 
 	ctx, cancel := context.WithCancel(context.Background())

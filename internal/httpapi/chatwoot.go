@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/chatwoot/client"
 	"wzap/internal/chatwoot/config"
@@ -105,7 +105,7 @@ type chatwootConfigResponse struct {
 // handleChatwootSet stores the connector config behind the dual auth. The
 // global gate answers 400 when disabled; validation failures answer 422
 // without persisting.
-func handleChatwootSet(instances InstanceService, configs ChatwootConfigStore, global cfgpkg.Chatwoot, publicURL string, clientFor ChatwootClientFor) http.HandlerFunc {
+func handleChatwootSet(instances InstanceService, configs ChatwootConfigStore, global cfgpkg.Chatwoot, publicURL string, clientFor ChatwootClientFor, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !global.Enabled {
 			Error(w, r, http.StatusBadRequest, "chatwoot_disabled", "chatwoot connector is disabled")
@@ -185,7 +185,7 @@ func handleChatwootSet(instances InstanceService, configs ChatwootConfigStore, g
 		}
 		webhookURL := chatwootWebhookURL(publicURL, id)
 		if saved.Enabled && saved.AutoCreate && clientFor != nil {
-			ensureChatwootInbox(r.Context(), clientFor, *saved, webhookURL)
+			ensureChatwootInbox(r.Context(), clientFor, *saved, webhookURL, log)
 		}
 		JSON(w, r, http.StatusOK, newChatwootConfigResponse(saved, webhookURL))
 	}
@@ -193,14 +193,14 @@ func handleChatwootSet(instances InstanceService, configs ChatwootConfigStore, g
 
 // ensureChatwootInbox guarantees the api inbox for auto_create, reusing it
 // by name. Best-effort: failures only warn, never fail the set.
-func ensureChatwootInbox(ctx context.Context, clientFor ChatwootClientFor, cfg model.ChatwootConfig, webhookURL string) {
+func ensureChatwootInbox(ctx context.Context, clientFor ChatwootClientFor, cfg model.ChatwootConfig, webhookURL string, log zerolog.Logger) {
 	cli := clientFor(cfg)
 	if cli == nil {
 		return
 	}
 	inboxes, err := cli.ListInboxes(ctx)
 	if err != nil {
-		slog.Warn("chatwoot auto_create inbox listing failed", "instance_id", cfg.InstanceID, "error", err)
+		log.Warn().Str("instance_id", cfg.InstanceID.String()).Err(err).Msg("chatwoot auto_create inbox listing failed")
 		return
 	}
 	for _, inbox := range inboxes {
@@ -209,7 +209,7 @@ func ensureChatwootInbox(ctx context.Context, clientFor ChatwootClientFor, cfg m
 		}
 	}
 	if _, err := cli.CreateInbox(ctx, client.CreateInboxRequest{Name: cfg.NameInbox, WebhookURL: webhookURL}); err != nil {
-		slog.Warn("chatwoot auto_create inbox creation failed", "instance_id", cfg.InstanceID, "error", err)
+		log.Warn().Str("instance_id", cfg.InstanceID.String()).Err(err).Msg("chatwoot auto_create inbox creation failed")
 	}
 }
 

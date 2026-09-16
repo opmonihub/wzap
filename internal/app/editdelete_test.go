@@ -1,18 +1,18 @@
 package app
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/events"
+	"wzap/internal/logger"
 	"wzap/internal/session"
 )
 
@@ -38,7 +38,7 @@ type decodedDeletePayload struct {
 func TestRuntimeOnMessageEditPublishesEditEvent(t *testing.T) {
 	id := uuid.New()
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "https://wzap.example.com", 1024, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "https://wzap.example.com", 1024, zerolog.Nop())
 	at := time.Date(2026, 9, 14, 12, 5, 0, 0, time.UTC)
 	raw := json.RawMessage(`{"edited":"yes"}`)
 
@@ -94,7 +94,7 @@ func TestRuntimeOnMessageEditPublishesEditEvent(t *testing.T) {
 
 func TestRuntimeOnMessageEditZeroTimestampFallsBackToNow(t *testing.T) {
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "", 1024, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "", 1024, zerolog.Nop())
 	before := time.Now().UTC()
 
 	runtime.OnMessageEdit(context.Background(), session.MessageEdit{
@@ -114,7 +114,7 @@ func TestRuntimeOnMessageEditZeroTimestampFallsBackToNow(t *testing.T) {
 func TestRuntimeOnMessageDeletePublishesDeleteEvent(t *testing.T) {
 	id := uuid.New()
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "", 1024, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "", 1024, zerolog.Nop())
 	at := time.Date(2026, 9, 14, 12, 6, 0, 0, time.UTC)
 
 	runtime.OnMessageDelete(context.Background(), session.MessageDelete{
@@ -162,10 +162,9 @@ func TestRuntimeOnMessageDeletePublishesDeleteEvent(t *testing.T) {
 }
 
 func TestRuntimeOnMessageEditWriteFailureIsLogged(t *testing.T) {
-	var logs bytes.Buffer
+	logs, log := logger.NewTestLogger()
 	writer := &fakeWriter{writeErr: errors.New("outbox down")}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "", 1024,
-		slog.New(slog.NewTextHandler(&logs, nil)))
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "", 1024, log)
 
 	runtime.OnMessageEdit(context.Background(), session.MessageEdit{
 		InstanceID: uuid.New(), MessageID: "wamid.orig",

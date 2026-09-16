@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/app"
 	"wzap/internal/chatwoot/client"
@@ -30,6 +30,7 @@ import (
 	"wzap/internal/httpapi"
 	"wzap/internal/instance"
 	"wzap/internal/instancelock"
+	"wzap/internal/logger"
 	"wzap/internal/media"
 	"wzap/internal/message"
 	"wzap/internal/model"
@@ -143,7 +144,7 @@ func serve() error {
 	case ensureErr != nil:
 		// The broker is down at boot: serve anyway, report it through /readyz
 		// and let the relay ensure the stream once the broker returns.
-		log.Warn("event stream not ready at startup", "error", ensureErr)
+		log.Warn().Err(ensureErr).Msg("event stream not ready at startup")
 	}
 
 	instances := postgres.NewInstanceRepository(pool)
@@ -216,12 +217,12 @@ func serve() error {
 		cancel()
 		switch {
 		case backfillErr != nil:
-			log.Warn("chatwoot token backfill failed, plaintext rows remain", "error", backfillErr)
+			log.Warn().Err(backfillErr).Msg("chatwoot token backfill failed, plaintext rows remain")
 		case sealed > 0:
-			log.Info("chatwoot tokens sealed at rest", "sealed", sealed)
+			log.Info().Int64("sealed", sealed).Msg("chatwoot tokens sealed at rest")
 		}
 	} else if cfg.Chatwoot.Enabled {
-		log.Warn("chatwoot tokens stored in plaintext: set WZAP_CHATWOOT_TOKEN_KEY to seal tokens at rest")
+		log.Warn().Msg("chatwoot tokens stored in plaintext: set WZAP_CHATWOOT_TOKEN_KEY to seal tokens at rest")
 	}
 	var mirrorWorker *mirror.Worker
 	// The history importer backs the manual REST trigger, the post-pairing
@@ -307,7 +308,7 @@ func serve() error {
 		})
 	}
 
-	service := instance.NewService(instances, sessions, mediaStorage, users, keys)
+	service := instance.NewService(instances, sessions, mediaStorage, users, keys, log)
 	numbers := message.NewJIDResolver(sessions, postgres.NewJIDCacheRepository(pool), log)
 	messages := message.NewService(instances, numbers, messageRepo)
 
@@ -349,7 +350,7 @@ func serve() error {
 	restoreErr := service.Restore(restoreCtx)
 	cancelRestore()
 	if restoreErr != nil {
-		log.Warn("restore sessions not completed", "error", restoreErr)
+		log.Warn().Err(restoreErr).Msg("restore sessions not completed")
 	}
 
 	outboxWorker := message.NewOutbox(messageRepo, sessions, webhookWriter, mediaStorage, log, cfg.OutboxWorkers, instancelock.New(), cfg.Humanize)
@@ -430,7 +431,7 @@ func serve() error {
 		}
 	}()
 
-	log.Info("wzap listening", "version", version.Version, "addr", cfg.HTTPAddr)
+	log.Info().Str("version", version.Version).Str("addr", cfg.HTTPAddr).Msg("wzap listening")
 
 	serveErr := make(chan error, 1)
 	go func() {
@@ -482,7 +483,7 @@ func serve() error {
 	if shutdownErr != nil {
 		return fmt.Errorf("shutdown http server: %w", shutdownErr)
 	}
-	log.Info("wzap stopped")
+	log.Info().Msg("wzap stopped")
 	return nil
 }
 
@@ -593,13 +594,13 @@ func (r miswiredConversationResolver) Resolve(context.Context, uuid.UUID, string
 
 // stopComponents stops the workers in order, waiting for each one within ctx so
 // a worker slow to return cannot extend the shutdown beyond the deadline.
-func stopComponents(ctx context.Context, log *slog.Logger, components ...shutdownComponent) {
+func stopComponents(ctx context.Context, log zerolog.Logger, components ...shutdownComponent) {
 	for _, component := range components {
 		component.stop()
 		select {
 		case <-component.done:
 		case <-ctx.Done():
-			log.Warn("shutdown wait timed out", "component", component.name)
+			log.Warn().Str("component", component.name).Msg("shutdown wait timed out")
 		}
 	}
 }
@@ -687,21 +688,6 @@ func decodeChatwootTokenKey(cfg config.Config) ([]byte, error) {
 }
 
 // newLogger builds the structured logger from the configuration.
-func newLogger(cfg config.Config) (*slog.Logger, error) {
-	var level slog.Level
-	if err := level.UnmarshalText([]byte(cfg.LogLevel)); err != nil {
-		return nil, fmt.Errorf("invalid WZAP_LOG_LEVEL %q: %w", cfg.LogLevel, err)
-	}
-	opts := &slog.HandlerOptions{Level: level}
-
-	var handler slog.Handler
-	switch cfg.LogFormat {
-	case "json":
-		handler = slog.NewJSONHandler(os.Stdout, opts)
-	case "text":
-		handler = slog.NewTextHandler(os.Stdout, opts)
-	default:
-		return nil, fmt.Errorf("invalid WZAP_LOG_FORMAT %q, want json or text", cfg.LogFormat)
-	}
-	return slog.New(handler), nil
+func newLogger(cfg config.Config) (zerolog.Logger, error) {
+	return logger.New(cfg.LogLevel, cfg.LogFormat)
 }

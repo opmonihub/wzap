@@ -8,9 +8,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
 	"strings"
+
+	"github.com/rs/zerolog"
 
 	"wzap/internal/chatwoot/client"
 	"wzap/internal/model"
@@ -33,15 +33,12 @@ type Contact struct {
 type Resolver struct {
 	client      *client.Client
 	mergeBrazil bool
-	log         *slog.Logger
+	log         zerolog.Logger
 }
 
 // New builds a Resolver. MergeBrazil mirrors
-// model.ChatwootConfig.MergeBrazilContacts. A nil log discards output.
-func New(c *client.Client, cfg model.ChatwootConfig, log *slog.Logger) *Resolver {
-	if log == nil {
-		log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	}
+// model.ChatwootConfig.MergeBrazilContacts.
+func New(c *client.Client, cfg model.ChatwootConfig, log zerolog.Logger) *Resolver {
 	return &Resolver{client: c, mergeBrazil: cfg.MergeBrazilContacts, log: log}
 }
 
@@ -118,11 +115,11 @@ func (r *Resolver) createIndividual(ctx context.Context, e164, name, avatar, jid
 	if err != nil {
 		if isUnprocessable(err) && strings.TrimSpace(jid) != "" {
 			if matches, serr := r.client.SearchContacts(ctx, jid); serr == nil && len(matches) > 0 {
-				r.log.Info("contact create conflict recovered by identifier search", "phone", e164)
+				r.log.Info().Int64("contact_id", matches[0].ID).Msg("contact create conflict recovered by identifier search")
 				return r.ensureFresh(ctx, matches[0], name, avatar)
 			}
 		}
-		r.log.Warn("contact creation failed, skipping message mirror", "phone", e164, "error", err)
+		r.log.Debug().Str("reason", "contact_create_failed").Err(err).Msg("contact creation failed, skipping message mirror")
 		return nil, err
 	}
 	return fromClient(created), nil
@@ -139,7 +136,7 @@ func (r *Resolver) createGroup(ctx context.Context, name, avatar, jid string) (*
 	}
 	created, err := r.client.CreateContact(ctx, req)
 	if err != nil {
-		r.log.Warn("group contact creation failed, skipping message mirror", "jid", jid, "error", err)
+		r.log.Debug().Str("reason", "contact_create_failed").Err(err).Msg("group contact creation failed, skipping message mirror")
 		return nil, err
 	}
 	return fromClient(created), nil
@@ -157,7 +154,7 @@ func (r *Resolver) mergeDuplicates(ctx context.Context, base client.Contact, fou
 			MergeeContactID: other.ID,
 		})
 		if err != nil {
-			r.log.Warn("contact merge failed", "base_id", base.ID, "mergee_id", other.ID, "error", err)
+			r.log.Warn().Int64("base_id", base.ID).Int64("mergee_id", other.ID).Err(err).Msg("contact merge failed")
 			continue
 		}
 		if merged != nil {
@@ -183,7 +180,7 @@ func (r *Resolver) ensureFresh(ctx context.Context, existing client.Contact, nam
 	}
 	updated, err := r.client.UpdateContact(ctx, existing.ID, req)
 	if err != nil {
-		r.log.Warn("contact update failed", "contact_id", existing.ID, "error", err)
+		r.log.Warn().Int64("contact_id", existing.ID).Err(err).Msg("contact update failed")
 		return fromClient(&existing), nil
 	}
 	return fromClient(updated), nil

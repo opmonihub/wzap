@@ -7,10 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/auth"
 	"wzap/internal/model"
@@ -101,14 +101,22 @@ type Service struct {
 	media    MediaRemover
 	users    storage.UserRepository
 	keys     storage.APIKeyRepository
+	log      zerolog.Logger
 }
+
+const (
+	msgConnectBranch = "connect instance branch"
+	msgConnectFailed = "connect instance failed"
+	msgQRBranch      = "qr instance branch"
+	msgQRFailed      = "qr instance failed"
+)
 
 // NewService builds the service over its dependencies. media may be nil until
 // instance media exists (Task 16); Delete then skips media removal. users and
 // keys are required for Create; a nil one fails Create with a 500-mapped
 // error instead of panicking.
-func NewService(repo storage.InstanceRepository, sessions session.Manager, media MediaRemover, users storage.UserRepository, keys storage.APIKeyRepository) *Service {
-	return &Service{repo: repo, sessions: sessions, media: media, users: users, keys: keys}
+func NewService(repo storage.InstanceRepository, sessions session.Manager, media MediaRemover, users storage.UserRepository, keys storage.APIKeyRepository, log zerolog.Logger) *Service {
+	return &Service{repo: repo, sessions: sessions, media: media, users: users, keys: keys, log: log}
 }
 
 // Create registers a new instance in the disconnected state owned by
@@ -284,43 +292,51 @@ func (s *Service) Connect(ctx context.Context, id uuid.UUID) (ConnectResult, err
 
 	switch sess.Status() {
 	case session.StatusConnected:
-		slog.Debug("connect instance branch", "instance_id", id, "op", "connect",
-			"branch", "already-connected", "status", string(session.StatusConnected))
+		s.log.Debug().Str("instance_id", id.String()).Str("op", "connect").
+			Str("branch", "already-connected").Str("status", string(session.StatusConnected)).
+			Msg(msgConnectBranch)
 		return ConnectResult{Status: session.StatusConnected}, nil
 	case session.StatusPairing:
 		result, err := pairingResult(ctx, sess)
 		if err != nil {
-			slog.Warn("connect instance failed", "instance_id", id, "op", "connect",
-				"branch", "already-pairing", "error", err)
+			s.log.Warn().Str("instance_id", id.String()).Str("op", "connect").
+				Str("branch", "already-pairing").Err(err).Msg(msgConnectFailed)
 			return ConnectResult{}, fmt.Errorf("connect instance: %w", err)
 		}
-		slog.Debug("connect instance branch", append([]any{"instance_id", id, "op", "connect",
-			"branch", "already-pairing"}, pairingLogAttrs(result)...)...)
+		ev := s.log.Debug().Str("instance_id", id.String()).Str("op", "connect").
+			Str("branch", "already-pairing").Str("status", string(result.Status)).
+			Bool("qr_present", result.QRCode != "")
+		if result.QRExpiresAt != nil {
+			ev = ev.Time("expires_at", *result.QRExpiresAt)
+		}
+		ev.Msg(msgConnectBranch)
 		return result, nil
 	}
 
 	_, qr, expiresAt, err := s.connectPairing(ctx, instance, sess, "connect")
 	if err != nil {
-		slog.Warn("connect instance failed", "instance_id", id, "op", "connect",
-			"branch", "new-pairing", "error", err)
+		s.log.Warn().Str("instance_id", id.String()).Str("op", "connect").
+			Str("branch", "new-pairing").Err(err).Msg(msgConnectFailed)
 		return ConnectResult{}, fmt.Errorf("connect instance: %w", err)
 	}
 	if qr == "" {
 		// The instance has stored credentials: connecting it online needs no
 		// pairing, and the event sink persists the connected status.
-		slog.Debug("connect instance branch", "instance_id", id, "op", "connect",
-			"branch", "stored-credentials", "status", string(session.StatusConnected))
+		s.log.Debug().Str("instance_id", id.String()).Str("op", "connect").
+			Str("branch", "stored-credentials").Str("status", string(session.StatusConnected)).
+			Msg(msgConnectBranch)
 		return ConnectResult{Status: session.StatusConnected}, nil
 	}
 
 	if err := s.markPairing(ctx, instance); err != nil {
-		slog.Warn("connect instance failed", "instance_id", id, "op", "connect",
-			"branch", "persist-pairing", "error", err)
+		s.log.Warn().Str("instance_id", id.String()).Str("op", "connect").
+			Str("branch", "persist-pairing").Err(err).Msg(msgConnectFailed)
 		return ConnectResult{}, fmt.Errorf("connect instance: %w", err)
 	}
-	slog.Debug("connect instance branch", "instance_id", id, "op", "connect",
-		"branch", "new-pairing", "status", string(session.StatusPairing),
-		"qr_present", true, "expires_at", expiresAt)
+	s.log.Debug().Str("instance_id", id.String()).Str("op", "connect").
+		Str("branch", "new-pairing").Str("status", string(session.StatusPairing)).
+		Bool("qr_present", true).Time("expires_at", expiresAt).
+		Msg(msgConnectBranch)
 	return ConnectResult{Status: session.StatusPairing, QRCode: qr, QRExpiresAt: &expiresAt}, nil
 }
 
@@ -340,43 +356,51 @@ func (s *Service) QR(ctx context.Context, id uuid.UUID) (ConnectResult, error) {
 
 	switch sess.Status() {
 	case session.StatusConnected:
-		slog.Debug("qr instance branch", "instance_id", id, "op", "qr",
-			"branch", "already-connected", "status", string(session.StatusConnected))
+		s.log.Debug().Str("instance_id", id.String()).Str("op", "qr").
+			Str("branch", "already-connected").Str("status", string(session.StatusConnected)).
+			Msg(msgQRBranch)
 		return ConnectResult{}, fmt.Errorf("get qr: %w", ErrAlreadyConnected)
 	case session.StatusPairing:
 		result, err := pairingResult(ctx, sess)
 		if err != nil {
-			slog.Warn("qr instance failed", "instance_id", id, "op", "qr",
-				"branch", "already-pairing", "error", err)
+			s.log.Warn().Str("instance_id", id.String()).Str("op", "qr").
+				Str("branch", "already-pairing").Err(err).Msg(msgQRFailed)
 			return ConnectResult{}, fmt.Errorf("get qr: %w", err)
 		}
-		slog.Debug("qr instance branch", append([]any{"instance_id", id, "op", "qr",
-			"branch", "already-pairing"}, pairingLogAttrs(result)...)...)
+		ev := s.log.Debug().Str("instance_id", id.String()).Str("op", "qr").
+			Str("branch", "already-pairing").Str("status", string(result.Status)).
+			Bool("qr_present", result.QRCode != "")
+		if result.QRExpiresAt != nil {
+			ev = ev.Time("expires_at", *result.QRExpiresAt)
+		}
+		ev.Msg(msgQRBranch)
 		return result, nil
 	}
 
 	_, qr, expiresAt, err := s.connectPairing(ctx, instance, sess, "qr")
 	if err != nil {
-		slog.Warn("qr instance failed", "instance_id", id, "op", "qr",
-			"branch", "new-pairing", "error", err)
+		s.log.Warn().Str("instance_id", id.String()).Str("op", "qr").
+			Str("branch", "new-pairing").Err(err).Msg(msgQRFailed)
 		return ConnectResult{}, fmt.Errorf("get qr: %w", err)
 	}
 	if qr == "" {
 		// Stored credentials mean the instance is paired already; there is no
 		// QR to hand out.
-		slog.Debug("qr instance branch", "instance_id", id, "op", "qr",
-			"branch", "stored-credentials", "status", string(session.StatusConnected))
+		s.log.Debug().Str("instance_id", id.String()).Str("op", "qr").
+			Str("branch", "stored-credentials").Str("status", string(session.StatusConnected)).
+			Msg(msgQRBranch)
 		return ConnectResult{}, fmt.Errorf("get qr: %w", ErrAlreadyConnected)
 	}
 
 	if err := s.markPairing(ctx, instance); err != nil {
-		slog.Warn("qr instance failed", "instance_id", id, "op", "qr",
-			"branch", "persist-pairing", "error", err)
+		s.log.Warn().Str("instance_id", id.String()).Str("op", "qr").
+			Str("branch", "persist-pairing").Err(err).Msg(msgQRFailed)
 		return ConnectResult{}, fmt.Errorf("get qr: %w", err)
 	}
-	slog.Debug("qr instance branch", "instance_id", id, "op", "qr",
-		"branch", "new-pairing", "status", string(session.StatusPairing),
-		"qr_present", true, "expires_at", expiresAt)
+	s.log.Debug().Str("instance_id", id.String()).Str("op", "qr").
+		Str("branch", "new-pairing").Str("status", string(session.StatusPairing)).
+		Bool("qr_present", true).Time("expires_at", expiresAt).
+		Msg(msgQRBranch)
 	return ConnectResult{Status: session.StatusPairing, QRCode: qr, QRExpiresAt: &expiresAt}, nil
 }
 
@@ -387,17 +411,6 @@ func pairingResult(ctx context.Context, sess session.Session) (ConnectResult, er
 		return ConnectResult{}, err
 	}
 	return ConnectResult{Status: session.StatusPairing, QRCode: qr, QRExpiresAt: &expiresAt}, nil
-}
-
-// pairingLogAttrs builds the safe result attributes for a pairing outcome:
-// the status plus whether a QR code is present and its expiry. The QR bytes
-// themselves are never logged.
-func pairingLogAttrs(result ConnectResult) []any {
-	attrs := []any{"status", string(result.Status), "qr_present", result.QRCode != ""}
-	if result.QRExpiresAt != nil {
-		attrs = append(attrs, "expires_at", *result.QRExpiresAt)
-	}
-	return attrs
 }
 
 // sessionFor returns the session of instance, resetting a pairing whose
@@ -419,7 +432,7 @@ func (s *Service) sessionFor(ctx context.Context, instance *model.Instance) (ses
 // fresh session ready to pair again. Removing the session first keeps the
 // manager consistent when a session with a deleted device is still registered.
 func (s *Service) resetPairing(ctx context.Context, instance *model.Instance) (session.Session, error) {
-	slog.Debug("reset stale pairing", "instance_id", instance.ID, "branch", "reset-stale-device")
+	s.log.Debug().Str("instance_id", instance.ID.String()).Str("branch", "reset-stale-device").Msg("reset stale pairing")
 	if err := s.sessions.Remove(ctx, instance.ID); err != nil {
 		return nil, fmt.Errorf("reset pairing: remove session: %w", err)
 	}
@@ -441,8 +454,7 @@ func (s *Service) connectPairing(ctx context.Context, instance *model.Instance, 
 		return sess, qr, expiresAt, err
 	}
 
-	slog.Debug("connect pairing device gone, resetting stale pairing",
-		"instance_id", instance.ID, "op", op, "branch", "reset-stale-device")
+	s.log.Debug().Str("instance_id", instance.ID.String()).Str("op", op).Str("branch", "reset-stale-device").Msg("connect pairing device gone, resetting stale pairing")
 	sess, err = s.resetPairing(ctx, instance)
 	if err != nil {
 		return nil, "", time.Time{}, err

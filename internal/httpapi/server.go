@@ -4,11 +4,11 @@ package httpapi
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/swaggo/http-swagger"
 
 	_ "wzap/docs"
@@ -57,7 +57,7 @@ type Deps struct {
 // public Swagger UI subtree (no credential) and /manager/ is the public
 // embedded console (no credential): both are more specific than the "/"
 // below, so longest-prefix routing keeps them outside Authenticate.
-func New(cfg config.Config, log *slog.Logger, deps Deps) *http.Server {
+func New(cfg config.Config, log zerolog.Logger, deps Deps) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handleHealthz)
 	mux.HandleFunc("GET /readyz", handleReadyz(deps.ReadyChecker, log))
@@ -80,10 +80,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) *http.Server {
 	api.HandleFunc("DELETE /instances/{id}", handleDeleteInstance(deps.Instances))
 	api.HandleFunc("POST /instances/{id}/apikey/rotate", handleRotateAPIKey(deps.Instances, deps.Keys))
 	api.HandleFunc("DELETE /instances/{id}/apikey", handleRevokeAPIKey(deps.Instances, deps.Keys))
-	api.HandleFunc("POST /instances/{id}/connect", handleConnectInstance(deps.Instances))
-	api.HandleFunc("POST /instances/{id}/disconnect", handleDisconnectInstance(deps.Instances))
-	api.HandleFunc("GET /instances/{id}/qr", handleQRInstance(deps.Instances))
-	api.HandleFunc("GET /instances/{id}/status", handleInstanceStatus(deps.Instances))
+	api.HandleFunc("POST /instances/{id}/connect", handleConnectInstance(deps.Instances, log))
+	api.HandleFunc("POST /instances/{id}/disconnect", handleDisconnectInstance(deps.Instances, log))
+	api.HandleFunc("GET /instances/{id}/qr", handleQRInstance(deps.Instances, log))
+	api.HandleFunc("GET /instances/{id}/status", handleInstanceStatus(deps.Instances, log))
 	api.HandleFunc("POST /instances/{id}/numbers/check", handleCheckNumber(deps.Instances, deps.Numbers))
 	api.Handle("POST /instances/{id}/messages/text", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleSendText(deps.Instances, deps.Messages)))
 	api.Handle("POST /instances/{id}/messages/location", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleSendLocation(deps.Instances, deps.Messages)))
@@ -97,7 +97,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) *http.Server {
 	api.HandleFunc("GET /users/{id}", handleGetUser(deps.Users))
 	api.HandleFunc("DELETE /users/{id}", handleDeleteUser(deps.Users, deps.Keys))
 	api.HandleFunc("PATCH /users/{id}", handleUpdateUserQuota(deps.Users))
-	api.HandleFunc("PUT /instances/{id}/chatwoot", handleChatwootSet(deps.Instances, deps.ChatwootConfigs, deps.Chatwoot, publicURLForChatwoot(cfg, deps), deps.ChatwootClientFor))
+	api.HandleFunc("PUT /instances/{id}/chatwoot", handleChatwootSet(deps.Instances, deps.ChatwootConfigs, deps.Chatwoot, publicURLForChatwoot(cfg, deps), deps.ChatwootClientFor, log))
 	api.HandleFunc("GET /instances/{id}/chatwoot", handleChatwootGet(deps.Instances, deps.ChatwootConfigs, deps.Chatwoot, publicURLForChatwoot(cfg, deps)))
 	api.HandleFunc("POST /instances/{id}/chatwoot/import", handleChatwootImport(deps.Instances, deps.ChatwootConfigs, deps.Chatwoot, deps.ChatwootImporter))
 	api.HandleFunc("POST /instances/{id}/chatwoot/command", handleChatwootCommand(deps.Instances, deps.ChatwootConfigs, deps.Chatwoot, deps.ChatwootInbound))

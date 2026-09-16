@@ -4,21 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/session"
 	"wzap/internal/session/sessiontest"
 )
-
-// discardLogger returns a logger that drops every record.
-func discardLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
-}
 
 // fakeJIDCache is an in-memory storage.JIDCacheRepository that records every
 // call and can force failures.
@@ -77,7 +71,7 @@ func newResolverFixture(t *testing.T) (*JIDResolver, uuid.UUID, *sessiontest.Fak
 	sess := sessiontest.NewSession(id, nil)
 	manager.Put(id, sess)
 	cache := newFakeJIDCache()
-	return NewJIDResolver(manager, cache, discardLogger()), id, sess, cache
+	return NewJIDResolver(manager, cache, zerolog.Nop()), id, sess, cache
 }
 
 func TestNormalizePhone(t *testing.T) {
@@ -227,7 +221,7 @@ func TestResolvePositiveCacheSkipsSession(t *testing.T) {
 	cache := newFakeJIDCache()
 	cache.entries["5547988359190"] = "5547988359190@s.whatsapp.net"
 	manager := sessiontest.New(nil)
-	resolver := NewJIDResolver(manager, cache, discardLogger())
+	resolver := NewJIDResolver(manager, cache, zerolog.Nop())
 
 	jid, err := resolver.Resolve(context.Background(), uuid.New(), "5547988359190")
 	if err != nil {
@@ -338,7 +332,7 @@ func TestResolveRejectsInvalidPhone(t *testing.T) {
 }
 
 func TestResolveUnavailableWithoutSession(t *testing.T) {
-	resolver := NewJIDResolver(sessiontest.New(nil), newFakeJIDCache(), discardLogger())
+	resolver := NewJIDResolver(sessiontest.New(nil), newFakeJIDCache(), zerolog.Nop())
 
 	_, err := resolver.Resolve(context.Background(), uuid.New(), "5547988359190")
 	if !errors.Is(err, ErrResolverUnavailable) {

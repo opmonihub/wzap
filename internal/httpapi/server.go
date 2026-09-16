@@ -102,7 +102,7 @@ func New(cfg config.Config, log zerolog.Logger, deps Deps) *http.Server {
 	api.HandleFunc("GET /users/{id}", handleGetUser(deps.Users))
 	api.HandleFunc("DELETE /users/{id}", handleDeleteUser(deps.Users, deps.Keys))
 	api.HandleFunc("PATCH /users/{id}", handleUpdateUserQuota(deps.Users))
-	api.HandleFunc("PUT /instances/{id}/chatwoot", handleChatwootSet(deps.Instances, deps.ChatwootConfigs, deps.Chatwoot, publicURLForChatwoot(cfg, deps), deps.ChatwootClientFor))
+	api.HandleFunc("PUT /instances/{id}/chatwoot", handleChatwootSet(deps.Instances, deps.ChatwootConfigs, deps.Chatwoot, publicURLForChatwoot(cfg, deps), deps.ChatwootClientFor, log))
 	api.HandleFunc("GET /instances/{id}/chatwoot", handleChatwootGet(deps.Instances, deps.ChatwootConfigs, deps.Chatwoot, publicURLForChatwoot(cfg, deps)))
 	api.HandleFunc("POST /instances/{id}/chatwoot/import", handleChatwootImport(deps.Instances, deps.ChatwootConfigs, deps.Chatwoot, deps.ChatwootImporter))
 	api.HandleFunc("POST /instances/{id}/chatwoot/command", handleChatwootCommand(deps.Instances, deps.ChatwootConfigs, deps.Chatwoot, deps.ChatwootInbound))

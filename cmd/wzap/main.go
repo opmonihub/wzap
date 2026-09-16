@@ -94,8 +94,8 @@ func serve() error {
 	// Temporary scaffolding: the constructors wired below still take
 	// *slog.Logger (later tasks migrate them to zerolog), so they get the
 	// bridge. Pass log itself wherever cmd/wzap owns the signature
-	// (seedAdmin, stopComponents).
-	slogLog := slogBridge(log)
+	// (seedAdmin, stopComponents) or the downstream ctor already takes
+	// zerolog (chatwoot mirror, import scheduler, inbound, instance).
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -265,14 +265,14 @@ func serve() error {
 			if !ok {
 				return miswiredContactResolver{err: fmt.Errorf("chatwoot mirror miswired: contacts need *client.Client, got %T", cli)}
 			}
-			return contacts.New(concrete, connector, slogLog)
+			return contacts.New(concrete, connector, log)
 		}
 		conversationsFor := func(cli mirror.ChatwootClient, connector model.ChatwootConfig, inboxID int64) mirror.ConversationResolver {
 			concrete, ok := cli.(*client.Client)
 			if !ok {
 				return miswiredConversationResolver{err: fmt.Errorf("chatwoot mirror miswired: conversations need *client.Client, got %T", cli)}
 			}
-			return conversations.New(concrete, connector, inboxID, slogLog)
+			return conversations.New(concrete, connector, inboxID, log)
 		}
 		mirrorWorker = mirror.New(mirror.Deps{
 			Conn:             nc,
@@ -289,7 +289,7 @@ func serve() error {
 				_, err := importer.run(ctx, instanceID, time.Time{})
 				return err
 			},
-			Log: slogLog,
+			Log: log,
 		})
 	}
 
@@ -310,7 +310,7 @@ func serve() error {
 					mirrorWorker.Clear(instanceID)
 				}
 			},
-			Log: slogLog,
+			Log: log,
 		})
 	}
 
@@ -342,7 +342,7 @@ func serve() error {
 		Downloader:   inbound.NewHTTPDownloader(cfg.MaxMediaBytes),
 		Cache:        chatwootCache,
 		Global:       cfg.Chatwoot,
-		Log:          slogLog,
+		Log:          log,
 		ClientFor: func(connector model.ChatwootConfig) inbound.ChatwootAPI {
 			return client.New(connector.URL, connector.Token, connector.AccountID)
 		},

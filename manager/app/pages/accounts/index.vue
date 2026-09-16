@@ -67,12 +67,13 @@ function filteredCount(): number {
 }
 
 // UPagination :total subscribes to the v-model state because tableApi reads
-// are not reactive: sorting/filter/pagination changes recompute the total.
+// are not reactive: sorting/filter/pagination/users changes recompute it.
 const totalFiltered = computed(() => {
   void sorting.value
   void globalFilter.value
   void columnFilters.value
   void pagination.value
+  void users.value
   return filteredCount()
 })
 const pageCount = computed(() => Math.max(1, Math.ceil(totalFiltered.value / pagination.value.pageSize)))
@@ -136,10 +137,10 @@ const visibilityItems = computed<DropdownMenuItem[]>(() =>
   }))
 )
 
-const selectedCount = computed(() =>
-  table.value?.tableApi?.getFilteredSelectedRowModel().rows.length
-  ?? Object.values(rowSelection.value).filter(Boolean).length
-)
+const selectedCount = computed(() => {
+  const fallback = Object.values(rowSelection.value).filter(Boolean).length
+  return table.value?.tableApi?.getFilteredSelectedRowModel().rows.length ?? fallback
+})
 
 function clearSelection() {
   if (table.value?.tableApi) {

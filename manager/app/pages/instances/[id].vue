@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import * as z from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
+import { breakpointsTailwind, useBreakpoints } from '@vueuse/core'
 import { ApiError } from '~/composables/useApi'
 import DeleteInstanceModal from '~/components/instances/DeleteInstanceModal.vue'
 import { useConfirmDelete } from '~/components/instances/ConfirmDelete'
@@ -44,6 +45,17 @@ const generating = ref(false)
 const keyFailure = ref<string | null>(null)
 const revoking = ref(false)
 const messagesRefresh = ref(0)
+const isMessagesOpen = ref(false)
+
+// Mobile slideover variant for the message history (template inbox
+// pattern): below lg the history opens as a slideover, at lg+ it renders
+// inline as before.
+const isMobile = useBreakpoints(breakpointsTailwind).smaller('lg')
+
+// The slideover closes on navigation, mirroring the dashboard slideover.
+watch(() => route.fullPath, () => {
+  isMessagesOpen.value = false
+})
 
 useSeoMeta({
   title: 'Instance details'
@@ -428,10 +440,21 @@ await load()
           @settled="onMessagesRefresh"
         />
 
-        <MessagesCard
-          :instance-id="instance.id"
-          :refresh-key="messagesRefresh"
+        <UButton
+          class="lg:hidden"
+          icon="i-lucide-message-square-text"
+          :label="t('instances.messages.cardTitle')"
+          @click="isMessagesOpen = true"
         />
+
+        <ClientOnly>
+          <USlideover v-if="isMobile" v-model:open="isMessagesOpen" :title="t('instances.messages.cardTitle')">
+            <template #content>
+              <MessagesCard :instance-id="instance.id" :refresh-key="messagesRefresh" />
+            </template>
+          </USlideover>
+          <MessagesCard v-else :instance-id="instance.id" :refresh-key="messagesRefresh" />
+        </ClientOnly>
 
         <UCard>
           <template #header>

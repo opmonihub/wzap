@@ -9,19 +9,17 @@ import type { Instance } from '~/types/api'
 // straight into :data; cell rendering lives in
 // components/instances/InstancesTable*.vue.
 export function useInstancesTable(
-  items: Ref<Instance[]> | ComputedRef<Instance[]>,
+  _items: Ref<Instance[]> | ComputedRef<Instance[]>,
   ownerEmails: Ref<Record<string, string>> | ComputedRef<Record<string, string>>,
-  isAdmin: Ref<boolean> | ComputedRef<boolean>
+  _isAdmin: Ref<boolean> | ComputedRef<boolean>
 ) {
   const { t } = useI18n()
 
   // The loaded items travel straight into UTable as :data (client-side
-  // sorting/filtering/pagination act on the accumulated cursor pages); the
-  // reference is kept so the table state always matches the list in scope.
+  // sorting/filtering/pagination act on the accumulated cursor pages).
   // Admin gating lives in the page (owner column meta + viewport merge), so
-  // the role travels unused here beyond keeping the shared signature.
-  void items
-  void isAdmin
+  // the items and role travel unused here beyond keeping the shared
+  // signature.
 
   const sorting = ref<{ id: string, desc: boolean }[]>([{ id: 'name', desc: false }])
   const globalFilter = ref('')
@@ -133,7 +131,8 @@ export function useInstancesTable(
         id: 'external_ref',
         accessorKey: 'external_ref',
         header: t('instances.columns.externalRef'),
-        enableSorting: false
+        enableSorting: false,
+        enableHiding: true
       },
       ownerColumn,
       {

@@ -217,7 +217,8 @@ function onUpdatePage(page: number) {
 
 // Page size travels through the table API when mounted (keeps v-model in
 // sync) and resets to the first page; fallback writes the ref directly.
-function onUpdatePageSize(size: number) {
+// USelect may emit a string, so the signature accepts both and normalizes.
+function onUpdatePageSize(size: number | string) {
   const next = Number(size) || 10
   if (table.value?.tableApi) {
     table.value.tableApi.setPageSize(next)
@@ -485,7 +486,7 @@ await loadFirst()
           </template>
 
           <template #external_ref-cell="{ row }">
-            <span class="block truncate" :title="row.original.external_ref ?? ''">
+            <span class="block min-w-0 truncate" :title="row.original.external_ref ?? ''">
               {{ row.original.external_ref }}
             </span>
           </template>

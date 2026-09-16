@@ -83,6 +83,7 @@ export function useAccountsTable() {
       accessorKey: 'role',
       header: t('common.role'),
       enableSorting: true,
+      enableHiding: true,
       filterFn: 'equalsString'
     }
     roleColumn.meta = { filterVariant: 'select' } as unknown as TableColumn<AccountUser>['meta']
@@ -91,6 +92,7 @@ export function useAccountsTable() {
       accessorFn: (row: AccountUser) => quotaLabel(row),
       header: t('accounts.quotaLabel'),
       enableSorting: true,
+      enableHiding: true,
       // Numeric ordering over instance_quota (0 = Unlimited sorts as 0),
       // never over the display string from the accessorFn above.
       sortingFn: (rowA: TableRow<AccountUser>, rowB: TableRow<AccountUser>) =>
@@ -108,7 +110,8 @@ export function useAccountsTable() {
         id: 'email',
         accessorKey: 'email',
         header: t('common.email'),
-        enableSorting: true
+        enableSorting: true,
+        enableHiding: true
       },
       roleColumn,
       quotaColumn,

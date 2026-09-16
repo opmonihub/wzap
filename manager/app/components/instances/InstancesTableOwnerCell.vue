@@ -22,7 +22,7 @@ const label = computed(() => {
 </script>
 
 <template>
-  <span class="max-w-48 truncate text-highlighted" :title="label">
+  <span class="block min-w-0 max-w-48 truncate text-highlighted" :title="label">
     {{ label }}
   </span>
 </template>

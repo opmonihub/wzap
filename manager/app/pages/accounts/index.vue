@@ -166,7 +166,8 @@ function onUpdatePage(page: number) {
 
 // Page size travels through the table API when mounted (keeps v-model in
 // sync) and resets to the first page; fallback writes the ref directly.
-function onUpdatePageSize(size: number) {
+// USelect may emit a string, so the signature accepts both and normalizes.
+function onUpdatePageSize(size: number | string) {
   const next = Number(size) || 10
   if (table.value?.tableApi) {
     table.value.tableApi.setPageSize(next)
@@ -189,7 +190,7 @@ watch(pageCount, (count) => {
 })
 
 // Table copy lives in accounts.table.* (en.json); no UI literal stays here.
-const countLabel = computed(() => t('accounts.table.loadedCount', { count: users.value.length }))
+const loadedLabel = computed(() => t('accounts.table.loadedCount', { count: users.value.length }))
 const pageLabel = computed(() => t('accounts.table.pageOf', { page: pagination.value.pageIndex + 1, pages: pageCount.value }))
 
 function sortActionLabel(columnId: string): string {
@@ -449,7 +450,7 @@ if (isAdmin.value) {
         </div>
 
         <p class="text-sm text-muted">
-          {{ countLabel }}
+          {{ loadedLabel }}
         </p>
 
         <div

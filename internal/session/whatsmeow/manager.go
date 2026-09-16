@@ -190,7 +190,6 @@ func (m *Manager) RestoreAll(ctx context.Context) error {
 				return
 			}
 			if err := m.restore(ctx, instance); err != nil {
-				m.log.Debug().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).Err(err).Msg("restore session failed")
 				m.log.Warn().Str("instance_id", instance.ID.String()).Err(err).Msg("restore session failed")
 				m.emitConnection(instance.ID, session.StatusError, instance.WhatsAppJID, err.Error())
 			}
@@ -204,7 +203,6 @@ func (m *Manager) RestoreAll(ctx context.Context) error {
 // so the instance status reflects that it was not restored.
 func (m *Manager) restoreAborted(instance model.Instance, err error) {
 	reason := "restore cancelled: " + err.Error()
-	m.log.Debug().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).Err(err).Msg("restore session cancelled")
 	m.log.Warn().Str("instance_id", instance.ID.String()).Err(err).Msg("restore session cancelled")
 	m.emitConnection(instance.ID, session.StatusError, instance.WhatsAppJID, reason)
 }

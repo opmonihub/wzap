@@ -70,7 +70,10 @@ func skipAccessLog(r *http.Request) bool {
 	if (r.Method == http.MethodGet) && (r.URL.Path == "/healthz" || r.URL.Path == "/readyz") {
 		return true
 	}
-	return strings.HasPrefix(r.URL.Path, "/swagger/")
+	if strings.HasPrefix(r.URL.Path, "/swagger/") {
+		return true
+	}
+	return r.URL.Path == "/manager" || strings.HasPrefix(r.URL.Path, "/manager/")
 }
 
 // statusRecorder captures the status code written by the inner handler so

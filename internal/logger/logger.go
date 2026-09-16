@@ -19,7 +19,7 @@ import (
 // New builds the canonical service logger for the given level
 // (debug, info, warn, error) and format (json, console, text).
 // The legacy text format is an alias of console and emits one deprecation
-// Warn on the created logger.
+// Warn via a separate dep logger.
 func New(level, format string) (zerolog.Logger, error) {
 	return newWithWriter(level, format, os.Stdout)
 }

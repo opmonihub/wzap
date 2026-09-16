@@ -17,10 +17,46 @@ import (
 	"github.com/rs/zerolog"
 
 	"wzap/internal/events"
-	"wzap/internal/logger"
 	"wzap/internal/model"
 	"wzap/internal/storage"
 )
+
+// syncLogBuffer is a mutex-guarded log sink for tests where the worker
+// goroutine writes while the test goroutine polls. Bytes returns a copy so
+// concurrent writes never race the polling reads.
+type syncLogBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncLogBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncLogBuffer) Bytes() []byte {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]byte(nil), b.buf.Bytes()...)
+}
+
+func (b *syncLogBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func (b *syncLogBuffer) Len() int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Len()
+}
+
+func newSyncTestLogger() (*syncLogBuffer, zerolog.Logger) {
+	buf := &syncLogBuffer{}
+	return buf, zerolog.New(buf).With().Timestamp().Logger().Level(zerolog.DebugLevel)
+}
 
 // stubLoader is an in-memory InstanceLoader for the worker tests.
 type stubLoader struct {
@@ -227,7 +263,7 @@ func TestFanoutAlwaysCallsInner(t *testing.T) {
 // TestFanoutNonBlockingDropCounted fills the 1000 buffer and proves the next
 // dispatch still returns immediately, dropping the event with a counter.
 func TestFanoutNonBlockingDropCounted(t *testing.T) {
-	buf, testLog := logger.NewTestLogger()
+	buf, testLog := newSyncTestLogger()
 	inner := &stubWriter{}
 	worker := instantWorker(newStubLoader(), NewKeyCache(), Deliver, testLog)
 	fanout := worker.Fanout(inner)
@@ -354,7 +390,7 @@ func TestWorkerDeadLetterThenNext(t *testing.T) {
 	keys := NewKeyCache()
 	keys.Store(bad.ID, "test-key-dead-letter")
 	keys.Store(good.ID, "test-key-next-job")
-	buf, testLog := logger.NewTestLogger()
+	buf, testLog := newSyncTestLogger()
 	worker := instantWorker(newStubLoader(bad, good), keys, Deliver, testLog)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -458,7 +494,7 @@ func TestWorkerMissingKeyRecordedWithoutExposure(t *testing.T) {
 	instance := webhookTestInstance(srv.URL)
 	keys := NewKeyCache()
 	keys.Store(uuid.New(), "decoy-secret-never-logged")
-	buf, testLog := logger.NewTestLogger()
+	buf, testLog := newSyncTestLogger()
 	var sleeps atomic.Int32
 	worker := NewWorker(newStubLoader(instance), keys, Deliver, 16<<20, testLog)
 	worker.Sleep = func(context.Context, time.Duration) error { sleeps.Add(1); return nil }
@@ -500,7 +536,7 @@ func TestWorkerMissingInstanceDropsWithoutRetry(t *testing.T) {
 	keys := NewKeyCache()
 	keys.Store(gone.ID, "test-key-missing-instance")
 	loader := newStubLoader() // knows no instance: every Get is ErrNotFound.
-	_, testLog := logger.NewTestLogger()
+	_, testLog := newSyncTestLogger()
 	var sleeps atomic.Int32
 	worker := NewWorker(loader, keys, Deliver, 16<<20, testLog)
 	worker.Sleep = func(context.Context, time.Duration) error { sleeps.Add(1); return nil }
@@ -581,7 +617,7 @@ func TestWorkerShutdownAbortsInflight(t *testing.T) {
 	instance := webhookTestInstance(srv.URL)
 	keys := NewKeyCache()
 	keys.Store(instance.ID, "test-key-shutdown")
-	_, testLog := logger.NewTestLogger()
+	_, testLog := newSyncTestLogger()
 	worker := NewWorker(newStubLoader(instance), keys, Deliver, 16<<20, testLog)
 	var sleeps atomic.Int32
 	worker.Sleep = func(ctx context.Context, d time.Duration) error {
@@ -627,7 +663,7 @@ func TestWorkerShutdownDropsPending(t *testing.T) {
 	keys := NewKeyCache()
 	keys.Store(first.ID, "test-key-pending-1")
 	keys.Store(second.ID, "test-key-pending-2")
-	buf, testLog := logger.NewTestLogger()
+	buf, testLog := newSyncTestLogger()
 	worker := instantWorker(newStubLoader(first, second), keys, Deliver, testLog)
 
 	fanout := worker.Fanout(&stubWriter{})
@@ -703,7 +739,7 @@ func TestWorkerDeadLetterRecordedToSink(t *testing.T) {
 	instance := webhookTestInstance(srv.URL)
 	keys := NewKeyCache()
 	keys.Store(instance.ID, "test-key-sink")
-	buf, testLog := logger.NewTestLogger()
+	buf, testLog := newSyncTestLogger()
 	sink := &stubDeadLetterSink{}
 	worker := instantWorker(newStubLoader(instance), keys, Deliver, testLog)
 	worker.WithDeadLetterSink(sink)
@@ -762,7 +798,7 @@ func TestWorkerDeadLetterSinkFailureKeepsLog(t *testing.T) {
 	instance := webhookTestInstance(srv.URL)
 	keys := NewKeyCache()
 	keys.Store(instance.ID, "test-key-sink-failure")
-	buf, testLog := logger.NewTestLogger()
+	buf, testLog := newSyncTestLogger()
 	sink := &stubDeadLetterSink{err: errors.New("sink down")}
 	worker := instantWorker(newStubLoader(instance), keys, Deliver, testLog)
 	worker.WithDeadLetterSink(sink)

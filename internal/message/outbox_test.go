@@ -669,6 +669,26 @@ func TestOutboxSendsMediaMessage(t *testing.T) {
 	}
 }
 
+// TestOutboxWarnThrottled pins the per-key warn throttle: a repeat within
+// the window stays silent, and a call past the window logs again.
+func TestOutboxWarnThrottled(t *testing.T) {
+	buf, log := logger.NewTestLogger()
+	outbox := &Outbox{log: log, lastWarn: make(map[string]time.Time), warnEvery: 30 * time.Millisecond}
+	fields := func(e *zerolog.Event) *zerolog.Event { return e }
+
+	outbox.warnThrottled("throttle-test", "throttled warn", fields)
+	outbox.warnThrottled("throttle-test", "throttled warn", fields)
+	if got := strings.Count(buf.String(), "throttled warn"); got != 1 {
+		t.Fatalf("warn lines after a throttled repeat = %d, want 1", got)
+	}
+
+	time.Sleep(60 * time.Millisecond)
+	outbox.warnThrottled("throttle-test", "throttled warn", fields)
+	if got := strings.Count(buf.String(), "throttled warn"); got != 2 {
+		t.Fatalf("warn lines after the window elapsed = %d, want 2", got)
+	}
+}
+
 func TestRetryDelayGrowsAndCaps(t *testing.T) {
 	tests := []struct {
 		retries int

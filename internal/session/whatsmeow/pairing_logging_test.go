@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,7 +15,6 @@ import (
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/types"
 
-	"wzap/internal/logger"
 	"wzap/internal/session"
 )
 
@@ -24,9 +25,56 @@ type logRecord struct {
 	attrs map[string]any
 }
 
+// syncLogBuffer is a mutex-guarded log sink for tests where the session
+// goroutine writes while the test goroutine polls. Bytes returns a copy so
+// concurrent writes never race the polling reads.
+type syncLogBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncLogBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncLogBuffer) Bytes() []byte {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]byte(nil), b.buf.Bytes()...)
+}
+
+func (b *syncLogBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func (b *syncLogBuffer) Len() int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Len()
+}
+
+func newSyncTestLogger() (*syncLogBuffer, zerolog.Logger) {
+	buf := &syncLogBuffer{}
+	return buf, zerolog.New(buf).With().Timestamp().Logger().Level(zerolog.DebugLevel)
+}
+
+func assertNoSecret(t *testing.T, buf *syncLogBuffer, secrets ...string) {
+	t.Helper()
+	out := buf.String()
+	for _, s := range secrets {
+		if s != "" && strings.Contains(out, s) {
+			t.Errorf("log output leaks secret %q: %q", s, out)
+		}
+	}
+}
+
 // snapshotRecords decodes every complete JSON event in buf, skipping the
 // envelope fields every record carries.
-func snapshotRecords(buf *bytes.Buffer) []logRecord {
+func snapshotRecords(buf *syncLogBuffer) []logRecord {
 	var records []logRecord
 	dec := json.NewDecoder(bytes.NewReader(buf.Bytes()))
 	for {
@@ -52,7 +100,7 @@ func snapshotRecords(buf *bytes.Buffer) []logRecord {
 	}
 }
 
-func waitForRecord(t *testing.T, buf *bytes.Buffer, msg string) logRecord {
+func waitForRecord(t *testing.T, buf *syncLogBuffer, msg string) logRecord {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
@@ -79,7 +127,7 @@ func newLoggedSession(t *testing.T, device *store.Device, log zerolog.Logger, si
 // TestMonitorQRLogsSuccess verifies the success terminal emits its boundary
 // log while the session still reaches connected with the paired JID.
 func TestMonitorQRLogsSuccess(t *testing.T) {
-	logs, log := logger.NewTestLogger()
+	logs, log := newSyncTestLogger()
 	jid := types.NewJID("5511999999999", types.DefaultUserServer)
 	sink := &recordingSink{}
 	sess := newLoggedSession(t, &store.Device{ID: &jid}, log, sink)
@@ -96,7 +144,7 @@ func TestMonitorQRLogsSuccess(t *testing.T) {
 	if rec.attrs["instance_id"] != sess.instanceID.String() {
 		t.Errorf("pairing succeeded instance_id = %v, want %v", rec.attrs["instance_id"], sess.instanceID)
 	}
-	logger.AssertNoSecret(t, logs, "QR-SUCCESS-LOG")
+	assertNoSecret(t, logs, "QR-SUCCESS-LOG")
 
 	waitForPairing(t, "pairing success event", func() bool { return sink.count() > 0 })
 	if sess.Status() != session.StatusConnected {
@@ -107,7 +155,7 @@ func TestMonitorQRLogsSuccess(t *testing.T) {
 // TestMonitorQRLogsTimeout verifies the QR expiry terminal emits its boundary
 // log with the stable reason while the session still disconnects.
 func TestMonitorQRLogsTimeout(t *testing.T) {
-	logs, log := logger.NewTestLogger()
+	logs, log := newSyncTestLogger()
 	sink := &recordingSink{}
 	sess := newLoggedSession(t, &store.Device{}, log, sink)
 
@@ -123,7 +171,7 @@ func TestMonitorQRLogsTimeout(t *testing.T) {
 	if rec.attrs["reason"] != "qr code expired" {
 		t.Errorf("pairing timed out reason = %v, want %q", rec.attrs["reason"], "qr code expired")
 	}
-	logger.AssertNoSecret(t, logs, "QR-TIMEOUT-LOG")
+	assertNoSecret(t, logs, "QR-TIMEOUT-LOG")
 
 	waitForPairing(t, "expiry disconnect", func() bool {
 		return sess.Status() == session.StatusDisconnected
@@ -134,7 +182,7 @@ func TestMonitorQRLogsTimeout(t *testing.T) {
 // and the error-status transition additionally warns, without changing the
 // resulting error state.
 func TestMonitorQRLogsError(t *testing.T) {
-	logs, log := logger.NewTestLogger()
+	logs, log := newSyncTestLogger()
 	sink := &recordingSink{}
 	sess := newLoggedSession(t, &store.Device{}, log, sink)
 
@@ -162,7 +210,7 @@ func TestMonitorQRLogsError(t *testing.T) {
 // TestMonitorQRLogsChannelClosed verifies an abruptly closed QR channel emits
 // its boundary log while the session still disconnects.
 func TestMonitorQRLogsChannelClosed(t *testing.T) {
-	logs, log := logger.NewTestLogger()
+	logs, log := newSyncTestLogger()
 	sess := newLoggedSession(t, &store.Device{}, log, nil)
 
 	pairing := make(chan whatsmeow.QRChannelItem, 4)
@@ -184,7 +232,7 @@ func TestMonitorQRLogsChannelClosed(t *testing.T) {
 // TestQRCodeRotationLogsExpiryWithoutBytes verifies a code rotation emits a
 // debug line carrying only the expiry, never the code bytes.
 func TestQRCodeRotationLogsExpiryWithoutBytes(t *testing.T) {
-	logs, log := logger.NewTestLogger()
+	logs, log := newSyncTestLogger()
 	sess := newLoggedSession(t, &store.Device{}, log, nil)
 
 	pairing := make(chan whatsmeow.QRChannelItem, 4)
@@ -198,7 +246,7 @@ func TestQRCodeRotationLogsExpiryWithoutBytes(t *testing.T) {
 	if _, ok := rec.attrs["expires_at"]; !ok {
 		t.Errorf("qr code rotated record is missing expires_at: %v", rec.attrs)
 	}
-	logger.AssertNoSecret(t, logs, "ROTATION-SECRET-CODE")
+	assertNoSecret(t, logs, "ROTATION-SECRET-CODE")
 	close(pairing)
 }
 
@@ -206,7 +254,7 @@ func TestQRCodeRotationLogsExpiryWithoutBytes(t *testing.T) {
 // line with from/to, jid presence and reason, that repeats stay silent, and
 // that the error status additionally warns.
 func TestSetStatusLogsTransition(t *testing.T) {
-	logs, log := logger.NewTestLogger()
+	logs, log := newSyncTestLogger()
 	sess := newLoggedSession(t, &store.Device{}, log, nil)
 
 	sess.setStatus(session.StatusPairing, "", "")

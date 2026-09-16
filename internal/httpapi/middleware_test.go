@@ -422,6 +422,9 @@ func TestLoggingSkipsProbes(t *testing.T) {
 		{http.MethodGet, "/readyz"},
 		{http.MethodGet, "/swagger/index.html"},
 		{http.MethodGet, "/swagger/doc.json"},
+		{http.MethodGet, "/manager"},
+		{http.MethodGet, "/manager/"},
+		{http.MethodGet, "/manager/assets/app.js"},
 	}
 	for _, tc := range skipped {
 		req := httptest.NewRequest(tc.method, tc.path, nil)
@@ -439,6 +442,7 @@ func TestLoggingSkipsProbes(t *testing.T) {
 		{http.MethodPost, "/healthz"},
 		{http.MethodPost, "/readyz"},
 		{http.MethodGet, "/instances"},
+		{http.MethodGet, "/auth/me"},
 	}
 	for _, tc := range logged {
 		req := httptest.NewRequest(tc.method, tc.path, nil)

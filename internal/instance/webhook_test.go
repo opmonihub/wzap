@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/model"
 	"wzap/internal/session/sessiontest"
@@ -23,7 +24,7 @@ func webhookEventsPtr(events ...string) *[]string {
 }
 
 func newWebhookService(repo *fakeRepo, owner model.User) *Service {
-	return NewService(repo, sessiontest.New(nil), &fakeMedia{}, newFakeUserRepo(owner), newFakeKeyRepo())
+	return NewService(repo, sessiontest.New(nil), &fakeMedia{}, newFakeUserRepo(owner), newFakeKeyRepo(), zerolog.Nop())
 }
 
 func TestServiceCreateWebhookDefaults(t *testing.T) {
@@ -137,7 +138,7 @@ func TestServiceUpdateWebhookPartial(t *testing.T) {
 
 	t.Run("absent fields keep stored config", func(t *testing.T) {
 		repo := newFakeRepo(stored)
-		svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil)
+		svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, zerolog.Nop())
 
 		updated, err := svc.Update(context.Background(), id, UpdateInput{Name: strptr("novo")})
 		if err != nil {
@@ -156,7 +157,7 @@ func TestServiceUpdateWebhookPartial(t *testing.T) {
 
 	t.Run("explicit fields replace stored config", func(t *testing.T) {
 		repo := newFakeRepo(stored)
-		svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil)
+		svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, zerolog.Nop())
 
 		updated, err := svc.Update(context.Background(), id, UpdateInput{
 			WebhookURL:     strptr("http://127.0.0.1:8080/hook"),
@@ -179,7 +180,7 @@ func TestServiceUpdateWebhookPartial(t *testing.T) {
 
 	t.Run("explicit empty url unsets and empty events clear", func(t *testing.T) {
 		repo := newFakeRepo(stored)
-		svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil)
+		svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, zerolog.Nop())
 
 		updated, err := svc.Update(context.Background(), id, UpdateInput{
 			WebhookURL: strptr(""), WebhookEvents: webhookEventsPtr(),
@@ -219,7 +220,7 @@ func TestServiceUpdateInvalidWebhookKeepsPrevious(t *testing.T) {
 				WebhookEvents: []string{"message", "receipt", "connection", "message.status"},
 			}
 			repo := newFakeRepo(stored)
-			svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil)
+			svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, zerolog.Nop())
 
 			_, err := svc.Update(context.Background(), id, tt.input)
 			if !errors.Is(err, ErrInvalidWebhook) {

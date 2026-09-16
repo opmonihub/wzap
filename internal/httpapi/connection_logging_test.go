@@ -1,7 +1,9 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -12,8 +14,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
+	"wzap/internal/config"
 	"wzap/internal/instance"
+	"wzap/internal/logger"
 	"wzap/internal/model"
 	"wzap/internal/session"
 )
@@ -72,15 +77,71 @@ func (h *memoryHandler) snapshot() []capturedRecord {
 	return append([]capturedRecord{}, h.core.records...)
 }
 
-// captureBoundaryLogs swaps the default logger for an in-memory handler and
-// returns it, restoring the previous default when the test ends.
-func captureBoundaryLogs(t *testing.T) *memoryHandler {
+// captureBoundaryLogs returns an in-memory handler fed by a zerolog test
+// logger: the handlers write JSON into the handler writer, which decodes
+// each event back into a record so the boundary assertions keep observing
+// without rewriting them here (full helper unification is Task 4.1).
+func captureBoundaryLogs(t *testing.T) (*memoryHandler, zerolog.Logger) {
 	t.Helper()
 	h := newMemoryHandler()
-	prev := slog.Default()
-	slog.SetDefault(slog.New(h))
-	t.Cleanup(func() { slog.SetDefault(prev) })
-	return h
+	_, base := logger.NewTestLogger()
+	return h, base.Output(boundaryHandlerWriter{h: h})
+}
+
+// boundaryHandlerWriter decodes zerolog JSON lines into the memory handler.
+type boundaryHandlerWriter struct {
+	h *memoryHandler
+}
+
+func (w boundaryHandlerWriter) Write(p []byte) (int, error) {
+	dec := json.NewDecoder(bytes.NewReader(p))
+	for {
+		var fields map[string]any
+		if err := dec.Decode(&fields); err != nil {
+			return len(p), nil
+		}
+		w.h.addJSONRecord(fields)
+	}
+}
+
+// addJSONRecord stores one decoded zerolog event as a captured record.
+func (h *memoryHandler) addJSONRecord(fields map[string]any) {
+	var level slog.Level
+	switch fields["level"] {
+	case "trace", "debug":
+		level = slog.LevelDebug
+	case "warn":
+		level = slog.LevelWarn
+	case "error", "fatal", "panic":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+	msg, _ := fields["message"].(string)
+	attrs := make(map[string]any, len(fields))
+	for k, v := range fields {
+		if k == "level" || k == "message" || k == "time" {
+			continue
+		}
+		attrs[k] = v
+	}
+	h.core.mu.Lock()
+	h.core.records = append(h.core.records, capturedRecord{level: level, msg: msg, attrs: attrs})
+	h.core.mu.Unlock()
+}
+
+// loggedInstancesServer builds the server under test with svc and the given
+// logger so boundary tests can observe the injected handler logs.
+func loggedInstancesServer(t *testing.T, svc InstanceService, log zerolog.Logger) *http.Server {
+	t.Helper()
+	if svc == nil {
+		svc = &fakeInstanceService{}
+	}
+	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, log,
+		Deps{
+			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
+			Instances:    svc,
+		})
 }
 
 func findRecord(records []capturedRecord, msg string) (capturedRecord, bool) {
@@ -117,9 +178,9 @@ func TestConnectBoundaryLogs(t *testing.T) {
 	svc := &fakeInstanceService{connectFn: func(context.Context, uuid.UUID) (instance.ConnectResult, error) {
 		return instance.ConnectResult{Status: session.StatusPairing, QRCode: "qr-123", QRExpiresAt: &expiresAt}, nil
 	}}
-	h := captureBoundaryLogs(t)
+	h, log := captureBoundaryLogs(t)
 
-	rec := serveJSON(t, instancesServer(t, svc), http.MethodPost, "/instances/"+id.String()+"/connect", "")
+	rec := serveJSON(t, loggedInstancesServer(t, svc, log), http.MethodPost, "/instances/"+id.String()+"/connect", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
@@ -132,7 +193,7 @@ func TestConnectBoundaryLogs(t *testing.T) {
 	if entry.level != slog.LevelDebug {
 		t.Errorf("entry level = %v, want Debug", entry.level)
 	}
-	if entry.attrs["instance_id"] != id {
+	if entry.attrs["instance_id"] != id.String() {
 		t.Errorf("entry instance_id = %v, want %s", entry.attrs["instance_id"], id)
 	}
 	if entry.attrs["op"] != "connect" {
@@ -162,9 +223,9 @@ func TestConnectBoundaryLogsServiceError(t *testing.T) {
 	svc := &fakeInstanceService{connectFn: func(context.Context, uuid.UUID) (instance.ConnectResult, error) {
 		return instance.ConnectResult{}, errors.New("session dial failed")
 	}}
-	h := captureBoundaryLogs(t)
+	h, log := captureBoundaryLogs(t)
 
-	rec := serveJSON(t, instancesServer(t, svc), http.MethodPost, "/instances/"+uuid.NewString()+"/connect", "")
+	rec := serveJSON(t, loggedInstancesServer(t, svc, log), http.MethodPost, "/instances/"+uuid.NewString()+"/connect", "")
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
 	}
@@ -190,9 +251,9 @@ func TestQRBoundaryLogs(t *testing.T) {
 	svc := &fakeInstanceService{qrFn: func(context.Context, uuid.UUID) (instance.ConnectResult, error) {
 		return instance.ConnectResult{Status: session.StatusPairing, QRCode: "qr-456", QRExpiresAt: &expiresAt}, nil
 	}}
-	h := captureBoundaryLogs(t)
+	h, log := captureBoundaryLogs(t)
 
-	rec := serveJSON(t, instancesServer(t, svc), http.MethodGet, "/instances/"+id.String()+"/qr", "")
+	rec := serveJSON(t, loggedInstancesServer(t, svc, log), http.MethodGet, "/instances/"+id.String()+"/qr", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
@@ -218,9 +279,9 @@ func TestQRBoundaryLogsAlreadyConnected(t *testing.T) {
 	svc := &fakeInstanceService{qrFn: func(context.Context, uuid.UUID) (instance.ConnectResult, error) {
 		return instance.ConnectResult{}, instance.ErrAlreadyConnected
 	}}
-	h := captureBoundaryLogs(t)
+	h, log := captureBoundaryLogs(t)
 
-	rec := serveJSON(t, instancesServer(t, svc), http.MethodGet, "/instances/"+uuid.NewString()+"/qr", "")
+	rec := serveJSON(t, loggedInstancesServer(t, svc, log), http.MethodGet, "/instances/"+uuid.NewString()+"/qr", "")
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusConflict)
 	}
@@ -235,9 +296,9 @@ func TestStatusBoundaryLogs(t *testing.T) {
 	svc := &fakeInstanceService{getFn: func(_ context.Context, id uuid.UUID) (*model.Instance, error) {
 		return &model.Instance{ID: id, Name: "loja", Status: string(session.StatusConnected)}, nil
 	}}
-	h := captureBoundaryLogs(t)
+	h, log := captureBoundaryLogs(t)
 
-	rec := serveJSON(t, instancesServer(t, svc), http.MethodGet, "/instances/"+wantID.String()+"/status", "")
+	rec := serveJSON(t, loggedInstancesServer(t, svc, log), http.MethodGet, "/instances/"+wantID.String()+"/status", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
@@ -257,9 +318,9 @@ func TestStatusBoundaryLogs(t *testing.T) {
 
 func TestDisconnectBoundaryLogs(t *testing.T) {
 	svc := &fakeInstanceService{}
-	h := captureBoundaryLogs(t)
+	h, log := captureBoundaryLogs(t)
 
-	rec := serveJSON(t, instancesServer(t, svc), http.MethodPost, "/instances/"+uuid.NewString()+"/disconnect", "")
+	rec := serveJSON(t, loggedInstancesServer(t, svc, log), http.MethodPost, "/instances/"+uuid.NewString()+"/disconnect", "")
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
 	}
@@ -277,9 +338,9 @@ func TestDisconnectBoundaryLogsServiceError(t *testing.T) {
 	svc := &fakeInstanceService{disconnectFn: func(context.Context, uuid.UUID) error {
 		return errors.New("session still connected")
 	}}
-	h := captureBoundaryLogs(t)
+	h, log := captureBoundaryLogs(t)
 
-	rec := serveJSON(t, instancesServer(t, svc), http.MethodPost, "/instances/"+uuid.NewString()+"/disconnect", "")
+	rec := serveJSON(t, loggedInstancesServer(t, svc, log), http.MethodPost, "/instances/"+uuid.NewString()+"/disconnect", "")
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
 	}

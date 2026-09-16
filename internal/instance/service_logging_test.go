@@ -1,7 +1,9 @@
 package instance
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,7 +13,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
+	"wzap/internal/logger"
 	"wzap/internal/model"
 	"wzap/internal/session"
 	"wzap/internal/session/sessiontest"
@@ -73,15 +77,58 @@ func (h *serviceMemoryHandler) snapshot() []serviceRecord {
 	return append([]serviceRecord{}, h.core.records...)
 }
 
-// captureServiceLogs swaps the default logger for an in-memory handler and
-// returns it, restoring the previous default when the test ends.
-func captureServiceLogs(t *testing.T) *serviceMemoryHandler {
+// captureServiceLogs returns an in-memory handler fed by a zerolog test
+// logger: the service writes JSON into the handler writer, which decodes
+// each event back into a record so the branch assertions keep observing
+// without rewriting them here (full helper unification is Task 4.1).
+func captureServiceLogs(t *testing.T) (*serviceMemoryHandler, zerolog.Logger) {
 	t.Helper()
 	h := newServiceMemoryHandler()
-	prev := slog.Default()
-	slog.SetDefault(slog.New(h))
-	t.Cleanup(func() { slog.SetDefault(prev) })
-	return h
+	_, base := logger.NewTestLogger()
+	return h, base.Output(serviceHandlerWriter{h: h})
+}
+
+// serviceHandlerWriter decodes zerolog JSON lines into the service memory
+// handler.
+type serviceHandlerWriter struct {
+	h *serviceMemoryHandler
+}
+
+func (w serviceHandlerWriter) Write(p []byte) (int, error) {
+	dec := json.NewDecoder(bytes.NewReader(p))
+	for {
+		var fields map[string]any
+		if err := dec.Decode(&fields); err != nil {
+			return len(p), nil
+		}
+		w.h.addJSONRecord(fields)
+	}
+}
+
+// addJSONRecord stores one decoded zerolog event as a service record.
+func (h *serviceMemoryHandler) addJSONRecord(fields map[string]any) {
+	var level slog.Level
+	switch fields["level"] {
+	case "trace", "debug":
+		level = slog.LevelDebug
+	case "warn":
+		level = slog.LevelWarn
+	case "error", "fatal", "panic":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+	msg, _ := fields["message"].(string)
+	attrs := make(map[string]any, len(fields))
+	for k, v := range fields {
+		if k == "level" || k == "message" || k == "time" {
+			continue
+		}
+		attrs[k] = v
+	}
+	h.core.mu.Lock()
+	h.core.records = append(h.core.records, serviceRecord{level: level, msg: msg, attrs: attrs})
+	h.core.mu.Unlock()
 }
 
 func findServiceRecord(records []serviceRecord, msg string, branch string) (serviceRecord, bool) {
@@ -142,8 +189,8 @@ func TestConnectLogsAlreadyConnectedBranch(t *testing.T) {
 	sess := sessiontest.NewSession(id, nil)
 	sess.SetStatus(session.StatusConnected)
 	sessions.Put(id, sess)
-	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil)
-	h := captureServiceLogs(t)
+	h, log := captureServiceLogs(t)
+	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, log)
 
 	result, err := svc.Connect(context.Background(), id)
 	if err != nil {
@@ -163,7 +210,7 @@ func TestConnectLogsAlreadyConnectedBranch(t *testing.T) {
 	if rec.attrs["op"] != "connect" {
 		t.Errorf("op = %v, want connect", rec.attrs["op"])
 	}
-	if rec.attrs["instance_id"] != id {
+	if rec.attrs["instance_id"] != id.String() {
 		t.Errorf("instance_id = %v, want %s", rec.attrs["instance_id"], id)
 	}
 }
@@ -177,8 +224,8 @@ func TestConnectLogsAlreadyPairingBranch(t *testing.T) {
 	if _, _, err := sess.Connect(context.Background()); err != nil {
 		t.Fatalf("setup session Connect: %v", err)
 	}
-	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil)
-	h := captureServiceLogs(t)
+	h, log := captureServiceLogs(t)
+	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, log)
 
 	result, err := svc.Connect(context.Background(), id)
 	if err != nil {
@@ -201,8 +248,8 @@ func TestConnectLogsAlreadyPairingBranch(t *testing.T) {
 func TestConnectLogsNewPairingBranch(t *testing.T) {
 	id := uuid.New()
 	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
-	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil)
-	h := captureServiceLogs(t)
+	h, log := captureServiceLogs(t)
+	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, log)
 
 	result, err := svc.Connect(context.Background(), id)
 	if err != nil {
@@ -230,8 +277,8 @@ func TestConnectLogsStoredCredentialsBranch(t *testing.T) {
 	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
 	sess := &storedCredsSession{FakeSession: sessiontest.NewSession(id, nil)}
 	sessions := &storedCredsManager{Fake: sessiontest.New(nil), sess: sess}
-	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil)
-	h := captureServiceLogs(t)
+	h, log := captureServiceLogs(t)
+	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, log)
 
 	result, err := svc.Connect(context.Background(), id)
 	if err != nil {
@@ -253,8 +300,8 @@ func TestConnectLogsPairingError(t *testing.T) {
 	sess := sessiontest.NewSession(id, nil)
 	sess.ConnectErr = errors.New("dial failed")
 	sessions.Put(id, sess)
-	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil)
-	h := captureServiceLogs(t)
+	h, log := captureServiceLogs(t)
+	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, log)
 
 	if _, err := svc.Connect(context.Background(), id); err == nil {
 		t.Fatal("Connect error = nil, want the session failure")
@@ -280,8 +327,8 @@ func TestConnectLogsStaleDeviceReset(t *testing.T) {
 	})
 	sess := &oneShotNoDeviceSession{FakeSession: sessiontest.NewSession(id, nil), fails: 1}
 	sessions := &staleConnectManager{Fake: sessiontest.New(nil), sess: sess}
-	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil)
-	h := captureServiceLogs(t)
+	h, log := captureServiceLogs(t)
+	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, log)
 
 	result, err := svc.Connect(context.Background(), id)
 	if err != nil {
@@ -307,8 +354,8 @@ func TestConnectLogsPersistPairingError(t *testing.T) {
 	id := uuid.New()
 	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
 	repo.setConnectionErr = errors.New("database down")
-	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil)
-	h := captureServiceLogs(t)
+	h, log := captureServiceLogs(t)
+	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, log)
 
 	if _, err := svc.Connect(context.Background(), id); err == nil {
 		t.Fatal("Connect error = nil, want the pairing update failure")
@@ -331,8 +378,8 @@ func TestQRLogsBranches(t *testing.T) {
 		sess := sessiontest.NewSession(id, nil)
 		sess.SetStatus(session.StatusConnected)
 		sessions.Put(id, sess)
-		svc := NewService(repo, sessions, &fakeMedia{}, nil, nil)
-		h := captureServiceLogs(t)
+		h, log := captureServiceLogs(t)
+		svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, log)
 
 		if _, err := svc.QR(context.Background(), id); !errors.Is(err, ErrAlreadyConnected) {
 			t.Fatalf("QR error = %v, want ErrAlreadyConnected", err)
@@ -345,8 +392,8 @@ func TestQRLogsBranches(t *testing.T) {
 	t.Run("new pairing", func(t *testing.T) {
 		id := uuid.New()
 		repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
-		svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil)
-		h := captureServiceLogs(t)
+		h, log := captureServiceLogs(t)
+		svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, log)
 
 		result, err := svc.QR(context.Background(), id)
 		if err != nil {
@@ -367,8 +414,8 @@ func TestQRLogsBranches(t *testing.T) {
 		repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
 		sess := &storedCredsSession{FakeSession: sessiontest.NewSession(id, nil)}
 		sessions := &storedCredsManager{Fake: sessiontest.New(nil), sess: sess}
-		svc := NewService(repo, sessions, &fakeMedia{}, nil, nil)
-		h := captureServiceLogs(t)
+		h, log := captureServiceLogs(t)
+		svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, log)
 
 		if _, err := svc.QR(context.Background(), id); !errors.Is(err, ErrAlreadyConnected) {
 			t.Fatalf("QR error = %v, want ErrAlreadyConnected", err)

@@ -16,6 +16,7 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -35,13 +36,27 @@ const (
 )
 
 // distFS returns the embedded public directory rooted at its content, or nil
-// when the embed holds nothing usable.
+// when the embed holds nothing usable. In dev, WZAP_MANAGER_DIR points at a
+// live manager/.output/public on disk so edits reflect without rebuild. A
+// missing or unbuilt disk directory falls back to the embed so a typo never
+// masks a valid embedded console with a 503.
 func distFS() fs.FS {
+	if dir := os.Getenv("WZAP_MANAGER_DIR"); dir != "" {
+		if disk := os.DirFS(dir); usableDist(disk) {
+			return disk
+		}
+	}
 	sub, err := fs.Sub(dist, publicDir)
 	if err != nil {
 		return nil
 	}
 	return sub
+}
+
+// usableDist reports whether root holds a generated console index.
+func usableDist(root fs.FS) bool {
+	info, err := fs.Stat(root, indexFile)
+	return err == nil && !info.IsDir()
 }
 
 // Built reports whether the embedded console holds a generated index. Fresh
@@ -51,8 +66,7 @@ func Built() bool {
 	if root == nil {
 		return false
 	}
-	info, err := fs.Stat(root, indexFile)
-	return err == nil && !info.IsDir()
+	return usableDist(root)
 }
 
 // Handler serves the embedded console with SPA fallback: exact files win,

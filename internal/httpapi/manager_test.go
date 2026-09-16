@@ -20,6 +20,7 @@ func TestManagerMountIsPublic(t *testing.T) {
 }
 
 func TestManagerServesIndexWhenBuilt(t *testing.T) {
+	t.Setenv("WZAP_MANAGER_DIR", "")
 	if !manager.Built() {
 		t.Skip("manager static build is not embedded; run pnpm --dir manager build first")
 	}

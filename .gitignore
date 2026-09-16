@@ -8,3 +8,6 @@
 .github/skills/
 .opencode/commands/
 .opencode/skills/impeccable/
+# Air live-reload output (Dockerfile.dev + .air.toml).
+tmp/
+build-errors.log

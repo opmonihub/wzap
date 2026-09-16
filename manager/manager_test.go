@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -118,6 +119,7 @@ func TestUnbuiltDistIsServiceUnavailable(t *testing.T) {
 }
 
 func TestEmbeddedDist(t *testing.T) {
+	t.Setenv("WZAP_MANAGER_DIR", "")
 	if !Built() {
 		t.Skip("manager static build is not embedded; run pnpm --dir manager build first")
 	}
@@ -156,9 +158,34 @@ func TestEmbeddedDist(t *testing.T) {
 
 func mustDistFS(t *testing.T) fs.FS {
 	t.Helper()
+	t.Setenv("WZAP_MANAGER_DIR", "")
 	root := distFS()
 	if root == nil {
 		t.Fatal("embedded dist is missing")
 	}
 	return root
+}
+
+func TestDistFSUsesDiskDirWhenUsable(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(dir+"/index.html", []byte("<html>disk override</html>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("WZAP_MANAGER_DIR", dir)
+	if !Built() {
+		t.Fatal("Built() = false with a usable WZAP_MANAGER_DIR, want true")
+	}
+	rec := get(t, Handler(), "/manager/")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "disk override") {
+		t.Fatalf("GET /manager/ with disk override = %d %q, want disk index", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDistFSFallsBackToEmbedOnBadDir(t *testing.T) {
+	t.Setenv("WZAP_MANAGER_DIR", "")
+	wantBuilt := Built()
+	t.Setenv("WZAP_MANAGER_DIR", t.TempDir())
+	if got := Built(); got != wantBuilt {
+		t.Fatalf("Built() with an unbuilt WZAP_MANAGER_DIR = %v, want embed fallback %v", got, wantBuilt)
+	}
 }

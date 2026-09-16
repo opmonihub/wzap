@@ -69,8 +69,8 @@ inicialização com mensagem nomeando a variável.
 | `WZAP_MAX_MEDIA_BYTES` | não | `16777216` | Tamanho máximo de mídia recebida/enviada, em bytes (16 MiB). |
 | `WZAP_OUTBOX_WORKERS` | não | `4` | Goroutines de envio do outbox. |
 | `WZAP_HUMANIZE` | não | `false` | Simula presença/atraso antes do envio (humanização). |
-| `WZAP_LOG_LEVEL` | não | `info` | Nível do `log/slog` (`debug`, `info`, `warn`, `error`). |
-| `WZAP_LOG_FORMAT` | não | `json` | Formato dos logs (`json` ou `text`). |
+| `WZAP_LOG_LEVEL` | não | `info` | Nível (`debug`, `info`, `warn`, `error`). |
+| `WZAP_LOG_FORMAT` | não | `json` | Formato (`json` ou `console`; `text` é alias legado de `console`). |
 | `WZAP_AUTO_MIGRATE` | não | `true` | Aplica as migrações embutidas no boot antes de aceitar tráfego. |
 
 ## Contrato REST

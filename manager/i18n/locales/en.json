@@ -256,7 +256,16 @@
       "pageOf": "Page {page} of {pages}",
       "noResults": "No accounts match this search.",
       "sortAsc": "Sort {column} ascending",
-      "sortDesc": "Sort {column} descending"
+      "sortDesc": "Sort {column} descending",
+      "selectAll": "Select all",
+      "selectRow": "Select row",
+      "selectedCount": "{count} selected",
+      "clearSelection": "Clear selection",
+      "allRoles": "All roles",
+      "roleFilter": "Role filter",
+      "visibility": "Columns",
+      "filtersLabel": "Filters",
+      "clearFilters": "Clear filters"
     },
     "create": {
       "title": "New account",

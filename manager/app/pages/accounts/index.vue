@@ -1,10 +1,20 @@
 <script setup lang="ts">
+import type { DropdownMenuItem, TableRow } from '@nuxt/ui'
 import { ApiError } from '~/composables/useApi'
 import { useAccountsTable } from '~/composables/useAccountsTable'
 import AccountsTableActionsCell from '~/components/accounts/AccountsTableActionsCell.vue'
 import AccountsTableQuotaCell from '~/components/accounts/AccountsTableQuotaCell.vue'
 import AccountsTableRoleCell from '~/components/accounts/AccountsTableRoleCell.vue'
 import type { AccountRole, AccountUser } from '~/types/api'
+
+// Structural view of the UTable API this page drives (stable component
+// instance typing without importing @tanstack/*, which stays transitive-only).
+interface AccountsTableApi {
+  getFilteredRowModel: () => { rows: TableRow<AccountUser>[] }
+  getFilteredSelectedRowModel: () => { rows: TableRow<AccountUser>[] }
+  setPageIndex: (index: number) => void
+  resetRowSelection: () => void
+}
 
 // Account management is admin-only: the sidebar hides this screen for user
 // accounts and the guard below turns a direct visit back to the overview.
@@ -23,51 +33,122 @@ const users = ref<AccountUser[]>([])
 const pending = ref(true)
 const failure = ref<string | null>(null)
 
-const { columns, sorting, globalFilter, pagination } = useAccountsTable(users)
+const {
+  columns,
+  sorting,
+  globalFilter,
+  columnFilters,
+  columnVisibility,
+  rowSelection,
+  pagination,
+  globalFilterOptions,
+  paginationOptions
+} = useAccountsTable()
 
-// Client-side engine over the loaded users (no new API calls): email filter,
-// email/role string ordering plus numeric quota ordering, then the current
-// page slice. UTable renders the slice as-is so a single engine owns ordering
-// (same renderer-only pattern as pages/instances/index.vue — UTable v4 ships
-// no getPaginationRowModel and @tanstack/* is not importable).
-const filteredUsers = computed(() => {
-  const needle = globalFilter.value.trim().toLowerCase()
-  if (needle === '') {
-    return [...users.value]
+const table = useTemplateRef<{ tableApi?: AccountsTableApi }>('table')
+
+function getRowId(row: AccountUser): string {
+  return row.id
+}
+
+// Native table state, read from the table API (UTable owns sorting, filtering
+// and pagination; the page only binds state and renders). Before the first
+// mount tableApi is null, so every read falls back to the loaded users.
+function filteredCount(): number {
+  return table.value?.tableApi?.getFilteredRowModel().rows.length ?? users.value.length
+}
+
+const totalFiltered = computed(() => filteredCount())
+const pageCount = computed(() => Math.max(1, Math.ceil(totalFiltered.value / pagination.value.pageSize)))
+
+// Role column filter behind a USelect: '' means Todos (no column filter).
+const roleFilter = computed<string>({
+  get: () => {
+    const current = columnFilters.value.find(entry => entry.id === 'role')?.value
+    return typeof current === 'string' ? current : ''
+  },
+  set: (value) => {
+    const rest = columnFilters.value.filter(entry => entry.id !== 'role')
+    columnFilters.value = value === '' ? rest : [...rest, { id: 'role', value }]
   }
-  return users.value.filter(user => user.email.toLowerCase().includes(needle))
 })
 
-const sortedFilteredUsers = computed(() => {
-  const current = sorting.value[0]
-  if (!current || (current.id !== 'email' && current.id !== 'role' && current.id !== 'instance_quota')) {
-    return [...filteredUsers.value]
+const accountRoles: AccountRole[] = ['admin', 'user']
+
+function roleOptionLabel(role: AccountRole): string {
+  return role === 'admin' ? t('userMenu.roleAdmin') : t('userMenu.roleUser')
+}
+
+const roleFilterItems = computed(() => [
+  { label: t('accounts.table.allRoles'), value: '' },
+  ...accountRoles.map(role => ({ label: roleOptionLabel(role), value: role }))
+])
+
+// Select and actions never hide (bulk bar + per-row edit/delete stay
+// reachable); every other column is user-toggleable.
+const hideableColumnIds = computed<string[]>(() =>
+  columns.value
+    .filter(column => column.id !== 'select' && column.id !== 'actions')
+    .map(column => column.id ?? '')
+    .filter(id => id !== '')
+)
+
+function columnLabel(columnId: string): string {
+  switch (columnId) {
+    case 'email':
+      return t('common.email')
+    case 'role':
+      return t('common.role')
+    case 'instance_quota':
+      return t('accounts.quotaLabel')
+    default:
+      return columnId
   }
-  const direction = current.desc ? -1 : 1
-  return [...filteredUsers.value].sort((a, b) => {
-    // Quota sorts numerically over instance_quota (0 = Unlimited sorts as 0),
-    // never over the display string returned by the column accessorFn.
-    if (current.id === 'instance_quota') {
-      return (a.instance_quota - b.instance_quota) * direction
+}
+
+const visibilityItems = computed<DropdownMenuItem[]>(() =>
+  hideableColumnIds.value.map(columnId => ({
+    label: columnLabel(columnId),
+    type: 'checkbox' as const,
+    checked: columnVisibility.value[columnId] ?? true,
+    onUpdateChecked: (checked: boolean) => {
+      columnVisibility.value = { ...columnVisibility.value, [columnId]: checked }
+    },
+    onSelect: (event: Event) => {
+      event.preventDefault()
     }
-    const left = current.id === 'role' ? a.role : a.email
-    const right = current.id === 'role' ? b.role : b.email
-    return left.localeCompare(right, 'en') * direction
-  })
-})
+  }))
+)
 
-const pageCount = computed(() => Math.max(1, Math.ceil(sortedFilteredUsers.value.length / pagination.value.pageSize)))
+const selectedCount = computed(() =>
+  table.value?.tableApi?.getFilteredSelectedRowModel().rows.length
+  ?? Object.values(rowSelection.value).filter(Boolean).length
+)
 
-const pagedUsers = computed(() => {
-  const start = pagination.value.pageIndex * pagination.value.pageSize
-  return sortedFilteredUsers.value.slice(start, start + pagination.value.pageSize)
-})
+function clearSelection() {
+  if (table.value?.tableApi) {
+    table.value.tableApi.resetRowSelection()
+  } else {
+    rowSelection.value = {}
+  }
+}
 
-watch(globalFilter, () => {
-  pagination.value.pageIndex = 0
-})
+function clearFilters() {
+  globalFilter.value = ''
+  columnFilters.value = []
+}
 
-watch(sorting, () => {
+function onUpdatePage(page: number) {
+  if (table.value?.tableApi) {
+    table.value.tableApi.setPageIndex(page - 1)
+  } else {
+    pagination.value.pageIndex = page - 1
+  }
+}
+
+// The table owns ordering, so filter/sort changes restart at the first page;
+// a shrunken result only clamps an out-of-range page.
+watch([globalFilter, columnFilters, sorting], () => {
   pagination.value.pageIndex = 0
 })
 
@@ -76,19 +157,6 @@ watch(pageCount, (count) => {
     pagination.value.pageIndex = count - 1
   }
 })
-
-function toggleSort(columnId: string) {
-  const current = sorting.value[0]
-  sorting.value = [{ id: columnId, desc: current?.id === columnId ? !current.desc : false }]
-}
-
-function sortIcon(columnId: string): string {
-  const current = sorting.value[0]
-  if (current?.id !== columnId) {
-    return 'i-lucide-arrow-up-down'
-  }
-  return current.desc ? 'i-lucide-arrow-down-wide-narrow' : 'i-lucide-arrow-up-narrow-wide'
-}
 
 // Table copy lives in accounts.table.* (en.json); no UI literal stays here.
 const countLabel = computed(() => t('accounts.table.loadedCount', { count: users.value.length }))
@@ -101,6 +169,14 @@ function sortActionLabel(columnId: string): string {
     ? t('common.role')
     : columnId === 'instance_quota' ? t('accounts.quotaLabel') : t('common.email')
   return nextDesc ? t('accounts.table.sortDesc', { column }) : t('accounts.table.sortAsc', { column })
+}
+
+function sortAriaSort(columnId: string): 'ascending' | 'descending' | 'none' {
+  const current = sorting.value.find(entry => entry.id === columnId)
+  if (!current) {
+    return 'none'
+  }
+  return current.desc ? 'descending' : 'ascending'
 }
 
 const createOpen = ref(false)
@@ -316,69 +392,135 @@ if (isAdmin.value) {
         </template>
       </UAlert>
 
-      <UEmpty
-        v-else-if="users.length === 0"
-        icon="i-lucide-users"
-        :title="t('accounts.empty')"
-      >
-        <template #actions>
-          <UButton icon="i-lucide-plus" :label="t('accounts.create.title')" @click="createOpen = true" />
-        </template>
-      </UEmpty>
-
       <div v-else class="flex flex-col gap-3">
-        <UInput
-          v-model="globalFilter"
-          icon="i-lucide-search"
-          :placeholder="t('accounts.table.search')"
-        />
+        <div role="group" :aria-label="t('accounts.table.filtersLabel')" class="flex flex-wrap items-center gap-2">
+          <UInput
+            v-model="globalFilter"
+            icon="i-lucide-search"
+            :placeholder="t('accounts.table.search')"
+            :aria-label="t('accounts.table.search')"
+            class="min-w-52 flex-1"
+          />
+          <USelect
+            v-model="roleFilter"
+            :items="roleFilterItems"
+            :aria-label="t('accounts.table.roleFilter')"
+            class="min-w-40"
+          />
+          <UDropdownMenu
+            :items="visibilityItems"
+            :content="{ align: 'end' }"
+          >
+            <UButton
+              :label="t('accounts.table.visibility')"
+              color="neutral"
+              variant="outline"
+              trailing-icon="i-lucide-chevron-down"
+              class="min-h-11"
+              :aria-label="t('accounts.table.visibility')"
+            />
+          </UDropdownMenu>
+        </div>
 
         <p class="text-sm text-muted">
           {{ countLabel }}
         </p>
 
-        <UTable
-          :data="pagedUsers"
-          :columns="columns"
-          :empty="t('accounts.table.noResults')"
+        <div
+          v-if="selectedCount > 0"
+          class="flex flex-wrap items-center gap-2 rounded-lg bg-elevated px-3 py-2"
         >
-          <template #email-header>
+          <p class="text-sm">
+            {{ t('accounts.table.selectedCount', { count: selectedCount }) }}
+          </p>
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            icon="i-lucide-x"
+            :label="t('accounts.table.clearSelection')"
+            @click="clearSelection"
+          />
+        </div>
+
+        <UTable
+          ref="table"
+          v-model:sorting="sorting"
+          v-model:global-filter="globalFilter"
+          v-model:column-filters="columnFilters"
+          v-model:column-visibility="columnVisibility"
+          v-model:row-selection="rowSelection"
+          v-model:pagination="pagination"
+          :data="users"
+          :columns="columns"
+          :global-filter-options="globalFilterOptions"
+          :pagination-options="paginationOptions"
+          :get-row-id="getRowId"
+          :auto-reset-all="false"
+          :loading="pending"
+        >
+          <template #select-header="{ table: api }">
+            <UCheckbox
+              :model-value="api.getIsSomePageRowsSelected() ? 'indeterminate' : api.getIsAllPageRowsSelected()"
+              :aria-label="t('accounts.table.selectAll')"
+              @update:model-value="(value: boolean | 'indeterminate') => api.toggleAllPageRowsSelected(!!value)"
+            />
+          </template>
+
+          <template #select-cell="{ row }">
+            <UCheckbox
+              :model-value="row.getIsSelected()"
+              :aria-label="t('accounts.table.selectRow')"
+              @update:model-value="(value: boolean | 'indeterminate') => row.toggleSelected(!!value)"
+            />
+          </template>
+
+          <template #email-header="{ column }">
             <UButton
               color="neutral"
               variant="ghost"
-              size="xs"
-              class="-mx-2.5"
+              size="sm"
+              class="min-h-11"
               :label="t('common.email')"
-              :icon="sortIcon('email')"
+              :icon="column.getIsSorted() ? (column.getIsSorted() === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow') : 'i-lucide-arrow-up-down'"
               :aria-label="sortActionLabel('email')"
-              @click="toggleSort('email')"
+              :aria-sort="sortAriaSort('email')"
+              @click="column.toggleSorting(column.getIsSorted() === 'asc')"
             />
           </template>
 
-          <template #role-header>
+          <template #role-header="{ column }">
             <UButton
               color="neutral"
               variant="ghost"
-              size="xs"
-              class="-mx-2.5"
+              size="sm"
+              class="min-h-11"
               :label="t('common.role')"
-              :icon="sortIcon('role')"
+              :icon="column.getIsSorted() ? (column.getIsSorted() === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow') : 'i-lucide-arrow-up-down'"
               :aria-label="sortActionLabel('role')"
-              @click="toggleSort('role')"
+              :aria-sort="sortAriaSort('role')"
+              @click="column.toggleSorting(column.getIsSorted() === 'asc')"
             />
           </template>
 
-          <template #instance_quota-header>
+          <template #instance_quota-header="{ column }">
             <UButton
               color="neutral"
               variant="ghost"
-              size="xs"
-              class="-mx-2.5"
+              size="sm"
+              class="min-h-11"
               :label="t('accounts.quotaLabel')"
-              :icon="sortIcon('instance_quota')"
+              :icon="column.getIsSorted() ? (column.getIsSorted() === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow') : 'i-lucide-arrow-up-down'"
               :aria-label="sortActionLabel('instance_quota')"
-              @click="toggleSort('instance_quota')"
+              :aria-sort="sortAriaSort('instance_quota')"
+              @click="column.toggleSorting(column.getIsSorted() === 'asc')"
             />
+          </template>
+
+          <template #email-cell="{ row }">
+            <span class="block min-w-0 truncate" :title="row.original.email">
+              {{ row.original.email }}
+            </span>
           </template>
 
           <template #role-cell="{ row }">
@@ -396,9 +538,31 @@ if (isAdmin.value) {
               @remove="openDelete($event)"
             />
           </template>
+
+          <template #empty>
+            <div class="flex flex-col items-center gap-3 py-8 text-center">
+              <template v-if="users.length === 0">
+                <p class="text-sm text-muted">
+                  {{ t('accounts.empty') }}
+                </p>
+                <UButton icon="i-lucide-plus" :label="t('accounts.create.title')" @click="createOpen = true" />
+              </template>
+              <template v-else>
+                <p class="text-sm text-muted">
+                  {{ t('accounts.table.noResults') }}
+                </p>
+                <UButton
+                  color="neutral"
+                  variant="soft"
+                  :label="t('accounts.table.clearFilters')"
+                  @click="clearFilters"
+                />
+              </template>
+            </div>
+          </template>
         </UTable>
 
-        <div class="flex items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
           <p class="text-sm text-muted">
             {{ pageLabel }}
           </p>
@@ -406,8 +570,8 @@ if (isAdmin.value) {
             v-if="pageCount > 1"
             :page="pagination.pageIndex + 1"
             :items-per-page="pagination.pageSize"
-            :total="sortedFilteredUsers.length"
-            @update:page="pagination.pageIndex = $event - 1"
+            :total="totalFiltered"
+            @update:page="onUpdatePage"
           />
         </div>
       </div>

@@ -12,6 +12,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/auth"
 	"wzap/internal/config"
@@ -119,7 +120,7 @@ func authTestServer(t *testing.T, users storage.UserRepository, publicURL string
 	t.Helper()
 	return New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, PublicURL: publicURL},
-		discardLogger(),
+		zerolog.Nop(),
 		Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Users:        users,

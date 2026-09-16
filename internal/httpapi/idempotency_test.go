@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -17,6 +16,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/model"
 	"wzap/internal/storage"
@@ -144,17 +144,10 @@ const testMultipartBytes = 1 << 20
 // fingerprint under testMultipartBytes.
 const testMultipartLimit = testMultipartBytes + fingerprintMultipartOverhead
 
-// discardSlogLogger is a sink for the not-yet-migrated Idempotency
-// middleware, which still takes *slog.Logger. It shrinks away when
-// Idempotency takes zerolog.
-func discardSlogLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
-}
-
 // serveIdempotency runs req through the middleware wrapping next.
 func serveIdempotency(repo storage.IdempotencyRepository, next http.Handler, req *http.Request) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
-	Idempotency(repo, discardSlogLogger(), testMultipartBytes)(next).ServeHTTP(rec, req)
+	Idempotency(repo, zerolog.Nop(), testMultipartBytes)(next).ServeHTTP(rec, req)
 	return rec
 }
 
@@ -454,7 +447,7 @@ func TestIdempotencyReleasesOnPanic(t *testing.T) {
 			}
 			Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
 		}()
-		Idempotency(repo, discardSlogLogger(), testMultipartBytes)(panicking).ServeHTTP(w, r)
+		Idempotency(repo, zerolog.Nop(), testMultipartBytes)(panicking).ServeHTTP(w, r)
 	})
 
 	rec := httptest.NewRecorder()

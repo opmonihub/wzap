@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
+
 	"wzap/internal/config"
 )
 
@@ -74,7 +76,7 @@ func TestAuthLoginRateLimitedAnswers429(t *testing.T) {
 	user := seedAuthUser(t, "admin@example.com", "s3cret-password", "admin")
 	srv := New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret},
-		discardLogger(),
+		zerolog.Nop(),
 		Deps{
 			ReadyChecker: checkFunc(func(ctx context.Context) error { return nil }),
 			Users:        newFakeUserRepository(user),

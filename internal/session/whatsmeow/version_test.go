@@ -7,14 +7,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"go.mau.fi/whatsmeow/store"
-
-	"wzap/internal/logger"
 )
-
-func discardLogger() zerolog.Logger {
-	_, log := logger.NewTestLogger()
-	return log
-}
 
 // TestRefreshWAVersionAdvertisesLatest verifies the startup hardening: a
 // successful lookup advertises the fetched WhatsApp web version.
@@ -23,7 +16,7 @@ func TestRefreshWAVersionAdvertisesLatest(t *testing.T) {
 	defer store.SetWAVersion(prev)
 
 	want := &store.WAVersionContainer{2, 3000, 1047451014}
-	refreshWAVersion(context.Background(), discardLogger(), func(context.Context) (*store.WAVersionContainer, error) {
+	refreshWAVersion(context.Background(), zerolog.Nop(), func(context.Context) (*store.WAVersionContainer, error) {
 		return want, nil
 	})
 	if got := store.GetWAVersion(); got != *want {
@@ -37,7 +30,7 @@ func TestRefreshWAVersionKeepsPinOnFailure(t *testing.T) {
 	prev := store.GetWAVersion()
 	defer store.SetWAVersion(prev)
 
-	refreshWAVersion(context.Background(), discardLogger(), func(context.Context) (*store.WAVersionContainer, error) {
+	refreshWAVersion(context.Background(), zerolog.Nop(), func(context.Context) (*store.WAVersionContainer, error) {
 		return nil, errors.New("web.whatsapp.com unreachable")
 	})
 	if got := store.GetWAVersion(); got != prev {

@@ -5,10 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"log/slog"
-	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -21,142 +17,55 @@ import (
 	"wzap/internal/session/sessiontest"
 )
 
-// serviceRecord is one slog record observed by serviceMemoryHandler.
-type serviceRecord struct {
-	level slog.Level
+// logRecord is one zerolog event decoded from the test buffer.
+type logRecord struct {
+	level zerolog.Level
 	msg   string
 	attrs map[string]any
 }
 
-// serviceMemoryHandler is an in-memory slog.Handler that records every log
-// record so tests can assert which branch lines Connect/QR emit.
-type serviceMemoryHandler struct {
-	pre  []slog.Attr
-	core *serviceMemoryCore
-}
-
-type serviceMemoryCore struct {
-	mu      sync.Mutex
-	records []serviceRecord
-}
-
-func newServiceMemoryHandler() *serviceMemoryHandler {
-	return &serviceMemoryHandler{core: &serviceMemoryCore{}}
-}
-
-func (h *serviceMemoryHandler) Enabled(context.Context, slog.Level) bool { return true }
-
-func (h *serviceMemoryHandler) Handle(_ context.Context, r slog.Record) error {
-	attrs := make(map[string]any, len(h.pre)+r.NumAttrs())
-	for _, a := range h.pre {
-		attrs[a.Key] = a.Value.Any()
-	}
-	r.Attrs(func(a slog.Attr) bool {
-		attrs[a.Key] = a.Value.Any()
-		return true
-	})
-	h.core.mu.Lock()
-	h.core.records = append(h.core.records, serviceRecord{level: r.Level, msg: r.Message, attrs: attrs})
-	h.core.mu.Unlock()
-	return nil
-}
-
-func (h *serviceMemoryHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &serviceMemoryHandler{
-		pre:  append(append([]slog.Attr{}, h.pre...), attrs...),
-		core: h.core,
-	}
-}
-
-func (h *serviceMemoryHandler) WithGroup(string) slog.Handler { return h }
-
-// snapshot returns a copy of the records captured so far.
-func (h *serviceMemoryHandler) snapshot() []serviceRecord {
-	h.core.mu.Lock()
-	defer h.core.mu.Unlock()
-	return append([]serviceRecord{}, h.core.records...)
-}
-
-// captureServiceLogs returns an in-memory handler fed by a zerolog test
-// logger: the service writes JSON into the handler writer, which decodes
-// each event back into a record so the branch assertions keep observing
-// without rewriting them here (full helper unification is Task 4.1).
-func captureServiceLogs(t *testing.T) (*serviceMemoryHandler, zerolog.Logger) {
+// captureServiceLogs returns a JSON test logger writing into the returned
+// buffer, so tests can assert which branch lines Connect/QR emit.
+func captureServiceLogs(t *testing.T) (*bytes.Buffer, zerolog.Logger) {
 	t.Helper()
-	h := newServiceMemoryHandler()
-	_, base := logger.NewTestLogger()
-	return h, base.Output(serviceHandlerWriter{h: h})
+	return logger.NewTestLogger()
 }
 
-// serviceHandlerWriter decodes zerolog JSON lines into the service memory
-// handler.
-type serviceHandlerWriter struct {
-	h *serviceMemoryHandler
-}
-
-func (w serviceHandlerWriter) Write(p []byte) (int, error) {
-	dec := json.NewDecoder(bytes.NewReader(p))
+// snapshotServiceLogs decodes every complete JSON event in buf, skipping the
+// envelope fields every record carries.
+func snapshotServiceLogs(buf *bytes.Buffer) []logRecord {
+	var records []logRecord
+	dec := json.NewDecoder(bytes.NewReader(buf.Bytes()))
 	for {
 		var fields map[string]any
 		if err := dec.Decode(&fields); err != nil {
-			return len(p), nil
+			return records
 		}
-		w.h.addJSONRecord(fields)
+		level := zerolog.InfoLevel
+		if name, ok := fields["level"].(string); ok {
+			if parsed, err := zerolog.ParseLevel(name); err == nil {
+				level = parsed
+			}
+		}
+		msg, _ := fields["message"].(string)
+		attrs := make(map[string]any, len(fields))
+		for k, v := range fields {
+			if k == "level" || k == "message" || k == "time" {
+				continue
+			}
+			attrs[k] = v
+		}
+		records = append(records, logRecord{level: level, msg: msg, attrs: attrs})
 	}
 }
 
-// addJSONRecord stores one decoded zerolog event as a service record.
-func (h *serviceMemoryHandler) addJSONRecord(fields map[string]any) {
-	var level slog.Level
-	switch fields["level"] {
-	case "trace", "debug":
-		level = slog.LevelDebug
-	case "warn":
-		level = slog.LevelWarn
-	case "error", "fatal", "panic":
-		level = slog.LevelError
-	default:
-		level = slog.LevelInfo
-	}
-	msg, _ := fields["message"].(string)
-	attrs := make(map[string]any, len(fields))
-	for k, v := range fields {
-		if k == "level" || k == "message" || k == "time" {
-			continue
-		}
-		attrs[k] = v
-	}
-	h.core.mu.Lock()
-	h.core.records = append(h.core.records, serviceRecord{level: level, msg: msg, attrs: attrs})
-	h.core.mu.Unlock()
-}
-
-func findServiceRecord(records []serviceRecord, msg string, branch string) (serviceRecord, bool) {
+func findServiceRecord(records []logRecord, msg string, branch string) (logRecord, bool) {
 	for _, r := range records {
 		if r.msg == msg && r.attrs["branch"] == branch {
 			return r, true
 		}
 	}
-	return serviceRecord{}, false
-}
-
-// assertNoServiceSecret fails when any captured record carries QR code bytes:
-// only presence and expiry may be logged, never the code itself.
-func assertNoServiceSecret(t *testing.T, h *serviceMemoryHandler, qr string) {
-	t.Helper()
-	if qr == "" {
-		return
-	}
-	for _, r := range h.snapshot() {
-		if strings.Contains(r.msg, qr) {
-			t.Fatalf("log message %q contains secret value", r.msg)
-		}
-		for k, v := range r.attrs {
-			if strings.Contains(fmt.Sprintf("%v", v), qr) {
-				t.Fatalf("log record %q attr %q contains secret value", r.msg, k)
-			}
-		}
-	}
+	return logRecord{}, false
 }
 
 // storedCredsSession is a fake session whose Connect reports stored
@@ -189,7 +98,7 @@ func TestConnectLogsAlreadyConnectedBranch(t *testing.T) {
 	sess := sessiontest.NewSession(id, nil)
 	sess.SetStatus(session.StatusConnected)
 	sessions.Put(id, sess)
-	h, log := captureServiceLogs(t)
+	logs, log := captureServiceLogs(t)
 	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, log)
 
 	result, err := svc.Connect(context.Background(), id)
@@ -200,11 +109,11 @@ func TestConnectLogsAlreadyConnectedBranch(t *testing.T) {
 		t.Fatalf("Status = %q, want %q", result.Status, session.StatusConnected)
 	}
 
-	rec, ok := findServiceRecord(h.snapshot(), "connect instance branch", "already-connected")
+	rec, ok := findServiceRecord(snapshotServiceLogs(logs), "connect instance branch", "already-connected")
 	if !ok {
 		t.Fatal("missing Debug record \"connect instance branch\" with branch already-connected")
 	}
-	if rec.level != slog.LevelDebug {
+	if rec.level != zerolog.DebugLevel {
 		t.Errorf("level = %v, want Debug", rec.level)
 	}
 	if rec.attrs["op"] != "connect" {
@@ -224,7 +133,7 @@ func TestConnectLogsAlreadyPairingBranch(t *testing.T) {
 	if _, _, err := sess.Connect(context.Background()); err != nil {
 		t.Fatalf("setup session Connect: %v", err)
 	}
-	h, log := captureServiceLogs(t)
+	logs, log := captureServiceLogs(t)
 	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, log)
 
 	result, err := svc.Connect(context.Background(), id)
@@ -232,7 +141,7 @@ func TestConnectLogsAlreadyPairingBranch(t *testing.T) {
 		t.Fatalf("Connect: %v", err)
 	}
 
-	rec, ok := findServiceRecord(h.snapshot(), "connect instance branch", "already-pairing")
+	rec, ok := findServiceRecord(snapshotServiceLogs(logs), "connect instance branch", "already-pairing")
 	if !ok {
 		t.Fatal("missing Debug record \"connect instance branch\" with branch already-pairing")
 	}
@@ -242,13 +151,13 @@ func TestConnectLogsAlreadyPairingBranch(t *testing.T) {
 	if _, ok := rec.attrs["expires_at"]; !ok {
 		t.Error("record misses expires_at, want the QR validity")
 	}
-	assertNoServiceSecret(t, h, result.QRCode)
+	logger.AssertNoSecret(t, logs, result.QRCode)
 }
 
 func TestConnectLogsNewPairingBranch(t *testing.T) {
 	id := uuid.New()
 	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
-	h, log := captureServiceLogs(t)
+	logs, log := captureServiceLogs(t)
 	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, log)
 
 	result, err := svc.Connect(context.Background(), id)
@@ -256,7 +165,7 @@ func TestConnectLogsNewPairingBranch(t *testing.T) {
 		t.Fatalf("Connect: %v", err)
 	}
 
-	rec, ok := findServiceRecord(h.snapshot(), "connect instance branch", "new-pairing")
+	rec, ok := findServiceRecord(snapshotServiceLogs(logs), "connect instance branch", "new-pairing")
 	if !ok {
 		t.Fatal("missing Debug record \"connect instance branch\" with branch new-pairing")
 	}
@@ -269,7 +178,7 @@ func TestConnectLogsNewPairingBranch(t *testing.T) {
 	if _, ok := rec.attrs["expires_at"]; !ok {
 		t.Error("record misses expires_at, want the QR validity")
 	}
-	assertNoServiceSecret(t, h, result.QRCode)
+	logger.AssertNoSecret(t, logs, result.QRCode)
 }
 
 func TestConnectLogsStoredCredentialsBranch(t *testing.T) {
@@ -277,7 +186,7 @@ func TestConnectLogsStoredCredentialsBranch(t *testing.T) {
 	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
 	sess := &storedCredsSession{FakeSession: sessiontest.NewSession(id, nil)}
 	sessions := &storedCredsManager{Fake: sessiontest.New(nil), sess: sess}
-	h, log := captureServiceLogs(t)
+	logs, log := captureServiceLogs(t)
 	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, log)
 
 	result, err := svc.Connect(context.Background(), id)
@@ -288,7 +197,7 @@ func TestConnectLogsStoredCredentialsBranch(t *testing.T) {
 		t.Fatalf("Status = %q, want %q", result.Status, session.StatusConnected)
 	}
 
-	if _, ok := findServiceRecord(h.snapshot(), "connect instance branch", "stored-credentials"); !ok {
+	if _, ok := findServiceRecord(snapshotServiceLogs(logs), "connect instance branch", "stored-credentials"); !ok {
 		t.Error("missing Debug record \"connect instance branch\" with branch stored-credentials")
 	}
 }
@@ -300,18 +209,18 @@ func TestConnectLogsPairingError(t *testing.T) {
 	sess := sessiontest.NewSession(id, nil)
 	sess.ConnectErr = errors.New("dial failed")
 	sessions.Put(id, sess)
-	h, log := captureServiceLogs(t)
+	logs, log := captureServiceLogs(t)
 	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, log)
 
 	if _, err := svc.Connect(context.Background(), id); err == nil {
 		t.Fatal("Connect error = nil, want the session failure")
 	}
 
-	rec, ok := findServiceRecord(h.snapshot(), "connect instance failed", "new-pairing")
+	rec, ok := findServiceRecord(snapshotServiceLogs(logs), "connect instance failed", "new-pairing")
 	if !ok {
 		t.Fatal("missing Warn record \"connect instance failed\" with branch new-pairing")
 	}
-	if rec.level != slog.LevelWarn {
+	if rec.level != zerolog.WarnLevel {
 		t.Errorf("level = %v, want Warn", rec.level)
 	}
 	if _, ok := rec.attrs["error"]; !ok {
@@ -327,7 +236,7 @@ func TestConnectLogsStaleDeviceReset(t *testing.T) {
 	})
 	sess := &oneShotNoDeviceSession{FakeSession: sessiontest.NewSession(id, nil), fails: 1}
 	sessions := &staleConnectManager{Fake: sessiontest.New(nil), sess: sess}
-	h, log := captureServiceLogs(t)
+	logs, log := captureServiceLogs(t)
 	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, log)
 
 	result, err := svc.Connect(context.Background(), id)
@@ -338,34 +247,34 @@ func TestConnectLogsStaleDeviceReset(t *testing.T) {
 		t.Fatalf("Status = %q, want %q after the reset", result.Status, session.StatusPairing)
 	}
 
-	if _, ok := findServiceRecord(h.snapshot(), "connect pairing device gone, resetting stale pairing", "reset-stale-device"); !ok {
+	if _, ok := findServiceRecord(snapshotServiceLogs(logs), "connect pairing device gone, resetting stale pairing", "reset-stale-device"); !ok {
 		t.Error("missing Debug record for the ErrNoDevice reset path")
 	}
-	if _, ok := findServiceRecord(h.snapshot(), "reset stale pairing", "reset-stale-device"); !ok {
+	if _, ok := findServiceRecord(snapshotServiceLogs(logs), "reset stale pairing", "reset-stale-device"); !ok {
 		t.Error("missing Debug record \"reset stale pairing\"")
 	}
-	if _, ok := findServiceRecord(h.snapshot(), "connect instance branch", "new-pairing"); !ok {
+	if _, ok := findServiceRecord(snapshotServiceLogs(logs), "connect instance branch", "new-pairing"); !ok {
 		t.Error("missing Debug record \"connect instance branch\" with branch new-pairing after the reset")
 	}
-	assertNoServiceSecret(t, h, result.QRCode)
+	logger.AssertNoSecret(t, logs, result.QRCode)
 }
 
 func TestConnectLogsPersistPairingError(t *testing.T) {
 	id := uuid.New()
 	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
 	repo.setConnectionErr = errors.New("database down")
-	h, log := captureServiceLogs(t)
+	logs, log := captureServiceLogs(t)
 	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, log)
 
 	if _, err := svc.Connect(context.Background(), id); err == nil {
 		t.Fatal("Connect error = nil, want the pairing update failure")
 	}
 
-	rec, ok := findServiceRecord(h.snapshot(), "connect instance failed", "persist-pairing")
+	rec, ok := findServiceRecord(snapshotServiceLogs(logs), "connect instance failed", "persist-pairing")
 	if !ok {
 		t.Fatal("missing Warn record \"connect instance failed\" with branch persist-pairing")
 	}
-	if rec.level != slog.LevelWarn {
+	if rec.level != zerolog.WarnLevel {
 		t.Errorf("level = %v, want Warn", rec.level)
 	}
 }
@@ -378,13 +287,13 @@ func TestQRLogsBranches(t *testing.T) {
 		sess := sessiontest.NewSession(id, nil)
 		sess.SetStatus(session.StatusConnected)
 		sessions.Put(id, sess)
-		h, log := captureServiceLogs(t)
+		logs, log := captureServiceLogs(t)
 		svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, log)
 
 		if _, err := svc.QR(context.Background(), id); !errors.Is(err, ErrAlreadyConnected) {
 			t.Fatalf("QR error = %v, want ErrAlreadyConnected", err)
 		}
-		if _, ok := findServiceRecord(h.snapshot(), "qr instance branch", "already-connected"); !ok {
+		if _, ok := findServiceRecord(snapshotServiceLogs(logs), "qr instance branch", "already-connected"); !ok {
 			t.Error("missing Debug record \"qr instance branch\" with branch already-connected")
 		}
 	})
@@ -392,21 +301,21 @@ func TestQRLogsBranches(t *testing.T) {
 	t.Run("new pairing", func(t *testing.T) {
 		id := uuid.New()
 		repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
-		h, log := captureServiceLogs(t)
+		logs, log := captureServiceLogs(t)
 		svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, log)
 
 		result, err := svc.QR(context.Background(), id)
 		if err != nil {
 			t.Fatalf("QR: %v", err)
 		}
-		rec, ok := findServiceRecord(h.snapshot(), "qr instance branch", "new-pairing")
+		rec, ok := findServiceRecord(snapshotServiceLogs(logs), "qr instance branch", "new-pairing")
 		if !ok {
 			t.Fatal("missing Debug record \"qr instance branch\" with branch new-pairing")
 		}
 		if rec.attrs["qr_present"] != true {
 			t.Errorf("qr_present = %v, want true", rec.attrs["qr_present"])
 		}
-		assertNoServiceSecret(t, h, result.QRCode)
+		logger.AssertNoSecret(t, logs, result.QRCode)
 	})
 
 	t.Run("stored credentials", func(t *testing.T) {
@@ -414,13 +323,13 @@ func TestQRLogsBranches(t *testing.T) {
 		repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
 		sess := &storedCredsSession{FakeSession: sessiontest.NewSession(id, nil)}
 		sessions := &storedCredsManager{Fake: sessiontest.New(nil), sess: sess}
-		h, log := captureServiceLogs(t)
+		logs, log := captureServiceLogs(t)
 		svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, log)
 
 		if _, err := svc.QR(context.Background(), id); !errors.Is(err, ErrAlreadyConnected) {
 			t.Fatalf("QR error = %v, want ErrAlreadyConnected", err)
 		}
-		if _, ok := findServiceRecord(h.snapshot(), "qr instance branch", "stored-credentials"); !ok {
+		if _, ok := findServiceRecord(snapshotServiceLogs(logs), "qr instance branch", "stored-credentials"); !ok {
 			t.Error("missing Debug record \"qr instance branch\" with branch stored-credentials")
 		}
 	})

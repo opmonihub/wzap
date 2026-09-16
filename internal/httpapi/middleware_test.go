@@ -24,10 +24,6 @@ import (
 
 const testToken = "test-service-token"
 
-func discardLogger() zerolog.Logger {
-	return zerolog.Nop()
-}
-
 func okHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -351,7 +347,7 @@ func TestRequestIDGeneratesMissingID(t *testing.T) {
 }
 
 func TestRecoverReturnsInternalErrorEnvelope(t *testing.T) {
-	handler := RequestID(Recover(discardLogger())(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+	handler := RequestID(Recover(zerolog.Nop())(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		panic("boom: database credentials are hunter2")
 	})))
 
@@ -381,7 +377,7 @@ func TestRecoverPassesThroughNormalResponses(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
 
-	Recover(discardLogger())(okHandler()).ServeHTTP(rec, req)
+	Recover(zerolog.Nop())(okHandler()).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/auth"
 	"wzap/internal/config"
@@ -153,7 +154,7 @@ func (f *rbacFixture) rbacServer(t *testing.T) *http.Server {
 	t.Helper()
 	return New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: f.globalKey, JWTSecret: testJWTSecret, MaxMediaBytes: testMaxMediaBytes},
-		discardLogger(),
+		zerolog.Nop(),
 		Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    f.rbacInstances(),
@@ -270,7 +271,7 @@ func TestRBACInstanceKeyForeignProbeSkipsDBLoad(t *testing.T) {
 	loads := 0
 	srv := New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: f.globalKey, JWTSecret: testJWTSecret, MaxMediaBytes: testMaxMediaBytes},
-		discardLogger(),
+		zerolog.Nop(),
 		Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances: &fakeInstanceService{
@@ -335,7 +336,7 @@ func TestRBACRandomUUIDIsNotFound(t *testing.T) {
 	unknownMedia := uuid.New()
 	srv := New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: f.globalKey, JWTSecret: testJWTSecret, MaxMediaBytes: testMaxMediaBytes},
-		discardLogger(),
+		zerolog.Nop(),
 		Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances: &fakeInstanceService{
@@ -649,7 +650,7 @@ func TestRBACCreateGating(t *testing.T) {
 	}
 	srv := New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: f.globalKey, JWTSecret: testJWTSecret},
-		discardLogger(),
+		zerolog.Nop(),
 		Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    svc,

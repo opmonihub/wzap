@@ -36,10 +36,6 @@ func seedTestConfig(email, password string) config.Config {
 	}
 }
 
-func seedTestLogger() zerolog.Logger {
-	return zerolog.Nop()
-}
-
 func createSeedUser(t *testing.T, users *postgres.UserRepository, email string) *model.User {
 	t.Helper()
 
@@ -90,7 +86,7 @@ func TestSeedAdminEmptyWithEnvs(t *testing.T) {
 	second := createLegacyInstance(t, instances, "legacy-two")
 
 	cfg := seedTestConfig("admin@example.com", "s3cret-password")
-	if err := seedAdmin(ctx, cfg, users, instances, seedTestLogger()); err != nil {
+	if err := seedAdmin(ctx, cfg, users, instances, zerolog.Nop()); err != nil {
 		t.Fatalf("seedAdmin: %v", err)
 	}
 
@@ -136,7 +132,7 @@ func TestSeedAdminEmptyWithoutEnvs(t *testing.T) {
 
 	legacy := createLegacyInstance(t, instances, "legacy")
 
-	if err := seedAdmin(ctx, seedTestConfig("", ""), users, instances, seedTestLogger()); err != nil {
+	if err := seedAdmin(ctx, seedTestConfig("", ""), users, instances, zerolog.Nop()); err != nil {
 		t.Fatalf("seedAdmin: %v", err)
 	}
 
@@ -166,7 +162,7 @@ func TestSeedAdminNonEmptyWithEnvs(t *testing.T) {
 	owned := createLegacyInstance(t, instances, "owned")
 	setSeedOwner(t, pool, owned.ID, existing.ID)
 
-	if err := seedAdmin(ctx, seedTestConfig("admin@example.com", "s3cret-password"), users, instances, seedTestLogger()); err != nil {
+	if err := seedAdmin(ctx, seedTestConfig("admin@example.com", "s3cret-password"), users, instances, zerolog.Nop()); err != nil {
 		t.Fatalf("seedAdmin: %v", err)
 	}
 
@@ -204,7 +200,7 @@ func TestSeedAdminNonEmptyWithoutEnvs(t *testing.T) {
 	createSeedUser(t, users, "owner@example.com")
 	legacy := createLegacyInstance(t, instances, "legacy")
 
-	if err := seedAdmin(ctx, seedTestConfig("", ""), users, instances, seedTestLogger()); err != nil {
+	if err := seedAdmin(ctx, seedTestConfig("", ""), users, instances, zerolog.Nop()); err != nil {
 		t.Fatalf("seedAdmin: %v", err)
 	}
 
@@ -244,7 +240,7 @@ func TestSeedAdminHalfConfigured(t *testing.T) {
 
 			// A half-configured seed warns, creates nothing and lets boot
 			// proceed: the nil error is the assertion that boot continues.
-			if err := seedAdmin(ctx, seedTestConfig(tt.email, tt.password), users, instances, seedTestLogger()); err != nil {
+			if err := seedAdmin(ctx, seedTestConfig(tt.email, tt.password), users, instances, zerolog.Nop()); err != nil {
 				t.Fatalf("seedAdmin(half-configured) = %v, want nil (boot proceeds)", err)
 			}
 
@@ -281,7 +277,7 @@ func TestSeedAdminBackfillFailureRollsBackAdmin(t *testing.T) {
 
 	cfg := seedTestConfig("admin@example.com", "s3cret-password")
 	boom := errors.New("backfill boom")
-	err := seedAdmin(ctx, cfg, users, errBackfiller{err: boom}, seedTestLogger())
+	err := seedAdmin(ctx, cfg, users, errBackfiller{err: boom}, zerolog.Nop())
 	if err == nil {
 		t.Fatal("seedAdmin(backfill failure) = nil, want the backfill error")
 	}
@@ -299,7 +295,7 @@ func TestSeedAdminBackfillFailureRollsBackAdmin(t *testing.T) {
 		t.Fatalf("users count = %d, want 0 (failed backfill rolls the admin back)", count)
 	}
 
-	if err := seedAdmin(ctx, cfg, users, instances, seedTestLogger()); err != nil {
+	if err := seedAdmin(ctx, cfg, users, instances, zerolog.Nop()); err != nil {
 		t.Fatalf("seedAdmin(retry with working backfiller): %v", err)
 	}
 	admin, err := users.GetByEmail(ctx, "admin@example.com")

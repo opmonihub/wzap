@@ -8,12 +8,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rs/zerolog"
+
 	"wzap/internal/config"
 )
 
 func newTestServer(t *testing.T) *http.Server {
 	t.Helper()
-	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, discardLogger(),
+	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, zerolog.Nop(),
 		Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    &fakeInstanceService{},
@@ -155,7 +157,7 @@ func TestAPIFallbackAnswersErrorEnvelope(t *testing.T) {
 }
 
 func TestNewReturnsConfiguredServer(t *testing.T) {
-	srv := New(config.Config{HTTPAddr: "127.0.0.1:9999", APIKey: testToken}, discardLogger(), Deps{})
+	srv := New(config.Config{HTTPAddr: "127.0.0.1:9999", APIKey: testToken}, zerolog.Nop(), Deps{})
 
 	if srv.Addr != "127.0.0.1:9999" {
 		t.Errorf("Addr = %q, want %q", srv.Addr, "127.0.0.1:9999")

@@ -2,16 +2,13 @@ package whatsmeow
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
-	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/types"
@@ -20,71 +17,46 @@ import (
 	"wzap/internal/session"
 )
 
-// capturedRecord is one slog record observed by memoryHandler.
-type capturedRecord struct {
-	level slog.Level
+// logRecord is one zerolog event decoded from the test buffer.
+type logRecord struct {
+	level zerolog.Level
 	msg   string
 	attrs map[string]any
 }
 
-// memoryHandler is an in-memory slog.Handler that records every log record so
-// tests can assert which boundary lines a pairing path emits.
-type memoryHandler struct {
-	min  slog.Level
-	pre  []slog.Attr
-	core *memoryCore
-}
-
-type memoryCore struct {
-	mu      sync.Mutex
-	records []capturedRecord
-}
-
-func newMemoryHandler(min slog.Level) *memoryHandler {
-	return &memoryHandler{min: min, core: &memoryCore{}}
-}
-
-func (h *memoryHandler) Enabled(_ context.Context, level slog.Level) bool {
-	return level >= h.min
-}
-
-func (h *memoryHandler) Handle(_ context.Context, r slog.Record) error {
-	attrs := make(map[string]any, len(h.pre)+r.NumAttrs())
-	for _, a := range h.pre {
-		attrs[a.Key] = a.Value.Any()
-	}
-	r.Attrs(func(a slog.Attr) bool {
-		attrs[a.Key] = a.Value.Any()
-		return true
-	})
-	h.core.mu.Lock()
-	h.core.records = append(h.core.records, capturedRecord{level: r.Level, msg: r.Message, attrs: attrs})
-	h.core.mu.Unlock()
-	return nil
-}
-
-func (h *memoryHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &memoryHandler{
-		min:  h.min,
-		pre:  append(append([]slog.Attr{}, h.pre...), attrs...),
-		core: h.core,
+// snapshotRecords decodes every complete JSON event in buf, skipping the
+// envelope fields every record carries.
+func snapshotRecords(buf *bytes.Buffer) []logRecord {
+	var records []logRecord
+	dec := json.NewDecoder(bytes.NewReader(buf.Bytes()))
+	for {
+		var fields map[string]any
+		if err := dec.Decode(&fields); err != nil {
+			return records
+		}
+		level := zerolog.InfoLevel
+		if name, ok := fields["level"].(string); ok {
+			if parsed, err := zerolog.ParseLevel(name); err == nil {
+				level = parsed
+			}
+		}
+		msg, _ := fields["message"].(string)
+		attrs := make(map[string]any, len(fields))
+		for k, v := range fields {
+			if k == "level" || k == "message" || k == "time" {
+				continue
+			}
+			attrs[k] = v
+		}
+		records = append(records, logRecord{level: level, msg: msg, attrs: attrs})
 	}
 }
 
-func (h *memoryHandler) WithGroup(string) slog.Handler { return h }
-
-// snapshot returns a copy of the records captured so far.
-func (h *memoryHandler) snapshot() []capturedRecord {
-	h.core.mu.Lock()
-	defer h.core.mu.Unlock()
-	return append([]capturedRecord{}, h.core.records...)
-}
-
-func waitForRecord(t *testing.T, h *memoryHandler, msg string) capturedRecord {
+func waitForRecord(t *testing.T, buf *bytes.Buffer, msg string) logRecord {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		for _, r := range h.snapshot() {
+		for _, r := range snapshotRecords(buf) {
 			if r.msg == msg {
 				return r
 			}
@@ -92,106 +64,39 @@ func waitForRecord(t *testing.T, h *memoryHandler, msg string) capturedRecord {
 		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for log record %q", msg)
-	return capturedRecord{}
+	return logRecord{}
 }
 
-// assertNoSecret scans every captured record for value, failing when a log
-// line carries secret material such as QR code bytes.
-func assertNoSecret(t *testing.T, h *memoryHandler, value string) {
+func newLoggedSession(t *testing.T, device *store.Device, log zerolog.Logger, sink session.EventSink) *instanceSession {
 	t.Helper()
-	for _, r := range h.snapshot() {
-		if strings.Contains(r.msg, value) {
-			t.Fatalf("log message %q contains secret value", r.msg)
-		}
-		for k, v := range r.attrs {
-			if strings.Contains(fmt.Sprintf("%v", v), value) {
-				t.Fatalf("log record %q attr %q contains secret value", r.msg, k)
-			}
-		}
-	}
-}
-
-func newLoggedSession(t *testing.T, device *store.Device, h *memoryHandler, sink session.EventSink) *instanceSession {
-	t.Helper()
-	// The memoryHandler stays until Task 4.1 unifies the test helpers: the
-	// session logger comes from logger.NewTestLogger with its output decoded
-	// back into the handler, so the boundary assertions keep observing
-	// records without rewriting them here.
-	_, base := logger.NewTestLogger()
-	sess, err := newSession(uuid.New(), device, base.Output(handlerWriter{h: h}), sink, testMediaLimit)
+	sess, err := newSession(uuid.New(), device, log, sink, testMediaLimit)
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
 	return sess
 }
 
-// handlerWriter decodes zerolog JSON lines into the memoryHandler.
-type handlerWriter struct {
-	h *memoryHandler
-}
-
-func (w handlerWriter) Write(p []byte) (int, error) {
-	dec := json.NewDecoder(bytes.NewReader(p))
-	for {
-		var fields map[string]any
-		if err := dec.Decode(&fields); err != nil {
-			return len(p), nil
-		}
-		w.h.addJSONRecord(fields)
-	}
-}
-
-// addJSONRecord stores one decoded zerolog event as a captured record,
-// honouring the handler minimum level like Enabled does for slog records.
-func (h *memoryHandler) addJSONRecord(fields map[string]any) {
-	var level slog.Level
-	switch fields["level"] {
-	case "trace", "debug":
-		level = slog.LevelDebug
-	case "warn":
-		level = slog.LevelWarn
-	case "error", "fatal", "panic":
-		level = slog.LevelError
-	default:
-		level = slog.LevelInfo
-	}
-	if level < h.min {
-		return
-	}
-	msg, _ := fields["message"].(string)
-	attrs := make(map[string]any, len(fields))
-	for k, v := range fields {
-		if k == "level" || k == "message" || k == "time" {
-			continue
-		}
-		attrs[k] = v
-	}
-	h.core.mu.Lock()
-	h.core.records = append(h.core.records, capturedRecord{level: level, msg: msg, attrs: attrs})
-	h.core.mu.Unlock()
-}
-
 // TestMonitorQRLogsSuccess verifies the success terminal emits its boundary
 // log while the session still reaches connected with the paired JID.
 func TestMonitorQRLogsSuccess(t *testing.T) {
-	h := newMemoryHandler(slog.LevelDebug)
+	logs, log := logger.NewTestLogger()
 	jid := types.NewJID("5511999999999", types.DefaultUserServer)
 	sink := &recordingSink{}
-	sess := newLoggedSession(t, &store.Device{ID: &jid}, h, sink)
+	sess := newLoggedSession(t, &store.Device{ID: &jid}, log, sink)
 
 	pairing := make(chan whatsmeow.QRChannelItem, 4)
 	go sess.monitorQR(pairing)
 	pairing <- qrCodeItem("QR-SUCCESS-LOG")
 	pairing <- whatsmeow.QRChannelSuccess
 
-	rec := waitForRecord(t, h, "pairing succeeded")
-	if rec.level != slog.LevelInfo {
+	rec := waitForRecord(t, logs, "pairing succeeded")
+	if rec.level != zerolog.InfoLevel {
 		t.Errorf("pairing succeeded level = %v, want info", rec.level)
 	}
 	if rec.attrs["instance_id"] != sess.instanceID.String() {
 		t.Errorf("pairing succeeded instance_id = %v, want %v", rec.attrs["instance_id"], sess.instanceID)
 	}
-	assertNoSecret(t, h, "QR-SUCCESS-LOG")
+	logger.AssertNoSecret(t, logs, "QR-SUCCESS-LOG")
 
 	waitForPairing(t, "pairing success event", func() bool { return sink.count() > 0 })
 	if sess.Status() != session.StatusConnected {
@@ -202,23 +107,23 @@ func TestMonitorQRLogsSuccess(t *testing.T) {
 // TestMonitorQRLogsTimeout verifies the QR expiry terminal emits its boundary
 // log with the stable reason while the session still disconnects.
 func TestMonitorQRLogsTimeout(t *testing.T) {
-	h := newMemoryHandler(slog.LevelDebug)
+	logs, log := logger.NewTestLogger()
 	sink := &recordingSink{}
-	sess := newLoggedSession(t, &store.Device{}, h, sink)
+	sess := newLoggedSession(t, &store.Device{}, log, sink)
 
 	pairing := make(chan whatsmeow.QRChannelItem, 4)
 	go sess.monitorQR(pairing)
 	pairing <- qrCodeItem("QR-TIMEOUT-LOG")
 	pairing <- whatsmeow.QRChannelTimeout
 
-	rec := waitForRecord(t, h, "pairing timed out")
-	if rec.level != slog.LevelWarn {
+	rec := waitForRecord(t, logs, "pairing timed out")
+	if rec.level != zerolog.WarnLevel {
 		t.Errorf("pairing timed out level = %v, want warn", rec.level)
 	}
 	if rec.attrs["reason"] != "qr code expired" {
 		t.Errorf("pairing timed out reason = %v, want %q", rec.attrs["reason"], "qr code expired")
 	}
-	assertNoSecret(t, h, "QR-TIMEOUT-LOG")
+	logger.AssertNoSecret(t, logs, "QR-TIMEOUT-LOG")
 
 	waitForPairing(t, "expiry disconnect", func() bool {
 		return sess.Status() == session.StatusDisconnected
@@ -229,23 +134,23 @@ func TestMonitorQRLogsTimeout(t *testing.T) {
 // and the error-status transition additionally warns, without changing the
 // resulting error state.
 func TestMonitorQRLogsError(t *testing.T) {
-	h := newMemoryHandler(slog.LevelDebug)
+	logs, log := logger.NewTestLogger()
 	sink := &recordingSink{}
-	sess := newLoggedSession(t, &store.Device{}, h, sink)
+	sess := newLoggedSession(t, &store.Device{}, log, sink)
 
 	pairing := make(chan whatsmeow.QRChannelItem, 4)
 	go sess.monitorQR(pairing)
 	pairing <- whatsmeow.QRChannelItem{Event: whatsmeow.QRChannelEventError, Error: fmt.Errorf("boom")}
 
-	rec := waitForRecord(t, h, "pairing failed")
-	if rec.level != slog.LevelWarn {
+	rec := waitForRecord(t, logs, "pairing failed")
+	if rec.level != zerolog.WarnLevel {
 		t.Errorf("pairing failed level = %v, want warn", rec.level)
 	}
 	if rec.attrs["instance_id"] != sess.instanceID.String() {
 		t.Errorf("pairing failed instance_id = %v, want %v", rec.attrs["instance_id"], sess.instanceID)
 	}
-	warn := waitForRecord(t, h, "session entered error status")
-	if warn.level != slog.LevelWarn {
+	warn := waitForRecord(t, logs, "session entered error status")
+	if warn.level != zerolog.WarnLevel {
 		t.Errorf("session entered error status level = %v, want warn", warn.level)
 	}
 
@@ -257,15 +162,15 @@ func TestMonitorQRLogsError(t *testing.T) {
 // TestMonitorQRLogsChannelClosed verifies an abruptly closed QR channel emits
 // its boundary log while the session still disconnects.
 func TestMonitorQRLogsChannelClosed(t *testing.T) {
-	h := newMemoryHandler(slog.LevelDebug)
-	sess := newLoggedSession(t, &store.Device{}, h, nil)
+	logs, log := logger.NewTestLogger()
+	sess := newLoggedSession(t, &store.Device{}, log, nil)
 
 	pairing := make(chan whatsmeow.QRChannelItem, 4)
 	go sess.monitorQR(pairing)
 	close(pairing)
 
-	rec := waitForRecord(t, h, "pairing qr channel closed")
-	if rec.level != slog.LevelWarn {
+	rec := waitForRecord(t, logs, "pairing qr channel closed")
+	if rec.level != zerolog.WarnLevel {
 		t.Errorf("pairing qr channel closed level = %v, want warn", rec.level)
 	}
 	if rec.attrs["reason"] != "qr channel closed" {
@@ -279,21 +184,21 @@ func TestMonitorQRLogsChannelClosed(t *testing.T) {
 // TestQRCodeRotationLogsExpiryWithoutBytes verifies a code rotation emits a
 // debug line carrying only the expiry, never the code bytes.
 func TestQRCodeRotationLogsExpiryWithoutBytes(t *testing.T) {
-	h := newMemoryHandler(slog.LevelDebug)
-	sess := newLoggedSession(t, &store.Device{}, h, nil)
+	logs, log := logger.NewTestLogger()
+	sess := newLoggedSession(t, &store.Device{}, log, nil)
 
 	pairing := make(chan whatsmeow.QRChannelItem, 4)
 	go sess.monitorQR(pairing)
 	pairing <- qrCodeItem("ROTATION-SECRET-CODE")
 
-	rec := waitForRecord(t, h, "qr code rotated")
-	if rec.level != slog.LevelDebug {
+	rec := waitForRecord(t, logs, "qr code rotated")
+	if rec.level != zerolog.DebugLevel {
 		t.Errorf("qr code rotated level = %v, want debug", rec.level)
 	}
 	if _, ok := rec.attrs["expires_at"]; !ok {
 		t.Errorf("qr code rotated record is missing expires_at: %v", rec.attrs)
 	}
-	assertNoSecret(t, h, "ROTATION-SECRET-CODE")
+	logger.AssertNoSecret(t, logs, "ROTATION-SECRET-CODE")
 	close(pairing)
 }
 
@@ -301,12 +206,12 @@ func TestQRCodeRotationLogsExpiryWithoutBytes(t *testing.T) {
 // line with from/to, jid presence and reason, that repeats stay silent, and
 // that the error status additionally warns.
 func TestSetStatusLogsTransition(t *testing.T) {
-	h := newMemoryHandler(slog.LevelDebug)
-	sess := newLoggedSession(t, &store.Device{}, h, nil)
+	logs, log := logger.NewTestLogger()
+	sess := newLoggedSession(t, &store.Device{}, log, nil)
 
 	sess.setStatus(session.StatusPairing, "", "")
-	rec := waitForRecord(t, h, "session status changed")
-	if rec.level != slog.LevelDebug {
+	rec := waitForRecord(t, logs, "session status changed")
+	if rec.level != zerolog.DebugLevel {
 		t.Errorf("session status changed level = %v, want debug", rec.level)
 	}
 	if rec.attrs["from"] != string(session.StatusDisconnected) || rec.attrs["to"] != string(session.StatusPairing) {
@@ -316,15 +221,15 @@ func TestSetStatusLogsTransition(t *testing.T) {
 	if rec.attrs["jid_present"] != false {
 		t.Errorf("session status changed jid_present = %v, want false", rec.attrs["jid_present"])
 	}
-	before := len(h.snapshot())
+	before := len(snapshotRecords(logs))
 	sess.setStatus(session.StatusPairing, "", "")
 	time.Sleep(50 * time.Millisecond)
-	if got := len(h.snapshot()); got != before {
+	if got := len(snapshotRecords(logs)); got != before {
 		t.Fatalf("repeated setStatus emitted %d extra records, want none", got-before)
 	}
 
 	sess.setStatus(session.StatusError, "", "boom")
-	warn := waitForRecord(t, h, "session entered error status")
+	warn := waitForRecord(t, logs, "session entered error status")
 	if warn.attrs["reason"] != "boom" {
 		t.Errorf("session entered error status reason = %v, want %q", warn.attrs["reason"], "boom")
 	}

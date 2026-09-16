@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/auth"
 	"wzap/internal/config"
@@ -24,7 +25,7 @@ func usersCRUDServer(t *testing.T, users storage.UserRepository, keys storage.AP
 	t.Helper()
 	return New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, DefaultUserQuota: defaultQuota},
-		discardLogger(),
+		zerolog.Nop(),
 		Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Users:        users,

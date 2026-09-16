@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -91,11 +90,6 @@ func serve() error {
 	if err != nil {
 		return err
 	}
-	// Temporary scaffolding: the constructors wired below still take
-	// *slog.Logger (later tasks migrate them to zerolog), so they get the
-	// bridge. Pass log itself wherever cmd/wzap owns the signature
-	// (seedAdmin, stopComponents) or the downstream ctor already takes
-	// zerolog (chatwoot mirror, import scheduler, inbound, instance).
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -691,14 +685,6 @@ func decodeChatwootTokenKey(cfg config.Config) ([]byte, error) {
 		return nil, fmt.Errorf("invalid configuration: WZAP_CHATWOOT_TOKEN_KEY must be base64-encoded 32 bytes")
 	}
 	return raw, nil
-}
-
-// TODO(canonical-zerolog-logger): remove when tasks 2.2-3.5 migrate all
-// downstream ctors to zerolog.Logger; enforced dead by the task 4.1 grep
-// gate. slogBridge is temporary scaffolding that forwards records from
-// constructors still taking *slog.Logger into the canonical logger.
-func slogBridge(log zerolog.Logger) *slog.Logger {
-	return slog.New(zerolog.NewSlogHandler(log))
 }
 
 // newLogger builds the structured logger from the configuration.

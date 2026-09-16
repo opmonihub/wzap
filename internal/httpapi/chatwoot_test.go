@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/chatwoot/inbound"
 	"wzap/internal/config"
@@ -43,7 +44,7 @@ func chatwootTestServer(t *testing.T, instances InstanceService, cfgs *fakeChatw
 	t.Helper()
 	return New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, PublicURL: "https://wzap.example.com", Chatwoot: chatwoot},
-		discardLogger(),
+		zerolog.Nop(),
 		Deps{
 			ReadyChecker:    checkFunc(func(context.Context) error { return nil }),
 			Instances:       instances,
@@ -270,7 +271,7 @@ func TestChatwootWebhookKeepsHandlerStatusCodes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			srv := New(
 				config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, PublicURL: "https://wzap.example.com", Chatwoot: chatwootOn()},
-				discardLogger(),
+				zerolog.Nop(),
 				Deps{
 					ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 					Instances: &fakeInstanceService{

@@ -5,11 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"log/slog"
 	"net/http"
-	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -23,111 +19,47 @@ import (
 	"wzap/internal/session"
 )
 
-// capturedRecord is one slog record observed by memoryHandler.
-type capturedRecord struct {
-	level slog.Level
+// logRecord is one zerolog event decoded from the test buffer.
+type logRecord struct {
+	level zerolog.Level
 	msg   string
 	attrs map[string]any
 }
 
-// memoryHandler is an in-memory slog.Handler that records every log record so
-// tests can assert which boundary lines a connection handler emits.
-type memoryHandler struct {
-	pre  []slog.Attr
-	core *memoryCore
-}
-
-type memoryCore struct {
-	mu      sync.Mutex
-	records []capturedRecord
-}
-
-func newMemoryHandler() *memoryHandler { return &memoryHandler{core: &memoryCore{}} }
-
-func (h *memoryHandler) Enabled(context.Context, slog.Level) bool { return true }
-
-func (h *memoryHandler) Handle(_ context.Context, r slog.Record) error {
-	attrs := make(map[string]any, len(h.pre)+r.NumAttrs())
-	for _, a := range h.pre {
-		attrs[a.Key] = a.Value.Any()
-	}
-	r.Attrs(func(a slog.Attr) bool {
-		attrs[a.Key] = a.Value.Any()
-		return true
-	})
-	h.core.mu.Lock()
-	h.core.records = append(h.core.records, capturedRecord{level: r.Level, msg: r.Message, attrs: attrs})
-	h.core.mu.Unlock()
-	return nil
-}
-
-func (h *memoryHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &memoryHandler{
-		pre:  append(append([]slog.Attr{}, h.pre...), attrs...),
-		core: h.core,
-	}
-}
-
-func (h *memoryHandler) WithGroup(string) slog.Handler { return h }
-
-// snapshot returns a copy of the records captured so far.
-func (h *memoryHandler) snapshot() []capturedRecord {
-	h.core.mu.Lock()
-	defer h.core.mu.Unlock()
-	return append([]capturedRecord{}, h.core.records...)
-}
-
-// captureBoundaryLogs returns an in-memory handler fed by a zerolog test
-// logger: the handlers write JSON into the handler writer, which decodes
-// each event back into a record so the boundary assertions keep observing
-// without rewriting them here (full helper unification is Task 4.1).
-func captureBoundaryLogs(t *testing.T) (*memoryHandler, zerolog.Logger) {
+// captureBoundaryLogs returns a JSON test logger writing into the returned
+// buffer, so tests can assert which boundary lines a connection handler
+// emits.
+func captureBoundaryLogs(t *testing.T) (*bytes.Buffer, zerolog.Logger) {
 	t.Helper()
-	h := newMemoryHandler()
-	_, base := logger.NewTestLogger()
-	return h, base.Output(boundaryHandlerWriter{h: h})
+	return logger.NewTestLogger()
 }
 
-// boundaryHandlerWriter decodes zerolog JSON lines into the memory handler.
-type boundaryHandlerWriter struct {
-	h *memoryHandler
-}
-
-func (w boundaryHandlerWriter) Write(p []byte) (int, error) {
-	dec := json.NewDecoder(bytes.NewReader(p))
+// snapshotBoundaryLogs decodes every complete JSON event in buf, skipping
+// the envelope fields every record carries.
+func snapshotBoundaryLogs(buf *bytes.Buffer) []logRecord {
+	var records []logRecord
+	dec := json.NewDecoder(bytes.NewReader(buf.Bytes()))
 	for {
 		var fields map[string]any
 		if err := dec.Decode(&fields); err != nil {
-			return len(p), nil
+			return records
 		}
-		w.h.addJSONRecord(fields)
-	}
-}
-
-// addJSONRecord stores one decoded zerolog event as a captured record.
-func (h *memoryHandler) addJSONRecord(fields map[string]any) {
-	var level slog.Level
-	switch fields["level"] {
-	case "trace", "debug":
-		level = slog.LevelDebug
-	case "warn":
-		level = slog.LevelWarn
-	case "error", "fatal", "panic":
-		level = slog.LevelError
-	default:
-		level = slog.LevelInfo
-	}
-	msg, _ := fields["message"].(string)
-	attrs := make(map[string]any, len(fields))
-	for k, v := range fields {
-		if k == "level" || k == "message" || k == "time" {
-			continue
+		level := zerolog.InfoLevel
+		if name, ok := fields["level"].(string); ok {
+			if parsed, err := zerolog.ParseLevel(name); err == nil {
+				level = parsed
+			}
 		}
-		attrs[k] = v
+		msg, _ := fields["message"].(string)
+		attrs := make(map[string]any, len(fields))
+		for k, v := range fields {
+			if k == "level" || k == "message" || k == "time" {
+				continue
+			}
+			attrs[k] = v
+		}
+		records = append(records, logRecord{level: level, msg: msg, attrs: attrs})
 	}
-	h.core.mu.Lock()
-	h.core.records = append(h.core.records, capturedRecord{level: level, msg: msg, attrs: attrs})
-	h.core.mu.Unlock()
 }
 
 // loggedInstancesServer builds the server under test with svc and the given
@@ -144,32 +76,13 @@ func loggedInstancesServer(t *testing.T, svc InstanceService, log zerolog.Logger
 		})
 }
 
-func findRecord(records []capturedRecord, msg string) (capturedRecord, bool) {
+func findRecord(records []logRecord, msg string) (logRecord, bool) {
 	for _, r := range records {
 		if r.msg == msg {
 			return r, true
 		}
 	}
-	return capturedRecord{}, false
-}
-
-// assertNoQRBytes fails when any captured record carries the QR payload: only
-// presence and expiry may be logged, never the code bytes.
-func assertNoQRBytes(t *testing.T, h *memoryHandler, qr string) {
-	t.Helper()
-	if qr == "" {
-		return
-	}
-	for _, r := range h.snapshot() {
-		if strings.Contains(r.msg, qr) {
-			t.Fatalf("log message %q contains secret value", r.msg)
-		}
-		for k, v := range r.attrs {
-			if strings.Contains(fmt.Sprintf("%v", v), qr) {
-				t.Fatalf("log record %q attr %q contains secret value", r.msg, k)
-			}
-		}
-	}
+	return logRecord{}, false
 }
 
 func TestConnectBoundaryLogs(t *testing.T) {
@@ -178,19 +91,19 @@ func TestConnectBoundaryLogs(t *testing.T) {
 	svc := &fakeInstanceService{connectFn: func(context.Context, uuid.UUID) (instance.ConnectResult, error) {
 		return instance.ConnectResult{Status: session.StatusPairing, QRCode: "qr-123", QRExpiresAt: &expiresAt}, nil
 	}}
-	h, log := captureBoundaryLogs(t)
+	logs, log := captureBoundaryLogs(t)
 
 	rec := serveJSON(t, loggedInstancesServer(t, svc, log), http.MethodPost, "/instances/"+id.String()+"/connect", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 
-	records := h.snapshot()
+	records := snapshotBoundaryLogs(logs)
 	entry, ok := findRecord(records, "connect instance request")
 	if !ok {
 		t.Fatal("missing Debug record \"connect instance request\"")
 	}
-	if entry.level != slog.LevelDebug {
+	if entry.level != zerolog.DebugLevel {
 		t.Errorf("entry level = %v, want Debug", entry.level)
 	}
 	if entry.attrs["instance_id"] != id.String() {
@@ -204,7 +117,7 @@ func TestConnectBoundaryLogs(t *testing.T) {
 	if !ok {
 		t.Fatal("missing Debug record \"connect instance result\"")
 	}
-	if result.level != slog.LevelDebug {
+	if result.level != zerolog.DebugLevel {
 		t.Errorf("result level = %v, want Debug", result.level)
 	}
 	if result.attrs["status"] != string(session.StatusPairing) {
@@ -216,25 +129,25 @@ func TestConnectBoundaryLogs(t *testing.T) {
 	if _, ok := result.attrs["expires_at"]; !ok {
 		t.Error("result misses expires_at, want the QR validity")
 	}
-	assertNoQRBytes(t, h, "qr-123")
+	logger.AssertNoSecret(t, logs, "qr-123")
 }
 
 func TestConnectBoundaryLogsServiceError(t *testing.T) {
 	svc := &fakeInstanceService{connectFn: func(context.Context, uuid.UUID) (instance.ConnectResult, error) {
 		return instance.ConnectResult{}, errors.New("session dial failed")
 	}}
-	h, log := captureBoundaryLogs(t)
+	logs, log := captureBoundaryLogs(t)
 
 	rec := serveJSON(t, loggedInstancesServer(t, svc, log), http.MethodPost, "/instances/"+uuid.NewString()+"/connect", "")
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
 	}
 
-	warn, ok := findRecord(h.snapshot(), "connect instance failed")
+	warn, ok := findRecord(snapshotBoundaryLogs(logs), "connect instance failed")
 	if !ok {
 		t.Fatal("missing Warn record \"connect instance failed\"")
 	}
-	if warn.level != slog.LevelWarn {
+	if warn.level != zerolog.WarnLevel {
 		t.Errorf("level = %v, want Warn", warn.level)
 	}
 	if warn.attrs["op"] != "connect" {
@@ -251,14 +164,14 @@ func TestQRBoundaryLogs(t *testing.T) {
 	svc := &fakeInstanceService{qrFn: func(context.Context, uuid.UUID) (instance.ConnectResult, error) {
 		return instance.ConnectResult{Status: session.StatusPairing, QRCode: "qr-456", QRExpiresAt: &expiresAt}, nil
 	}}
-	h, log := captureBoundaryLogs(t)
+	logs, log := captureBoundaryLogs(t)
 
 	rec := serveJSON(t, loggedInstancesServer(t, svc, log), http.MethodGet, "/instances/"+id.String()+"/qr", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 
-	records := h.snapshot()
+	records := snapshotBoundaryLogs(logs)
 	if _, ok := findRecord(records, "qr instance request"); !ok {
 		t.Error("missing Debug record \"qr instance request\"")
 	}
@@ -272,21 +185,21 @@ func TestQRBoundaryLogs(t *testing.T) {
 	if _, ok := result.attrs["expires_at"]; !ok {
 		t.Error("result misses expires_at, want the QR validity")
 	}
-	assertNoQRBytes(t, h, "qr-456")
+	logger.AssertNoSecret(t, logs, "qr-456")
 }
 
 func TestQRBoundaryLogsAlreadyConnected(t *testing.T) {
 	svc := &fakeInstanceService{qrFn: func(context.Context, uuid.UUID) (instance.ConnectResult, error) {
 		return instance.ConnectResult{}, instance.ErrAlreadyConnected
 	}}
-	h, log := captureBoundaryLogs(t)
+	logs, log := captureBoundaryLogs(t)
 
 	rec := serveJSON(t, loggedInstancesServer(t, svc, log), http.MethodGet, "/instances/"+uuid.NewString()+"/qr", "")
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusConflict)
 	}
 
-	if _, ok := findRecord(h.snapshot(), "qr instance failed"); !ok {
+	if _, ok := findRecord(snapshotBoundaryLogs(logs), "qr instance failed"); !ok {
 		t.Error("missing Warn record \"qr instance failed\"")
 	}
 }
@@ -296,14 +209,14 @@ func TestStatusBoundaryLogs(t *testing.T) {
 	svc := &fakeInstanceService{getFn: func(_ context.Context, id uuid.UUID) (*model.Instance, error) {
 		return &model.Instance{ID: id, Name: "loja", Status: string(session.StatusConnected)}, nil
 	}}
-	h, log := captureBoundaryLogs(t)
+	logs, log := captureBoundaryLogs(t)
 
 	rec := serveJSON(t, loggedInstancesServer(t, svc, log), http.MethodGet, "/instances/"+wantID.String()+"/status", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 
-	records := h.snapshot()
+	records := snapshotBoundaryLogs(logs)
 	if _, ok := findRecord(records, "instance status request"); !ok {
 		t.Error("missing Debug record \"instance status request\"")
 	}
@@ -318,14 +231,14 @@ func TestStatusBoundaryLogs(t *testing.T) {
 
 func TestDisconnectBoundaryLogs(t *testing.T) {
 	svc := &fakeInstanceService{}
-	h, log := captureBoundaryLogs(t)
+	logs, log := captureBoundaryLogs(t)
 
 	rec := serveJSON(t, loggedInstancesServer(t, svc, log), http.MethodPost, "/instances/"+uuid.NewString()+"/disconnect", "")
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
 	}
 
-	records := h.snapshot()
+	records := snapshotBoundaryLogs(logs)
 	if _, ok := findRecord(records, "disconnect instance request"); !ok {
 		t.Error("missing Debug record \"disconnect instance request\"")
 	}
@@ -338,18 +251,18 @@ func TestDisconnectBoundaryLogsServiceError(t *testing.T) {
 	svc := &fakeInstanceService{disconnectFn: func(context.Context, uuid.UUID) error {
 		return errors.New("session still connected")
 	}}
-	h, log := captureBoundaryLogs(t)
+	logs, log := captureBoundaryLogs(t)
 
 	rec := serveJSON(t, loggedInstancesServer(t, svc, log), http.MethodPost, "/instances/"+uuid.NewString()+"/disconnect", "")
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
 	}
 
-	warn, ok := findRecord(h.snapshot(), "disconnect instance failed")
+	warn, ok := findRecord(snapshotBoundaryLogs(logs), "disconnect instance failed")
 	if !ok {
 		t.Fatal("missing Warn record \"disconnect instance failed\"")
 	}
-	if warn.level != slog.LevelWarn {
+	if warn.level != zerolog.WarnLevel {
 		t.Errorf("level = %v, want Warn", warn.level)
 	}
 	if warn.attrs["op"] != "disconnect" {

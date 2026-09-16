@@ -23,13 +23,9 @@ func (f *fakeExpiredDeleter) DeleteExpired(_ context.Context, now time.Time) (in
 	return f.removed, f.err
 }
 
-func discardLogger() zerolog.Logger {
-	return zerolog.Nop()
-}
-
 func TestCleanerRunCleansUntilCanceled(t *testing.T) {
 	deleter := &fakeExpiredDeleter{removed: 3}
-	cleaner := NewCleaner(deleter, discardLogger())
+	cleaner := NewCleaner(deleter, zerolog.Nop())
 	cleaner.interval = time.Hour
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -55,7 +51,7 @@ func TestCleanerRunCleansUntilCanceled(t *testing.T) {
 
 func TestCleanerRunContinuesAfterError(t *testing.T) {
 	deleter := &fakeExpiredDeleter{err: errors.New("delete failed")}
-	cleaner := NewCleaner(deleter, discardLogger())
+	cleaner := NewCleaner(deleter, zerolog.Nop())
 	cleaner.interval = time.Hour
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -76,7 +72,7 @@ func TestCleanerRunContinuesAfterError(t *testing.T) {
 
 func TestCleanerRunStopsOnCanceledContext(t *testing.T) {
 	deleter := &fakeExpiredDeleter{}
-	cleaner := NewCleaner(deleter, discardLogger())
+	cleaner := NewCleaner(deleter, zerolog.Nop())
 	cleaner.interval = time.Hour
 
 	ctx, cancel := context.WithCancel(context.Background())

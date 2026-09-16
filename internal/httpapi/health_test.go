@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rs/zerolog"
+
 	"wzap/internal/config"
 	"wzap/internal/logger"
 	"wzap/internal/storage/postgres"
@@ -38,7 +40,7 @@ func (d detailedChecker) Checks(context.Context) map[string]error { return d.res
 
 func readyServer(t *testing.T, checker ReadyChecker) *http.Server {
 	t.Helper()
-	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, discardLogger(),
+	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, zerolog.Nop(),
 		Deps{ReadyChecker: checker})
 }
 

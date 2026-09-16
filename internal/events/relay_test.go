@@ -14,10 +14,6 @@ import (
 	"wzap/internal/model"
 )
 
-func discardLogger() zerolog.Logger {
-	return zerolog.Nop()
-}
-
 func mustEnvelope(t *testing.T, instanceID uuid.UUID, eventType string) Envelope {
 	t.Helper()
 
@@ -229,7 +225,7 @@ func TestRelayPublishNowMarksEventsPublished(t *testing.T) {
 
 	outbox := newFakeOutbox(first, second)
 	publisher := &fakePublisher{}
-	relay := NewRelay(outbox, publisher, discardLogger(), 7)
+	relay := NewRelay(outbox, publisher, zerolog.Nop(), 7)
 
 	if err := relay.PublishNow(ctx, []model.OutboxEvent{first, second}); err != nil {
 		t.Fatalf("PublishNow: %v", err)
@@ -272,7 +268,7 @@ func TestRelayPublishNowFailureKeepsEventPending(t *testing.T) {
 	outbox := newFakeOutbox(row)
 	publishErr := errors.New("broker unavailable")
 	publisher := &fakePublisher{publishErr: publishErr}
-	relay := NewRelay(outbox, publisher, discardLogger(), 7)
+	relay := NewRelay(outbox, publisher, zerolog.Nop(), 7)
 
 	err := relay.PublishNow(ctx, []model.OutboxEvent{row})
 	if err == nil {
@@ -308,7 +304,7 @@ func TestRelayPublishNowContinuesAfterFailure(t *testing.T) {
 
 	outbox := newFakeOutbox(failed, published)
 	publisher := &fakePublisher{failFirst: 1, failErr: errors.New("broker unavailable")}
-	relay := NewRelay(outbox, publisher, discardLogger(), 7)
+	relay := NewRelay(outbox, publisher, zerolog.Nop(), 7)
 
 	err := relay.PublishNow(ctx, []model.OutboxEvent{failed, published})
 	if err == nil {
@@ -338,7 +334,7 @@ func TestRelayPublishNowMalformedEnvelopeRecordsAttempt(t *testing.T) {
 
 	outbox := newFakeOutbox(row)
 	publisher := &fakePublisher{}
-	relay := NewRelay(outbox, publisher, discardLogger(), 7)
+	relay := NewRelay(outbox, publisher, zerolog.Nop(), 7)
 
 	if err := relay.PublishNow(ctx, []model.OutboxEvent{row}); err == nil {
 		t.Fatal("PublishNow succeeded with a malformed envelope")
@@ -352,7 +348,7 @@ func TestRelayPublishNowMalformedEnvelopeRecordsAttempt(t *testing.T) {
 }
 
 func TestRelayBackoff(t *testing.T) {
-	relay := NewRelay(newFakeOutbox(), &fakePublisher{}, discardLogger(), 7)
+	relay := NewRelay(newFakeOutbox(), &fakePublisher{}, zerolog.Nop(), 7)
 	relay.backoffBase = time.Second
 	relay.backoffMax = 8 * time.Second
 
@@ -379,7 +375,7 @@ func TestRelayBackoff(t *testing.T) {
 func TestRelayCleanupUsesRetentionWindow(t *testing.T) {
 	fixed := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
 	outbox := newFakeOutbox()
-	relay := NewRelay(outbox, &fakePublisher{}, discardLogger(), 7)
+	relay := NewRelay(outbox, &fakePublisher{}, zerolog.Nop(), 7)
 	relay.now = func() time.Time { return fixed }
 
 	relay.cleanup(context.Background())
@@ -399,7 +395,7 @@ func TestRelayRunRetriesFailedEventsWithBackoff(t *testing.T) {
 
 	outbox := newFakeOutbox(row)
 	publisher := &fakePublisher{failFirst: 1, failErr: errors.New("broker unavailable")}
-	relay := NewRelay(outbox, publisher, discardLogger(), 7)
+	relay := NewRelay(outbox, publisher, zerolog.Nop(), 7)
 	relay.batchSize = 1
 	relay.pollInterval = time.Hour
 	relay.backoffBase = 2 * time.Second
@@ -448,7 +444,7 @@ func TestRelayRunWaitsForStreamBeforeClaiming(t *testing.T) {
 
 	outbox := newFakeOutbox(row)
 	publisher := &fakePublisher{ensureErr: errors.New("broker unavailable")}
-	relay := NewRelay(outbox, publisher, discardLogger(), 7)
+	relay := NewRelay(outbox, publisher, zerolog.Nop(), 7)
 	relay.batchSize = 10
 	relay.pollInterval = time.Hour
 	relay.backoffBase = 3 * time.Second

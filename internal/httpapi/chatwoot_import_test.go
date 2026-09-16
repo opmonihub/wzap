@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
 	"wzap/internal/model"
@@ -45,7 +46,7 @@ func chatwootImportTestServer(t *testing.T, instances InstanceService, cfgs *fak
 	on := config.Chatwoot{Enabled: true}
 	return New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, PublicURL: "https://wzap.example.com", Chatwoot: on},
-		discardLogger(),
+		zerolog.Nop(),
 		Deps{
 			ReadyChecker:     checkFunc(func(context.Context) error { return nil }),
 			Instances:        instances,
@@ -111,7 +112,7 @@ func TestChatwootImportGlobalDisabledReturns400(t *testing.T) {
 	importer := &fakeImporter{count: 3}
 	srv := New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, PublicURL: "https://wzap.example.com", Chatwoot: off},
-		discardLogger(),
+		zerolog.Nop(),
 		Deps{
 			ReadyChecker:     checkFunc(func(context.Context) error { return nil }),
 			Instances:        &fakeInstanceService{},

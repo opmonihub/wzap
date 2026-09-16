@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/events"
 	"wzap/internal/instancelock"
@@ -225,7 +226,7 @@ func newOutboxFixture(messages ...model.OutboundMessage) *outboxFixture {
 	// One worker keeps the claim/process order deterministic; the worker pool
 	// concurrency itself is covered by the locker tests. Humanization stays
 	// off unless a test enables it explicitly.
-	fixture.outbox = NewOutbox(fixture.repo, manager, fixture.writer, fixture.media, discardLogger(), 1, instancelock.New(), false)
+	fixture.outbox = NewOutbox(fixture.repo, manager, fixture.writer, fixture.media, zerolog.Nop(), 1, instancelock.New(), false)
 	fixture.outbox.now = func() time.Time { return fixture.now }
 	return fixture
 }

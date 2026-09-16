@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
 	"wzap/internal/model"
@@ -83,7 +84,7 @@ func patchQuotaServer(t *testing.T, maxInstances int, users storage.UserReposito
 	svc := &fakeInstanceService{createFn: echoCreateFn("quota-key-1")}
 	srv := New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, MaxInstances: maxInstances},
-		discardLogger(),
+		zerolog.Nop(),
 		Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    svc,

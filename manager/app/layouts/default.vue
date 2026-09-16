@@ -7,21 +7,23 @@ useDashboard()
 
 const { items } = useNavigation()
 
-const groups = computed(() => [{
-  id: 'links',
-  label: t('nav.overview'),
-  items: items.value.flatMap(item => item.to
-    ? [{
-        id: String(item.to),
-        label: String(item.label),
-        suffix: String(item.to),
-        onSelect: () => {
-          open.value = false
-          navigateTo(String(item.to))
-        }
-      }]
-    : [])
-}])
+const groups = computed(() => [
+  {
+    id: 'links',
+    label: t('nav.goTo'),
+    items: items.value.flatMap(item => item.to
+      ? [{
+          id: String(item.to),
+          label: String(item.label),
+          to: String(item.to),
+          onSelect: () => {
+            open.value = false
+            navigateTo(String(item.to))
+          }
+        }]
+      : [])
+  }
+])
 
 watch(() => route.fullPath, () => {
   open.value = false
@@ -73,6 +75,8 @@ watch(() => route.fullPath, () => {
     </UDashboardSidebar>
 
     <UDashboardSearch :groups="groups" :placeholder="t('nav.searchPlaceholder')" />
+
+    <NotificationsSlideover />
 
     <slot />
   </UDashboardGroup>

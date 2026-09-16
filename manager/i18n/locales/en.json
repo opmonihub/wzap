@@ -7,6 +7,9 @@
     "overview": "Overview",
     "instances": "Instances",
     "accounts": "Accounts",
+    "goTo": "Go to",
+    "notifications": "Notifications",
+    "noNotifications": "No notifications yet.",
     "searchPlaceholder": "Search actions and pages..."
   },
   "auth": {

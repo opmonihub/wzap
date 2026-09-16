@@ -52,7 +52,12 @@ async function onDelete() {
 </script>
 
 <template>
-  <UModal v-model:open="open" :title="t('instances.delete.title')" :description="t('instances.delete.body', { name: instance.name })">
+  <UModal
+    v-model:open="open"
+    :title="t('instances.delete.title')"
+    :description="t('instances.delete.body', { name: instance.name })"
+    :ui="{ footer: 'justify-end' }"
+  >
     <template #body>
       <div class="flex flex-col gap-4">
         <UAlert color="error" variant="subtle" :title="t('instances.delete.warning')" />
@@ -70,22 +75,20 @@ async function onDelete() {
       </div>
     </template>
 
-    <template #footer>
-      <div class="flex justify-end gap-2">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          :label="t('common.cancel')"
-          @click="open = false"
-        />
-        <UButton
-          color="error"
-          :disabled="!matches"
-          :loading="pending"
-          :label="t('instances.delete.submit')"
-          @click="onDelete"
-        />
-      </div>
+    <template #footer="{ close }">
+      <UButton
+        color="neutral"
+        variant="outline"
+        :label="t('common.cancel')"
+        @click="close"
+      />
+      <UButton
+        color="error"
+        :disabled="!matches"
+        :loading="pending"
+        :label="t('instances.delete.submit')"
+        @click="onDelete"
+      />
     </template>
   </UModal>
 </template>

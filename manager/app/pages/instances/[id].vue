@@ -3,6 +3,7 @@ import * as z from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
 import { ApiError } from '~/composables/useApi'
 import DeleteInstanceModal from '~/components/instances/DeleteInstanceModal.vue'
+import { useConfirmDelete } from '~/components/instances/ConfirmDelete'
 import InstanceStatusBadge from '~/components/instances/InstanceStatusBadge.vue'
 import MessagesCard from '~/components/instances/MessagesCard.vue'
 import OneTimeKeyDisplay from '~/components/instances/OneTimeKeyDisplay.vue'
@@ -16,6 +17,7 @@ const toast = useToast()
 const route = useRoute()
 const { isAdmin } = useAuth()
 const { getInstance, updateInstance, disconnectInstance, rotateInstanceKey, revokeInstanceKey } = useInstances()
+const { confirmDelete } = useConfirmDelete()
 
 const id = computed(() => String(route.params.id ?? ''))
 
@@ -34,15 +36,12 @@ const saving = ref(false)
 const saveFailure = ref<string | null>(null)
 
 const deleteOpen = ref(false)
-const disconnectOpen = ref(false)
 const disconnecting = ref(false)
-const disconnectFailure = ref<string | null>(null)
 
 const freshKey = ref<RotatedInstanceKey | null>(null)
 const keySeen = ref(false)
 const generating = ref(false)
 const keyFailure = ref<string | null>(null)
-const revokeOpen = ref(false)
 const revoking = ref(false)
 const messagesRefresh = ref(0)
 
@@ -104,19 +103,30 @@ function friendlySaveError(error: unknown): string {
   return t('instances.detail.saveFailed')
 }
 
+// Disconnect runs behind the programmatic confirm: the overlay resolves true
+// only on the confirm button, and the API (with its loading state and toasts)
+// runs on the trigger afterwards.
 async function onDisconnect() {
   if (!instance.value || disconnecting.value) {
     return
   }
+  const confirmed = await confirmDelete({
+    title: t('instances.detail.disconnectConfirmTitle'),
+    description: t('instances.detail.disconnectConfirmBody'),
+    confirmLabel: t('instances.detail.disconnect'),
+    confirmColor: 'warning'
+  })
+  if (!confirmed || !instance.value || disconnecting.value) {
+    return
+  }
+  const instanceId = instance.value.id
   disconnecting.value = true
-  disconnectFailure.value = null
   try {
-    await disconnectInstance(instance.value.id)
-    disconnectOpen.value = false
+    await disconnectInstance(instanceId)
     toast.add({ title: t('instances.detail.disconnected'), color: 'success' })
     await load()
   } catch (error) {
-    disconnectFailure.value = error instanceof ApiError ? error.message : t('instances.detail.disconnectFailed')
+    toast.add({ title: error instanceof ApiError ? error.message : t('instances.detail.disconnectFailed'), color: 'error' })
   } finally {
     disconnecting.value = false
   }
@@ -163,21 +173,31 @@ async function onGenerate() {
   }
 }
 
+// Revoke runs behind the programmatic confirm like disconnect: failures
+// surface as toasts, while keyFailure stays owned by the generate path whose
+// alert renders in the card.
 async function onRevoke() {
   if (!instance.value || revoking.value) {
     return
   }
+  const confirmed = await confirmDelete({
+    title: t('instances.key.revokeConfirmTitle'),
+    description: t('instances.key.revokeConfirmBody'),
+    confirmLabel: t('instances.key.revoke')
+  })
+  if (!confirmed || !instance.value || revoking.value) {
+    return
+  }
+  const instanceId = instance.value.id
   revoking.value = true
-  keyFailure.value = null
   try {
-    await revokeInstanceKey(instance.value.id)
-    forgetInstanceKeySeen(instance.value.id)
+    await revokeInstanceKey(instanceId)
+    forgetInstanceKeySeen(instanceId)
     keySeen.value = false
     freshKey.value = null
-    revokeOpen.value = false
     toast.add({ title: t('instances.key.revoked'), color: 'success' })
   } catch (error) {
-    keyFailure.value = error instanceof ApiError ? error.message : t('instances.key.revokeFailed')
+    toast.add({ title: error instanceof ApiError ? error.message : t('instances.key.revokeFailed'), color: 'error' })
   } finally {
     revoking.value = false
   }
@@ -291,8 +311,9 @@ await load()
               color="warning"
               variant="soft"
               icon="i-lucide-unplug"
-              :label="t('instances.detail.disconnect')"
-              @click="disconnectOpen = true"
+              :loading="disconnecting"
+              :label="disconnecting ? t('instances.detail.disconnecting') : t('instances.detail.disconnect')"
+              @click="onDisconnect"
             />
           </template>
         </UCard>
@@ -386,8 +407,9 @@ await load()
                   v-if="keySeen"
                   color="error"
                   variant="soft"
-                  :label="t('instances.key.revoke')"
-                  @click="revokeOpen = true"
+                  :loading="revoking"
+                  :label="revoking ? t('instances.key.revoking') : t('instances.key.revoke')"
+                  @click="onRevoke"
                 />
               </div>
             </template>
@@ -433,52 +455,6 @@ await load()
       </div>
     </template>
   </UDashboardPanel>
-
-  <UModal v-model:open="disconnectOpen" :title="t('instances.detail.disconnectConfirmTitle')" :description="t('instances.detail.disconnectConfirmBody')">
-    <template #body>
-      <UAlert
-        v-if="disconnectFailure"
-        color="error"
-        variant="subtle"
-        :title="disconnectFailure"
-      />
-    </template>
-    <template #footer>
-      <div class="flex justify-end gap-2">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          :label="t('common.cancel')"
-          @click="disconnectOpen = false"
-        />
-        <UButton
-          color="warning"
-          :loading="disconnecting"
-          :label="disconnecting ? t('instances.detail.disconnecting') : t('instances.detail.disconnect')"
-          @click="onDisconnect"
-        />
-      </div>
-    </template>
-  </UModal>
-
-  <UModal v-model:open="revokeOpen" :title="t('instances.key.revokeConfirmTitle')" :description="t('instances.key.revokeConfirmBody')">
-    <template #footer>
-      <div class="flex justify-end gap-2">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          :label="t('common.cancel')"
-          @click="revokeOpen = false"
-        />
-        <UButton
-          color="error"
-          :loading="revoking"
-          :label="revoking ? t('instances.key.revoking') : t('instances.key.revoke')"
-          @click="onRevoke"
-        />
-      </div>
-    </template>
-  </UModal>
 
   <DeleteInstanceModal
     v-if="instance"

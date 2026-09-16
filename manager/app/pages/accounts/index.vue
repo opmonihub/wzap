@@ -5,6 +5,7 @@ import type { DropdownMenuItem, TableRow } from '@nuxt/ui'
 import { ApiError } from '~/composables/useApi'
 import { useAccountsTable } from '~/composables/useAccountsTable'
 import AccountsTableActionsCell from '~/components/accounts/AccountsTableActionsCell.vue'
+import { useConfirmDelete } from '~/components/instances/ConfirmDelete'
 import AccountsTableQuotaCell from '~/components/accounts/AccountsTableQuotaCell.vue'
 import AccountsTableRoleCell from '~/components/accounts/AccountsTableRoleCell.vue'
 import type { AccountRole, AccountUser } from '~/types/api'
@@ -35,6 +36,7 @@ const { t } = useI18n()
 const toast = useToast()
 const { isAdmin, user: sessionUser } = useAuth()
 const { listUsers, createUser, deleteUser, updateUserQuota } = useAccounts()
+const { confirmDelete } = useConfirmDelete()
 const { listInstances } = useInstances()
 const { copy } = useClipboard()
 
@@ -433,17 +435,24 @@ function friendlyDeleteError(error: ApiError): string {
   return error.message
 }
 
-// Bulk delete over the selected rows: the signed-in account is always
-// skipped, owners that still own instances fail with the 409 message, and the
-// summary toast reports deleted vs failed counts.
-const bulkOpen = ref(false)
+// Bulk delete runs behind the programmatic confirm like the detail-page
+// confirms: the overlay resolves true only on the confirm button, then the
+// loop runs here with the loading state on the bulk-bar button.
 const bulkDeleting = ref(false)
-const bulkFailure = ref<string | null>(null)
 
-function openBulkDelete() {
-  bulkFailure.value = null
-  bulkDeleting.value = false
-  bulkOpen.value = true
+async function openBulkDelete() {
+  if (bulkDeleting.value) {
+    return
+  }
+  const confirmed = await confirmDelete({
+    title: t('accounts.bulkDelete.title'),
+    description: t('accounts.bulkDelete.body', { count: selectedCount.value }),
+    confirmLabel: t('accounts.bulkDelete.submit')
+  })
+  if (!confirmed) {
+    return
+  }
+  await onBulkDelete()
 }
 
 async function onBulkDelete() {
@@ -453,12 +462,10 @@ async function onBulkDelete() {
   const selfId = sessionUser.value?.id
   const targets = selectedUsers().filter(user => user.id !== selfId)
   if (targets.length === 0) {
-    bulkOpen.value = false
     toast.add({ title: t('accounts.bulkDelete.selfSkipped'), color: 'warning' })
     return
   }
   bulkDeleting.value = true
-  bulkFailure.value = null
   let deleted = 0
   let failed = 0
   for (const target of targets) {
@@ -480,7 +487,6 @@ async function onBulkDelete() {
     toast.add({ title: t('accounts.bulkDelete.partial', { deleted, failed }), color: 'warning' })
   }
   clearSelection()
-  bulkOpen.value = false
   bulkDeleting.value = false
 }
 
@@ -588,6 +594,7 @@ if (isAdmin.value) {
             variant="ghost"
             size="sm"
             icon="i-lucide-trash-2"
+            :loading="bulkDeleting"
             :label="t('accounts.table.deleteSelected')"
             @click="openBulkDelete"
           />
@@ -853,7 +860,12 @@ if (isAdmin.value) {
     </template>
   </UModal>
 
-  <UModal v-model:open="deleteOpen" :title="t('accounts.delete.title')" :description="t('accounts.delete.body', { email: deleteTarget?.email ?? '' })">
+  <UModal
+    v-model:open="deleteOpen"
+    :title="t('accounts.delete.title')"
+    :description="t('accounts.delete.body', { email: deleteTarget?.email ?? '' })"
+    :ui="{ footer: 'justify-end' }"
+  >
     <template #body>
       <UAlert
         v-if="deleteFailure"
@@ -862,48 +874,19 @@ if (isAdmin.value) {
         :title="deleteFailure"
       />
     </template>
-    <template #footer>
-      <div class="flex justify-end gap-2">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          :label="t('common.cancel')"
-          @click="deleteOpen = false"
-        />
-        <UButton
-          color="error"
-          :loading="deleting"
-          :label="deleting ? t('accounts.delete.deleting') : t('accounts.delete.submit')"
-          @click="onDelete"
-        />
-      </div>
-    </template>
-  </UModal>
-
-  <UModal v-model:open="bulkOpen" :title="t('accounts.bulkDelete.title')" :description="t('accounts.bulkDelete.body', { count: selectedCount })">
-    <template #body>
-      <UAlert
-        v-if="bulkFailure"
-        color="error"
-        variant="subtle"
-        :title="bulkFailure"
+    <template #footer="{ close }">
+      <UButton
+        color="neutral"
+        variant="outline"
+        :label="t('common.cancel')"
+        @click="close"
       />
-    </template>
-    <template #footer>
-      <div class="flex justify-end gap-2">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          :label="t('common.cancel')"
-          @click="bulkOpen = false"
-        />
-        <UButton
-          color="error"
-          :loading="bulkDeleting"
-          :label="bulkDeleting ? t('accounts.bulkDelete.deleting') : t('accounts.bulkDelete.submit')"
-          @click="onBulkDelete"
-        />
-      </div>
+      <UButton
+        color="error"
+        :loading="deleting"
+        :label="deleting ? t('accounts.delete.deleting') : t('accounts.delete.submit')"
+        @click="onDelete"
+      />
     </template>
   </UModal>
 </template>

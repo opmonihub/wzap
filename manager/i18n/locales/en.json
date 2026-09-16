@@ -47,7 +47,8 @@
       "daily": "Daily",
       "weekly": "Weekly",
       "monthly": "Monthly",
-      "periodLabel": "Chart period"
+      "periodLabel": "Chart period",
+      "rangeNote": "Counts instances loaded in range. Totals above come from the server."
     },
     "recent": {
       "title": "Recent instances",

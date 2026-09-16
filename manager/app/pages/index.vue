@@ -101,8 +101,8 @@ await refresh()
         v-else-if="failure && !stats"
         color="error"
         variant="subtle"
-        :title="failure"
-        :description="t('overview.loadFailed')"
+        :title="t('overview.loadFailed')"
+        :description="failure"
       >
         <template #actions>
           <UButton
@@ -119,8 +119,8 @@ await refresh()
           v-if="failure"
           color="error"
           variant="subtle"
-          :title="failure"
-          :description="t('overview.loadFailed')"
+          :title="t('overview.loadFailed')"
+          :description="failure"
         >
           <template #actions>
             <UButton

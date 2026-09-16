@@ -8,10 +8,10 @@ defineProps<{
 
 <template>
   <div class="min-w-0 flex-1">
-    <p class="truncate font-medium text-highlighted">
+    <p class="truncate font-medium text-highlighted" :title="instance.name">
       {{ instance.name }}
     </p>
-    <p v-if="instance.external_ref" class="truncate text-sm text-muted">
+    <p v-if="instance.external_ref" class="truncate text-sm text-muted" :title="instance.external_ref">
       {{ instance.external_ref }}
     </p>
   </div>

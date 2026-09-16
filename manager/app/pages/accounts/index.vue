@@ -13,6 +13,7 @@ interface AccountsTableApi {
   getFilteredRowModel: () => { rows: TableRow<AccountUser>[] }
   getFilteredSelectedRowModel: () => { rows: TableRow<AccountUser>[] }
   setPageIndex: (index: number) => void
+  setPageSize: (size: number) => void
   resetRowSelection: () => void
 }
 
@@ -47,6 +48,13 @@ const {
 
 const table = useTemplateRef<{ tableApi?: AccountsTableApi }>('table')
 
+// Search input debounced into the table's global filter (300ms): typing never
+// re-filters per keystroke on 1000+ rows; the role select stays immediate.
+const searchInput = ref('')
+watchDebounced(searchInput, (value) => {
+  globalFilter.value = value
+}, { debounce: 300 })
+
 function getRowId(row: AccountUser): string {
   return row.id
 }
@@ -58,7 +66,15 @@ function filteredCount(): number {
   return table.value?.tableApi?.getFilteredRowModel().rows.length ?? users.value.length
 }
 
-const totalFiltered = computed(() => filteredCount())
+// UPagination :total subscribes to the v-model state because tableApi reads
+// are not reactive: sorting/filter/pagination changes recompute the total.
+const totalFiltered = computed(() => {
+  void sorting.value
+  void globalFilter.value
+  void columnFilters.value
+  void pagination.value
+  return filteredCount()
+})
 const pageCount = computed(() => Math.max(1, Math.ceil(totalFiltered.value / pagination.value.pageSize)))
 
 // Role column filter behind a USelect: '' means Todos (no column filter).
@@ -134,6 +150,7 @@ function clearSelection() {
 }
 
 function clearFilters() {
+  searchInput.value = ''
   globalFilter.value = ''
   columnFilters.value = []
 }
@@ -144,6 +161,18 @@ function onUpdatePage(page: number) {
   } else {
     pagination.value.pageIndex = page - 1
   }
+}
+
+// Page size travels through the table API when mounted (keeps v-model in
+// sync) and resets to the first page; fallback writes the ref directly.
+function onUpdatePageSize(size: number) {
+  const next = Number(size) || 10
+  if (table.value?.tableApi) {
+    table.value.tableApi.setPageSize(next)
+  } else {
+    pagination.value.pageSize = next
+  }
+  pagination.value.pageIndex = 0
 }
 
 // The table owns ordering, so filter/sort changes restart at the first page;
@@ -171,13 +200,8 @@ function sortActionLabel(columnId: string): string {
   return nextDesc ? t('accounts.table.sortDesc', { column }) : t('accounts.table.sortAsc', { column })
 }
 
-function sortAriaSort(columnId: string): 'ascending' | 'descending' | 'none' {
-  const current = sorting.value.find(entry => entry.id === columnId)
-  if (!current) {
-    return 'none'
-  }
-  return current.desc ? 'descending' : 'ascending'
-}
+// UTable exposes no th slot, so aria-sort stays off the header buttons; sort
+// state travels in the button aria-label (sortAsc/sortDesc) instead.
 
 const createOpen = ref(false)
 const createEmail = ref('')
@@ -370,6 +394,7 @@ if (isAdmin.value) {
         {{ t('accounts.subtitle') }}
       </p>
 
+      <!-- Initial load renders skeletons; the table mounts only after load, so no :loading prop (no background reload on this screen). -->
       <div v-if="pending" class="flex flex-col gap-2">
         <USkeleton class="h-12 w-full" />
         <USkeleton class="h-12 w-full" />
@@ -395,7 +420,7 @@ if (isAdmin.value) {
       <div v-else class="flex flex-col gap-3">
         <div role="group" :aria-label="t('accounts.table.filtersLabel')" class="flex flex-wrap items-center gap-2">
           <UInput
-            v-model="globalFilter"
+            v-model="searchInput"
             icon="i-lucide-search"
             :placeholder="t('accounts.table.search')"
             :aria-label="t('accounts.table.search')"
@@ -457,7 +482,6 @@ if (isAdmin.value) {
           :pagination-options="paginationOptions"
           :get-row-id="getRowId"
           :auto-reset-all="false"
-          :loading="pending"
         >
           <template #select-header="{ table: api }">
             <UCheckbox
@@ -484,7 +508,6 @@ if (isAdmin.value) {
               :label="t('common.email')"
               :icon="column.getIsSorted() ? (column.getIsSorted() === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow') : 'i-lucide-arrow-up-down'"
               :aria-label="sortActionLabel('email')"
-              :aria-sort="sortAriaSort('email')"
               @click="column.toggleSorting(column.getIsSorted() === 'asc')"
             />
           </template>
@@ -498,7 +521,6 @@ if (isAdmin.value) {
               :label="t('common.role')"
               :icon="column.getIsSorted() ? (column.getIsSorted() === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow') : 'i-lucide-arrow-up-down'"
               :aria-label="sortActionLabel('role')"
-              :aria-sort="sortAriaSort('role')"
               @click="column.toggleSorting(column.getIsSorted() === 'asc')"
             />
           </template>
@@ -512,7 +534,6 @@ if (isAdmin.value) {
               :label="t('accounts.quotaLabel')"
               :icon="column.getIsSorted() ? (column.getIsSorted() === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow') : 'i-lucide-arrow-up-down'"
               :aria-label="sortActionLabel('instance_quota')"
-              :aria-sort="sortAriaSort('instance_quota')"
               @click="column.toggleSorting(column.getIsSorted() === 'asc')"
             />
           </template>
@@ -566,13 +587,21 @@ if (isAdmin.value) {
           <p class="text-sm text-muted">
             {{ pageLabel }}
           </p>
-          <UPagination
-            v-if="pageCount > 1"
-            :page="pagination.pageIndex + 1"
-            :items-per-page="pagination.pageSize"
-            :total="totalFiltered"
-            @update:page="onUpdatePage"
-          />
+          <div class="flex flex-wrap items-center gap-3">
+            <USelect
+              :model-value="pagination.pageSize"
+              :items="[10, 25, 50]"
+              :aria-label="t('accounts.table.pageSize')"
+              @update:model-value="onUpdatePageSize"
+            />
+            <UPagination
+              v-if="pageCount > 1"
+              :page="pagination.pageIndex + 1"
+              :items-per-page="pagination.pageSize"
+              :total="totalFiltered"
+              @update:page="onUpdatePage"
+            />
+          </div>
         </div>
       </div>
     </template>

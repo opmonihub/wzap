@@ -16,6 +16,7 @@ interface InstancesTableApi {
   getFilteredRowModel: () => { rows: TableRow<Instance>[] }
   getFilteredSelectedRowModel: () => { rows: TableRow<Instance>[] }
   setPageIndex: (index: number) => void
+  setPageSize: (size: number) => void
   resetRowSelection: () => void
 }
 
@@ -46,6 +47,13 @@ const {
 } = useInstancesTable(items, ownerEmails, isAdmin)
 
 const table = useTemplateRef<{ tableApi?: InstancesTableApi }>('table')
+
+// Search input debounced into the table's global filter (300ms): typing never
+// re-filters per keystroke on 1000+ rows; the status select stays immediate.
+const searchInput = ref('')
+watchDebounced(searchInput, (value) => {
+  globalFilter.value = value
+}, { debounce: 300 })
 
 // Client-side viewport mirrors the old cards (owner hidden below md, JID
 // below lg). useMediaQuery is mobile-first on SSR (false until mount), so the
@@ -96,7 +104,15 @@ function filteredCount(): number {
   return table.value?.tableApi?.getFilteredRowModel().rows.length ?? items.value.length
 }
 
-const totalFiltered = computed(() => filteredCount())
+// UPagination :total subscribes to the v-model state because tableApi reads
+// are not reactive: sorting/filter/pagination changes recompute the total.
+const totalFiltered = computed(() => {
+  void sorting.value
+  void globalFilter.value
+  void columnFilters.value
+  void pagination.value
+  return filteredCount()
+})
 const pageCount = computed(() => Math.max(1, Math.ceil(totalFiltered.value / pagination.value.pageSize)))
 
 // Status column filter behind a USelect: '' means Todos (no column filter).
@@ -118,9 +134,11 @@ const statusFilterItems = computed(() => [
   ...instanceStatuses.map(status => ({ label: t(`instances.status.${status}`), value: status }))
 ])
 
+// Name + status are essential and locked (enableHiding:false in the
+// composable); external_ref, owner and JID stay user-toggleable.
 const hideableColumnIds = computed<string[]>(() =>
   columns.value
-    .filter(column => column.id !== 'select')
+    .filter(column => column.id !== 'select' && column.id !== 'name' && column.id !== 'status')
     .map(column => column.id ?? '')
     .filter(id => id !== '')
 )
@@ -174,11 +192,16 @@ function clearSelection() {
 }
 
 async function copySelectedNames() {
-  await copy(selectedNames().join('\n'))
-  toast.add({ title: t('instances.table.copiedNames'), color: 'success' })
+  try {
+    await copy(selectedNames().join('\n'))
+    toast.add({ title: t('instances.table.copiedNames'), color: 'success' })
+  } catch {
+    toast.add({ title: t('instances.table.copyFailed'), color: 'error' })
+  }
 }
 
 function clearFilters() {
+  searchInput.value = ''
   globalFilter.value = ''
   columnFilters.value = []
 }
@@ -189,6 +212,18 @@ function onUpdatePage(page: number) {
   } else {
     pagination.value.pageIndex = page - 1
   }
+}
+
+// Page size travels through the table API when mounted (keeps v-model in
+// sync) and resets to the first page; fallback writes the ref directly.
+function onUpdatePageSize(size: number) {
+  const next = Number(size) || 10
+  if (table.value?.tableApi) {
+    table.value.tableApi.setPageSize(next)
+  } else {
+    pagination.value.pageSize = next
+  }
+  pagination.value.pageIndex = 0
 }
 
 // The table owns ordering, so filter/sort changes restart at the first page;
@@ -215,17 +250,11 @@ function sortActionLabel(columnId: string): string {
   return nextDesc ? t('instances.table.sortDesc', { column }) : t('instances.table.sortAsc', { column })
 }
 
-function sortAriaSort(columnId: string): 'ascending' | 'descending' | 'none' {
-  const current = sorting.value.find(entry => entry.id === columnId)
-  if (!current) {
-    return 'none'
-  }
-  return current.desc ? 'descending' : 'ascending'
-}
+// UTable exposes no th slot, so aria-sort stays off the header buttons; sort
+// state travels in the button aria-label (sortAsc/sortDesc) instead.
 
-function onSelectRow(_event: Event, row: TableRow<Instance>) {
-  navigateTo(`/instances/${row.original.id}`)
-}
+// Row click selects only; detail navigation lives on the name NuxtLink, so
+// no @select prop exists and UTable renders no focusable tr (accounts same).
 
 useSeoMeta({
   title: 'Instances'
@@ -306,6 +335,7 @@ await loadFirst()
         {{ isAdmin ? t('instances.subtitleAdmin') : t('instances.subtitleUser') }}
       </p>
 
+      <!-- Initial load renders skeletons; the table mounts only after load, so no :loading prop (loadMore owns its button spinner). -->
       <div v-if="pending" class="flex flex-col gap-2">
         <USkeleton class="h-12 w-full" />
         <USkeleton class="h-12 w-full" />
@@ -331,7 +361,7 @@ await loadFirst()
       <div v-else class="flex flex-col gap-3">
         <div role="group" :aria-label="t('instances.table.filtersLabel')" class="flex flex-wrap items-center gap-2">
           <UInput
-            v-model="globalFilter"
+            v-model="searchInput"
             icon="i-lucide-search"
             :placeholder="t('instances.table.search')"
             :aria-label="t('instances.table.search')"
@@ -401,9 +431,6 @@ await loadFirst()
           :pagination-options="paginationOptions"
           :get-row-id="getRowId"
           :auto-reset-all="false"
-          :loading="pending"
-          :ui="{ tr: 'cursor-pointer' }"
-          @select="onSelectRow"
         >
           <template #select-header="{ table: api }">
             <UCheckbox
@@ -430,7 +457,6 @@ await loadFirst()
               :label="t('instances.columns.name')"
               :icon="column.getIsSorted() ? (column.getIsSorted() === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow') : 'i-lucide-arrow-up-down'"
               :aria-label="sortActionLabel('name')"
-              :aria-sort="sortAriaSort('name')"
               @click="column.toggleSorting(column.getIsSorted() === 'asc')"
             />
           </template>
@@ -444,7 +470,6 @@ await loadFirst()
               :label="t('instances.columns.status')"
               :icon="column.getIsSorted() ? (column.getIsSorted() === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow') : 'i-lucide-arrow-up-down'"
               :aria-label="sortActionLabel('status')"
-              :aria-sort="sortAriaSort('status')"
               @click="column.toggleSorting(column.getIsSorted() === 'asc')"
             />
           </template>
@@ -473,7 +498,7 @@ await loadFirst()
           </template>
 
           <template #whatsapp_jid-cell="{ row }">
-            <div class="truncate" :title="row.original.whatsapp_jid">
+            <div class="min-w-0 truncate" :title="row.original.whatsapp_jid">
               <InstancesTableJidCell :instance="row.original" />
             </div>
           </template>
@@ -505,13 +530,21 @@ await loadFirst()
           <p class="text-sm text-muted">
             {{ pageLabel }}
           </p>
-          <UPagination
-            v-if="pageCount > 1"
-            :page="pagination.pageIndex + 1"
-            :items-per-page="pagination.pageSize"
-            :total="totalFiltered"
-            @update:page="onUpdatePage"
-          />
+          <div class="flex flex-wrap items-center gap-3">
+            <USelect
+              :model-value="pagination.pageSize"
+              :items="[10, 25, 50]"
+              :aria-label="t('instances.table.pageSize')"
+              @update:model-value="onUpdatePageSize"
+            />
+            <UPagination
+              v-if="pageCount > 1"
+              :page="pagination.pageIndex + 1"
+              :items-per-page="pagination.pageSize"
+              :total="totalFiltered"
+              @update:page="onUpdatePage"
+            />
+          </div>
         </div>
 
         <div v-if="nextCursor !== ''" class="flex justify-center pt-2">

@@ -31,6 +31,7 @@ export function useInstancesTable(
   const columnVisibility = ref<Record<string, boolean>>({})
   const rowSelection = ref<Record<string, boolean>>({})
   const pagination = ref({ pageIndex: 0, pageSize: 10 })
+  // No virtualization: cursor accumulation plus pageSize slicing bounds render cost; virtualize only if lists outgrow this.
 
   // Resolves the owner column value, mirroring the card list it replaces
   // (ownerLabel in pages/instances/index.vue): the account email when known,
@@ -108,6 +109,7 @@ export function useInstancesTable(
       accessorKey: 'status',
       header: t('instances.columns.status'),
       enableSorting: true,
+      enableHiding: false,
       filterFn: 'equalsString'
     }
     statusColumn.meta = { filterVariant: 'select' } as unknown as TableColumn<Instance>['meta']
@@ -123,7 +125,8 @@ export function useInstancesTable(
         id: 'name',
         accessorKey: 'name',
         header: t('instances.columns.name'),
-        enableSorting: true
+        enableSorting: true,
+        enableHiding: false
       },
       statusColumn,
       {

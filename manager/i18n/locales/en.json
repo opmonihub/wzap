@@ -82,11 +82,13 @@
       "clearSelection": "Clear selection",
       "copyNames": "Copy names",
       "copiedNames": "Instance names copied.",
+      "copyFailed": "Could not copy instance names.",
       "allStatuses": "All statuses",
       "statusFilter": "Status filter",
       "visibility": "Columns",
       "filtersLabel": "Filters",
-      "clearFilters": "Clear filters"
+      "clearFilters": "Clear filters",
+      "pageSize": "Rows per page"
     },
     "status": {
       "disconnected": "disconnected",
@@ -265,7 +267,8 @@
       "roleFilter": "Role filter",
       "visibility": "Columns",
       "filtersLabel": "Filters",
-      "clearFilters": "Clear filters"
+      "clearFilters": "Clear filters",
+      "pageSize": "Rows per page"
     },
     "create": {
       "title": "New account",

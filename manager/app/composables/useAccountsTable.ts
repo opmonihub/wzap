@@ -16,6 +16,7 @@ export function useAccountsTable() {
   const columnVisibility = ref<Record<string, boolean>>({})
   const rowSelection = ref<Record<string, boolean>>({})
   const pagination = ref({ pageIndex: 0, pageSize: 10 })
+  // No virtualization: pageSize slicing bounds render cost on large account lists; virtualize only if lists outgrow this.
 
   // Quota display rule, mirroring quotaLabel in pages/accounts/index.vue:
   // quota 0 means unlimited, any other quota renders as its number. The quota

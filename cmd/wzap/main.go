@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -90,12 +91,11 @@ func serve() error {
 	if err != nil {
 		return err
 	}
-	// Temporary bridge: the constructors wired below still take
-	// *slog.Logger (later tasks migrate them to zerolog). Their records
-	// forward into the canonical logger, keeping format, level and
-	// destination consistent. Pass log itself wherever cmd/wzap owns the
-	// signature (seedAdmin, stopComponents).
-	slogBridge := logger.SlogShim(log)
+	// Temporary scaffolding: the constructors wired below still take
+	// *slog.Logger (later tasks migrate them to zerolog), so they get the
+	// bridge. Pass log itself wherever cmd/wzap owns the signature
+	// (seedAdmin, stopComponents).
+	slogLog := slogBridge(log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -168,7 +168,7 @@ func serve() error {
 	outbox := postgres.NewEventOutboxRepository(pool)
 	mediaStorage := media.NewStorage(cfg.DataDir, postgres.NewMediaRepository(pool),
 		cfg.MaxMediaBytes, time.Duration(cfg.MediaTTLSeconds)*time.Second)
-	relay := events.NewRelay(outbox, publisher, slogBridge, cfg.EventRetentionDays)
+	relay := events.NewRelay(outbox, publisher, slogLog, cfg.EventRetentionDays)
 	checker := httpapi.NewChecker(pool, httpapi.NamedProbe{Name: "nats", Run: publisher.Ready})
 
 	eventWriter := events.NewWriter(outbox)
@@ -176,7 +176,7 @@ func serve() error {
 	// (message, receipt, connection, message.status), so decorating it once
 	// hooks all producers with no per-producer wiring. The NATS relay replays
 	// from the DB outbox, NOT through Writer, so there is no double delivery.
-	webhookWorker := webhook.NewWorker(instances, webhook.Keys, webhook.Deliver, cfg.MaxMediaBytes, slogBridge)
+	webhookWorker := webhook.NewWorker(instances, webhook.Keys, webhook.Deliver, cfg.MaxMediaBytes, slogLog)
 	// Durable dead letters: exhausted deliveries persist for operator
 	// inspection besides the dead-letter log. The sink is best-effort by
 	// design; its failure never breaks the worker.
@@ -185,13 +185,13 @@ func serve() error {
 
 	runtime := app.NewRuntime(
 		instances, webhookWriter, message.NewReceipts(messageRepo, webhookWriter, cfg.MaxMediaBytes),
-		mediaStorage, cfg.PublicURL, cfg.MaxMediaBytes, slogBridge,
+		mediaStorage, cfg.PublicURL, cfg.MaxMediaBytes, slogLog,
 	)
 	// Advertise the latest WhatsApp web client before any session connects: a
 	// WhatsApp version bump must not silently break pairing until the library
 	// is updated. A lookup failure only warns and keeps the pinned version.
-	whatsmeow.RefreshWAVersion(ctx, slogBridge)
-	sessions, err := whatsmeow.NewManager(ctx, cfg.DatabaseURL, instances, slogBridge, runtime, cfg.MaxMediaBytes)
+	whatsmeow.RefreshWAVersion(ctx, slogLog)
+	sessions, err := whatsmeow.NewManager(ctx, cfg.DatabaseURL, instances, slogLog, runtime, cfg.MaxMediaBytes)
 	if err != nil {
 		return fmt.Errorf("session manager: %w", err)
 	}
@@ -265,14 +265,14 @@ func serve() error {
 			if !ok {
 				return miswiredContactResolver{err: fmt.Errorf("chatwoot mirror miswired: contacts need *client.Client, got %T", cli)}
 			}
-			return contacts.New(concrete, connector, slogBridge)
+			return contacts.New(concrete, connector, slogLog)
 		}
 		conversationsFor := func(cli mirror.ChatwootClient, connector model.ChatwootConfig, inboxID int64) mirror.ConversationResolver {
 			concrete, ok := cli.(*client.Client)
 			if !ok {
 				return miswiredConversationResolver{err: fmt.Errorf("chatwoot mirror miswired: conversations need *client.Client, got %T", cli)}
 			}
-			return conversations.New(concrete, connector, inboxID, slogBridge)
+			return conversations.New(concrete, connector, inboxID, slogLog)
 		}
 		mirrorWorker = mirror.New(mirror.Deps{
 			Conn:             nc,
@@ -289,7 +289,7 @@ func serve() error {
 				_, err := importer.run(ctx, instanceID, time.Time{})
 				return err
 			},
-			Log: slogBridge,
+			Log: slogLog,
 		})
 	}
 
@@ -310,12 +310,12 @@ func serve() error {
 					mirrorWorker.Clear(instanceID)
 				}
 			},
-			Log: slogBridge,
+			Log: slogLog,
 		})
 	}
 
 	service := instance.NewService(instances, sessions, mediaStorage, users, keys)
-	numbers := message.NewJIDResolver(sessions, postgres.NewJIDCacheRepository(pool), slogBridge)
+	numbers := message.NewJIDResolver(sessions, postgres.NewJIDCacheRepository(pool), slogLog)
 	messages := message.NewService(instances, numbers, messageRepo)
 
 	// Chatwoot inbound (capability wzap-chatwoot-inbound): the open webhook
@@ -342,7 +342,7 @@ func serve() error {
 		Downloader:   inbound.NewHTTPDownloader(cfg.MaxMediaBytes),
 		Cache:        chatwootCache,
 		Global:       cfg.Chatwoot,
-		Log:          slogBridge,
+		Log:          slogLog,
 		ClientFor: func(connector model.ChatwootConfig) inbound.ChatwootAPI {
 			return client.New(connector.URL, connector.Token, connector.AccountID)
 		},
@@ -359,9 +359,9 @@ func serve() error {
 		log.Warn().Err(restoreErr).Msg("restore sessions not completed")
 	}
 
-	outboxWorker := message.NewOutbox(messageRepo, sessions, webhookWriter, mediaStorage, slogBridge, cfg.OutboxWorkers, instancelock.New(), cfg.Humanize)
+	outboxWorker := message.NewOutbox(messageRepo, sessions, webhookWriter, mediaStorage, slogLog, cfg.OutboxWorkers, instancelock.New(), cfg.Humanize)
 
-	srv := httpapi.New(cfg, slogBridge, httpapi.Deps{
+	srv := httpapi.New(cfg, slogLog, httpapi.Deps{
 		ReadyChecker:     checker,
 		Instances:        service,
 		Numbers:          numbers,
@@ -400,7 +400,7 @@ func serve() error {
 		relay.Run(relayCtx)
 	}()
 
-	cleaner := media.NewCleaner(mediaStorage, slogBridge)
+	cleaner := media.NewCleaner(mediaStorage, slogLog)
 	cleanerCtx, stopCleaner := context.WithCancel(context.Background())
 	defer stopCleaner()
 	cleanerDone := make(chan struct{})
@@ -691,6 +691,14 @@ func decodeChatwootTokenKey(cfg config.Config) ([]byte, error) {
 		return nil, fmt.Errorf("invalid configuration: WZAP_CHATWOOT_TOKEN_KEY must be base64-encoded 32 bytes")
 	}
 	return raw, nil
+}
+
+// TODO(canonical-zerolog-logger): remove when tasks 2.2-3.5 migrate all
+// downstream ctors to zerolog.Logger; enforced dead by the task 4.1 grep
+// gate. slogBridge is temporary scaffolding that forwards records from
+// constructors still taking *slog.Logger into the canonical logger.
+func slogBridge(log zerolog.Logger) *slog.Logger {
+	return slog.New(zerolog.NewSlogHandler(log))
 }
 
 // newLogger builds the structured logger from the configuration.

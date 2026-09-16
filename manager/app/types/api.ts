@@ -60,6 +60,17 @@ export interface InstanceListPage {
   next_cursor: string
 }
 
+// GET /instances/stats answer: the scoped total plus the breakdown by
+// connection status. Mirrors instanceStatsResponse in
+// internal/httpapi/instances.go: the four buckets (connected, disconnected,
+// pairing, error) always sum to total — unknown statuses fold into
+// disconnected server-side. Admin and global sessions count everything, user
+// sessions count exactly their own rows, instance keys get 403.
+export interface InstanceStats {
+  total: number
+  by_status: Record<string, number>
+}
+
 // POST /instances answer: the instance plus its one-time plaintext key. No
 // other read route returns this shape.
 export interface CreatedInstance extends Instance {

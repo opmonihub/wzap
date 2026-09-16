@@ -169,9 +169,9 @@ function clearSelection() {
 async function copySelectedEmails() {
   try {
     await copy(selectedUsers().map(user => user.email).join('\n'))
-    toast.add({ title: t('accounts.table.copiedEmails'), color: 'success' })
+    toast.add({ title: t('accounts.table.copiedEmails'), icon: 'i-lucide-check', color: 'success' })
   } catch {
-    toast.add({ title: t('accounts.table.copyFailed'), color: 'error' })
+    toast.add({ title: t('accounts.table.copyFailed'), icon: 'i-lucide-triangle-alert', color: 'error' })
   }
 }
 
@@ -349,7 +349,7 @@ async function onCreate(event: FormSubmitEvent<CreateSchema>) {
     const created = await createUser({ email, password: event.data.password ?? '', role: event.data.role ?? 'user', instance_quota: quota })
     users.value = [created, ...users.value]
     createOpen.value = false
-    toast.add({ title: t('accounts.create.createdToast'), color: 'success' })
+    toast.add({ title: t('accounts.create.createdToast'), icon: 'i-lucide-check', color: 'success' })
   } catch (error) {
     createFailure.value = error instanceof ApiError ? friendlyCreateError(error) : t('accounts.create.failed')
   } finally {
@@ -388,7 +388,7 @@ async function onSaveQuota(event: FormSubmitEvent<QuotaSchema>) {
     users.value = users.value.map(user => user.id === updated.id ? updated : user)
     quotaOpen.value = false
     quotaTarget.value = null
-    toast.add({ title: t('accounts.quota.updated'), color: 'success' })
+    toast.add({ title: t('accounts.quota.updated'), icon: 'i-lucide-check', color: 'success' })
   } catch (error) {
     quotaFailure.value = error instanceof ApiError ? error.message : t('accounts.quota.saveFailed')
   } finally {
@@ -400,7 +400,7 @@ function openDelete(user: AccountUser) {
   // Self-delete is blocked client-side (the row menu also disables it): an
   // admin removing their own account would lock themselves out.
   if (sessionUser.value && user.id === sessionUser.value.id) {
-    toast.add({ title: t('accounts.delete.selfBlocked'), color: 'error' })
+    toast.add({ title: t('accounts.delete.selfBlocked'), icon: 'i-lucide-triangle-alert', color: 'error' })
     return
   }
   deleteTarget.value = user
@@ -420,7 +420,7 @@ async function onDelete() {
     users.value = users.value.filter(user => user.id !== deleteTarget.value?.id)
     deleteOpen.value = false
     deleteTarget.value = null
-    toast.add({ title: t('accounts.delete.deleted'), color: 'success' })
+    toast.add({ title: t('accounts.delete.deleted'), icon: 'i-lucide-check', color: 'success' })
   } catch (error) {
     deleteFailure.value = error instanceof ApiError ? friendlyDeleteError(error) : t('accounts.delete.failed')
   } finally {
@@ -462,7 +462,7 @@ async function onBulkDelete() {
   const selfId = sessionUser.value?.id
   const targets = selectedUsers().filter(user => user.id !== selfId)
   if (targets.length === 0) {
-    toast.add({ title: t('accounts.bulkDelete.selfSkipped'), color: 'warning' })
+    toast.add({ title: t('accounts.bulkDelete.selfSkipped'), icon: 'i-lucide-triangle-alert', color: 'warning' })
     return
   }
   bulkDeleting.value = true
@@ -480,11 +480,11 @@ async function onBulkDelete() {
     // Clean run: drop the rows locally without a reload.
     const removedIds = new Set(targets.map(target => target.id))
     users.value = users.value.filter(user => !removedIds.has(user.id))
-    toast.add({ title: t('accounts.bulkDelete.deleted', { count: deleted }), color: 'success' })
+    toast.add({ title: t('accounts.bulkDelete.deleted', { count: deleted }), icon: 'i-lucide-check', color: 'success' })
   } else {
     // Partial run: reload so the rows reflect exactly what the server kept.
     await load()
-    toast.add({ title: t('accounts.bulkDelete.partial', { deleted, failed }), color: 'warning' })
+    toast.add({ title: t('accounts.bulkDelete.partial', { deleted, failed }), icon: 'i-lucide-triangle-alert', color: 'warning' })
   }
   clearSelection()
   bulkDeleting.value = false

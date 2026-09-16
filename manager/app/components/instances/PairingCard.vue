@@ -69,7 +69,14 @@ function clearQR() {
   }
 }
 
-// The canvas keeps its own white background so the code stays scannable in
+// QR colors follow semantic tokens with light-mode fallbacks so the code
+// stays scannable in either color mode.
+function qrToken(varName: string, fallback: string): string {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(varName).trim()
+  return raw === '' ? fallback : raw
+}
+
+// The canvas keeps its own light background so the code stays scannable in
 // either color mode.
 async function drawQR(data: string) {
   await nextTick()
@@ -83,8 +90,8 @@ async function drawQR(data: string) {
       type: 'canvas',
       data,
       margin: 4,
-      dotsOptions: { color: '#111827', type: 'square' },
-      backgroundOptions: { color: '#ffffff' }
+      dotsOptions: { color: qrToken('--ui-text-highlighted', '#111827'), type: 'square' },
+      backgroundOptions: { color: qrToken('--ui-bg', '#ffffff') }
     })
     qr.append(qrHost.value)
   } else {

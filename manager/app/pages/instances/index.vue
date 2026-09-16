@@ -200,9 +200,9 @@ function clearSelection() {
 async function copySelectedNames() {
   try {
     await copy(selectedNames().join('\n'))
-    toast.add({ title: t('instances.table.copiedNames'), color: 'success' })
+    toast.add({ title: t('instances.table.copiedNames'), icon: 'i-lucide-check', color: 'success' })
   } catch {
-    toast.add({ title: t('instances.table.copyFailed'), color: 'error' })
+    toast.add({ title: t('instances.table.copyFailed'), icon: 'i-lucide-triangle-alert', color: 'error' })
   }
 }
 
@@ -315,6 +315,7 @@ async function loadMore() {
   } catch (error) {
     toast.add({
       title: error instanceof ApiError ? error.message : t('instances.loadFailed'),
+      icon: 'i-lucide-triangle-alert',
       color: 'error'
     })
   } finally {
@@ -327,7 +328,7 @@ function onCreated(instance: CreatedInstance) {
   // instance joins the list so it is never retained in list memory.
   const { instance_api_key: _omit, ...rest } = instance
   items.value = [rest, ...items.value]
-  toast.add({ title: t('instances.create.createdToast'), color: 'success' })
+  toast.add({ title: t('instances.create.createdToast'), icon: 'i-lucide-check', color: 'success' })
 }
 
 // Row actions: connect starts pairing inline (the QR itself lives on the
@@ -355,14 +356,15 @@ async function onConnect(instance: Instance) {
       entry.id === instance.id ? { ...entry, status: result.status } : entry
     )
     if (result.status === 'connected' || !result.qr_code) {
-      toast.add({ title: t('instances.connect.alreadyConnected'), color: 'success' })
+      toast.add({ title: t('instances.connect.alreadyConnected'), icon: 'i-lucide-check', color: 'success' })
       return
     }
-    toast.add({ title: t('instances.connect.pairingStarted'), color: 'success' })
+    toast.add({ title: t('instances.connect.pairingStarted'), icon: 'i-lucide-check', color: 'success' })
     await navigateTo(`/instances/${instance.id}`)
   } catch (error) {
     toast.add({
       title: error instanceof ApiError ? error.message : t('instances.connect.failed'),
+      icon: 'i-lucide-triangle-alert',
       color: 'error'
     })
   } finally {
@@ -378,7 +380,7 @@ function openEdit(instance: Instance) {
 function onUpdated(updated: Instance) {
   items.value = items.value.map(entry => entry.id === updated.id ? updated : entry)
   editTarget.value = null
-  toast.add({ title: t('instances.edit.saved'), color: 'success' })
+  toast.add({ title: t('instances.edit.saved'), icon: 'i-lucide-check', color: 'success' })
 }
 
 function openDelete(instance: Instance) {
@@ -389,7 +391,7 @@ function openDelete(instance: Instance) {
 function onDeleted(id: string) {
   items.value = items.value.filter(entry => entry.id !== id)
   deleteTarget.value = null
-  toast.add({ title: t('instances.detail.deleted'), color: 'success' })
+  toast.add({ title: t('instances.detail.deleted'), icon: 'i-lucide-check', color: 'success' })
 }
 
 await loadFirst()

@@ -149,7 +149,7 @@ async function onSendText(event: FormSubmitEvent<TextSchema>) {
   sendFailure.value = null
   try {
     const accepted = await sendText(props.instanceId, to, event.data.text_body ?? '')
-    toast.add({ title: t('instances.send.sentToast'), color: 'success' })
+    toast.add({ title: t('instances.send.sentToast'), icon: 'i-lucide-check', color: 'success' })
     emit('sent', accepted.message_id)
     void track(accepted.message_id)
   } catch (error) {
@@ -209,7 +209,7 @@ async function onSendMedia(event: FormSubmitEvent<MediaSchema>) {
       ptt: kind === 'audio' ? mediaPtt.value : false,
       file
     })
-    toast.add({ title: t('instances.send.sentToast'), color: 'success' })
+    toast.add({ title: t('instances.send.sentToast'), icon: 'i-lucide-check', color: 'success' })
     emit('sent', accepted.message_id)
     void track(accepted.message_id)
   } catch (error) {

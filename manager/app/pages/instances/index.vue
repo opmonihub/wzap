@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TableRow } from '@nuxt/ui'
+import type { DropdownMenuItem, TableRow } from '@nuxt/ui'
 import { useMediaQuery } from '@vueuse/core'
 import { ApiError } from '~/composables/useApi'
 import { useInstancesTable } from '~/composables/useInstancesTable'
@@ -8,12 +8,22 @@ import InstancesTableJidCell from '~/components/instances/InstancesTableJidCell.
 import InstancesTableNameCell from '~/components/instances/InstancesTableNameCell.vue'
 import InstancesTableOwnerCell from '~/components/instances/InstancesTableOwnerCell.vue'
 import InstancesTableStatusCell from '~/components/instances/InstancesTableStatusCell.vue'
-import type { CreatedInstance, Instance } from '~/types/api'
+import type { CreatedInstance, Instance, InstanceStatus } from '~/types/api'
+
+// Structural view of the UTable API this page drives (stable component
+// instance typing without importing @tanstack/*, which stays transitive-only).
+interface InstancesTableApi {
+  getFilteredRowModel: () => { rows: TableRow<Instance>[] }
+  getFilteredSelectedRowModel: () => { rows: TableRow<Instance>[] }
+  setPageIndex: (index: number) => void
+  resetRowSelection: () => void
+}
 
 const { t } = useI18n()
 const toast = useToast()
 const { isAdmin } = useAuth()
 const { listInstances, listAccounts } = useInstances()
+const { copy } = useClipboard()
 
 const items = ref<Instance[]>([])
 const nextCursor = ref('')
@@ -23,7 +33,19 @@ const failure = ref<string | null>(null)
 const createOpen = ref(false)
 const ownerEmails = ref<Record<string, string>>({})
 
-const { columns, sorting, globalFilter, pagination, tableState } = useInstancesTable(items, ownerEmails, isAdmin)
+const {
+  columns,
+  sorting,
+  globalFilter,
+  columnFilters,
+  columnVisibility: visibilityOverrides,
+  rowSelection,
+  pagination,
+  globalFilterOptions,
+  paginationOptions
+} = useInstancesTable(items, ownerEmails, isAdmin)
+
+const table = useTemplateRef<{ tableApi?: InstancesTableApi }>('table')
 
 // Client-side viewport mirrors the old cards (owner hidden below md, JID
 // below lg). useMediaQuery is mobile-first on SSR (false until mount), so the
@@ -38,48 +60,141 @@ function isAdminOnly(columnId: string): boolean {
   return (column?.meta as unknown as { ifAdmin?: boolean } | undefined)?.ifAdmin ?? false
 }
 
-const columnVisibility = computed<Record<string, boolean>>(() => ({
-  owner: (!isAdminOnly('owner') || isAdmin.value) && isMdViewport.value,
-  whatsapp_jid: isLgViewport.value
-}))
-
-// Client-side engine over the accumulated cursor pages (no new API calls):
-// the shared global-filter predicate from the composable selects rows, the
-// page orders name/status, then slices the current page. UTable renders the
-// slice as-is (no v-model:sorting/global-filter/pagination) so a single
-// engine owns ordering — TanStack's row models stay out of the loop because
-// UTable v4 ships no getPaginationRowModel and @tanstack/* is not importable
-// (pnpm strict, no new dependency by design).
-const filteredItems = computed(() => {
-  const filterFn = tableState.value.globalFilterFn
-  return items.value.filter(item => filterFn({ original: item }, 'name', globalFilter.value))
-})
-
-const sortedFilteredItems = computed(() => {
-  const current = sorting.value[0]
-  if (!current || (current.id !== 'name' && current.id !== 'status')) {
-    return [...filteredItems.value]
+function baseColumnVisibility(): Record<string, boolean> {
+  return {
+    owner: (!isAdminOnly('owner') || isAdmin.value) && isMdViewport.value,
+    whatsapp_jid: isLgViewport.value
   }
-  const direction = current.desc ? -1 : 1
-  return [...filteredItems.value].sort((a, b) => {
-    const left = current.id === 'status' ? a.status : a.name
-    const right = current.id === 'status' ? b.status : b.name
-    return left.localeCompare(right) * direction
-  })
+}
+
+// Viewport defaults merged with the user's dropdown overrides (kept in the
+// composable ref). Untouched columns keep tracking the viewport; a column the
+// user toggled stays on their choice until toggled back to the default.
+const columnVisibility = computed<Record<string, boolean>>({
+  get: () => ({ ...baseColumnVisibility(), ...visibilityOverrides.value }),
+  set: (next) => {
+    const base = baseColumnVisibility()
+    const diff: Record<string, boolean> = {}
+    for (const key of Object.keys(next)) {
+      const value = next[key] ?? true
+      if (value !== (base[key] ?? true)) {
+        diff[key] = value
+      }
+    }
+    visibilityOverrides.value = diff
+  }
 })
 
-const pageCount = computed(() => Math.max(1, Math.ceil(sortedFilteredItems.value.length / pagination.value.pageSize)))
+function getRowId(row: Instance): string {
+  return row.id
+}
 
-const pagedItems = computed(() => {
-  const start = pagination.value.pageIndex * pagination.value.pageSize
-  return sortedFilteredItems.value.slice(start, start + pagination.value.pageSize)
+// Native table state, read from the table API (UTable owns sorting, filtering
+// and pagination; the page only binds state and renders). Before the first
+// mount tableApi is null, so every read falls back to the loaded items.
+function filteredCount(): number {
+  return table.value?.tableApi?.getFilteredRowModel().rows.length ?? items.value.length
+}
+
+const totalFiltered = computed(() => filteredCount())
+const pageCount = computed(() => Math.max(1, Math.ceil(totalFiltered.value / pagination.value.pageSize)))
+
+// Status column filter behind a USelect: '' means Todos (no column filter).
+const statusFilter = computed<string>({
+  get: () => {
+    const current = columnFilters.value.find(entry => entry.id === 'status')?.value
+    return typeof current === 'string' ? current : ''
+  },
+  set: (value) => {
+    const rest = columnFilters.value.filter(entry => entry.id !== 'status')
+    columnFilters.value = value === '' ? rest : [...rest, { id: 'status', value }]
+  }
 })
 
-watch(globalFilter, () => {
-  pagination.value.pageIndex = 0
-})
+const instanceStatuses: InstanceStatus[] = ['disconnected', 'pairing', 'connected', 'error']
 
-watch(sorting, () => {
+const statusFilterItems = computed(() => [
+  { label: t('instances.table.allStatuses'), value: '' },
+  ...instanceStatuses.map(status => ({ label: t(`instances.status.${status}`), value: status }))
+])
+
+const hideableColumnIds = computed<string[]>(() =>
+  columns.value
+    .filter(column => column.id !== 'select')
+    .map(column => column.id ?? '')
+    .filter(id => id !== '')
+)
+
+function columnLabel(columnId: string): string {
+  switch (columnId) {
+    case 'name':
+      return t('instances.columns.name')
+    case 'status':
+      return t('instances.columns.status')
+    case 'external_ref':
+      return t('instances.columns.externalRef')
+    case 'owner':
+      return t('instances.columns.owner')
+    case 'whatsapp_jid':
+      return t('instances.columns.jid')
+    default:
+      return columnId
+  }
+}
+
+const visibilityItems = computed<DropdownMenuItem[]>(() =>
+  hideableColumnIds.value.map(columnId => ({
+    label: columnLabel(columnId),
+    type: 'checkbox' as const,
+    checked: columnVisibility.value[columnId] ?? true,
+    onUpdateChecked: (checked: boolean) => {
+      columnVisibility.value = { ...columnVisibility.value, [columnId]: checked }
+    },
+    onSelect: (event: Event) => {
+      event.preventDefault()
+    }
+  }))
+)
+
+const selectedCount = computed(() =>
+  table.value?.tableApi?.getFilteredSelectedRowModel().rows.length
+  ?? Object.values(rowSelection.value).filter(Boolean).length
+)
+
+function selectedNames(): string[] {
+  return table.value?.tableApi?.getFilteredSelectedRowModel().rows.map(row => row.original.name) ?? []
+}
+
+function clearSelection() {
+  if (table.value?.tableApi) {
+    table.value.tableApi.resetRowSelection()
+  } else {
+    rowSelection.value = {}
+  }
+}
+
+async function copySelectedNames() {
+  await copy(selectedNames().join('\n'))
+  toast.add({ title: t('instances.table.copiedNames'), color: 'success' })
+}
+
+function clearFilters() {
+  globalFilter.value = ''
+  columnFilters.value = []
+}
+
+function onUpdatePage(page: number) {
+  if (table.value?.tableApi) {
+    table.value.tableApi.setPageIndex(page - 1)
+  } else {
+    pagination.value.pageIndex = page - 1
+  }
+}
+
+// The table owns ordering, so filter/sort changes restart at the first page;
+// a shrunken result only clamps an out-of-range page. Cursor accumulation
+// (loadMore/onCreated) never resets the page the user is on.
+watch([globalFilter, columnFilters, sorting], () => {
   pagination.value.pageIndex = 0
 })
 
@@ -88,19 +203,6 @@ watch(pageCount, (count) => {
     pagination.value.pageIndex = count - 1
   }
 })
-
-function toggleSort(columnId: string) {
-  const current = sorting.value[0]
-  sorting.value = [{ id: columnId, desc: current?.id === columnId ? !current.desc : false }]
-}
-
-function sortIcon(columnId: string): string {
-  const current = sorting.value[0]
-  if (current?.id !== columnId) {
-    return 'i-lucide-arrow-up-down'
-  }
-  return current.desc ? 'i-lucide-arrow-down-wide-narrow' : 'i-lucide-arrow-up-narrow-wide'
-}
 
 // Table copy lives in instances.table.* (en.json); no UI literal stays here.
 const loadedLabel = computed(() => t('instances.table.loadedCount', { count: items.value.length }))
@@ -111,6 +213,14 @@ function sortActionLabel(columnId: string): string {
   const nextDesc = current?.id === columnId && !current.desc
   const column = columnId === 'status' ? t('instances.columns.status') : t('instances.columns.name')
   return nextDesc ? t('instances.table.sortDesc', { column }) : t('instances.table.sortAsc', { column })
+}
+
+function sortAriaSort(columnId: string): 'ascending' | 'descending' | 'none' {
+  const current = sorting.value.find(entry => entry.id === columnId)
+  if (!current) {
+    return 'none'
+  }
+  return current.desc ? 'descending' : 'ascending'
 }
 
 function onSelectRow(_event: Event, row: TableRow<Instance>) {
@@ -218,63 +328,140 @@ await loadFirst()
         </template>
       </UAlert>
 
-      <UEmpty
-        v-else-if="items.length === 0"
-        icon="i-lucide-smartphone"
-        :title="t('instances.empty')"
-      >
-        <template #actions>
-          <UButton icon="i-lucide-plus" :label="t('instances.create.title')" @click="createOpen = true" />
-        </template>
-      </UEmpty>
-
       <div v-else class="flex flex-col gap-3">
-        <UInput
-          v-model="globalFilter"
-          icon="i-lucide-search"
-          :placeholder="t('instances.table.search')"
-        />
+        <div role="group" :aria-label="t('instances.table.filtersLabel')" class="flex flex-wrap items-center gap-2">
+          <UInput
+            v-model="globalFilter"
+            icon="i-lucide-search"
+            :placeholder="t('instances.table.search')"
+            :aria-label="t('instances.table.search')"
+            class="min-w-52 flex-1"
+          />
+          <USelect
+            v-model="statusFilter"
+            :items="statusFilterItems"
+            :aria-label="t('instances.table.statusFilter')"
+            class="min-w-40"
+          />
+          <UDropdownMenu
+            :items="visibilityItems"
+            :content="{ align: 'end' }"
+          >
+            <UButton
+              :label="t('instances.table.visibility')"
+              color="neutral"
+              variant="outline"
+              trailing-icon="i-lucide-chevron-down"
+              class="min-h-11"
+              :aria-label="t('instances.table.visibility')"
+            />
+          </UDropdownMenu>
+        </div>
 
         <p class="text-sm text-muted">
           {{ loadedLabel }}
         </p>
 
+        <div
+          v-if="selectedCount > 0"
+          class="flex flex-wrap items-center gap-2 rounded-lg bg-elevated px-3 py-2"
+        >
+          <p class="text-sm">
+            {{ t('instances.table.selectedCount', { count: selectedCount }) }}
+          </p>
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            icon="i-lucide-copy"
+            :label="t('instances.table.copyNames')"
+            @click="copySelectedNames"
+          />
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            icon="i-lucide-x"
+            :label="t('instances.table.clearSelection')"
+            @click="clearSelection"
+          />
+        </div>
+
         <UTable
-          :data="pagedItems"
+          ref="table"
+          v-model:sorting="sorting"
+          v-model:global-filter="globalFilter"
+          v-model:column-filters="columnFilters"
+          v-model:column-visibility="columnVisibility"
+          v-model:row-selection="rowSelection"
+          v-model:pagination="pagination"
+          :data="items"
           :columns="columns"
-          :column-visibility="columnVisibility"
-          :empty="t('instances.table.noResults')"
+          :global-filter-options="globalFilterOptions"
+          :pagination-options="paginationOptions"
+          :get-row-id="getRowId"
+          :auto-reset-all="false"
+          :loading="pending"
           :ui="{ tr: 'cursor-pointer' }"
           @select="onSelectRow"
         >
-          <template #name-header>
-            <UButton
-              color="neutral"
-              variant="ghost"
-              size="xs"
-              class="-mx-2.5"
-              :label="t('instances.columns.name')"
-              :icon="sortIcon('name')"
-              :aria-label="sortActionLabel('name')"
-              @click="toggleSort('name')"
+          <template #select-header="{ table: api }">
+            <UCheckbox
+              :model-value="api.getIsSomePageRowsSelected() ? 'indeterminate' : api.getIsAllPageRowsSelected()"
+              :aria-label="t('instances.table.selectAll')"
+              @update:model-value="(value: boolean | 'indeterminate') => api.toggleAllPageRowsSelected(!!value)"
             />
           </template>
 
-          <template #status-header>
+          <template #select-cell="{ row }">
+            <UCheckbox
+              :model-value="row.getIsSelected()"
+              :aria-label="t('instances.table.selectRow')"
+              @update:model-value="(value: boolean | 'indeterminate') => row.toggleSelected(!!value)"
+            />
+          </template>
+
+          <template #name-header="{ column }">
             <UButton
               color="neutral"
               variant="ghost"
-              size="xs"
-              class="-mx-2.5"
+              size="sm"
+              class="min-h-11"
+              :label="t('instances.columns.name')"
+              :icon="column.getIsSorted() ? (column.getIsSorted() === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow') : 'i-lucide-arrow-up-down'"
+              :aria-label="sortActionLabel('name')"
+              :aria-sort="sortAriaSort('name')"
+              @click="column.toggleSorting(column.getIsSorted() === 'asc')"
+            />
+          </template>
+
+          <template #status-header="{ column }">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              class="min-h-11"
               :label="t('instances.columns.status')"
-              :icon="sortIcon('status')"
+              :icon="column.getIsSorted() ? (column.getIsSorted() === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow') : 'i-lucide-arrow-up-down'"
               :aria-label="sortActionLabel('status')"
-              @click="toggleSort('status')"
+              :aria-sort="sortAriaSort('status')"
+              @click="column.toggleSorting(column.getIsSorted() === 'asc')"
             />
           </template>
 
           <template #name-cell="{ row }">
-            <InstancesTableNameCell :instance="row.original" />
+            <NuxtLink
+              :to="`/instances/${row.original.id}`"
+              class="block min-w-0 rounded text-current no-underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <InstancesTableNameCell :instance="row.original" />
+            </NuxtLink>
+          </template>
+
+          <template #external_ref-cell="{ row }">
+            <span class="block truncate" :title="row.original.external_ref ?? ''">
+              {{ row.original.external_ref }}
+            </span>
           </template>
 
           <template #status-cell="{ row }">
@@ -286,11 +473,35 @@ await loadFirst()
           </template>
 
           <template #whatsapp_jid-cell="{ row }">
-            <InstancesTableJidCell :instance="row.original" />
+            <div class="truncate" :title="row.original.whatsapp_jid">
+              <InstancesTableJidCell :instance="row.original" />
+            </div>
+          </template>
+
+          <template #empty>
+            <div class="flex flex-col items-center gap-3 py-8 text-center">
+              <template v-if="items.length === 0">
+                <p class="text-sm text-muted">
+                  {{ t('instances.empty') }}
+                </p>
+                <UButton icon="i-lucide-plus" :label="t('instances.create.title')" @click="createOpen = true" />
+              </template>
+              <template v-else>
+                <p class="text-sm text-muted">
+                  {{ t('instances.table.noResults') }}
+                </p>
+                <UButton
+                  color="neutral"
+                  variant="soft"
+                  :label="t('instances.table.clearFilters')"
+                  @click="clearFilters"
+                />
+              </template>
+            </div>
           </template>
         </UTable>
 
-        <div class="flex items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
           <p class="text-sm text-muted">
             {{ pageLabel }}
           </p>
@@ -298,8 +509,8 @@ await loadFirst()
             v-if="pageCount > 1"
             :page="pagination.pageIndex + 1"
             :items-per-page="pagination.pageSize"
-            :total="sortedFilteredItems.length"
-            @update:page="pagination.pageIndex = $event - 1"
+            :total="totalFiltered"
+            @update:page="onUpdatePage"
           />
         </div>
 

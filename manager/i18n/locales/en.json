@@ -75,7 +75,18 @@
       "pageOf": "Page {page} of {pages}",
       "noResults": "No instances match this search.",
       "sortAsc": "Sort {column} ascending",
-      "sortDesc": "Sort {column} descending"
+      "sortDesc": "Sort {column} descending",
+      "selectAll": "Select all",
+      "selectRow": "Select row",
+      "selectedCount": "{count} selected",
+      "clearSelection": "Clear selection",
+      "copyNames": "Copy names",
+      "copiedNames": "Instance names copied.",
+      "allStatuses": "All statuses",
+      "statusFilter": "Status filter",
+      "visibility": "Columns",
+      "filtersLabel": "Filters",
+      "clearFilters": "Clear filters"
     },
     "status": {
       "disconnected": "disconnected",

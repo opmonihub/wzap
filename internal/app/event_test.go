@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/model"
 	"wzap/internal/session"
@@ -18,7 +19,7 @@ import (
 func TestRuntimeOnMessageSetsCutEvent(t *testing.T) {
 	id := uuid.New()
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "https://wzap.example.com", 1<<20, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "https://wzap.example.com", 1<<20, zerolog.Nop())
 
 	raw := json.RawMessage(`{"message":{"conversation":"hello"}}`)
 	runtime.OnMessage(context.Background(), session.InboundMessage{
@@ -45,7 +46,7 @@ func TestRuntimeOnMessageSetsCutEvent(t *testing.T) {
 func TestRuntimeOnMessageCutsOversizedRaw(t *testing.T) {
 	id := uuid.New()
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "https://wzap.example.com", 16, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "https://wzap.example.com", 16, zerolog.Nop())
 
 	big := strings.Repeat("a", 64)
 	raw := json.RawMessage(`{"blob":"` + big + `"}`)
@@ -75,7 +76,7 @@ func TestRuntimeOnMessageCutsOversizedRaw(t *testing.T) {
 func TestRuntimeOnMessageWithoutRawOmitsEvent(t *testing.T) {
 	id := uuid.New()
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "https://wzap.example.com", 1<<20, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "https://wzap.example.com", 1<<20, zerolog.Nop())
 
 	runtime.OnMessage(context.Background(), session.InboundMessage{
 		InstanceID: id,
@@ -103,7 +104,7 @@ func TestRuntimeOnConnectionCarriesNoEvent(t *testing.T) {
 		ID: id, Name: "loja", Status: string(session.StatusDisconnected),
 	})
 	writer := &fakeWriter{}
-	runtime := NewRuntime(repo, writer, nil, nil, "", 0, nil)
+	runtime := NewRuntime(repo, writer, nil, nil, "", 0, zerolog.Nop())
 
 	runtime.OnConnection(context.Background(), id, session.StatusConnected, "5511999999999@s.whatsapp.net", "")
 

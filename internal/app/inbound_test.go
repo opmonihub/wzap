@@ -5,14 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/events"
+	"wzap/internal/logger"
 	"wzap/internal/model"
 	"wzap/internal/session"
 )
@@ -110,7 +111,7 @@ func decodeMessagePayload(t *testing.T, env events.Envelope) (decodedMessagePayl
 func TestRuntimeOnMessageTextPublishesMessageEvent(t *testing.T) {
 	id := uuid.New()
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "https://wzap.example.com", 1024, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "https://wzap.example.com", 1024, zerolog.Nop())
 	at := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
 	msg := session.InboundMessage{
 		InstanceID: id,
@@ -185,7 +186,7 @@ func TestRuntimeOnMessageTextPublishesMessageEvent(t *testing.T) {
 func TestRuntimeOnMessageGroupIdentifiesParticipantAndChat(t *testing.T) {
 	id := uuid.New()
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "https://wzap.example.com", 1024, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "https://wzap.example.com", 1024, zerolog.Nop())
 	msg := session.InboundMessage{
 		InstanceID: id,
 		MessageID:  "wamid.group",
@@ -219,7 +220,7 @@ func TestRuntimeOnMessageMediaWithinLimitIsSavedAndReferenced(t *testing.T) {
 	expires := time.Date(2026, 9, 13, 14, 0, 0, 0, time.UTC)
 	store := &fakeMediaStore{id: mediaID, expiresAt: expires}
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, store, "https://wzap.example.com", 8, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, store, "https://wzap.example.com", 8, zerolog.Nop())
 	data := []byte("12345678")
 	msg := session.InboundMessage{
 		InstanceID:     id,
@@ -292,7 +293,7 @@ func TestRuntimeOnMessageMediaURLTrimsTrailingSlash(t *testing.T) {
 	mediaID := uuid.New()
 	store := &fakeMediaStore{id: mediaID}
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, store, "https://wzap.example.com/", 1024, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, store, "https://wzap.example.com/", 1024, zerolog.Nop())
 	msg := session.InboundMessage{
 		InstanceID: uuid.New(), MessageID: "wamid.media", Type: "image",
 		Timestamp: time.Now().UTC(), MediaAvailable: true, MediaMime: "image/jpeg",
@@ -315,7 +316,7 @@ func TestRuntimeOnMessageMediaURLTrimsTrailingSlash(t *testing.T) {
 func TestRuntimeOnMessageMediaAboveLimitIsOmitted(t *testing.T) {
 	store := &fakeMediaStore{}
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, store, "https://wzap.example.com", 8, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, store, "https://wzap.example.com", 8, zerolog.Nop())
 	msg := session.InboundMessage{
 		InstanceID: uuid.New(), MessageID: "wamid.big", Type: "video",
 		Timestamp: time.Now().UTC(), MediaAvailable: true, MediaMime: "video/mp4",
@@ -344,7 +345,7 @@ func TestRuntimeOnMessageMediaAboveLimitIsOmitted(t *testing.T) {
 func TestRuntimeOnMessageMediaLengthAboveLimitIsOmitted(t *testing.T) {
 	store := &fakeMediaStore{}
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, store, "https://wzap.example.com", 8, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, store, "https://wzap.example.com", 8, zerolog.Nop())
 	downloads := 0
 	msg := session.InboundMessage{
 		InstanceID: uuid.New(), MessageID: "wamid.knownbig", Type: "video",
@@ -381,7 +382,7 @@ func TestRuntimeOnMessageMediaLengthAboveLimitIsOmitted(t *testing.T) {
 func TestRuntimeOnMessageMediaStreamOverCapIsOmitted(t *testing.T) {
 	store := &fakeMediaStore{}
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, store, "https://wzap.example.com", 8, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, store, "https://wzap.example.com", 8, zerolog.Nop())
 	msg := session.InboundMessage{
 		InstanceID: uuid.New(), MessageID: "wamid.stream", Type: "video",
 		Timestamp: time.Now().UTC(), MediaAvailable: true, MediaMime: "video/mp4",
@@ -412,7 +413,7 @@ func TestRuntimeOnMessageMediaStreamOverCapIsOmitted(t *testing.T) {
 func TestRuntimeOnMessageMediaDownloadFailureIsOmitted(t *testing.T) {
 	store := &fakeMediaStore{}
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, store, "https://wzap.example.com", 1024, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, store, "https://wzap.example.com", 1024, zerolog.Nop())
 	msg := session.InboundMessage{
 		InstanceID: uuid.New(), MessageID: "wamid.broken", Type: "image",
 		Timestamp: time.Now().UTC(), MediaAvailable: true, MediaMime: "image/jpeg",
@@ -443,7 +444,7 @@ func TestRuntimeOnMessageMediaDownloadFailureIsOmitted(t *testing.T) {
 
 func TestRuntimeOnMessageMediaDownloadUnavailableIsOmitted(t *testing.T) {
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, &fakeMediaStore{}, "https://wzap.example.com", 1024, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, &fakeMediaStore{}, "https://wzap.example.com", 1024, zerolog.Nop())
 	msg := session.InboundMessage{
 		InstanceID: uuid.New(), MessageID: "wamid.nodl", Type: "image",
 		Timestamp: time.Now().UTC(), MediaAvailable: true, MediaMime: "image/jpeg",
@@ -465,7 +466,7 @@ func TestRuntimeOnMessageMediaDownloadUnavailableIsOmitted(t *testing.T) {
 func TestRuntimeOnMessageMediaStoreFailureIsOmittedAndReported(t *testing.T) {
 	store := &fakeMediaStore{err: errors.New("database down")}
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, store, "https://wzap.example.com", 1024, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, store, "https://wzap.example.com", 1024, zerolog.Nop())
 	msg := session.InboundMessage{
 		InstanceID: uuid.New(), MessageID: "wamid.dbfail", Type: "image",
 		Timestamp: time.Now().UTC(), MediaAvailable: true, MediaMime: "image/jpeg",
@@ -494,7 +495,7 @@ func TestRuntimeOnMessageMediaStoreFailureIsOmittedAndReported(t *testing.T) {
 
 func TestRuntimeOnMessageMediaStoreUnavailableIsOmitted(t *testing.T) {
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "https://wzap.example.com", 1024, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "https://wzap.example.com", 1024, zerolog.Nop())
 	msg := session.InboundMessage{
 		InstanceID: uuid.New(), MessageID: "wamid.nostore", Type: "image",
 		Timestamp: time.Now().UTC(), MediaAvailable: true, MediaMime: "image/jpeg",
@@ -516,7 +517,7 @@ func TestRuntimeOnMessageMediaStoreUnavailableIsOmitted(t *testing.T) {
 
 func TestRuntimeOnMessageZeroTimestampFallsBackToNow(t *testing.T) {
 	writer := &fakeWriter{}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "https://wzap.example.com", 1024, nil)
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "https://wzap.example.com", 1024, zerolog.Nop())
 	before := time.Now().UTC()
 	msg := session.InboundMessage{
 		InstanceID: uuid.New(), MessageID: "wamid.notime", Type: "text", Text: "oi",
@@ -537,10 +538,9 @@ func TestRuntimeOnMessageZeroTimestampFallsBackToNow(t *testing.T) {
 }
 
 func TestRuntimeOnMessageEventFailureIsLogged(t *testing.T) {
-	var logs bytes.Buffer
+	logs, log := logger.NewTestLogger()
 	writer := &fakeWriter{writeErr: errors.New("outbox down")}
-	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "https://wzap.example.com", 1024,
-		slog.New(slog.NewTextHandler(&logs, nil)))
+	runtime := NewRuntime(newRuntimeRepo(), writer, nil, nil, "https://wzap.example.com", 1024, log)
 
 	runtime.OnMessage(context.Background(), session.InboundMessage{
 		InstanceID: uuid.New(), MessageID: "wamid.fail", Type: "text",

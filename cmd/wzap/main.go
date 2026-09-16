@@ -185,7 +185,7 @@ func serve() error {
 
 	runtime := app.NewRuntime(
 		instances, webhookWriter, message.NewReceipts(messageRepo, webhookWriter, cfg.MaxMediaBytes),
-		mediaStorage, cfg.PublicURL, cfg.MaxMediaBytes, slogLog,
+		mediaStorage, cfg.PublicURL, cfg.MaxMediaBytes, log,
 	)
 	// Advertise the latest WhatsApp web client before any session connects: a
 	// WhatsApp version bump must not silently break pairing until the library

@@ -32,8 +32,7 @@ func (r *Runtime) OnMessageEdit(ctx context.Context, edit session.MessageEdit) {
 	}
 	env, err := events.New(messageEditEventType, edit.InstanceID, payload)
 	if err != nil {
-		r.log.ErrorContext(ctx, "build message edit event",
-			"instance_id", edit.InstanceID, "message_id", edit.MessageID, "error", err)
+		r.log.Error().Str("instance_id", edit.InstanceID.String()).Str("message_id", edit.MessageID).Err(err).Msg("build message edit event")
 		return
 	}
 	// The trimmed raw rides the envelope for NATS and webhook alike, like the
@@ -42,8 +41,7 @@ func (r *Runtime) OnMessageEdit(ctx context.Context, edit session.MessageEdit) {
 		env.Event = trimmed
 	}
 	if err := r.events.Write(ctx, events.Subjects.MessageEdit(edit.InstanceID), env); err != nil {
-		r.log.ErrorContext(ctx, "enqueue message edit event",
-			"instance_id", edit.InstanceID, "message_id", edit.MessageID, "error", err)
+		r.log.Error().Str("instance_id", edit.InstanceID.String()).Str("message_id", edit.MessageID).Err(err).Msg("enqueue message edit event")
 	}
 }
 
@@ -62,16 +60,14 @@ func (r *Runtime) OnMessageDelete(ctx context.Context, del session.MessageDelete
 	}
 	env, err := events.New(messageDeleteEventType, del.InstanceID, payload)
 	if err != nil {
-		r.log.ErrorContext(ctx, "build message delete event",
-			"instance_id", del.InstanceID, "message_id", del.MessageID, "error", err)
+		r.log.Error().Str("instance_id", del.InstanceID.String()).Str("message_id", del.MessageID).Err(err).Msg("build message delete event")
 		return
 	}
 	if trimmed, _ := webhook.CutRawForLimit(del.Raw, r.maxMediaBytes); len(trimmed) > 0 {
 		env.Event = trimmed
 	}
 	if err := r.events.Write(ctx, events.Subjects.MessageDelete(del.InstanceID), env); err != nil {
-		r.log.ErrorContext(ctx, "enqueue message delete event",
-			"instance_id", del.InstanceID, "message_id", del.MessageID, "error", err)
+		r.log.Error().Str("instance_id", del.InstanceID.String()).Str("message_id", del.MessageID).Err(err).Msg("enqueue message delete event")
 	}
 }
 

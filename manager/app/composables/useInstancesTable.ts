@@ -1,4 +1,5 @@
-import type { TableColumn, TableRow } from '@nuxt/ui'
+import { getPaginationRowModel } from '@tanstack/table-core'
+import type { TableColumn } from '@nuxt/ui'
 import type { ComputedRef, Ref } from 'vue'
 import type { Instance } from '~/types/api'
 
@@ -59,42 +60,13 @@ export function useInstancesTable(
     )
   }
 
-  // Client-side pagination for UTable: Nuxt UI wires TanStack's core, filtered
-  // and sorted models but no pagination model, and @tanstack/* stays
-  // transitive-only (pnpm strict, no new dependency). This local model slices
-  // the pre-pagination (filtered+sorted) rows exactly like TanStack's own
-  // getPaginationRowModel, so :data keeps the FULL list and sorting, filtering
-  // and pagination all stay native inside the table (no page-level engine).
-  function clientPaginationRowModel() {
-    return (table: {
-      getState: () => { pagination: { pageIndex: number, pageSize: number } }
-      getPrePaginationRowModel: () => {
-        rows: TableRow<Instance>[]
-        flatRows: TableRow<Instance>[]
-        rowsById: Record<string, TableRow<Instance>>
-      }
-    }) => () => {
-      const { pageIndex, pageSize } = table.getState().pagination
-      const pre = table.getPrePaginationRowModel()
-      const start = pageIndex * pageSize
-      const rows = pre.rows.slice(start, start + pageSize)
-      const pageIds = new Set(rows.map(row => row.id))
-      return {
-        rows,
-        flatRows: pre.flatRows.filter(row => pageIds.has(row.id)),
-        rowsById: Object.fromEntries(rows.map(row => [row.id, row]))
-      }
-    }
-  }
-
   const globalFilterOptions = computed(() => ({ globalFilterFn: instancesGlobalFilterFn }))
-  const paginationOptions = computed(() => ({ getPaginationRowModel: clientPaginationRowModel() }))
+  const paginationOptions = computed(() => ({ getPaginationRowModel: getPaginationRowModel() }))
 
   const columns = computed<TableColumn<Instance>[]>(() => {
     // Built inside the computed so headers follow runtime locale switches.
-    // pnpm keeps @tanstack/* transitive-only (unresolvable from app code), so
-    // ColumnMeta cannot be augmented here; the admin-only marker and the
-    // status filter variant travel as untyped meta for the page to read.
+    // The admin-only marker and the status filter variant travel as untyped
+    // meta for the page to read.
     const ownerColumn: TableColumn<Instance> = {
       id: 'owner',
       accessorFn: (row: Instance) => ownerLabel(row),

@@ -15,6 +15,7 @@
     "@iconify-json/simple-icons": "^1.2.95",
     "@nuxt/ui": "^4.11.1",
     "@nuxtjs/i18n": "^10.1.0",
+    "@tanstack/table-core": "^8.21.3",
     "@vueuse/core": "^14.4.0",
     "@vueuse/nuxt": "^14.4.0",
     "nuxt": "^4.5.2",

@@ -1,3 +1,4 @@
+import { getPaginationRowModel } from '@tanstack/table-core'
 import type { TableColumn, TableRow } from '@nuxt/ui'
 import type { AccountUser } from '~/types/api'
 
@@ -42,42 +43,12 @@ export function useAccountsTable() {
     return row.original.email.toLowerCase().includes(query)
   }
 
-  // Client-side pagination for UTable: Nuxt UI wires TanStack's core, filtered
-  // and sorted models but no pagination model, and @tanstack/* stays
-  // transitive-only (pnpm strict, no new dependency). This local model slices
-  // the pre-pagination (filtered+sorted) rows exactly like TanStack's own
-  // getPaginationRowModel, so :data keeps the FULL list and sorting, filtering
-  // and pagination all stay native inside the table (no page-level engine).
-  function clientPaginationRowModel() {
-    return (table: {
-      getState: () => { pagination: { pageIndex: number, pageSize: number } }
-      getPrePaginationRowModel: () => {
-        rows: TableRow<AccountUser>[]
-        flatRows: TableRow<AccountUser>[]
-        rowsById: Record<string, TableRow<AccountUser>>
-      }
-    }) => () => {
-      const { pageIndex, pageSize } = table.getState().pagination
-      const pre = table.getPrePaginationRowModel()
-      const start = pageIndex * pageSize
-      const rows = pre.rows.slice(start, start + pageSize)
-      const pageIds = new Set(rows.map(row => row.id))
-      return {
-        rows,
-        flatRows: pre.flatRows.filter(row => pageIds.has(row.id)),
-        rowsById: Object.fromEntries(rows.map(row => [row.id, row]))
-      }
-    }
-  }
-
   const globalFilterOptions = computed(() => ({ globalFilterFn: accountsGlobalFilterFn }))
-  const paginationOptions = computed(() => ({ getPaginationRowModel: clientPaginationRowModel() }))
+  const paginationOptions = computed(() => ({ getPaginationRowModel: getPaginationRowModel() }))
 
   const columns = computed<TableColumn<AccountUser>[]>(() => {
     // Built inside the computed so headers follow runtime locale switches.
-    // pnpm keeps @tanstack/* transitive-only (unresolvable from app code), so
-    // ColumnMeta cannot be augmented here; the role filter variant travels as
-    // untyped meta for the page to read.
+    // The role filter variant travels as untyped meta for the page to read.
     const roleColumn: TableColumn<AccountUser> = {
       id: 'role',
       accessorKey: 'role',

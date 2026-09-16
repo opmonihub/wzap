@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -15,8 +14,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/events"
+	"wzap/internal/logger"
 	"wzap/internal/model"
 	"wzap/internal/storage"
 )
@@ -188,45 +189,10 @@ func waitFor(t *testing.T, timeout time.Duration, cond func() bool, msg string) 
 
 // instantWorker builds a worker whose backoff sleeps nothing, so the retry
 // tests run instant.
-func instantWorker(loader InstanceLoader, keys *KeyCache, deliver func(ctx context.Context, url, key string, payload []byte) error, log *slog.Logger) *Worker {
+func instantWorker(loader InstanceLoader, keys *KeyCache, deliver func(ctx context.Context, url, key string, payload []byte) error, log zerolog.Logger) *Worker {
 	worker := NewWorker(loader, keys, deliver, 16<<20, log)
 	worker.Sleep = func(context.Context, time.Duration) error { return nil }
 	return worker
-}
-
-// syncBuffer is a goroutine-safe log sink: the worker logs from its own
-// goroutines while the test polls the output.
-type syncBuffer struct {
-	mu  sync.Mutex
-	buf bytes.Buffer
-}
-
-func (b *syncBuffer) Write(p []byte) (int, error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.buf.Write(p)
-}
-
-func (b *syncBuffer) contains(s string) bool {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return bytes.Contains(b.buf.Bytes(), []byte(s))
-}
-
-func (b *syncBuffer) count(s string) int {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return bytes.Count(b.buf.Bytes(), []byte(s))
-}
-
-func (b *syncBuffer) str() string {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.buf.String()
-}
-
-func testBufferLogger(buf *syncBuffer) *slog.Logger {
-	return slog.New(slog.NewJSONHandler(buf, nil))
 }
 
 // TestFanoutAlwaysCallsInner pins the fan-out contract: every Write reaches
@@ -234,7 +200,7 @@ func testBufferLogger(buf *syncBuffer) *slog.Logger {
 // job is still queued in that case.
 func TestFanoutAlwaysCallsInner(t *testing.T) {
 	inner := &stubWriter{}
-	worker := instantWorker(newStubLoader(), NewKeyCache(), Deliver, slog.Default())
+	worker := instantWorker(newStubLoader(), NewKeyCache(), Deliver, zerolog.Nop())
 	fanout := worker.Fanout(inner)
 
 	env := testEnvelope(t, "message", uuid.New())
@@ -261,9 +227,9 @@ func TestFanoutAlwaysCallsInner(t *testing.T) {
 // TestFanoutNonBlockingDropCounted fills the 1000 buffer and proves the next
 // dispatch still returns immediately, dropping the event with a counter.
 func TestFanoutNonBlockingDropCounted(t *testing.T) {
-	var buf syncBuffer
+	buf, testLog := logger.NewTestLogger()
 	inner := &stubWriter{}
-	worker := instantWorker(newStubLoader(), NewKeyCache(), Deliver, testBufferLogger(&buf))
+	worker := instantWorker(newStubLoader(), NewKeyCache(), Deliver, testLog)
 	fanout := worker.Fanout(inner)
 
 	env := testEnvelope(t, "message", uuid.New())
@@ -292,8 +258,8 @@ func TestFanoutNonBlockingDropCounted(t *testing.T) {
 	if got := inner.calls(); got != BufferSize+1 {
 		t.Errorf("inner calls = %d, want %d (a drop never breaks the NATS path)", got, BufferSize+1)
 	}
-	if !buf.contains("dropping") {
-		t.Errorf("log lacks the drop warning: %s", buf.str())
+	if !bytes.Contains(buf.Bytes(), []byte("dropping")) {
+		t.Errorf("log lacks the drop warning: %s", buf.String())
 	}
 }
 
@@ -328,7 +294,7 @@ func TestWorkerRetryThenSuccess(t *testing.T) {
 	instance := webhookTestInstance(srv.URL)
 	keys := NewKeyCache()
 	keys.Store(instance.ID, "test-key-retry-success")
-	worker := instantWorker(newStubLoader(instance), keys, Deliver, slog.Default())
+	worker := instantWorker(newStubLoader(instance), keys, Deliver, zerolog.Nop())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -388,8 +354,8 @@ func TestWorkerDeadLetterThenNext(t *testing.T) {
 	keys := NewKeyCache()
 	keys.Store(bad.ID, "test-key-dead-letter")
 	keys.Store(good.ID, "test-key-next-job")
-	var buf syncBuffer
-	worker := instantWorker(newStubLoader(bad, good), keys, Deliver, testBufferLogger(&buf))
+	buf, testLog := logger.NewTestLogger()
+	worker := instantWorker(newStubLoader(bad, good), keys, Deliver, testLog)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -412,17 +378,17 @@ func TestWorkerDeadLetterThenNext(t *testing.T) {
 		t.Errorf("failing hits = %d, want exactly %d", got, MaxAttempts)
 	}
 
-	waitFor(t, 5*time.Second, func() bool { return buf.contains("dead letter") }, "dead-letter log")
-	logged := buf.str()
+	waitFor(t, 5*time.Second, func() bool { return bytes.Contains(buf.Bytes(), []byte("dead letter")) }, "dead-letter log")
+	logged := buf.String()
 	for _, want := range []string{bad.ID.String(), badEnv.EventID.String(), `"message"`, `"attempts":8`} {
-		if !buf.contains(want) {
+		if !bytes.Contains(buf.Bytes(), []byte(want)) {
 			t.Errorf("dead-letter log lacks %s:\n%s", want, logged)
 		}
 	}
-	if buf.contains("test-key-dead-letter") {
+	if bytes.Contains(buf.Bytes(), []byte("test-key-dead-letter")) {
 		t.Errorf("dead-letter log exposes the instance key:\n%s", logged)
 	}
-	deadLetters := buf.count("dead letter")
+	deadLetters := bytes.Count(buf.Bytes(), []byte("dead letter"))
 	if deadLetters != 1 {
 		t.Errorf("dead-letter logs = %d, want exactly 1", deadLetters)
 	}
@@ -456,7 +422,7 @@ func TestWorkerSkipPaths(t *testing.T) {
 	for _, instance := range []*model.Instance{nilURL, empty, disabled, unsubscribed} {
 		keys.Store(instance.ID, "test-key-skip")
 	}
-	worker := instantWorker(newStubLoader(nilURL, empty, disabled, unsubscribed), keys, Deliver, slog.Default())
+	worker := instantWorker(newStubLoader(nilURL, empty, disabled, unsubscribed), keys, Deliver, zerolog.Nop())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -492,9 +458,9 @@ func TestWorkerMissingKeyRecordedWithoutExposure(t *testing.T) {
 	instance := webhookTestInstance(srv.URL)
 	keys := NewKeyCache()
 	keys.Store(uuid.New(), "decoy-secret-never-logged")
-	var buf syncBuffer
+	buf, testLog := logger.NewTestLogger()
 	var sleeps atomic.Int32
-	worker := NewWorker(newStubLoader(instance), keys, Deliver, 16<<20, testBufferLogger(&buf))
+	worker := NewWorker(newStubLoader(instance), keys, Deliver, 16<<20, testLog)
 	worker.Sleep = func(context.Context, time.Duration) error { sleeps.Add(1); return nil }
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -508,12 +474,12 @@ func TestWorkerMissingKeyRecordedWithoutExposure(t *testing.T) {
 	}
 
 	waitFor(t, 5*time.Second, func() bool { return sleeps.Load() == MaxAttempts-1 }, "missing-key job to exhaust its retries")
-	waitFor(t, 5*time.Second, func() bool { return buf.contains("dead letter") }, "dead-letter log")
+	waitFor(t, 5*time.Second, func() bool { return bytes.Contains(buf.Bytes(), []byte("dead letter")) }, "dead-letter log")
 	if got := receptor.hits(); got != 0 {
 		t.Errorf("requests received = %d, want 0 (nothing is sent without a key)", got)
 	}
-	if buf.contains("decoy-secret-never-logged") {
-		t.Errorf("log exposes key material:\n%s", buf.str())
+	if bytes.Contains(buf.Bytes(), []byte("decoy-secret-never-logged")) {
+		t.Errorf("log exposes key material:\n%s", buf.String())
 	}
 	cancel()
 	select {
@@ -534,9 +500,9 @@ func TestWorkerMissingInstanceDropsWithoutRetry(t *testing.T) {
 	keys := NewKeyCache()
 	keys.Store(gone.ID, "test-key-missing-instance")
 	loader := newStubLoader() // knows no instance: every Get is ErrNotFound.
-	var buf syncBuffer
+	_, testLog := logger.NewTestLogger()
 	var sleeps atomic.Int32
-	worker := NewWorker(loader, keys, Deliver, 16<<20, testBufferLogger(&buf))
+	worker := NewWorker(loader, keys, Deliver, 16<<20, testLog)
 	worker.Sleep = func(context.Context, time.Duration) error { sleeps.Add(1); return nil }
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -576,7 +542,7 @@ func TestWorkerRotationMidBackoff(t *testing.T) {
 	instance := webhookTestInstance(srv.URL)
 	keys := NewKeyCache()
 	keys.Store(instance.ID, "test-key-rotation-old")
-	worker := NewWorker(newStubLoader(instance), keys, Deliver, 16<<20, slog.Default())
+	worker := NewWorker(newStubLoader(instance), keys, Deliver, 16<<20, zerolog.Nop())
 	worker.Sleep = func(context.Context, time.Duration) error {
 		keys.Store(instance.ID, "test-key-rotation-new")
 		return nil
@@ -615,8 +581,8 @@ func TestWorkerShutdownAbortsInflight(t *testing.T) {
 	instance := webhookTestInstance(srv.URL)
 	keys := NewKeyCache()
 	keys.Store(instance.ID, "test-key-shutdown")
-	var buf syncBuffer
-	worker := NewWorker(newStubLoader(instance), keys, Deliver, 16<<20, testBufferLogger(&buf))
+	_, testLog := logger.NewTestLogger()
+	worker := NewWorker(newStubLoader(instance), keys, Deliver, 16<<20, testLog)
 	var sleeps atomic.Int32
 	worker.Sleep = func(ctx context.Context, d time.Duration) error {
 		if err := ctx.Err(); err != nil {
@@ -661,8 +627,8 @@ func TestWorkerShutdownDropsPending(t *testing.T) {
 	keys := NewKeyCache()
 	keys.Store(first.ID, "test-key-pending-1")
 	keys.Store(second.ID, "test-key-pending-2")
-	var buf syncBuffer
-	worker := instantWorker(newStubLoader(first, second), keys, Deliver, testBufferLogger(&buf))
+	buf, testLog := logger.NewTestLogger()
+	worker := instantWorker(newStubLoader(first, second), keys, Deliver, testLog)
 
 	fanout := worker.Fanout(&stubWriter{})
 	ctx := context.Background()
@@ -680,8 +646,8 @@ func TestWorkerShutdownDropsPending(t *testing.T) {
 	if got := receptor.hits(); got != 0 {
 		t.Errorf("requests received = %d, want 0 (pending queue is dropped, not drained)", got)
 	}
-	if !buf.contains("pending") {
-		t.Errorf("stop log lacks the dropped pending count:\n%s", buf.str())
+	if !bytes.Contains(buf.Bytes(), []byte("pending")) {
+		t.Errorf("stop log lacks the dropped pending count:\n%s", buf.String())
 	}
 }
 
@@ -737,9 +703,9 @@ func TestWorkerDeadLetterRecordedToSink(t *testing.T) {
 	instance := webhookTestInstance(srv.URL)
 	keys := NewKeyCache()
 	keys.Store(instance.ID, "test-key-sink")
-	var buf syncBuffer
+	buf, testLog := logger.NewTestLogger()
 	sink := &stubDeadLetterSink{}
-	worker := instantWorker(newStubLoader(instance), keys, Deliver, testBufferLogger(&buf))
+	worker := instantWorker(newStubLoader(instance), keys, Deliver, testLog)
 	worker.WithDeadLetterSink(sink)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -775,7 +741,7 @@ func TestWorkerDeadLetterRecordedToSink(t *testing.T) {
 	if bytes.Contains(rec.payload, []byte("test-key-sink")) {
 		t.Error("record payload exposes the instance key")
 	}
-	waitFor(t, 5*time.Second, func() bool { return buf.contains("dead letter") }, "dead-letter log alongside the sink")
+	waitFor(t, 5*time.Second, func() bool { return bytes.Contains(buf.Bytes(), []byte("dead letter")) }, "dead-letter log alongside the sink")
 
 	cancel()
 	select {
@@ -796,9 +762,9 @@ func TestWorkerDeadLetterSinkFailureKeepsLog(t *testing.T) {
 	instance := webhookTestInstance(srv.URL)
 	keys := NewKeyCache()
 	keys.Store(instance.ID, "test-key-sink-failure")
-	var buf syncBuffer
+	buf, testLog := logger.NewTestLogger()
 	sink := &stubDeadLetterSink{err: errors.New("sink down")}
-	worker := instantWorker(newStubLoader(instance), keys, Deliver, testBufferLogger(&buf))
+	worker := instantWorker(newStubLoader(instance), keys, Deliver, testLog)
 	worker.WithDeadLetterSink(sink)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -811,8 +777,8 @@ func TestWorkerDeadLetterSinkFailureKeepsLog(t *testing.T) {
 		t.Fatalf("dispatch: %v", err)
 	}
 
-	waitFor(t, 5*time.Second, func() bool { return buf.contains("dead letter") }, "dead-letter log despite sink failure")
-	waitFor(t, 5*time.Second, func() bool { return buf.contains("dead-letter sink failed") }, "sink failure warning")
+	waitFor(t, 5*time.Second, func() bool { return bytes.Contains(buf.Bytes(), []byte("dead letter")) }, "dead-letter log despite sink failure")
+	waitFor(t, 5*time.Second, func() bool { return bytes.Contains(buf.Bytes(), []byte("dead-letter sink failed")) }, "sink failure warning")
 	cancel()
 	select {
 	case <-stopped:

@@ -176,7 +176,7 @@ func serve() error {
 	// (message, receipt, connection, message.status), so decorating it once
 	// hooks all producers with no per-producer wiring. The NATS relay replays
 	// from the DB outbox, NOT through Writer, so there is no double delivery.
-	webhookWorker := webhook.NewWorker(instances, webhook.Keys, webhook.Deliver, cfg.MaxMediaBytes, slogLog)
+	webhookWorker := webhook.NewWorker(instances, webhook.Keys, webhook.Deliver, cfg.MaxMediaBytes, log)
 	// Durable dead letters: exhausted deliveries persist for operator
 	// inspection besides the dead-letter log. The sink is best-effort by
 	// design; its failure never breaks the worker.

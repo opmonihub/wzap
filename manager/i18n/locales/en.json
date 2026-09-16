@@ -36,14 +36,33 @@
     "welcome": "Signed in as {email}.",
     "scopeGlobal": "Operator vision: every instance and account is visible to this admin.",
     "scopeInstance": "Client vision: only this account's own instances are visible.",
-    "sessionCard": "Session",
-    "scopeCard": "Scope",
-    "instancesCard": "Instances",
-    "instancesCardBody": "List, create and manage WhatsApp instances.",
-    "openInstances": "Open instances",
-    "accountsCard": "Accounts",
-    "accountsCardBody": "Create accounts, edit quotas and remove accounts.",
-    "openAccounts": "Open accounts"
+    "stats": {
+      "total": "Total instances",
+      "connected": "Connected",
+      "pending": "Pending",
+      "error": "Error"
+    },
+    "chart": {
+      "title": "New instances",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "periodLabel": "Chart period"
+    },
+    "recent": {
+      "title": "Recent instances",
+      "viewAll": "View all",
+      "empty": "No instances yet. Create the first one to pair a phone.",
+      "loadFailed": "Could not load the recent instances.",
+      "open": "Open {name}",
+      "columns": {
+        "name": "Name",
+        "status": "Status",
+        "jid": "WhatsApp number"
+      }
+    },
+    "loadFailed": "Could not load the overview.",
+    "fallbackNotice": "Live totals are unavailable. Showing counts from the loaded list."
   },
   "common": {
     "docs": "API docs",

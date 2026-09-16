@@ -20,6 +20,20 @@ function emptyStats(): InstanceStats {
   return { total: 0, by_status: { connected: 0, disconnected: 0, pairing: 0, error: 0 } }
 }
 
+// Normalizes the endpoint payload: a zero bucket may be omitted by the
+// server, so defaults spread first and the four known buckets always exist.
+// Unknown bucket keys fall through the local folding rule (as disconnected);
+// total is trusted as answered.
+function normalizeStats(raw: InstanceStats): InstanceStats {
+  const normalized = emptyStats()
+  normalized.total = raw.total
+  for (const [status, count] of Object.entries(raw.by_status ?? {})) {
+    const bucket = knownStatuses.includes(status) ? status : 'disconnected'
+    normalized.by_status[bucket] = (normalized.by_status[bucket] ?? 0) + count
+  }
+  return normalized
+}
+
 // Local count over accumulated instances with the server's folding rule
 // (unknown status counts as disconnected). Buckets are written through the
 // nullish default so indexed access stays safe under noUncheckedIndexedAccess.
@@ -51,8 +65,10 @@ function byNewestFirst(a: Instance, b: Instance): number {
 // over the cursor-accumulated listing (listInstances from useInstances) when
 // the endpoint fails. Both attempts failing surfaces failure for the
 // UAlert+retry; a stats-only failure sets fallback so the page shows its
-// discrete notice and still renders. A listing-only failure keeps the stats
-// cards with an empty recent. refresh() never rejects.
+// discrete notice and still renders. A listing-only failure sets
+// listingFailed so the Recent block offers its own retry while the stats
+// cards keep rendering. refresh() never rejects and never clears a previous
+// snapshot: stale stats/items survive a failed re-fetch.
 //
 // Usage in setup (mirrors await loadFirst() in pages/instances/index.vue):
 // const overview = useOverview(); await overview.refresh()
@@ -65,6 +81,7 @@ export function useOverview() {
   const pending = ref(true)
   const failure = ref<string | null>(null)
   const fallback = ref(false)
+  const listingFailed = ref(false)
 
   // The 5 most recent instances by created_at desc of the accumulated
   // listing, empty until the listing resolves.
@@ -93,12 +110,15 @@ export function useOverview() {
 
   // Loads stats and listing concurrently: stats prefer the endpoint and fall
   // back to the local count only when the endpoint fails but the listing
-  // succeeded; failure is set only when neither yields data (carrying the
-  // stats error as the primary source, the listing error otherwise).
+  // succeeded. A failed attempt never clears a previous snapshot: stale
+  // stats/items stay on screen while failure (both failed) or listingFailed
+  // (listing failed but stats succeeded) surfaces the error for the
+  // UAlert+retry and the Recent retry.
   async function refresh(): Promise<void> {
     pending.value = true
     failure.value = null
     fallback.value = false
+    listingFailed.value = false
     const [statsResult, listResult] = await Promise.allSettled([
       api<InstanceStats>('/instances/stats'),
       accumulateListing()
@@ -106,19 +126,18 @@ export function useOverview() {
     if (listResult.status === 'fulfilled') {
       items.value = listResult.value
     } else {
-      items.value = []
+      listingFailed.value = true
     }
     if (statsResult.status === 'fulfilled') {
-      stats.value = statsResult.value
+      stats.value = normalizeStats(statsResult.value)
     } else if (listResult.status === 'fulfilled') {
       stats.value = countLocally(listResult.value)
       fallback.value = true
     } else {
-      stats.value = null
       failure.value = messageOf(statsResult.reason ?? listResult.reason)
     }
     pending.value = false
   }
 
-  return { stats, recent, pending, failure, fallback, refresh }
+  return { stats, recent, items, pending, failure, fallback, listingFailed, refresh }
 }

@@ -253,6 +253,7 @@ await load()
 
         <UEmpty
           v-else-if="notFound"
+          class="w-full max-w-6xl"
           icon="i-lucide-search-x"
           :title="t('instances.detail.notFound')"
         >
@@ -263,6 +264,7 @@ await load()
 
         <UAlert
           v-else-if="failure"
+          class="w-full max-w-6xl"
           color="error"
           variant="subtle"
           :title="failure"

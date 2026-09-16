@@ -91,7 +91,6 @@ func (r *Resolver) Resolve(ctx context.Context, instanceID uuid.UUID, remoteJID 
 		Status:    r.createStatus(),
 	})
 	if err != nil {
-		r.log.Debug().Str("remote_jid", remoteJID).Msg("conversation creation failed")
 		r.log.Warn().Str("instance_id", instanceID.String()).Int64("contact_id", contactID).Err(err).Msg("conversation creation failed")
 		return 0, err
 	}

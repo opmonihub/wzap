@@ -97,7 +97,7 @@ async function onSave(event: FormSubmitEvent<Schema>) {
       name: trimmedName,
       external_ref: (event.data.external_ref ?? '').trim()
     })
-    toast.add({ title: t('instances.detail.saved'), color: 'success' })
+    toast.add({ title: t('instances.detail.saved'), icon: 'i-lucide-check', color: 'success' })
   } catch (error) {
     saveFailure.value = friendlySaveError(error)
   } finally {
@@ -135,17 +135,17 @@ async function onDisconnect() {
   disconnecting.value = true
   try {
     await disconnectInstance(instanceId)
-    toast.add({ title: t('instances.detail.disconnected'), color: 'success' })
+    toast.add({ title: t('instances.detail.disconnected'), icon: 'i-lucide-check', color: 'success' })
     await load()
   } catch (error) {
-    toast.add({ title: error instanceof ApiError ? error.message : t('instances.detail.disconnectFailed'), color: 'error' })
+    toast.add({ title: error instanceof ApiError ? error.message : t('instances.detail.disconnectFailed'), icon: 'i-lucide-triangle-alert', color: 'error' })
   } finally {
     disconnecting.value = false
   }
 }
 
 function onDeleted() {
-  toast.add({ title: t('instances.detail.deleted'), color: 'success' })
+  toast.add({ title: t('instances.detail.deleted'), icon: 'i-lucide-check', color: 'success' })
   navigateTo('/instances')
 }
 
@@ -177,7 +177,7 @@ async function onGenerate() {
     freshKey.value = await rotateInstanceKey(instance.value.id)
     markInstanceKeySeen(instance.value.id)
     keySeen.value = true
-    toast.add({ title: t('instances.key.generated'), color: 'success' })
+    toast.add({ title: t('instances.key.generated'), icon: 'i-lucide-check', color: 'success' })
   } catch (error) {
     keyFailure.value = error instanceof ApiError ? error.message : t('instances.key.generateFailed')
   } finally {
@@ -207,9 +207,9 @@ async function onRevoke() {
     forgetInstanceKeySeen(instanceId)
     keySeen.value = false
     freshKey.value = null
-    toast.add({ title: t('instances.key.revoked'), color: 'success' })
+    toast.add({ title: t('instances.key.revoked'), icon: 'i-lucide-check', color: 'success' })
   } catch (error) {
-    toast.add({ title: error instanceof ApiError ? error.message : t('instances.key.revokeFailed'), color: 'error' })
+    toast.add({ title: error instanceof ApiError ? error.message : t('instances.key.revokeFailed'), icon: 'i-lucide-triangle-alert', color: 'error' })
   } finally {
     revoking.value = false
   }

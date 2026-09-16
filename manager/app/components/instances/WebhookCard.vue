@@ -26,7 +26,7 @@ const { updateInstanceWebhook } = useInstances()
 const schema = z.object({
   url: z.string().max(2048),
   enabled: z.boolean(),
-  events: z.array(z.string()).min(1, t('instances.webhook.eventsRequired'))
+  events: z.array(z.string())
 }).refine(data => !data.enabled || /^https?:\/\//.test(data.url), {
   message: t('instances.webhook.urlRequired'),
   path: ['url']
@@ -77,7 +77,7 @@ async function onSave(event: FormSubmitEvent<Schema>) {
       webhook_events: event.data.events ?? []
     })
     emit('updated', updated)
-    toast.add({ title: t('instances.webhook.saved'), color: 'success' })
+    toast.add({ title: t('instances.webhook.saved'), icon: 'i-lucide-check', color: 'success' })
   } catch (error) {
     failure.value = error instanceof ApiError ? error.message : t('instances.webhook.saveFailed')
   } finally {

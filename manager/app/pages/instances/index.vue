@@ -14,7 +14,7 @@ import InstancesTableStatusCell from '~/components/instances/InstancesTableStatu
 import type { CreatedInstance, Instance, InstanceStatus } from '~/types/api'
 
 // Structural view of the UTable API this page drives (stable component
-// instance typing without importing @tanstack/*, which stays transitive-only).
+// instance typing as a structural view without importing table-core types directly).
 interface InstancesTableColumn {
   id: string
   getCanHide: () => boolean
@@ -73,7 +73,7 @@ const isMdViewport = useMediaQuery('(min-width: 768px)')
 const isLgViewport = useMediaQuery('(min-width: 1024px)')
 
 // The admin-only marker travels as untyped column meta (see
-// useInstancesTable); read it with a cast, never by importing @tanstack/*.
+// useInstancesTable); read it with a cast, as a structural view without importing table-core types directly.
 function isAdminOnly(columnId: string): boolean {
   const column = columns.value.find(entry => entry.id === columnId)
   return (column?.meta as unknown as { ifAdmin?: boolean } | undefined)?.ifAdmin ?? false

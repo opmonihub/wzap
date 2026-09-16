@@ -11,7 +11,7 @@ import AccountsTableRoleCell from '~/components/accounts/AccountsTableRoleCell.v
 import type { AccountRole, AccountUser } from '~/types/api'
 
 // Structural view of the UTable API this page drives (stable component
-// instance typing without importing @tanstack/*, which stays transitive-only).
+// instance typing as a structural view without importing table-core types directly).
 interface AccountsTableColumn {
   id: string
   getCanHide: () => boolean
@@ -466,28 +466,31 @@ async function onBulkDelete() {
     return
   }
   bulkDeleting.value = true
-  let deleted = 0
-  let failed = 0
-  for (const target of targets) {
-    try {
-      await deleteUser(target.id)
-      deleted += 1
-    } catch {
-      failed += 1
+  try {
+    let deleted = 0
+    let failed = 0
+    for (const target of targets) {
+      try {
+        await deleteUser(target.id)
+        deleted += 1
+      } catch {
+        failed += 1
+      }
     }
+    if (failed === 0) {
+      // Clean run: drop the rows locally without a reload.
+      const removedIds = new Set(targets.map(target => target.id))
+      users.value = users.value.filter(user => !removedIds.has(user.id))
+      toast.add({ title: t('accounts.bulkDelete.deleted', { count: deleted }), icon: 'i-lucide-check', color: 'success' })
+    } else {
+      // Partial run: reload so the rows reflect exactly what the server kept.
+      await load()
+      toast.add({ title: t('accounts.bulkDelete.partial', { deleted, failed }), icon: 'i-lucide-triangle-alert', color: 'warning' })
+    }
+    clearSelection()
+  } finally {
+    bulkDeleting.value = false
   }
-  if (failed === 0) {
-    // Clean run: drop the rows locally without a reload.
-    const removedIds = new Set(targets.map(target => target.id))
-    users.value = users.value.filter(user => !removedIds.has(user.id))
-    toast.add({ title: t('accounts.bulkDelete.deleted', { count: deleted }), icon: 'i-lucide-check', color: 'success' })
-  } else {
-    // Partial run: reload so the rows reflect exactly what the server kept.
-    await load()
-    toast.add({ title: t('accounts.bulkDelete.partial', { deleted, failed }), icon: 'i-lucide-triangle-alert', color: 'warning' })
-  }
-  clearSelection()
-  bulkDeleting.value = false
 }
 
 if (isAdmin.value) {

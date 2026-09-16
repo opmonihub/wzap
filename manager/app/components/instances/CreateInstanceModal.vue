@@ -110,6 +110,7 @@ function friendlyCreateError(error: ApiError): string {
     <template #footer>
       <div v-if="!created" class="flex justify-end gap-2">
         <UButton
+          type="button"
           color="neutral"
           variant="ghost"
           :label="t('common.cancel')"

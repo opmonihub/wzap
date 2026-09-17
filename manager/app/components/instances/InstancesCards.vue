@@ -20,8 +20,8 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-// Card/grid view over the same loaded items as the table: search, status and
-// sorting state stay local so the grid filters the accumulated cursor pages
+// Card/grid view over the same loaded items as the table: search and status
+// state stay local so the grid filters the accumulated cursor pages
 // client-side (name/external_ref match + status equals), mirroring the table.
 // Transcribed from pages/instances/index.vue (BASE 6b2d4e1).
 const searchInput = ref('')
@@ -34,7 +34,6 @@ watchDebounced(searchInput, (value) => {
 }, { debounce: 300 })
 
 const columnFilters = ref<{ id: string, value: unknown }[]>([])
-const sorting = ref<{ id: string, desc: boolean }[]>([])
 const pagination = ref({ pageIndex: 0, pageSize: 10 })
 
 // Status filter behind a USelect. Reka SelectItem forbids an empty value
@@ -70,13 +69,7 @@ const cardItems = computed(() => {
     }
     return true
   })
-  const sort = sorting.value[0]
-  if (!sort || (sort.id !== 'name' && sort.id !== 'status')) {
-    return filtered
-  }
-  const direction = sort.desc ? -1 : 1
-  const key = sort.id as 'name' | 'status'
-  return [...filtered].sort((a, b) => String(a[key]).localeCompare(String(b[key])) * direction)
+  return filtered
 })
 
 const cardPageCount = computed(() => Math.max(1, Math.ceil(cardItems.value.length / pagination.value.pageSize)))
@@ -102,7 +95,7 @@ function onUpdatePage(page: number) {
 // Filter changes restart at the first page; a shrunken result only clamps an
 // out-of-range page. Cursor accumulation (loadMore/onCreated) never resets
 // the page the user is on.
-watch([globalFilter, columnFilters, sorting], () => {
+watch([globalFilter, columnFilters], () => {
   pagination.value.pageIndex = 0
 })
 
@@ -132,6 +125,10 @@ watch(cardPageCount, (count) => {
         class="w-36"
         :ui="{ trailingIcon: 'group-data-[state=open]:rotate-180 transition-transform duration-200' }"
       />
+    </div>
+
+    <div class="text-sm text-muted">
+      {{ t('instances.table.cardsCount', { filtered: cardItems.length }) }}
     </div>
 
     <div v-if="cardPageItems.length > 0" class="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">

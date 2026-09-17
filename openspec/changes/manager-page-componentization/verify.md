@@ -55,3 +55,9 @@ Page sizes (`wc -l`, target budgets from plan.md in parens):
 ## 5. Commit
 
 - `git add openspec/changes/manager-page-componentization/verify.md` only, committed as `docs(specs): verify manager page componentization`. AGENTS.md left uncommitted; no other file staged.
+
+## 5. Final-review acknowledgements (fix wave, 2026-09-17)
+
+- (a) UCard → UPageCard: the branch carries UCard→UPageCard conversions from the carried-in baseline plus new UPageCard wrappers in detail sections — accepted as visual-neutral pending human visual pass.
+- (b) Instances cards view (~400 new lines incl. `InstanceCard.vue`, view toggle, `wzap-instances-view` cookie) requires a human live matrix (admin/user, filters, sort, pagination, loadMore, connect/edit/delete from cards, cookie persistence) before release.
+- (c) Deferred: cards-view search/sort/pagination state duplicated between `InstancesTable` (TanStack) and `InstancesCards` (hand-rolled) — proposed follow-up shared `useInstanceListFilter`.

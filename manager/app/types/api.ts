@@ -218,3 +218,177 @@ export interface SendMediaInput {
   ptt?: boolean
   file: File
 }
+
+// Group member as answered by group reads.
+export interface GroupParticipant {
+  jid: string
+  is_admin: boolean
+  is_super_admin: boolean
+}
+
+// Group as answered by create/get/update (invite_code only on create).
+export interface Group {
+  jid: string
+  name: string
+  description?: string
+  participants: GroupParticipant[]
+  participant_count: number
+  invite_code?: string
+  updated_at: string
+}
+
+export interface CreateGroupInput {
+  name: string
+  participants?: string[]
+}
+
+export interface UpdateGroupInput {
+  name?: string
+  description?: string
+}
+
+export interface GroupInvite {
+  invite_code: string
+}
+
+// Newsletter channel as answered by follow/unfollow/get/list.
+export interface Newsletter {
+  channel: string
+  title: string
+  description?: string
+  follower_count: number
+  updated_at: string
+}
+
+export interface NewsletterListPage {
+  items: Newsletter[]
+  next_cursor: string
+}
+
+// Own status entry of GET status/updates.
+export interface OwnStatus {
+  id: string
+  type: string
+  text?: string
+  caption?: string
+  created_at: string
+}
+
+export interface StatusPublishResult {
+  message_id: string
+  status: string
+}
+
+// Own profile and privacy.
+export interface Profile {
+  name: string
+  status_text: string
+  photo_url: string
+}
+
+export interface Privacy {
+  last_seen: string
+  profile_photo: string
+  status: string
+  read_receipts: string
+  groups_add: string
+}
+
+export interface PairPhoneResult {
+  pairing_code: string
+  expires_at: string
+}
+
+// Chatwoot connector (token write-only in UI: GET display masks it).
+export interface ChatwootConfig {
+  instance_id: string
+  enabled: boolean
+  url: string
+  account_id: string
+  token: string
+  name_inbox: string
+  sign_msg: boolean
+  sign_delimiter: string
+  reopen_conversation: boolean
+  conversation_pending: boolean
+  merge_brazil_contacts: boolean
+  import_contacts: boolean
+  import_messages: boolean
+  days_limit: number
+  auto_create: boolean
+  organization: string
+  logo: string
+  ignore_jids: string[]
+  webhook_url: string
+}
+
+export interface ChatwootImportResult {
+  imported: number
+}
+
+// Rich send inputs for POST /messages plus lifecycle inputs.
+export interface SendLocationInput {
+  to: string
+  latitude: number
+  longitude: number
+}
+
+export interface SendContactInput {
+  to: string
+  display_name: string
+  vcard: string
+}
+
+export interface SendListRow {
+  id: string
+  title: string
+  description?: string
+}
+
+export interface SendListSection {
+  title: string
+  rows: SendListRow[]
+}
+
+export interface SendButton {
+  id: string
+  title: string
+}
+
+export interface SendRichInput {
+  type: 'poll' | 'reaction' | 'list' | 'buttons'
+  to: string
+  question?: string
+  options?: string[]
+  selectable_count?: number
+  target?: string
+  emoji?: string
+  title?: string
+  description?: string
+  button_text?: string
+  sections?: SendListSection[]
+  footer?: string
+  text?: string
+  buttons?: SendButton[]
+}
+
+export interface PresenceInput {
+  chat: string
+  state: 'composing' | 'paused' | 'available' | 'unavailable'
+}
+
+export interface RevokeInput {
+  chat: string
+  message_id: string
+}
+
+export interface MarkReadInput {
+  chat: string
+  sender?: string
+  message_id: string
+}
+
+export interface RejectCallInput {
+  call_id: string
+  from: string
+}

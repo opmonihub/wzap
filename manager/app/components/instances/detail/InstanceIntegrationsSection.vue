@@ -9,6 +9,7 @@ defineProps<{
 
 const emit = defineEmits<{
   'webhook-updated': [instance: Instance]
+  'chatwoot-loaded': [enabled: boolean | null]
 }>()
 </script>
 
@@ -19,6 +20,10 @@ const emit = defineEmits<{
       @updated="(value: Instance) => emit('webhook-updated', value)"
     />
 
-    <ChatwootCard :instance-id="instance.id" :status="instance.status" />
+    <ChatwootCard
+      :instance-id="instance.id"
+      :status="instance.status"
+      @loaded="(value: boolean | null) => emit('chatwoot-loaded', value)"
+    />
   </div>
 </template>

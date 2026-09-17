@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ApiError } from '~/composables/useApi'
 import DeleteInstanceModal from '~/components/instances/DeleteInstanceModal.vue'
+import InstanceHeaderStats from '~/components/instances/InstanceHeaderStats.vue'
 import InstanceChannelsSection from '~/components/instances/detail/InstanceChannelsSection.vue'
 import InstanceGroupsSection from '~/components/instances/detail/InstanceGroupsSection.vue'
 import InstanceIntegrationsSection from '~/components/instances/detail/InstanceIntegrationsSection.vue'
@@ -28,6 +29,16 @@ const failure = ref<string | null>(null)
 const deleteOpen = ref(false)
 
 const section = ref('overview')
+
+// Chatwoot state for the header stats strip: ChatwootCard (inside the
+// integrations section) reports its loaded config via chatwoot-loaded, so the
+// page never fetches it twice. False until the integrations tab is visited;
+// null means the backend answered 400 chatwoot_disabled (global off).
+const chatwootState = ref<boolean | null>(false)
+
+function onChatwootLoaded(value: boolean | null) {
+  chatwootState.value = value
+}
 
 useSeoMeta({
   title: 'Instance details'
@@ -76,6 +87,14 @@ await load()
         </template>
       </UDashboardNavbar>
 
+      <InstanceHeaderStats
+        v-if="instance && !pending && !notFound && !failure"
+        :instance="instance"
+        :webhook-enabled="instance.webhook_enabled"
+        :webhook-count="instance.webhook_events.length"
+        :chatwoot-state="chatwootState"
+      />
+
       <InstanceSectionNav
         v-if="instance && !pending && !notFound && !failure"
         :section="section"
@@ -84,39 +103,40 @@ await load()
     </template>
 
     <template #body>
-      <!-- Single width for every tab, mirroring settings.vue: the body
-      centers one max-w-2xl column on lg+ and stretches full-width below. -->
-      <div class="mx-auto flex w-full min-w-0 max-w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl lg:gap-12">
-        <PageState
-          :pending="pending"
-          :error="failure"
-          :skeleton-rows="2"
-          @retry="load"
+      <!-- Messages renders the inbox split full-width (the only exception to
+      the centered column); every other section mirrors settings.vue with one
+      max-w-2xl column on lg+ stretched full-width below. -->
+      <PageState
+        :pending="pending"
+        :error="failure"
+        :skeleton-rows="2"
+        @retry="load"
+      >
+        <UEmpty
+          v-if="notFound"
+          class="mx-auto w-full lg:max-w-2xl"
+          icon="i-lucide-search-x"
+          :title="t('instances.detail.notFound')"
         >
-          <UEmpty
-            v-if="notFound"
-            class="w-full"
-            icon="i-lucide-search-x"
-            :title="t('instances.detail.notFound')"
-          >
-            <template #actions>
-              <UButton :label="t('instances.title')" @click="navigateTo('/instances')" />
-            </template>
-          </UEmpty>
+          <template #actions>
+            <UButton :label="t('instances.title')" @click="navigateTo('/instances')" />
+          </template>
+        </UEmpty>
 
-          <template v-else-if="instance">
+        <template v-else-if="instance">
+          <InstanceMessagesSection
+            v-if="section === 'messages'"
+            :instance-id="instance.id"
+            :status="instance.status"
+          />
+
+          <div v-else class="mx-auto flex w-full min-w-0 max-w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl lg:gap-12">
             <InstanceOverviewSection
               v-if="section === 'overview'"
               :instance="instance"
               @paired="load"
               @updated="(value: Instance) => { instance = value }"
               @changed="load"
-            />
-
-            <InstanceMessagesSection
-              v-else-if="section === 'messages'"
-              :instance-id="instance.id"
-              :status="instance.status"
             />
 
             <InstanceGroupsSection
@@ -141,6 +161,7 @@ await load()
               v-else-if="section === 'integrations'"
               :instance="instance"
               @webhook-updated="(value: Instance) => { instance = value }"
+              @chatwoot-loaded="onChatwootLoaded"
             />
 
             <InstanceSettingsSection
@@ -150,9 +171,9 @@ await load()
               @changed="load"
               @delete-requested="deleteOpen = true"
             />
-          </template>
-        </PageState>
-      </div>
+          </div>
+        </template>
+      </PageState>
     </template>
   </UDashboardPanel>
 

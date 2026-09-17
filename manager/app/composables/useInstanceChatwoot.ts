@@ -1,5 +1,5 @@
 import { ApiError } from '~/composables/useApi'
-import type { ChatwootConfig, ChatwootImportResult } from '~/types/api'
+import type { ChatwootCommandResult, ChatwootConfig, ChatwootImportResult, ChatwootSetInput } from '~/types/api'
 
 // Typed client for the Chatwoot connector. PUT sends the full object; GET
 // masks the token at display time (never log it). The global gate answers
@@ -16,7 +16,7 @@ export function useInstanceChatwoot() {
     return await api<ChatwootConfig>(`/instances/${instanceId}/chatwoot`)
   }
 
-  async function setChatwoot(instanceId: string, input: Partial<ChatwootConfig>): Promise<ChatwootConfig> {
+  async function setChatwoot(instanceId: string, input: ChatwootSetInput): Promise<ChatwootConfig> {
     return await api<ChatwootConfig>(`/instances/${instanceId}/chatwoot`, { method: 'PUT', body: input })
   }
 
@@ -24,8 +24,8 @@ export function useInstanceChatwoot() {
     return await api<ChatwootImportResult>(`/instances/${instanceId}/chatwoot/import`, { method: 'POST' })
   }
 
-  async function sendCommand(instanceId: string, command: string, conversationId: number): Promise<{ handled: number }> {
-    return await api<{ handled: number }>(`/instances/${instanceId}/chatwoot/command`, {
+  async function sendCommand(instanceId: string, command: string, conversationId: number): Promise<ChatwootCommandResult> {
+    return await api<ChatwootCommandResult>(`/instances/${instanceId}/chatwoot/command`, {
       method: 'POST',
       body: { command, conversation_id: conversationId }
     })

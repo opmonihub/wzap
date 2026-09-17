@@ -221,8 +221,6 @@ const quotaOpen = ref(false)
 
 const deleteTarget = ref<AccountUser | null>(null)
 const deleteOpen = ref(false)
-const deleting = ref(false)
-const deleteFailure = ref<string | null>(null)
 
 useSeoMeta({
   title: 'Accounts'
@@ -271,35 +269,7 @@ function openDelete(user: AccountUser) {
     return
   }
   deleteTarget.value = user
-  deleting.value = false
-  deleteFailure.value = null
   deleteOpen.value = true
-}
-
-async function onDelete() {
-  if (!deleteTarget.value || deleting.value) {
-    return
-  }
-  deleting.value = true
-  deleteFailure.value = null
-  try {
-    await deleteUser(deleteTarget.value.id)
-    users.value = users.value.filter(user => user.id !== deleteTarget.value?.id)
-    deleteOpen.value = false
-    deleteTarget.value = null
-    toast.add({ title: t('accounts.delete.deleted'), icon: 'i-lucide-check', color: 'success' })
-  } catch (error) {
-    deleteFailure.value = error instanceof ApiError ? friendlyDeleteError(error) : t('accounts.delete.failed')
-  } finally {
-    deleting.value = false
-  }
-}
-
-function friendlyDeleteError(error: ApiError): string {
-  if (error.status === 409) {
-    return t('accounts.delete.ownsInstances')
-  }
-  return error.message
 }
 
 // Bulk delete runs behind the programmatic confirm like the detail-page
@@ -618,33 +588,5 @@ if (isAdmin.value) {
 
   <EditQuotaModal v-model:open="quotaOpen" :target="quotaTarget" @updated="(user: AccountUser) => { users = users.map(entry => entry.id === user.id ? user : entry) }" />
 
-  <UModal
-    v-model:open="deleteOpen"
-    :title="t('accounts.delete.title')"
-    :description="t('accounts.delete.body', { email: deleteTarget?.email ?? '' })"
-    :ui="{ footer: 'justify-end' }"
-  >
-    <template #body>
-      <UAlert
-        v-if="deleteFailure"
-        color="error"
-        variant="subtle"
-        :title="deleteFailure"
-      />
-    </template>
-    <template #footer="{ close }">
-      <UButton
-        color="neutral"
-        variant="outline"
-        :label="t('common.cancel')"
-        @click="close"
-      />
-      <UButton
-        color="error"
-        :loading="deleting"
-        :label="deleting ? t('accounts.delete.deleting') : t('accounts.delete.submit')"
-        @click="onDelete"
-      />
-    </template>
-  </UModal>
+  <DeleteAccountModal v-model:open="deleteOpen" :target="deleteTarget" @deleted="(id: string) => { users = users.filter(user => user.id !== id); deleteTarget = null }" />
 </template>

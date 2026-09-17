@@ -45,6 +45,19 @@ const keyFailure = ref<string | null>(null)
 const revoking = ref(false)
 const messagesRefresh = ref(0)
 
+const section = ref('overview')
+const chatwootEnabled = ref<boolean | null>(false)
+
+const sections = computed(() => [
+  { label: t('instances.sections.overview'), value: 'overview' },
+  { label: t('instances.sections.messages'), value: 'messages' },
+  { label: t('instances.sections.groups'), value: 'groups' },
+  { label: t('instances.sections.channels'), value: 'channels' },
+  { label: t('instances.sections.profile'), value: 'profile' },
+  { label: t('instances.sections.integrations'), value: 'integrations' },
+  { label: t('instances.sections.settings'), value: 'settings' }
+])
+
 // Message history split (template inbox pattern): at lg+ it renders as a
 // side panel, below lg it opens as a slideover via the messages button.
 // Visibility is CSS-gated (hidden/lg: wrappers), which does not prevent
@@ -285,198 +298,236 @@ await load()
         </UAlert>
 
         <div v-else-if="instance" class="flex w-full max-w-6xl flex-col gap-4">
-          <div class="flex w-full flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
-            <div class="flex min-w-0 flex-1 flex-col gap-4 lg:max-w-2xl">
-              <UCard>
-                <template #header>
-                  <h2 class="font-medium text-highlighted">
-                    {{ instance.name }}
-                  </h2>
-                </template>
-                <dl class="flex flex-col gap-2 text-sm">
-                  <div class="flex justify-between gap-4">
-                    <dt class="text-muted">
-                      {{ t('instances.fields.jid') }}
-                    </dt>
-                    <dd class="font-mono text-highlighted">
-                      {{ instance.whatsapp_jid || t('common.notSet') }}
-                    </dd>
-                  </div>
-                  <div v-if="instance.last_error" class="flex justify-between gap-4">
-                    <dt class="text-muted">
-                      {{ t('instances.fields.lastError') }}
-                    </dt>
-                    <dd class="text-right text-highlighted">
-                      {{ instance.last_error }}
-                    </dd>
-                  </div>
-                  <div class="flex justify-between gap-4">
-                    <dt class="text-muted">
-                      {{ t('instances.fields.createdAt') }}
-                    </dt>
-                    <dd class="text-highlighted">
-                      {{ formatDateTime(instance.created_at) }}
-                    </dd>
-                  </div>
-                  <div class="flex justify-between gap-4">
-                    <dt class="text-muted">
-                      {{ t('instances.fields.updatedAt') }}
-                    </dt>
-                    <dd class="text-highlighted">
-                      {{ formatDateTime(instance.updated_at) }}
-                    </dd>
-                  </div>
-                </dl>
-                <template v-if="instance.status === 'connected'" #footer>
-                  <UButton
-                    color="warning"
-                    variant="soft"
-                    icon="i-lucide-unplug"
-                    :loading="disconnecting"
-                    :label="disconnecting ? t('instances.detail.disconnecting') : t('instances.detail.disconnect')"
-                    @click="onDisconnect"
-                  />
-                </template>
-              </UCard>
+          <UDashboardToolbar>
+            <UNavigationMenu highlight class="-mx-1 flex-1" :items="sections" v-model="section" />
+          </UDashboardToolbar>
+          <InstanceHeaderStats :instance="instance" :chatwoot-enabled="chatwootEnabled" />
 
-              <PairingCard
-                :instance-id="instance.id"
-                :status="instance.status"
-                :whatsapp-jid="instance.whatsapp_jid"
-                @paired="onPaired"
-              />
-
-              <UCard>
-                <template #header>
-                  <h2 class="font-medium text-highlighted">
-                    {{ t('instances.fields.name') }}
-                  </h2>
-                </template>
-                <UForm
-                  id="instance-name"
-                  :schema="schema"
-                  :state="state"
-                  class="flex flex-col gap-4"
-                  @submit="onSave"
-                >
-                  <UAlert
-                    v-if="saveFailure"
-                    color="error"
-                    variant="subtle"
-                    :title="saveFailure"
-                  />
-
-                  <UFormField :label="t('instances.fields.name')" name="name" required>
-                    <UInput
-                      v-model="state.name"
-                      maxlength="255"
-                      class="w-full"
-                    />
-                  </UFormField>
-
-                  <UFormField :label="t('instances.fields.externalRef')" :hint="t('instances.fields.externalRefHint')" name="external_ref">
-                    <UInput v-model="state.external_ref" maxlength="255" class="w-full" />
-                  </UFormField>
-
-                  <div class="flex justify-end">
-                    <UButton type="submit" :loading="saving" :label="saving ? t('common.saving') : t('common.save')" />
-                  </div>
-                </UForm>
-              </UCard>
-
-              <UCard v-if="isAdmin">
-                <template #header>
-                  <h2 class="font-medium text-highlighted">
-                    {{ t('instances.key.cardTitle') }}
-                  </h2>
-                </template>
-
-                <div class="flex flex-col gap-4">
-                  <UAlert
-                    v-if="keyFailure"
-                    color="error"
-                    variant="subtle"
-                    :title="keyFailure"
-                  />
-
-                  <OneTimeKeyDisplay v-if="freshKey" :api-key="freshKey.instance_api_key" />
-
-                  <template v-else>
-                    <!-- Debt: no has-key flag exists in the API, so the banner is
-                driven by the browser-side key-seen marker. A future API
-                field (e.g. has_api_key) should replace this condition. -->
-                    <UAlert
-                      v-if="!keySeen"
-                      color="info"
-                      variant="subtle"
-                      :title="t('instances.key.keylessTitle')"
-                      :description="t('instances.key.keylessBody')"
-                    />
-
-                    <p v-else class="text-sm text-muted">
-                      {{ t('instances.key.rotateHint') }}
-                    </p>
-
-                    <div class="flex flex-wrap gap-2">
-                      <UButton
-                        icon="i-lucide-key-round"
-                        :loading="generating"
-                        :label="generating ? t('instances.key.generating') : t('instances.key.generate')"
-                        @click="onGenerate"
-                      />
-                      <UButton
-                        v-if="keySeen"
-                        color="error"
-                        variant="soft"
-                        :loading="revoking"
-                        :label="revoking ? t('instances.key.revoking') : t('instances.key.revoke')"
-                        @click="onRevoke"
-                      />
-                    </div>
-                  </template>
+          <div v-if="section === 'overview'" class="mx-auto flex w-full flex-col gap-4 lg:max-w-2xl">
+            <UCard>
+              <template #header>
+                <h2 class="font-medium text-highlighted">
+                  {{ instance.name }}
+                </h2>
+              </template>
+              <dl class="flex flex-col gap-2 text-sm">
+                <div class="flex justify-between gap-4">
+                  <dt class="text-muted">
+                    {{ t('instances.fields.jid') }}
+                  </dt>
+                  <dd class="font-mono text-highlighted">
+                    {{ instance.whatsapp_jid || t('common.notSet') }}
+                  </dd>
                 </div>
-              </UCard>
+                <div v-if="instance.last_error" class="flex justify-between gap-4">
+                  <dt class="text-muted">
+                    {{ t('instances.fields.lastError') }}
+                  </dt>
+                  <dd class="text-right text-highlighted">
+                    {{ instance.last_error }}
+                  </dd>
+                </div>
+                <div class="flex justify-between gap-4">
+                  <dt class="text-muted">
+                    {{ t('instances.fields.createdAt') }}
+                  </dt>
+                  <dd class="text-highlighted">
+                    {{ formatDateTime(instance.created_at) }}
+                  </dd>
+                </div>
+                <div class="flex justify-between gap-4">
+                  <dt class="text-muted">
+                    {{ t('instances.fields.updatedAt') }}
+                  </dt>
+                  <dd class="text-highlighted">
+                    {{ formatDateTime(instance.updated_at) }}
+                  </dd>
+                </div>
+              </dl>
+              <template v-if="instance.status === 'connected'" #footer>
+                <UButton
+                  color="warning"
+                  variant="soft"
+                  icon="i-lucide-unplug"
+                  :loading="disconnecting"
+                  :label="disconnecting ? t('instances.detail.disconnecting') : t('instances.detail.disconnect')"
+                  @click="onDisconnect"
+                />
+              </template>
+            </UCard>
 
-              <WebhookCard
-                :instance="instance"
-                @updated="onWebhookUpdated"
-              />
+            <PairingCard
+              :instance-id="instance.id"
+              :status="instance.status"
+              :whatsapp-jid="instance.whatsapp_jid"
+              @paired="onPaired"
+            />
 
-              <TestSendCard
-                :instance-id="instance.id"
-                :status="instance.status"
-                @sent="onMessagesRefresh"
-                @settled="onMessagesRefresh"
-              />
+            <PairPhoneCard :instance-id="instance.id" :status="instance.status" />
 
-              <UButton
-                class="lg:hidden"
-                icon="i-lucide-message-square-text"
-                :label="t('instances.messages.cardTitle')"
-                @click="isMessagesOpen = true"
-              />
+            <UCard>
+              <template #header>
+                <h2 class="font-medium text-highlighted">
+                  {{ t('instances.fields.name') }}
+                </h2>
+              </template>
+              <UForm
+                id="instance-name"
+                :schema="schema"
+                :state="state"
+                class="flex flex-col gap-4"
+                @submit="onSave"
+              >
+                <UAlert
+                  v-if="saveFailure"
+                  color="error"
+                  variant="subtle"
+                  :title="saveFailure"
+                />
+
+                <UFormField :label="t('instances.fields.name')" name="name" required>
+                  <UInput
+                    v-model="state.name"
+                    maxlength="255"
+                    class="w-full"
+                  />
+                </UFormField>
+
+                <UFormField :label="t('instances.fields.externalRef')" :hint="t('instances.fields.externalRefHint')" name="external_ref">
+                  <UInput v-model="state.external_ref" maxlength="255" class="w-full" />
+                </UFormField>
+
+                <div class="flex justify-end">
+                  <UButton type="submit" :loading="saving" :label="saving ? t('common.saving') : t('common.save')" />
+                </div>
+              </UForm>
+            </UCard>
+          </div>
+
+          <div v-else-if="section === 'messages'" class="flex w-full flex-col gap-4">
+            <div class="flex w-full flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
+              <div class="flex min-w-0 flex-1 flex-col gap-4 lg:max-w-2xl">
+                <TestSendCard
+                  :instance-id="instance.id"
+                  :status="instance.status"
+                  @sent="onMessagesRefresh"
+                  @settled="onMessagesRefresh"
+                />
+
+                <MessageComposer
+                  :instance-id="instance.id"
+                  :status="instance.status"
+                  @sent="onMessagesRefresh"
+                  @settled="onMessagesRefresh"
+                />
+
+                <MessageActionsCard :instance-id="instance.id" :status="instance.status" />
+
+                <UButton
+                  class="lg:hidden"
+                  icon="i-lucide-message-square-text"
+                  :label="t('instances.messages.cardTitle')"
+                  @click="isMessagesOpen = true"
+                />
+              </div>
+
+              <aside class="hidden min-w-0 flex-1 lg:block lg:max-w-md lg:shrink-0">
+                <div class="lg:sticky lg:top-4">
+                  <ClientOnly>
+                    <MessagesCard :instance-id="instance.id" :refresh-key="messagesRefresh" />
+                  </ClientOnly>
+                </div>
+              </aside>
             </div>
 
-            <aside class="hidden min-w-0 flex-1 lg:block lg:max-w-md lg:shrink-0">
-              <div class="lg:sticky lg:top-4">
-                <ClientOnly>
-                  <MessagesCard :instance-id="instance.id" :refresh-key="messagesRefresh" />
-                </ClientOnly>
-              </div>
-            </aside>
+            <div class="flex w-full flex-col gap-4 lg:hidden">
+              <ClientOnly>
+                <USlideover v-model:open="isMessagesOpen" :title="t('instances.messages.cardTitle')">
+                  <template #content>
+                    <MessagesCard :instance-id="instance.id" :refresh-key="messagesRefresh" />
+                  </template>
+                </USlideover>
+              </ClientOnly>
+            </div>
           </div>
 
-          <div class="flex w-full flex-col gap-4 lg:hidden">
-            <ClientOnly>
-              <USlideover v-model:open="isMessagesOpen" :title="t('instances.messages.cardTitle')">
-                <template #content>
-                  <MessagesCard :instance-id="instance.id" :refresh-key="messagesRefresh" />
+          <div v-else-if="section === 'groups'" class="mx-auto flex w-full flex-col gap-4 lg:max-w-2xl">
+            <GroupDetail :instance-id="instance.id" :status="instance.status" />
+          </div>
+
+          <div v-else-if="section === 'channels'" class="mx-auto flex w-full flex-col gap-4 lg:max-w-2xl">
+            <ChannelsCard :instance-id="instance.id" :status="instance.status" />
+          </div>
+
+          <div v-else-if="section === 'profile'" class="mx-auto flex w-full flex-col gap-4 lg:max-w-2xl">
+            <ProfileCard :instance-id="instance.id" :status="instance.status" />
+            <PrivacyCard :instance-id="instance.id" :status="instance.status" />
+            <DeviceActionsCard :instance-id="instance.id" :status="instance.status" />
+          </div>
+
+          <div v-else-if="section === 'integrations'" class="mx-auto flex w-full flex-col gap-4 lg:max-w-2xl">
+            <WebhookCard
+              :instance="instance"
+              @updated="onWebhookUpdated"
+            />
+
+            <ChatwootCard :instance-id="instance.id" :status="instance.status" @loaded="chatwootEnabled = $event" />
+          </div>
+
+          <div v-else class="mx-auto flex w-full flex-col gap-4 lg:max-w-2xl">
+            <UCard v-if="isAdmin">
+              <template #header>
+                <h2 class="font-medium text-highlighted">
+                  {{ t('instances.key.cardTitle') }}
+                </h2>
+              </template>
+
+              <div class="flex flex-col gap-4">
+                <UAlert
+                  v-if="keyFailure"
+                  color="error"
+                  variant="subtle"
+                  :title="keyFailure"
+                />
+
+                <OneTimeKeyDisplay v-if="freshKey" :api-key="freshKey.instance_api_key" />
+
+                <template v-else>
+                  <!-- Debt: no has-key flag exists in the API, so the banner is
+              driven by the browser-side key-seen marker. A future API
+              field (e.g. has_api_key) should replace this condition. -->
+                  <UAlert
+                    v-if="!keySeen"
+                    color="info"
+                    variant="subtle"
+                    :title="t('instances.key.keylessTitle')"
+                    :description="t('instances.key.keylessBody')"
+                  />
+
+                  <p v-else class="text-sm text-muted">
+                    {{ t('instances.key.rotateHint') }}
+                  </p>
+
+                  <div class="flex flex-wrap gap-2">
+                    <UButton
+                      icon="i-lucide-key-round"
+                      :loading="generating"
+                      :label="generating ? t('instances.key.generating') : t('instances.key.generate')"
+                      @click="onGenerate"
+                    />
+                    <UButton
+                      v-if="keySeen"
+                      color="error"
+                      variant="soft"
+                      :loading="revoking"
+                      :label="revoking ? t('instances.key.revoking') : t('instances.key.revoke')"
+                      @click="onRevoke"
+                    />
+                  </div>
                 </template>
-              </USlideover>
-            </ClientOnly>
-          </div>
+              </div>
+            </UCard>
 
-          <div class="flex w-full flex-col gap-4 lg:max-w-2xl">
             <UCard>
               <template #header>
                 <h2 class="font-medium text-error">

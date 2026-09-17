@@ -53,26 +53,46 @@ func (s *instanceSession) PublishStatus(ctx context.Context, input session.Statu
 	return id, nil
 }
 
+// statusTTL bounds an own status listing: entries expire upstream after
+// ~24h, so the registry drops anything older on list.
+const statusTTL = 24 * time.Hour
+
+// dropExpiredStatuses returns the entries published after the 24h cutoff,
+// oldest first. It backs ListStatuses so a stale registry never resurfaces
+// statuses the protocol already expired.
+func dropExpiredStatuses(statuses []session.StatusInfo, now time.Time) []session.StatusInfo {
+	cutoff := now.UTC().Add(-statusTTL)
+	kept := make([]session.StatusInfo, 0, len(statuses))
+	for _, info := range statuses {
+		if info.CreatedAt.UTC().After(cutoff) || info.CreatedAt.UTC().Equal(cutoff) {
+			kept = append(kept, info)
+		}
+	}
+	return kept
+}
+
 // ListStatuses returns the own statuses published through this session that
-// are still tracked here, oldest first.
+// are still tracked here, oldest first. Entries expire upstream after ~24h;
+// the registry drops them on list.
 func (s *instanceSession) ListStatuses(ctx context.Context) ([]session.StatusInfo, error) {
 	if !s.client.IsConnected() {
 		return nil, fmt.Errorf("%w: list statuses", session.ErrNotConnected)
 	}
 	s.statusMu.Lock()
 	defer s.statusMu.Unlock()
+	s.statuses = dropExpiredStatuses(s.statuses, time.Now().UTC())
 	return append([]session.StatusInfo(nil), s.statuses...), nil
 }
 
 // DeleteStatus removes the own statusID published through this session: it
 // sends the protocol revocation to the status broadcast and drops the tracked
-// entry. An id this session never published is ErrStatusNotFound.
+// entry. An empty or unknown id is ErrStatusNotFound.
 func (s *instanceSession) DeleteStatus(ctx context.Context, statusID string) error {
+	if statusID == "" {
+		return fmt.Errorf("%w: empty status id", session.ErrStatusNotFound)
+	}
 	if !s.client.IsConnected() {
 		return fmt.Errorf("%w: delete status", session.ErrNotConnected)
-	}
-	if statusID == "" {
-		return errors.New("delete status: empty status id")
 	}
 	s.statusMu.Lock()
 	found := false

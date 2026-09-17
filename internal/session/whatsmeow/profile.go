@@ -81,6 +81,8 @@ func (s *instanceSession) GetPrivacy(ctx context.Context) (session.Privacy, erro
 
 // SetPrivacy applies the non-empty fields of input to the upstream privacy
 // settings and returns the resulting settings, refreshed from the upstream.
+// It is not atomic: fields apply one by one, so a failure can leave earlier
+// fields already applied.
 func (s *instanceSession) SetPrivacy(ctx context.Context, input session.Privacy) (session.Privacy, error) {
 	if !s.client.IsConnected() {
 		return session.Privacy{}, fmt.Errorf("%w: set privacy", session.ErrNotConnected)

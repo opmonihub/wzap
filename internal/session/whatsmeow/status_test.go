@@ -2,7 +2,9 @@ package whatsmeow
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"go.mau.fi/whatsmeow"
 
@@ -76,6 +78,33 @@ func TestBuildStatusMedia(t *testing.T) {
 	}
 	if image.GetCaption() != "olha" || image.GetMimetype() != "image/jpeg" {
 		t.Errorf("image = caption %q mime %q, want olha and image/jpeg", image.GetCaption(), image.GetMimetype())
+	}
+}
+
+// TestDropExpiredStatuses pins the 24h registry cutoff: entries older than
+// 24h are dropped on list while entries at and after the cutoff are kept.
+func TestDropExpiredStatuses(t *testing.T) {
+	now := time.Now().UTC()
+	statuses := []session.StatusInfo{
+		{ID: "old", CreatedAt: now.Add(-25 * time.Hour)},
+		{ID: "cutoff", CreatedAt: now.Add(-24 * time.Hour)},
+		{ID: "fresh", CreatedAt: now},
+	}
+
+	kept := dropExpiredStatuses(statuses, now)
+
+	if len(kept) != 2 || kept[0].ID != "cutoff" || kept[1].ID != "fresh" {
+		t.Errorf("dropExpiredStatuses kept = %v, want [cutoff fresh]", kept)
+	}
+}
+
+// TestDeleteStatusEmptyID pins that an empty status id maps to
+// ErrStatusNotFound (404), never to a generic error.
+func TestDeleteStatusEmptyID(t *testing.T) {
+	sess := &instanceSession{}
+
+	if err := sess.DeleteStatus(context.Background(), ""); !errors.Is(err, session.ErrStatusNotFound) {
+		t.Errorf("DeleteStatus empty: err = %v, want ErrStatusNotFound", err)
 	}
 }
 

@@ -432,11 +432,11 @@ type Session interface {
 	// sends.
 	PublishStatus(ctx context.Context, input StatusInput) (statusID string, err error)
 	// ListStatuses returns the own statuses published through this session
-	// that are still known here. The upstream expiry still applies: an entry
-	// the protocol already dropped may be gone on read.
+	// that are still known here. Entries expire upstream after ~24h; the
+	// registry drops them on list.
 	ListStatuses(ctx context.Context) ([]StatusInfo, error)
 	// DeleteStatus removes the own statusID published through this session.
-	// An unknown id is ErrStatusNotFound.
+	// An empty or unknown id is ErrStatusNotFound.
 	DeleteStatus(ctx context.Context, statusID string) error
 	// RejectCall rejects the active call callID from fromJID. The service
 	// never initiates calls; when the upstream cannot reject, the adapter

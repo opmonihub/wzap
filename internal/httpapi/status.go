@@ -78,6 +78,7 @@ func statusTextValid(text string) bool {
 // POST /instances/{id}/status/updates/media with the file bytes.
 //
 // @Summary Publish a text status
+// @Description Status publish is a synchronous fire-and-forget broadcast (no outbox retry); 202 carries message_id with the same idempotency replay as message sends.
 // @Tags status
 // @Accept json
 // @Produce json
@@ -155,6 +156,7 @@ func handlePublishStatus(instances InstanceService, log zerolog.Logger) http.Han
 // upload; an offline session answers 409.
 //
 // @Summary Publish an image or video status
+// @Description Status publish is a synchronous fire-and-forget broadcast (no outbox retry); 202 carries message_id with the same idempotency replay as message sends.
 // @Tags status
 // @Accept multipart/form-data
 // @Produce json
@@ -275,7 +277,8 @@ func handlePublishStatusMedia(instances InstanceService, log zerolog.Logger, max
 }
 
 // handleListStatuses answers the own statuses published through the instance
-// session. It loads the target first (404) and authorizes (403) before
+// session. Entries older than 24h are dropped by the session registry. It
+// loads the target first (404) and authorizes (403) before
 // touching the session; an offline session answers 409.
 //
 // @Summary List own statuses
@@ -285,7 +288,7 @@ func handlePublishStatusMedia(instances InstanceService, log zerolog.Logger, max
 // @Param apikey header string true "Global, owning user, or own instance key"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
-// @Success 200 {object} statusListResponse "Own statuses, wrapped in the data envelope"
+// @Success 200 {object} statusListResponse "Own statuses, entries older than 24h are dropped, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"

@@ -147,6 +147,37 @@ func TestStatusPublishText(t *testing.T) {
 	})
 }
 
+func TestStatusPublishReplayThroughServer(t *testing.T) {
+	id := uuid.New()
+	svc := &fakeInstanceService{
+		publishStatusFn: func(context.Context, uuid.UUID, session.StatusInput) (string, error) {
+			return "wamid.status1", nil
+		},
+	}
+	srv := statusServer(t, svc, testMaxMediaBytes)
+	path := "/instances/" + id.String() + "/status/updates"
+	headers := map[string]string{idempotencyKeyHeader: "key-1"}
+
+	first := serveStatus(t, srv, http.MethodPost, path, `{"type":"text","text":"bom dia"}`, headers)
+	second := serveStatus(t, srv, http.MethodPost, path, `{"type":"text","text":"bom dia"}`, headers)
+
+	if first.Code != http.StatusAccepted {
+		t.Fatalf("first status = %d, want %d", first.Code, http.StatusAccepted)
+	}
+	if second.Code != http.StatusAccepted {
+		t.Fatalf("replay status = %d, want %d", second.Code, http.StatusAccepted)
+	}
+	if second.Body.String() != first.Body.String() {
+		t.Errorf("replay body = %q, want the original %q", second.Body.String(), first.Body.String())
+	}
+	if got := second.Header().Get(idempotentReplayHeader); got != "true" {
+		t.Errorf("%s = %q, want %q", idempotentReplayHeader, got, "true")
+	}
+	if len(svc.publishStatusCalls) != 1 {
+		t.Errorf("PublishStatus calls = %d, want 1 for a replayed publish", len(svc.publishStatusCalls))
+	}
+}
+
 func TestStatusPublishMedia(t *testing.T) {
 	t.Run("image answers accepted with the upstream id", func(t *testing.T) {
 		id := uuid.New()

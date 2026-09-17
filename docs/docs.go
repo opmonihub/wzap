@@ -3654,6 +3654,7 @@ const docTemplate = `{
                         "apikey": []
                     }
                 ],
+                "description": "All privacy operations are supported upstream (no 501). Fields apply sequentially, so a later failure can leave earlier fields applied (non-atomic).",
                 "consumes": [
                     "application/json"
                 ],
@@ -3931,7 +3932,7 @@ const docTemplate = `{
                         }
                     },
                     "501": {
-                        "description": "Upstream cannot apply the name change",
+                        "description": "Upstream cannot apply the name change; when name is present nothing is applied, including status_text",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         }
@@ -4220,7 +4221,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Own statuses, wrapped in the data envelope",
+                        "description": "Own statuses, entries older than 24h are dropped, wrapped in the data envelope",
                         "schema": {
                             "$ref": "#/definitions/httpapi.statusListResponse"
                         }
@@ -4263,6 +4264,7 @@ const docTemplate = `{
                         "apikey": []
                     }
                 ],
+                "description": "Status publish is a synchronous fire-and-forget broadcast (no outbox retry); 202 carries message_id with the same idempotency replay as message sends.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4375,6 +4377,7 @@ const docTemplate = `{
                         "apikey": []
                     }
                 ],
+                "description": "Status publish is a synchronous fire-and-forget broadcast (no outbox retry); 202 carries message_id with the same idempotency replay as message sends.",
                 "consumes": [
                     "multipart/form-data"
                 ],

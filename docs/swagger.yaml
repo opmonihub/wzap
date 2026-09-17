@@ -2948,6 +2948,8 @@ paths:
     put:
       consumes:
       - application/json
+      description: All privacy operations are supported upstream (no 501). Fields
+        apply sequentially, so a later failure can leave earlier fields applied (non-atomic).
       parameters:
       - description: Global, owning user, or own instance key
         in: header
@@ -3126,7 +3128,8 @@ paths:
           schema:
             $ref: '#/definitions/httpapi.errorEnvelope'
         "501":
-          description: Upstream cannot apply the name change
+          description: Upstream cannot apply the name change; when name is present
+            nothing is applied, including status_text
           schema:
             $ref: '#/definitions/httpapi.errorEnvelope'
       security:
@@ -3312,7 +3315,8 @@ paths:
       - application/json
       responses:
         "200":
-          description: Own statuses, wrapped in the data envelope
+          description: Own statuses, entries older than 24h are dropped, wrapped in
+            the data envelope
           schema:
             $ref: '#/definitions/httpapi.statusListResponse'
         "401":
@@ -3343,6 +3347,9 @@ paths:
     post:
       consumes:
       - application/json
+      description: Status publish is a synchronous fire-and-forget broadcast (no outbox
+        retry); 202 carries message_id with the same idempotency replay as message
+        sends.
       parameters:
       - description: Global, owning user, or own instance key
         in: header
@@ -3470,6 +3477,9 @@ paths:
     post:
       consumes:
       - multipart/form-data
+      description: Status publish is a synchronous fire-and-forget broadcast (no outbox
+        retry); 202 carries message_id with the same idempotency replay as message
+        sends.
       parameters:
       - description: Global, owning user, or own instance key
         in: header

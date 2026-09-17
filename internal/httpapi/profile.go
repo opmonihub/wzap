@@ -203,7 +203,7 @@ func handleGetProfile(instances InstanceService, log zerolog.Logger) http.Handle
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Empty patch or values outside the allowlists"
 // @Failure 500 {object} errorEnvelope "Internal error"
-// @Failure 501 {object} errorEnvelope "Upstream cannot apply the name change"
+// @Failure 501 {object} errorEnvelope "Upstream cannot apply the name change; when name is present nothing is applied, including status_text"
 // @Router /instances/{id}/profile [patch]
 func handleUpdateProfile(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -365,6 +365,7 @@ func handleGetPrivacy(instances InstanceService, log zerolog.Logger) http.Handle
 // take all or none).
 //
 // @Summary Update the own privacy settings
+// @Description All privacy operations are supported upstream (no 501). Fields apply sequentially, so a later failure can leave earlier fields applied (non-atomic).
 // @Tags privacy
 // @Accept json
 // @Produce json

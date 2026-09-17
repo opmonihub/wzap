@@ -4221,7 +4221,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Own statuses, entries older than 24h are dropped, wrapped in the data envelope",
+                        "description": "Own statuses published since boot, entries older than 24h are dropped, wrapped in the data envelope",
                         "schema": {
                             "$ref": "#/definitions/httpapi.statusListResponse"
                         }
@@ -4533,7 +4533,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Deleted, wrapped in the data envelope",
+                        "description": "Deleted, only statuses published since boot are tracked and the ~24h protocol expiry applies, wrapped in the data envelope",
                         "schema": {
                             "$ref": "#/definitions/httpapi.statusDeleteResponse"
                         }

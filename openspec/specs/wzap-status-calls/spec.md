@@ -39,7 +39,7 @@ caption SHALL ter 1..700 runas.
 
 ### Requirement: Consulta e remoção de status
 
-O serviço SHALL listar os status vigentes e apagar o próprio status, e MUST
+O serviço SHALL listar os status vigentes publicados desde o boot e apagar o próprio status (a expiração do protocolo de ~24h aplica-se), e MUST
 responder `404` para status desconhecido.
 
 #### Scenario: Status apagado

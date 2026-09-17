@@ -291,8 +291,8 @@ replay `X-Idempotent-Replay` via o mesmo middleware de idempotência das
 mensagens, mas o backing é **síncrono fire-and-forget** para o broadcast
 (`status@broadcast`) — sem retry de outbox. Texto/caption de 1..700 runas;
 mídia acima de `WZAP_MAX_MEDIA_BYTES` → `422`; `409` desconectada. A
-listagem poda entradas expiradas (~24 h do protocolo); apagar status
-desconhecido → `404`.
+ listagem cobre só status publicados desde o boot e poda entradas expiradas (~24 h do protocolo); apagar status
+ desconhecido ou anterior ao boot → `404`.
 
 | Método e rota | Corpo/Resposta |
 | --- | --- |

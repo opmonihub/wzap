@@ -35,7 +35,7 @@ interface AccountsTableApi {
 const { t } = useI18n()
 const toast = useToast()
 const { isAdmin, user: sessionUser } = useAuth()
-const { listUsers, createUser, deleteUser, updateUserQuota } = useAccounts()
+const { listUsers, deleteUser, updateUserQuota } = useAccounts()
 const { confirmDelete } = useConfirmDelete()
 const { listInstances } = useInstances()
 const { copy } = useClipboard()
@@ -217,16 +217,6 @@ function sortActionLabel(columnId: string): string {
 // state travels in the button aria-label (sortAsc/sortDesc) instead.
 
 const createOpen = ref(false)
-const createSchema = z.object({
-  email: z.string().min(1, t('accounts.create.emailRequired')).max(255),
-  password: z.string().min(1, t('accounts.create.passwordRequired')),
-  role: z.enum(['admin', 'user']),
-  instance_quota: z.string()
-})
-type CreateSchema = z.output<typeof createSchema>
-const createState = reactive<Partial<CreateSchema>>({ email: '', password: '', role: 'user', instance_quota: '' })
-const creating = ref(false)
-const createFailure = ref<string | null>(null)
 
 const quotaTarget = ref<AccountUser | null>(null)
 const quotaOpen = ref(false)
@@ -282,21 +272,6 @@ async function loadUsage() {
   }
 }
 
-function resetCreate() {
-  createState.email = ''
-  createState.password = ''
-  createState.role = 'user'
-  createState.instance_quota = ''
-  creating.value = false
-  createFailure.value = null
-}
-
-watch(createOpen, (value) => {
-  if (value) {
-    resetCreate()
-  }
-})
-
 // An empty quota stays omitted so the server default applies; 0 is a valid
 // explicit value meaning unlimited.
 function parseQuota(raw: string): number | undefined | null {
@@ -309,45 +284,6 @@ function parseQuota(raw: string): number | undefined | null {
     return null
   }
   return parsed
-}
-
-async function onCreate(event: FormSubmitEvent<CreateSchema>) {
-  if (creating.value) {
-    return
-  }
-  const email = (event.data.email ?? '').trim()
-  if (email === '') {
-    createFailure.value = t('accounts.create.emailRequired')
-    return
-  }
-  if ((event.data.password ?? '') === '') {
-    createFailure.value = t('accounts.create.passwordRequired')
-    return
-  }
-  const quota = parseQuota(event.data.instance_quota ?? '')
-  if (quota === null) {
-    createFailure.value = t('accounts.create.quotaInvalid')
-    return
-  }
-  creating.value = true
-  createFailure.value = null
-  try {
-    const created = await createUser({ email, password: event.data.password ?? '', role: event.data.role ?? 'user', instance_quota: quota })
-    users.value = [created, ...users.value]
-    createOpen.value = false
-    toast.add({ title: t('accounts.create.createdToast'), icon: 'i-lucide-check', color: 'success' })
-  } catch (error) {
-    createFailure.value = error instanceof ApiError ? friendlyCreateError(error) : t('accounts.create.failed')
-  } finally {
-    creating.value = false
-  }
-}
-
-function friendlyCreateError(error: ApiError): string {
-  if (error.status === 409) {
-    return t('accounts.create.emailTaken')
-  }
-  return error.message
 }
 
 function openQuota(user: AccountUser) {
@@ -733,69 +669,7 @@ if (isAdmin.value) {
     </template>
   </UDashboardPanel>
 
-  <UModal v-model:open="createOpen" :title="t('accounts.create.title')" :description="t('accounts.create.body')">
-    <template #body>
-      <UForm
-        id="create-account"
-        :schema="createSchema"
-        :state="createState"
-        class="flex flex-col gap-4"
-        @submit="onCreate"
-      >
-        <UAlert
-          v-if="createFailure"
-          color="error"
-          variant="subtle"
-          :title="createFailure"
-        />
-
-        <UFormField :label="t('common.email')" name="email" required>
-          <UInput
-            v-model="createState.email"
-            type="email"
-            maxlength="255"
-            class="w-full"
-          />
-        </UFormField>
-
-        <UFormField :label="t('auth.password')" name="password" required>
-          <UInput
-            v-model="createState.password"
-            type="password"
-            class="w-full"
-          />
-        </UFormField>
-
-        <UFormField :label="t('common.role')" name="role" required>
-          <USelect
-            v-model="createState.role"
-            :items="['admin', 'user']"
-            class="w-full"
-          />
-        </UFormField>
-
-        <UFormField :label="t('accounts.quotaLabel')" :hint="t('accounts.create.quotaHint')" name="instance_quota">
-          <UInput
-            v-model="createState.instance_quota"
-            type="number"
-            step="1"
-            class="w-full"
-          />
-        </UFormField>
-
-        <div class="flex justify-end gap-2">
-          <UButton
-            type="button"
-            color="neutral"
-            variant="ghost"
-            :label="t('common.cancel')"
-            @click="createOpen = false"
-          />
-          <UButton type="submit" :loading="creating" :label="creating ? t('accounts.create.creating') : t('accounts.create.submit')" />
-        </div>
-      </UForm>
-    </template>
-  </UModal>
+  <CreateAccountModal v-model:open="createOpen" @created="(user) => { users = [user, ...users] }" />
 
   <UModal v-model:open="quotaOpen" :title="t('accounts.quota.title')" :description="t('accounts.quota.body', { email: quotaTarget?.email ?? '' })">
     <template #body>

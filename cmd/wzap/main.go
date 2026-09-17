@@ -308,7 +308,11 @@ func serve() error {
 		})
 	}
 
-	service := instance.NewService(instances, sessions, mediaStorage, users, keys, log)
+	service := instance.NewService(instances, sessions, mediaStorage, users, keys, log,
+		instance.WithMetadataStores(
+			postgres.NewGroupMetadataRepository(pool),
+			postgres.NewNewsletterMetadataRepository(pool),
+		))
 	numbers := message.NewJIDResolver(sessions, postgres.NewJIDCacheRepository(pool), log)
 	messages := message.NewService(instances, numbers, messageRepo)
 

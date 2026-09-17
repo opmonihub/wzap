@@ -118,7 +118,11 @@ type Service struct {
 	media    MediaRemover
 	users    storage.UserRepository
 	keys     storage.APIKeyRepository
-	log      zerolog.Logger
+	// groups and newsletters are the optional group/channel metadata caches:
+	// nil skips the write-through and leaves UpdatedAt zero.
+	groups      storage.GroupMetadataRepository
+	newsletters storage.NewsletterMetadataRepository
+	log         zerolog.Logger
 }
 
 const (
@@ -128,12 +132,30 @@ const (
 	msgQRFailed      = "qr instance failed"
 )
 
+// ServiceOption customizes a Service.
+type ServiceOption func(*Service)
+
+// WithMetadataStores wires the group and channel metadata caches consumed by
+// the refresh-on-demand write-through: every live group/channel read upserts
+// its row and exposes the stored updated_at. Either store may be nil to skip
+// its cache.
+func WithMetadataStores(groups storage.GroupMetadataRepository, newsletters storage.NewsletterMetadataRepository) ServiceOption {
+	return func(s *Service) {
+		s.groups = groups
+		s.newsletters = newsletters
+	}
+}
+
 // NewService builds the service over its dependencies. media may be nil until
 // instance media exists (Task 16); Delete then skips media removal. users and
 // keys are required for Create; a nil one fails Create with a 500-mapped
 // error instead of panicking.
-func NewService(repo storage.InstanceRepository, sessions session.Manager, media MediaRemover, users storage.UserRepository, keys storage.APIKeyRepository, log zerolog.Logger) *Service {
-	return &Service{repo: repo, sessions: sessions, media: media, users: users, keys: keys, log: log}
+func NewService(repo storage.InstanceRepository, sessions session.Manager, media MediaRemover, users storage.UserRepository, keys storage.APIKeyRepository, log zerolog.Logger, opts ...ServiceOption) *Service {
+	svc := &Service{repo: repo, sessions: sessions, media: media, users: users, keys: keys, log: log}
+	for _, opt := range opts {
+		opt(svc)
+	}
+	return svc
 }
 
 // Create registers a new instance in the disconnected state owned by

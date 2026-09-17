@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"wzap/internal/model"
 	"wzap/internal/session"
 )
 
@@ -38,6 +39,14 @@ func (s *Service) FollowNewsletter(ctx context.Context, id uuid.UUID, channelJID
 	}
 	if err := sess.FollowNewsletter(ctx, channelJID); err != nil {
 		return mapNewsletterError("follow newsletter", err)
+	}
+	// The follow itself carries no metadata: refresh the cache from the live
+	// view so a later consult finds it. A refresh failure never fails the
+	// follow the upstream already accepted.
+	if info, err := sess.GetNewsletter(ctx, channelJID); err == nil {
+		s.refreshNewsletterCache(ctx, id, newsletterFromSession(info))
+	} else {
+		s.log.Warn().Str("instance_id", id.String()).Str("op", "newsletter-cache").Err(err).Msg("refresh newsletter metadata failed")
 	}
 	return nil
 }
@@ -77,7 +86,7 @@ func (s *Service) GetNewsletter(ctx context.Context, id uuid.UUID, channelJID st
 	if err != nil {
 		return Newsletter{}, mapNewsletterError("get newsletter", err)
 	}
-	return newsletterFromSession(info), nil
+	return s.refreshNewsletterCache(ctx, id, newsletterFromSession(info)), nil
 }
 
 // ListNewsletters returns one page of the live subscribed channels ordered by
@@ -106,7 +115,7 @@ func (s *Service) ListNewsletters(ctx context.Context, id uuid.UUID, limit int, 
 		if cursor != "" && info.ChannelJID <= cursor {
 			continue
 		}
-		items = append(items, newsletterFromSession(info))
+		items = append(items, s.refreshNewsletterCache(ctx, id, newsletterFromSession(info)))
 	}
 	next := ""
 	if limit > 0 && len(items) > limit {
@@ -140,4 +149,28 @@ func mapNewsletterError(op string, err error) error {
 	default:
 		return mapSessionError(op, err)
 	}
+}
+
+// refreshNewsletterCache writes the live channel view through to the metadata
+// cache and stamps the returned channel with the stored updated_at. Without
+// a wired store the live view passes through untouched; a cache failure is
+// logged and the live view is returned, so a storage hiccup never fails a
+// read the upstream already answered.
+func (s *Service) refreshNewsletterCache(ctx context.Context, id uuid.UUID, newsletter Newsletter) Newsletter {
+	if s.newsletters == nil {
+		return newsletter
+	}
+	stored, err := s.newsletters.Upsert(ctx, model.NewsletterMetadata{
+		InstanceID:    id,
+		ChannelJID:    newsletter.ChannelJID,
+		Title:         newsletter.Title,
+		Description:   newsletter.Description,
+		FollowerCount: newsletter.FollowerCount,
+	})
+	if err != nil {
+		s.log.Warn().Str("instance_id", id.String()).Str("op", "newsletter-cache").Err(err).Msg("refresh newsletter metadata failed")
+		return newsletter
+	}
+	newsletter.UpdatedAt = stored.UpdatedAt
+	return newsletter
 }

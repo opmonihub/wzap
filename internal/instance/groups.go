@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"wzap/internal/model"
 	"wzap/internal/session"
 )
 
@@ -77,7 +78,7 @@ func (s *Service) CreateGroup(ctx context.Context, id uuid.UUID, input CreateGro
 	if err != nil {
 		return Group{}, mapGroupError("create group", err)
 	}
-	return groupFromSession(info), nil
+	return s.refreshGroupCache(ctx, id, groupFromSession(info)), nil
 }
 
 // GetGroup returns the live metadata of groupJID through the instance
@@ -97,7 +98,7 @@ func (s *Service) GetGroup(ctx context.Context, id uuid.UUID, groupJID string) (
 	if err != nil {
 		return Group{}, mapGroupError("get group", err)
 	}
-	return groupFromSession(info), nil
+	return s.refreshGroupCache(ctx, id, groupFromSession(info)), nil
 }
 
 // UpdateGroup applies the fields present in input to the upstream group and
@@ -126,7 +127,7 @@ func (s *Service) UpdateGroup(ctx context.Context, id uuid.UUID, groupJID string
 	if err != nil {
 		return Group{}, mapGroupError("update group", err)
 	}
-	return groupFromSession(info), nil
+	return s.refreshGroupCache(ctx, id, groupFromSession(info)), nil
 }
 
 // SetGroupPhoto replaces the picture of groupJID with the image bytes.
@@ -274,4 +275,28 @@ func mapGroupError(op string, err error) error {
 	default:
 		return mapSessionError(op, err)
 	}
+}
+
+// refreshGroupCache writes the live group view through to the metadata cache
+// and stamps the returned group with the stored updated_at. Without a wired
+// store the live view passes through untouched; a cache failure is logged
+// and the live view is returned, so a storage hiccup never fails a read the
+// upstream already answered.
+func (s *Service) refreshGroupCache(ctx context.Context, id uuid.UUID, group Group) Group {
+	if s.groups == nil {
+		return group
+	}
+	stored, err := s.groups.Upsert(ctx, model.GroupMetadata{
+		InstanceID:       id,
+		GroupJID:         group.JID,
+		Name:             group.Name,
+		Description:      group.Description,
+		ParticipantCount: group.ParticipantCount,
+	})
+	if err != nil {
+		s.log.Warn().Str("instance_id", id.String()).Str("op", "group-cache").Err(err).Msg("refresh group metadata failed")
+		return group
+	}
+	group.UpdatedAt = stored.UpdatedAt
+	return group
 }

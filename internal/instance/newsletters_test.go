@@ -43,8 +43,10 @@ func TestServiceNewsletterFollowUnfollow(t *testing.T) {
 
 	sess, _ := sessions.Get(inst.ID)
 	calls := sess.(*sessiontest.FakeSession).NewsletterCalls()
-	if len(calls) != 2 || calls[0].Op != "follow" || calls[1].Op != "unfollow" {
-		t.Errorf("newsletter calls = %+v, want follow then unfollow", calls)
+	// Follow refreshes the cache from the live view, hence the get between
+	// the follow and the unfollow.
+	if len(calls) != 3 || calls[0].Op != "follow" || calls[1].Op != "get" || calls[2].Op != "unfollow" {
+		t.Errorf("newsletter calls = %+v, want follow, refresh get, then unfollow", calls)
 	}
 }
 

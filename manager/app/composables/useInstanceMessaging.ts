@@ -1,8 +1,11 @@
 import type {
   AcceptedMessage,
   MarkReadInput,
+  MarkReadResult,
   PresenceInput,
+  PresenceResult,
   RevokeInput,
+  RevokeResult,
   SendContactInput,
   SendLocationInput,
   SendRichInput
@@ -39,22 +42,22 @@ export function useInstanceMessaging() {
     })
   }
 
-  async function revokeMessage(instanceId: string, input: RevokeInput): Promise<{ revoked: boolean }> {
-    return await api<{ revoked: boolean }>(`/instances/${instanceId}/messages/revoke`, {
+  async function revokeMessage(instanceId: string, input: RevokeInput): Promise<RevokeResult> {
+    return await api<RevokeResult>(`/instances/${instanceId}/messages/revoke`, {
       method: 'POST',
       body: { chat: input.chat, message_id: input.message_id }
     })
   }
 
-  async function markRead(instanceId: string, input: MarkReadInput): Promise<{ marked_read: boolean }> {
-    return await api<{ marked_read: boolean }>(`/instances/${instanceId}/chats/mark-read`, {
+  async function markRead(instanceId: string, input: MarkReadInput): Promise<MarkReadResult> {
+    return await api<MarkReadResult>(`/instances/${instanceId}/chats/mark-read`, {
       method: 'POST',
-      body: { chat: input.chat, sender: input.sender ?? '', message_id: input.message_id }
+      body: { chat: input.chat, message_id: input.message_id, ...(input.sender ? { sender: input.sender } : {}) }
     })
   }
 
-  async function sendPresence(instanceId: string, input: PresenceInput): Promise<{ sent: boolean }> {
-    return await api<{ sent: boolean }>(`/instances/${instanceId}/presence`, {
+  async function sendPresence(instanceId: string, input: PresenceInput): Promise<PresenceResult> {
+    return await api<PresenceResult>(`/instances/${instanceId}/presence`, {
       method: 'POST',
       body: { chat: input.chat, state: input.state }
     })

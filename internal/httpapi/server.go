@@ -95,6 +95,7 @@ func New(cfg config.Config, log zerolog.Logger, deps Deps) *http.Server {
 	api.HandleFunc("POST /instances/{id}/messages/revoke", handleRevokeMessage(deps.Instances, log))
 	api.HandleFunc("POST /instances/{id}/chats/mark-read", handleMarkRead(deps.Instances, log))
 	api.HandleFunc("POST /instances/{id}/presence", handleSendPresence(deps.Instances, log))
+	api.HandleFunc("POST /instances/{id}/pair-phone", handlePairPhone(deps.Instances, log))
 	api.HandleFunc("GET /media/{id}", handleGetMedia(deps.Instances, deps.Media))
 	api.HandleFunc("POST /users", handleCreateUser(deps.Users, cfg.DefaultUserQuota))
 	api.HandleFunc("GET /users", handleListUsers(deps.Users))

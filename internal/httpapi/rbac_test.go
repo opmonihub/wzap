@@ -228,6 +228,7 @@ func instanceRouteCases(target uuid.UUID, mediaID uuid.UUID) []struct {
 		{name: "revoke message", method: http.MethodPost, path: "/instances/" + target.String() + "/messages/revoke", body: `{"chat":"5511999887766@s.whatsapp.net","message_id":"ORIG-1"}`},
 		{name: "mark read", method: http.MethodPost, path: "/instances/" + target.String() + "/chats/mark-read", body: `{"chat":"5511999887766@s.whatsapp.net","message_id":"ORIG-9"}`},
 		{name: "presence", method: http.MethodPost, path: "/instances/" + target.String() + "/presence", body: `{"chat":"5511999887766@s.whatsapp.net","state":"composing"}`},
+		{name: "pair phone", method: http.MethodPost, path: "/instances/" + target.String() + "/pair-phone", body: `{"phone":"5547988359190"}`},
 		{name: "download media of instance", method: http.MethodGet, path: "/media/" + mediaID.String()},
 	}
 }

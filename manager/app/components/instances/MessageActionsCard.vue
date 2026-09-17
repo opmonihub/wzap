@@ -11,6 +11,7 @@ const { t } = useI18n()
 const { revokeMessage, markRead, sendPresence } = useInstanceMessaging()
 
 const chat = ref('')
+const sender = ref('')
 const messageId = ref('')
 const failure = ref<string | null>(null)
 const done = ref<string | null>(null)
@@ -31,7 +32,11 @@ async function onMarkRead() {
   failure.value = null
   done.value = null
   try {
-    await markRead(props.instanceId, { chat: chat.value.trim(), message_id: messageId.value.trim() })
+    await markRead(props.instanceId, {
+      chat: chat.value.trim(),
+      sender: sender.value.trim() === '' ? undefined : sender.value.trim(),
+      message_id: messageId.value.trim()
+    })
     done.value = t('common.done')
   } catch (error) {
     failure.value = error instanceof ApiError ? error.message : t('instances.send.failed')
@@ -77,6 +82,7 @@ async function onPresence(state: 'composing' | 'paused' | 'available' | 'unavail
         :title="done"
       />
       <UInput v-model="chat" :placeholder="t('instances.actions.chatPlaceholder')" class="w-full font-mono" />
+      <UInput v-model="sender" :placeholder="t('instances.actions.senderPlaceholder')" class="w-full font-mono" />
       <UInput v-model="messageId" :placeholder="t('instances.actions.messageIdPlaceholder')" class="w-full font-mono" />
       <div class="flex flex-wrap gap-2">
         <UButton :disabled="!canAct" :label="t('instances.actions.revoke')" @click="onRevoke" />
@@ -97,6 +103,18 @@ async function onPresence(state: 'composing' | 'paused' | 'available' | 'unavail
           variant="soft"
           :label="t('instances.actions.paused')"
           @click="onPresence('paused')"
+        />
+        <UButton
+          :disabled="!canAct"
+          variant="soft"
+          :label="t('instances.actions.available')"
+          @click="onPresence('available')"
+        />
+        <UButton
+          :disabled="!canAct"
+          variant="soft"
+          :label="t('instances.actions.unavailable')"
+          @click="onPresence('unavailable')"
         />
       </div>
     </div>

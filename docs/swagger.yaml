@@ -143,6 +143,20 @@ definitions:
       status:
         type: string
     type: object
+  httpapi.markReadRequest:
+    properties:
+      chat:
+        type: string
+      message_id:
+        type: string
+      sender:
+        type: string
+    type: object
+  httpapi.markReadResponse:
+    properties:
+      marked_read:
+        type: boolean
+    type: object
   httpapi.messageAcceptedResponse:
     properties:
       message_id:
@@ -200,7 +214,31 @@ definitions:
       normalized:
         type: string
     type: object
+  httpapi.pairPhoneRequest:
+    properties:
+      phone:
+        type: string
+    type: object
+  httpapi.pairPhoneResponse:
+    properties:
+      expires_at:
+        type: string
+      pairing_code:
+        type: string
+    type: object
   httpapi.patchQuotaRequest:
+    type: object
+  httpapi.presenceRequest:
+    properties:
+      chat:
+        type: string
+      state:
+        type: string
+    type: object
+  httpapi.presenceResponse:
+    properties:
+      sent:
+        type: boolean
     type: object
   httpapi.readiness:
     properties:
@@ -210,6 +248,20 @@ definitions:
         type: object
       status:
         type: string
+    type: object
+  httpapi.revokeRequest:
+    properties:
+      chat:
+        type: string
+      message_id:
+        type: string
+    type: object
+  httpapi.revokeResponse:
+    properties:
+      reason:
+        type: string
+      revoked:
+        type: boolean
     type: object
   httpapi.rotateAPIKeyResponse:
     properties:
@@ -742,6 +794,75 @@ paths:
       summary: Rotate an instance API key
       tags:
       - apikeys
+  /instances/{id}/chats/mark-read:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Mark-read payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.markReadRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Receipt sent, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.markReadResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Invalid chat, message id, or missing group sender
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Send a read receipt
+      tags:
+      - messages
   /instances/{id}/connect:
     post:
       parameters:
@@ -1189,6 +1310,75 @@ paths:
       summary: Send a media message
       tags:
       - messages
+  /instances/{id}/messages/revoke:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Revoke payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.revokeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Revoked, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.revokeResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Invalid chat or message id
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Revoke a sent message
+      tags:
+      - messages
   /instances/{id}/messages/text:
     post:
       consumes:
@@ -1331,6 +1521,144 @@ paths:
       summary: Check a phone number
       tags:
       - numbers
+  /instances/{id}/pair-phone:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Phone payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.pairPhoneRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Pairing code, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.pairPhoneResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: No open pairing channel, or already connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Invalid phone number
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Pair by phone code
+      tags:
+      - connection
+  /instances/{id}/presence:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Presence payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.presenceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Published, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.presenceResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Invalid chat or unknown state
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Send a presence signal
+      tags:
+      - presence
   /instances/{id}/qr:
     get:
       parameters:

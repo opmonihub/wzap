@@ -768,6 +768,112 @@ const docTemplate = `{
                 }
             }
         },
+        "/instances/{id}/chats/mark-read": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Send a read receipt",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Mark-read payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.markReadRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Receipt sent, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.markReadResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid chat, message id, or missing group sender",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/instances/{id}/connect": {
             "post": {
                 "security": [
@@ -1377,6 +1483,112 @@ const docTemplate = `{
                 }
             }
         },
+        "/instances/{id}/messages/revoke": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Revoke a sent message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Revoke payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.revokeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Revoked, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.revokeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid chat or message id",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/instances/{id}/messages/text": {
             "post": {
                 "security": [
@@ -1665,6 +1877,218 @@ const docTemplate = `{
                     },
                     "503": {
                         "description": "Number resolution unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/pair-phone": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "connection"
+                ],
+                "summary": "Pair by phone code",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Phone payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.pairPhoneRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pairing code, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.pairPhoneResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "No open pairing channel, or already connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid phone number",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/presence": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "presence"
+                ],
+                "summary": "Send a presence signal",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Presence payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.presenceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Published, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.presenceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid chat or unknown state",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         }
@@ -2534,6 +2958,28 @@ const docTemplate = `{
                 }
             }
         },
+        "httpapi.markReadRequest": {
+            "type": "object",
+            "properties": {
+                "chat": {
+                    "type": "string"
+                },
+                "message_id": {
+                    "type": "string"
+                },
+                "sender": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.markReadResponse": {
+            "type": "object",
+            "properties": {
+                "marked_read": {
+                    "type": "boolean"
+                }
+            }
+        },
         "httpapi.messageAcceptedResponse": {
             "type": "object",
             "properties": {
@@ -2622,8 +3068,46 @@ const docTemplate = `{
                 }
             }
         },
+        "httpapi.pairPhoneRequest": {
+            "type": "object",
+            "properties": {
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.pairPhoneResponse": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "string"
+                },
+                "pairing_code": {
+                    "type": "string"
+                }
+            }
+        },
         "httpapi.patchQuotaRequest": {
             "type": "object"
+        },
+        "httpapi.presenceRequest": {
+            "type": "object",
+            "properties": {
+                "chat": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.presenceResponse": {
+            "type": "object",
+            "properties": {
+                "sent": {
+                    "type": "boolean"
+                }
+            }
         },
         "httpapi.readiness": {
             "type": "object",
@@ -2636,6 +3120,28 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string"
+                }
+            }
+        },
+        "httpapi.revokeRequest": {
+            "type": "object",
+            "properties": {
+                "chat": {
+                    "type": "string"
+                },
+                "message_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.revokeResponse": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string"
+                },
+                "revoked": {
+                    "type": "boolean"
                 }
             }
         },

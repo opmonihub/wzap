@@ -92,6 +92,8 @@ func New(cfg config.Config, log zerolog.Logger, deps Deps) *http.Server {
 	api.Handle("POST /instances/{id}/messages/media", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleSendMedia(deps.Instances, deps.Messages, deps.Media, cfg.MaxMediaBytes)))
 	api.HandleFunc("GET /instances/{id}/messages", handleListMessages(deps.Instances, deps.Messages))
 	api.HandleFunc("GET /instances/{id}/messages/{message_id}", handleGetMessage(deps.Instances, deps.Messages))
+	api.HandleFunc("POST /instances/{id}/messages/revoke", handleRevokeMessage(deps.Instances, log))
+	api.HandleFunc("POST /instances/{id}/chats/mark-read", handleMarkRead(deps.Instances, log))
 	api.HandleFunc("GET /media/{id}", handleGetMedia(deps.Instances, deps.Media))
 	api.HandleFunc("POST /users", handleCreateUser(deps.Users, cfg.DefaultUserQuota))
 	api.HandleFunc("GET /users", handleListUsers(deps.Users))

@@ -21,25 +21,61 @@ import (
 // configure each outcome and the recorded fields expose the calls the handlers
 // made.
 type fakeInstanceService struct {
-	createFn      func(ctx context.Context, input instance.CreateInput) (*model.Instance, string, error)
-	oldestAdminFn func(ctx context.Context) (uuid.UUID, error)
-	getFn         func(ctx context.Context, id uuid.UUID) (*model.Instance, error)
-	listFn        func(ctx context.Context, limit int, cursor string) ([]model.Instance, string, error)
-	updateFn      func(ctx context.Context, id uuid.UUID, input instance.UpdateInput) (*model.Instance, error)
-	deleteFn      func(ctx context.Context, id uuid.UUID) error
-	disconnectFn  func(ctx context.Context, id uuid.UUID) error
-	connectFn     func(ctx context.Context, id uuid.UUID) (instance.ConnectResult, error)
-	qrFn          func(ctx context.Context, id uuid.UUID) (instance.ConnectResult, error)
+	createFn       func(ctx context.Context, input instance.CreateInput) (*model.Instance, string, error)
+	oldestAdminFn  func(ctx context.Context) (uuid.UUID, error)
+	getFn          func(ctx context.Context, id uuid.UUID) (*model.Instance, error)
+	listFn         func(ctx context.Context, limit int, cursor string) ([]model.Instance, string, error)
+	updateFn       func(ctx context.Context, id uuid.UUID, input instance.UpdateInput) (*model.Instance, error)
+	deleteFn       func(ctx context.Context, id uuid.UUID) error
+	disconnectFn   func(ctx context.Context, id uuid.UUID) error
+	connectFn      func(ctx context.Context, id uuid.UUID) (instance.ConnectResult, error)
+	qrFn           func(ctx context.Context, id uuid.UUID) (instance.ConnectResult, error)
+	revokeFn       func(ctx context.Context, id uuid.UUID, chatJID, messageID string) error
+	markReadFn     func(ctx context.Context, id uuid.UUID, chatJID, senderJID, messageID string) error
+	sendPresenceFn func(ctx context.Context, id uuid.UUID, chatJID, state string) error
+	pairPhoneFn    func(ctx context.Context, id uuid.UUID, phone string) (instance.PairPhoneResult, error)
 
-	createInputs  []instance.CreateInput
-	updateInputs  []instance.UpdateInput
-	getIDs        []uuid.UUID
-	deleteIDs     []uuid.UUID
-	disconnectIDs []uuid.UUID
-	connectIDs    []uuid.UUID
-	qrIDs         []uuid.UUID
-	listLimit     int
-	listCursor    string
+	createInputs   []instance.CreateInput
+	updateInputs   []instance.UpdateInput
+	getIDs         []uuid.UUID
+	deleteIDs      []uuid.UUID
+	disconnectIDs  []uuid.UUID
+	connectIDs     []uuid.UUID
+	qrIDs          []uuid.UUID
+	revokeCalls    []revokeCall
+	markReadCalls  []markReadCall
+	presenceCalls  []presenceCall
+	pairPhoneCalls []pairPhoneCall
+	listLimit      int
+	listCursor     string
+}
+
+// revokeCall records one RevokeMessage call received by the fake.
+type revokeCall struct {
+	InstanceID uuid.UUID
+	ChatJID    string
+	MessageID  string
+}
+
+// markReadCall records one MarkRead call received by the fake.
+type markReadCall struct {
+	InstanceID uuid.UUID
+	ChatJID    string
+	SenderJID  string
+	MessageID  string
+}
+
+// presenceCall records one SendPresence call received by the fake.
+type presenceCall struct {
+	InstanceID uuid.UUID
+	ChatJID    string
+	State      string
+}
+
+// pairPhoneCall records one PairPhone call received by the fake.
+type pairPhoneCall struct {
+	InstanceID uuid.UUID
+	Phone      string
 }
 
 // Create records the input and returns the configured instance with its
@@ -129,6 +165,42 @@ func (f *fakeInstanceService) QR(ctx context.Context, id uuid.UUID) (instance.Co
 	}
 	expiresAt := time.Now().Add(time.Minute)
 	return instance.ConnectResult{Status: "pairing", QRCode: "qr-code", QRExpiresAt: &expiresAt}, nil
+}
+
+// RevokeMessage records the call and returns the configured error.
+func (f *fakeInstanceService) RevokeMessage(ctx context.Context, id uuid.UUID, chatJID, messageID string) error {
+	f.revokeCalls = append(f.revokeCalls, revokeCall{InstanceID: id, ChatJID: chatJID, MessageID: messageID})
+	if f.revokeFn != nil {
+		return f.revokeFn(ctx, id, chatJID, messageID)
+	}
+	return nil
+}
+
+// MarkRead records the call and returns the configured error.
+func (f *fakeInstanceService) MarkRead(ctx context.Context, id uuid.UUID, chatJID, senderJID, messageID string) error {
+	f.markReadCalls = append(f.markReadCalls, markReadCall{InstanceID: id, ChatJID: chatJID, SenderJID: senderJID, MessageID: messageID})
+	if f.markReadFn != nil {
+		return f.markReadFn(ctx, id, chatJID, senderJID, messageID)
+	}
+	return nil
+}
+
+// SendPresence records the call and returns the configured error.
+func (f *fakeInstanceService) SendPresence(ctx context.Context, id uuid.UUID, chatJID, state string) error {
+	f.presenceCalls = append(f.presenceCalls, presenceCall{InstanceID: id, ChatJID: chatJID, State: state})
+	if f.sendPresenceFn != nil {
+		return f.sendPresenceFn(ctx, id, chatJID, state)
+	}
+	return nil
+}
+
+// PairPhone records the call and returns the configured result.
+func (f *fakeInstanceService) PairPhone(ctx context.Context, id uuid.UUID, phone string) (instance.PairPhoneResult, error) {
+	f.pairPhoneCalls = append(f.pairPhoneCalls, pairPhoneCall{InstanceID: id, Phone: phone})
+	if f.pairPhoneFn != nil {
+		return f.pairPhoneFn(ctx, id, phone)
+	}
+	return instance.PairPhoneResult{Code: "12345678", ExpiresAt: time.Now().Add(time.Minute)}, nil
 }
 
 // instancesServer builds the server under test with svc as the instance service.

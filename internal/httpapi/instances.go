@@ -40,6 +40,10 @@ type InstanceService interface {
 	Disconnect(ctx context.Context, id uuid.UUID) error
 	Connect(ctx context.Context, id uuid.UUID) (instance.ConnectResult, error)
 	QR(ctx context.Context, id uuid.UUID) (instance.ConnectResult, error)
+	RevokeMessage(ctx context.Context, id uuid.UUID, chatJID, messageID string) error
+	MarkRead(ctx context.Context, id uuid.UUID, chatJID, senderJID, messageID string) error
+	SendPresence(ctx context.Context, id uuid.UUID, chatJID, state string) error
+	PairPhone(ctx context.Context, id uuid.UUID, phone string) (instance.PairPhoneResult, error)
 }
 
 // The service satisfies the handler contract; the assertion catches signature
@@ -640,6 +644,12 @@ func writeInstanceError(w http.ResponseWriter, r *http.Request, err error) {
 		Error(w, r, http.StatusBadRequest, "invalid_request", "invalid cursor")
 	case errors.Is(err, instance.ErrAlreadyConnected):
 		Error(w, r, http.StatusConflict, "conflict", "instance already connected")
+	case errors.Is(err, instance.ErrNotConnected):
+		Error(w, r, http.StatusConflict, "conflict", "instance not connected")
+	case errors.Is(err, instance.ErrNoPairingChannel):
+		Error(w, r, http.StatusConflict, "conflict", "no open pairing channel")
+	case errors.Is(err, instance.ErrInvalidInput):
+		Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "invalid operation input")
 	case errors.Is(err, instance.ErrOwnerNotFound):
 		Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "unknown owner")
 	case errors.Is(err, instance.ErrInvalidWebhook):

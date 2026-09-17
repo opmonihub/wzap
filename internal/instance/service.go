@@ -47,6 +47,16 @@ var (
 	// type). The handler maps it to 422 and the failed write persists
 	// nothing.
 	ErrInvalidWebhook = errors.New("invalid webhook config")
+	// ErrNotConnected reports that an operation needed a connected session
+	// while the instance session is offline. The handler maps it to 409.
+	ErrNotConnected = errors.New("instance not connected")
+	// ErrInvalidInput reports that an operation target (chat, sender or
+	// message id) or payload is invalid. The handler maps it to 422.
+	ErrInvalidInput = errors.New("invalid operation input")
+	// ErrNoPairingChannel reports that phone pairing found no open pairing
+	// channel: PairPhone needs a prior Connect, like the QR flow. The
+	// handler maps it to 409.
+	ErrNoPairingChannel = errors.New("no open pairing channel")
 )
 
 // ConnectResult is the outcome of a pairing request: the resulting status and,
@@ -55,6 +65,13 @@ type ConnectResult struct {
 	Status      session.Status
 	QRCode      string
 	QRExpiresAt *time.Time
+}
+
+// PairPhoneResult is the outcome of a phone pairing request: the 8-digit
+// code and the expiry of the pairing channel it was issued on.
+type PairPhoneResult struct {
+	Code      string
+	ExpiresAt time.Time
 }
 
 // MediaRemover deletes the media files and rows of an instance. It is declared
@@ -535,6 +552,116 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 		return mapError("delete instance", err)
 	}
 	return nil
+}
+
+// RevokeMessage revokes a sent message for everyone in the chat through the
+// instance session. It is synchronous and direct: no outbox, no retry. A
+// disconnected session is ErrNotConnected and a malformed target is
+// ErrInvalidInput; anything else is returned unchanged for a 500.
+func (s *Service) RevokeMessage(ctx context.Context, id uuid.UUID, chatJID, messageID string) error {
+	instance, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return mapError("revoke message", err)
+	}
+
+	sess, err := s.sessionFor(ctx, instance)
+	if err != nil {
+		return fmt.Errorf("revoke message: create session: %w", err)
+	}
+	if err := sess.DeleteMessage(ctx, chatJID, messageID); err != nil {
+		return mapSessionError("revoke message", err)
+	}
+	return nil
+}
+
+// MarkRead sends a read receipt for messageID in chatJID through the instance
+// session. An empty senderJID falls back to the chat JID for direct chats;
+// group reads carry the author. Error mapping follows RevokeMessage.
+func (s *Service) MarkRead(ctx context.Context, id uuid.UUID, chatJID, senderJID, messageID string) error {
+	instance, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return mapError("mark read", err)
+	}
+
+	sess, err := s.sessionFor(ctx, instance)
+	if err != nil {
+		return fmt.Errorf("mark read: create session: %w", err)
+	}
+	if err := sess.MarkRead(ctx, chatJID, senderJID, messageID); err != nil {
+		return mapSessionError("mark read", err)
+	}
+	return nil
+}
+
+// SendPresence reports chat presence ("composing"/"paused") or user presence
+// ("available"/"unavailable") through the instance session. There is no
+// continuous mode: one call publishes one signal. Error mapping follows
+// RevokeMessage.
+func (s *Service) SendPresence(ctx context.Context, id uuid.UUID, chatJID, state string) error {
+	instance, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return mapError("send presence", err)
+	}
+
+	sess, err := s.sessionFor(ctx, instance)
+	if err != nil {
+		return fmt.Errorf("send presence: create session: %w", err)
+	}
+	if err := sess.SendPresence(ctx, chatJID, state); err != nil {
+		return mapSessionError("send presence", err)
+	}
+	return nil
+}
+
+// PairPhone requests the 8-digit pairing code for phone without scanning a QR
+// code. The instance must hold an open pairing channel (Connect first): a
+// connected instance is ErrAlreadyConnected and any other non-pairing state
+// is ErrNoPairingChannel, both answered 409. The code expires with the QR
+// channel, so the returned expiry is the channel expiry. The channel is never
+// opened implicitly.
+func (s *Service) PairPhone(ctx context.Context, id uuid.UUID, phone string) (PairPhoneResult, error) {
+	instance, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return PairPhoneResult{}, mapError("pair phone", err)
+	}
+
+	sess, err := s.sessionFor(ctx, instance)
+	if err != nil {
+		return PairPhoneResult{}, fmt.Errorf("pair phone: create session: %w", err)
+	}
+	switch sess.Status() {
+	case session.StatusConnected:
+		return PairPhoneResult{}, fmt.Errorf("pair phone: %w", ErrAlreadyConnected)
+	case session.StatusPairing:
+		// An open channel: request the code below.
+	default:
+		return PairPhoneResult{}, fmt.Errorf("pair phone: %w", ErrNoPairingChannel)
+	}
+
+	code, err := sess.PairPhone(ctx, phone)
+	if err != nil {
+		return PairPhoneResult{}, mapSessionError("pair phone", err)
+	}
+	_, expiresAt, err := sess.QR(ctx)
+	if err != nil {
+		return PairPhoneResult{}, fmt.Errorf("pair phone: read channel expiry: %w", err)
+	}
+	return PairPhoneResult{Code: code, ExpiresAt: expiresAt}, nil
+}
+
+// mapSessionError translates a session call failure into the service sentinel
+// the HTTP layer maps to a status code, preserving the operation context for
+// the logs. Unknown failures pass through unchanged for a 500 without leaking
+// their cause (the handler never echoes them).
+func mapSessionError(op string, err error) error {
+	switch {
+	case errors.Is(err, session.ErrNotConnected):
+		return fmt.Errorf("%s: %w", op, ErrNotConnected)
+	case errors.Is(err, session.ErrInvalidRecipient):
+		return fmt.Errorf("%s: %w", op, ErrInvalidInput)
+	default:
+		return fmt.Errorf("%s: %w", op, err)
+	}
 }
 
 // mapError translates a storage error into the service sentinel the HTTP layer

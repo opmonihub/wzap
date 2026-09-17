@@ -225,6 +225,8 @@ func instanceRouteCases(target uuid.UUID, mediaID uuid.UUID) []struct {
 		{name: "send contact", method: http.MethodPost, path: "/instances/" + target.String() + "/messages/contact", body: `{"to":"5547988359190","display_name":"Fulano","vcard":"BEGIN:VCARD"}`},
 		{name: "get message", method: http.MethodGet, path: "/instances/" + target.String() + "/messages/" + msgID},
 		{name: "list messages", method: http.MethodGet, path: "/instances/" + target.String() + "/messages"},
+		{name: "revoke message", method: http.MethodPost, path: "/instances/" + target.String() + "/messages/revoke", body: `{"chat":"5511999887766@s.whatsapp.net","message_id":"ORIG-1"}`},
+		{name: "mark read", method: http.MethodPost, path: "/instances/" + target.String() + "/chats/mark-read", body: `{"chat":"5511999887766@s.whatsapp.net","message_id":"ORIG-9"}`},
 		{name: "download media of instance", method: http.MethodGet, path: "/media/" + mediaID.String()},
 	}
 }

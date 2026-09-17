@@ -8,11 +8,13 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-const { getProfile, updateProfile } = useInstanceProfile()
+const toast = useToast()
+const { getProfile, updateProfile, setProfilePhoto } = useInstanceProfile()
 
 const profile = ref<Profile | null>(null)
 const name = ref('')
 const recado = ref('')
+const photoFile = ref<File | null>(null)
 const failure = ref<string | null>(null)
 const unsupported = ref(false)
 const canAct = computed(() => props.status === 'connected')
@@ -41,11 +43,36 @@ async function onSave() {
   }
   try {
     profile.value = await updateProfile(props.instanceId, { name: trimmedName, status_text: recado.value })
+    toast.add({ title: t('instances.profile.saved'), icon: 'i-lucide-check', color: 'success' })
   } catch (error) {
     if (error instanceof ApiError && error.status === 501) {
       unsupported.value = true
     } else {
       failure.value = error instanceof ApiError ? error.message : t('instances.send.failed')
+    }
+  }
+}
+
+async function onPhoto() {
+  if (!photoFile.value) {
+    failure.value = t('instances.send.fileRequired')
+    return
+  }
+  if (!photoFile.value.type.startsWith('image/')) {
+    failure.value = t('instances.send.unsupportedFile')
+    return
+  }
+  failure.value = null
+  unsupported.value = false
+  try {
+    await setProfilePhoto(props.instanceId, photoFile.value)
+    photoFile.value = null
+    toast.add({ title: t('instances.profile.photoUpdated'), icon: 'i-lucide-check', color: 'success' })
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 501) {
+      unsupported.value = true
+    } else {
+      failure.value = error instanceof ApiError ? error.message : t('instances.profile.photoFailed')
     }
   }
 }
@@ -82,6 +109,12 @@ watch(() => props.instanceId, () => void load(), { immediate: true })
       </UFormField>
       <div class="flex justify-end">
         <UButton :disabled="!canAct" :label="t('common.save')" @click="onSave" />
+      </div>
+      <UFormField :label="t('instances.profile.photo')" :hint="t('instances.profile.photoHint')">
+        <UFileUpload v-model="photoFile" accept="image/*" variant="area" />
+      </UFormField>
+      <div class="flex justify-end">
+        <UButton :disabled="!canAct || !photoFile" variant="soft" :label="t('instances.profile.uploadPhoto')" @click="onPhoto" />
       </div>
     </div>
   </UPageCard>

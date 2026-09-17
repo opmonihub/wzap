@@ -7,7 +7,6 @@ import ChatwootCard from '~/components/instances/ChatwootCard.vue'
 import DeleteInstanceModal from '~/components/instances/DeleteInstanceModal.vue'
 import DeviceActionsCard from '~/components/instances/DeviceActionsCard.vue'
 import GroupDetail from '~/components/instances/GroupDetail.vue'
-import InstanceHeaderStats from '~/components/instances/InstanceHeaderStats.vue'
 import MessageActionsCard from '~/components/instances/MessageActionsCard.vue'
 import MessageComposer from '~/components/instances/MessageComposer.vue'
 import { useConfirmDelete } from '~/components/instances/ConfirmDelete'
@@ -56,7 +55,6 @@ const revoking = ref(false)
 const messagesRefresh = ref(0)
 
 const section = ref('overview')
-const chatwootEnabled = ref<boolean | null>(false)
 
 // Section switching rides on each item's onSelect: UNavigationMenu does not
 // reliably emit update:modelValue for these items (observed: the active pill
@@ -312,7 +310,7 @@ await load()
           </template>
         </UAlert>
 
-        <div v-else-if="instance" class="flex w-full max-w-6xl flex-col gap-4">
+        <div v-else-if="instance" class="flex w-full flex-col gap-4 sm:gap-6">
           <UDashboardToolbar>
             <UNavigationMenu
               :model-value="section"
@@ -321,9 +319,8 @@ await load()
               :items="sections"
             />
           </UDashboardToolbar>
-          <InstanceHeaderStats :instance="instance" :chatwoot-enabled="chatwootEnabled" />
 
-          <div v-if="section === 'overview'" class="mx-auto flex w-full flex-col gap-4 lg:max-w-2xl">
+          <div v-if="section === 'overview'" class="mx-auto flex w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl">
             <UCard>
               <template #header>
                 <h2 class="font-medium text-highlighted">
@@ -471,30 +468,30 @@ await load()
             </div>
           </div>
 
-          <div v-else-if="section === 'groups'" class="mx-auto flex w-full flex-col gap-4 lg:max-w-2xl">
+          <div v-else-if="section === 'groups'" class="mx-auto flex w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl">
             <GroupDetail :instance-id="instance.id" :status="instance.status" />
           </div>
 
-          <div v-else-if="section === 'channels'" class="mx-auto flex w-full flex-col gap-4 lg:max-w-2xl">
+          <div v-else-if="section === 'channels'" class="mx-auto flex w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl">
             <ChannelsCard :instance-id="instance.id" :status="instance.status" />
           </div>
 
-          <div v-else-if="section === 'profile'" class="mx-auto flex w-full flex-col gap-4 lg:max-w-2xl">
+          <div v-else-if="section === 'profile'" class="mx-auto flex w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl">
             <ProfileCard :instance-id="instance.id" :status="instance.status" />
             <PrivacyCard :instance-id="instance.id" :status="instance.status" />
             <DeviceActionsCard :instance-id="instance.id" :status="instance.status" />
           </div>
 
-          <div v-else-if="section === 'integrations'" class="mx-auto flex w-full flex-col gap-4 lg:max-w-2xl">
+          <div v-else-if="section === 'integrations'" class="mx-auto flex w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl">
             <WebhookCard
               :instance="instance"
               @updated="onWebhookUpdated"
             />
 
-            <ChatwootCard :instance-id="instance.id" :status="instance.status" @loaded="chatwootEnabled = $event" />
+            <ChatwootCard :instance-id="instance.id" :status="instance.status" />
           </div>
 
-          <div v-else class="mx-auto flex w-full flex-col gap-4 lg:max-w-2xl">
+          <div v-else class="mx-auto flex w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl">
             <UCard v-if="isAdmin">
               <template #header>
                 <h2 class="font-medium text-highlighted">

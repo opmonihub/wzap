@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ApiError } from '~/composables/useApi'
-import ChannelsCard from '~/components/instances/ChannelsCard.vue'
 import ChatwootCard from '~/components/instances/ChatwootCard.vue'
 import DeleteInstanceModal from '~/components/instances/DeleteInstanceModal.vue'
 import DeviceActionsCard from '~/components/instances/DeviceActionsCard.vue'
-import GroupDetail from '~/components/instances/GroupDetail.vue'
 import { useConfirmDelete } from '~/components/instances/ConfirmDelete'
+import InstanceChannelsSection from '~/components/instances/detail/InstanceChannelsSection.vue'
+import InstanceGroupsSection from '~/components/instances/detail/InstanceGroupsSection.vue'
 import InstanceMessagesSection from '~/components/instances/detail/InstanceMessagesSection.vue'
 import InstanceOverviewSection from '~/components/instances/detail/InstanceOverviewSection.vue'
 import InstanceSectionNav from '~/components/instances/detail/InstanceSectionNav.vue'
@@ -201,13 +201,17 @@ await load()
             :status="instance.status"
           />
 
-          <div v-else-if="section === 'groups'" class="flex w-full min-w-0 flex-col gap-4 sm:gap-6">
-            <GroupDetail :instance-id="instance.id" :status="instance.status" />
-          </div>
+          <InstanceGroupsSection
+            v-else-if="section === 'groups'"
+            :instance-id="instance.id"
+            :status="instance.status"
+          />
 
-          <div v-else-if="section === 'channels'" class="flex w-full min-w-0 flex-col gap-4 sm:gap-6">
-            <ChannelsCard :instance-id="instance.id" :status="instance.status" />
-          </div>
+          <InstanceChannelsSection
+            v-else-if="section === 'channels'"
+            :instance-id="instance.id"
+            :status="instance.status"
+          />
 
           <div v-else-if="section === 'profile'" class="flex w-full min-w-0 flex-col gap-4 sm:gap-6">
             <ProfileCard :instance-id="instance.id" :status="instance.status" />

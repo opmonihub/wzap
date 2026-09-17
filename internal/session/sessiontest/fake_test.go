@@ -28,6 +28,7 @@ type recordingSink struct {
 	pollVotes   []session.PollVote
 	reactions   []session.Reaction
 	interactive []session.InteractiveResponse
+	groupEvents []session.GroupEvent
 	receipts    []session.Receipt
 	connections []connectionCall
 }
@@ -54,6 +55,10 @@ func (r *recordingSink) OnReaction(_ context.Context, reaction session.Reaction)
 
 func (r *recordingSink) OnInteractiveResponse(_ context.Context, response session.InteractiveResponse) {
 	r.interactive = append(r.interactive, response)
+}
+
+func (r *recordingSink) OnGroupEvent(_ context.Context, event session.GroupEvent) {
+	r.groupEvents = append(r.groupEvents, event)
 }
 
 func (r *recordingSink) OnReceipt(_ context.Context, receipt session.Receipt) {

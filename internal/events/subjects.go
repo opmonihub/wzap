@@ -60,6 +60,18 @@ func (SubjectNamespace) InteractiveResponse(instanceID uuid.UUID) string {
 	return subject(instanceID, "message.interactive.response")
 }
 
+// GroupParticipants is the subject of the group membership events (members
+// joined, left, added or removed).
+func (SubjectNamespace) GroupParticipants(instanceID uuid.UUID) string {
+	return subject(instanceID, "group.participants")
+}
+
+// GroupInfo is the subject of the group metadata events (subject, topic or
+// picture changes).
+func (SubjectNamespace) GroupInfo(instanceID uuid.UUID) string {
+	return subject(instanceID, "group.info")
+}
+
 func subject(instanceID uuid.UUID, suffix string) string {
 	return subjectPrefix + instanceID.String() + "." + suffix
 }

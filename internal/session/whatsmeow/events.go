@@ -75,6 +75,16 @@ func (s *instanceSession) dispatch(evt any) {
 			return
 		}
 		s.sink.OnReceipt(context.Background(), receiptEvent(s.instanceID, e))
+	case *events.JoinedGroup:
+		if s.sink == nil {
+			return
+		}
+		s.sink.OnGroupEvent(context.Background(), joinedGroupEvent(s.instanceID, e))
+	case *events.GroupInfo:
+		if s.sink == nil {
+			return
+		}
+		s.sink.OnGroupEvent(context.Background(), groupChangeEvent(s.instanceID, e))
 	case *events.HistorySync:
 		s.observeHistorySync(e)
 	case *events.OfflineSyncPreview:
@@ -390,6 +400,60 @@ func senderJID(info types.MessageInfo) string {
 		return alt.String()
 	}
 	return info.Sender.String()
+}
+
+// optionalJID renders a JID pointer that the upstream may omit (the actor of
+// a group change is absent on invite notifications).
+func optionalJID(jid *types.JID) string {
+	if jid == nil {
+		return ""
+	}
+	return jid.String()
+}
+
+// joinedGroupEvent translates a self-join (invite accepted, added by someone
+// or group created) into a membership event. The affected list stays empty:
+// the subject of the join is the instance itself.
+func joinedGroupEvent(instanceID uuid.UUID, evt *events.JoinedGroup) session.GroupEvent {
+	return session.GroupEvent{
+		InstanceID: instanceID,
+		GroupJID:   evt.JID.String(),
+		Kind:       session.GroupEventParticipants,
+		ActorJID:   optionalJID(evt.Sender),
+		Timestamp:  time.Now().UTC(),
+		Raw:        captureRaw(evt),
+	}
+}
+
+// groupChangeEvent translates a group metadata notification away from the
+// library types. Membership moves (join, leave, promote, demote) become a
+// participants event carrying the actor and the affected members; anything
+// else becomes an info event snapshotting the new subject/topic.
+func groupChangeEvent(instanceID uuid.UUID, evt *events.GroupInfo) session.GroupEvent {
+	out := session.GroupEvent{
+		InstanceID: instanceID,
+		GroupJID:   evt.JID.String(),
+		ActorJID:   optionalJID(evt.Sender),
+		Timestamp:  evt.Timestamp,
+		Raw:        captureRaw(evt),
+	}
+	for _, moved := range [][]types.JID{evt.Join, evt.Leave, evt.Promote, evt.Demote} {
+		for _, jid := range moved {
+			out.Affected = append(out.Affected, jid.String())
+		}
+	}
+	if len(out.Affected) > 0 {
+		out.Kind = session.GroupEventParticipants
+		return out
+	}
+	out.Kind = session.GroupEventInfo
+	if evt.Name != nil {
+		out.Name = evt.Name.Name
+	}
+	if evt.Topic != nil {
+		out.Description = evt.Topic.Topic
+	}
+	return out
 }
 
 // messageText extracts the text of a message, using the caption of media

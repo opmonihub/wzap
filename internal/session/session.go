@@ -218,6 +218,34 @@ type NewsletterInfo struct {
 	FollowerCount int
 }
 
+// Group event kinds carried by GroupEvent.Kind: membership changes travel as
+// participants, subject/topic/picture changes as info.
+const (
+	// GroupEventParticipants marks a membership change: members joined, left,
+	// were added or were removed.
+	GroupEventParticipants = "participants"
+	// GroupEventInfo marks a metadata change: subject, topic or picture.
+	GroupEventInfo = "info"
+)
+
+// GroupEvent is a group change observed on the wire, translated away from the
+// library types. ActorJID is who made the change (empty when the upstream
+// carries none); Affected lists the members that joined, left or were
+// moved; Name and Description snapshot the new subject/topic on info events.
+type GroupEvent struct {
+	InstanceID  uuid.UUID
+	GroupJID    string
+	Kind        string
+	ActorJID    string
+	Affected    []string
+	Name        string
+	Description string
+	Timestamp   time.Time
+	// Raw is the best-effort JSON of the raw upstream event, captured by the
+	// adapter for webhook delivery. It is nil when the capture failed.
+	Raw json.RawMessage
+}
+
 // EventSink consumes session events. Implementations must be safe for
 // concurrent use and should not block the session for long.
 type EventSink interface {
@@ -227,6 +255,7 @@ type EventSink interface {
 	OnPollVote(ctx context.Context, vote PollVote)
 	OnReaction(ctx context.Context, reaction Reaction)
 	OnInteractiveResponse(ctx context.Context, response InteractiveResponse)
+	OnGroupEvent(ctx context.Context, event GroupEvent)
 	OnReceipt(ctx context.Context, receipt Receipt)
 	OnConnection(ctx context.Context, instanceID uuid.UUID, status Status, jid string, reason string)
 }

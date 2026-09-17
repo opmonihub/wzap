@@ -827,6 +827,14 @@ func (s *FakeSession) EmitInteractiveResponse(response session.InteractiveRespon
 	}
 }
 
+// EmitGroupEvent forwards a group change to the sink, when one was
+// configured.
+func (s *FakeSession) EmitGroupEvent(event session.GroupEvent) {
+	if s.sink != nil {
+		s.sink.OnGroupEvent(context.Background(), event)
+	}
+}
+
 // EmitReceipt forwards receipt to the sink, when one was configured.
 func (s *FakeSession) EmitReceipt(receipt session.Receipt) {
 	if s.sink != nil {

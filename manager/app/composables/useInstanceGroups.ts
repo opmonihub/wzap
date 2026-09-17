@@ -1,11 +1,21 @@
-import type { CreateGroupInput, Group, GroupInvite, UpdateGroupInput } from '~/types/api'
+import type {
+  CreateGroupInput,
+  Group,
+  GroupInvite,
+  GroupJoinResult,
+  GroupLeaveResult,
+  GroupParticipantsInput,
+  GroupUpdatedResult,
+  JoinGroupInput,
+  UpdateGroupInput
+} from '~/types/api'
 
 // Typed client for the 8 group routes. Name validation mirrors
 // handleCreateGroup (trimmed, 1..25 runes); a 201 with an empty invite_code
 // is partial (post-create invite lookup failed) and the caller reconciles via
 // getInvite instead of retrying create, which would duplicate the group.
 export function useInstanceGroups() {
-  const { api, raw } = useApi()
+  const { api } = useApi()
 
   async function createGroup(instanceId: string, input: CreateGroupInput): Promise<Group> {
     return await api<Group>(`/instances/${instanceId}/groups`, {
@@ -26,8 +36,8 @@ export function useInstanceGroups() {
   }
 
   // PUT octet-stream with Content-Type: image/*; mirrors handleSetGroupPhoto.
-  async function setGroupPhoto(instanceId: string, groupJid: string, file: File): Promise<{ updated: boolean }> {
-    return await api<{ updated: boolean }>(`/instances/${instanceId}/groups/${encodeURIComponent(groupJid)}/photo`, {
+  async function setGroupPhoto(instanceId: string, groupJid: string, file: File): Promise<GroupUpdatedResult> {
+    return await api<GroupUpdatedResult>(`/instances/${instanceId}/groups/${encodeURIComponent(groupJid)}/photo`, {
       method: 'PUT',
       headers: { 'Content-Type': file.type || 'image/jpeg' },
       body: file
@@ -37,12 +47,11 @@ export function useInstanceGroups() {
   async function updateParticipants(
     instanceId: string,
     groupJid: string,
-    action: 'add' | 'remove' | 'promote' | 'demote',
-    participants: string[]
-  ): Promise<{ updated: boolean }> {
-    return await api<{ updated: boolean }>(
+    input: GroupParticipantsInput
+  ): Promise<GroupUpdatedResult> {
+    return await api<GroupUpdatedResult>(
       `/instances/${instanceId}/groups/${encodeURIComponent(groupJid)}/participants`,
-      { method: 'POST', body: { action, participants } }
+      { method: 'POST', body: { action: input.action, participants: input.participants } }
     )
   }
 
@@ -57,16 +66,16 @@ export function useInstanceGroups() {
     )
   }
 
-  async function joinGroup(instanceId: string, inviteCode: string): Promise<{ jid: string }> {
-    return await api<{ jid: string }>(`/instances/${instanceId}/groups/join`, {
+  async function joinGroup(instanceId: string, inviteCode: string): Promise<GroupJoinResult> {
+    const body: JoinGroupInput = { invite_code: inviteCode.trim() }
+    return await api<GroupJoinResult>(`/instances/${instanceId}/groups/join`, {
       method: 'POST',
-      body: { invite_code: inviteCode.trim() }
+      body
     })
   }
 
-  async function leaveGroup(instanceId: string, groupJid: string): Promise<{ left: boolean }> {
-    await raw(`/instances/${instanceId}/groups/${encodeURIComponent(groupJid)}/leave`, { method: 'POST' })
-    return { left: true }
+  async function leaveGroup(instanceId: string, groupJid: string): Promise<GroupLeaveResult> {
+    return await api<GroupLeaveResult>(`/instances/${instanceId}/groups/${encodeURIComponent(groupJid)}/leave`, { method: 'POST' })
   }
 
   return { createGroup, getGroup, updateGroup, setGroupPhoto, updateParticipants, getInvite, resetInvite, joinGroup, leaveGroup }

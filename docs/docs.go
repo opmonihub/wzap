@@ -768,6 +768,118 @@ const docTemplate = `{
                 }
             }
         },
+        "/instances/{id}/calls/reject": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "calls"
+                ],
+                "summary": "Reject the active call",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Reject payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.rejectCallRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Rejected, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.rejectCallResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Missing call id or caller",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "501": {
+                        "description": "Upstream cannot reject the call",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/instances/{id}/chats/mark-read": {
             "post": {
                 "security": [
@@ -1067,7 +1179,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created, wrapped in the data envelope",
+                        "description": "Created, wrapped in the data envelope (invite_code empty when the post-create invite lookup fails; reconcile via GET .../invite, do not retry the create)",
                         "schema": {
                             "$ref": "#/definitions/httpapi.groupResponse"
                         }
@@ -3461,6 +3573,469 @@ const docTemplate = `{
                 }
             }
         },
+        "/instances/{id}/privacy": {
+            "get": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "privacy"
+                ],
+                "summary": "Get the own privacy settings",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Own privacy, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.privacyResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "privacy"
+                ],
+                "summary": "Update the own privacy settings",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Privacy patch",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.updatePrivacyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Applied settings, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.privacyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Empty patch or values outside the allowlists",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/profile": {
+            "get": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Get the own profile",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Own profile, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.profileResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Update the own profile",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Profile patch",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.updateProfileRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Refreshed profile, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.profileResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Empty patch or values outside the allowlists",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "501": {
+                        "description": "Upstream cannot apply the name change",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/profile/photo": {
+            "put": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/octet-stream"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Update the own profile photo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.profilePhotoResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "413": {
+                        "description": "Image exceeds the cap",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Missing or non image body",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "501": {
+                        "description": "Upstream cannot apply the photo",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/instances/{id}/qr": {
             "get": {
                 "security": [
@@ -3594,6 +4169,392 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/status/updates": {
+            "get": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "status"
+                ],
+                "summary": "List own statuses",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Own statuses, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.statusListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "status"
+                ],
+                "summary": "Publish a text status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Idempotency key, 24h replay per instance",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Status payload: type text plus its text",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.publishStatusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.statusPublishResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected, or key already in flight",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid type or text, or reused key",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/status/updates/media": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "status"
+                ],
+                "summary": "Publish an image or video status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Idempotency key, 24h replay per instance",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Media kind: image or video",
+                        "name": "type",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Caption, max 700 characters",
+                        "name": "caption",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Media file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.statusPublishResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid multipart body",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected, or key already in flight",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid file, mismatched type, or reused key",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/status/updates/{status_id}": {
+            "delete": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "status"
+                ],
+                "summary": "Delete an own status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Status ID",
+                        "name": "status_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.statusDeleteResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance or status not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         }
@@ -4580,6 +5541,26 @@ const docTemplate = `{
                 }
             }
         },
+        "httpapi.ownStatusResponse": {
+            "type": "object",
+            "properties": {
+                "caption": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
         "httpapi.pairPhoneRequest": {
             "type": "object",
             "properties": {
@@ -4621,6 +5602,59 @@ const docTemplate = `{
                 }
             }
         },
+        "httpapi.privacyResponse": {
+            "type": "object",
+            "properties": {
+                "groups_add": {
+                    "type": "string"
+                },
+                "last_seen": {
+                    "type": "string"
+                },
+                "profile_photo": {
+                    "type": "string"
+                },
+                "read_receipts": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.profilePhotoResponse": {
+            "type": "object",
+            "properties": {
+                "updated": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "httpapi.profileResponse": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "photo_url": {
+                    "type": "string"
+                },
+                "status_text": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.publishStatusRequest": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
         "httpapi.readiness": {
             "type": "object",
             "properties": {
@@ -4632,6 +5666,25 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string"
+                }
+            }
+        },
+        "httpapi.rejectCallRequest": {
+            "type": "object",
+            "properties": {
+                "call_id": {
+                    "type": "string"
+                },
+                "from": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.rejectCallResponse": {
+            "type": "object",
+            "properties": {
+                "rejected": {
+                    "type": "boolean"
                 }
             }
         },
@@ -4802,6 +5855,36 @@ const docTemplate = `{
                 }
             }
         },
+        "httpapi.statusDeleteResponse": {
+            "type": "object",
+            "properties": {
+                "deleted": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "httpapi.statusListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httpapi.ownStatusResponse"
+                    }
+                }
+            }
+        },
+        "httpapi.statusPublishResponse": {
+            "type": "object",
+            "properties": {
+                "message_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "httpapi.statusResponse": {
             "type": "object",
             "properties": {
@@ -4864,6 +5947,37 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "httpapi.updatePrivacyRequest": {
+            "type": "object",
+            "properties": {
+                "groups_add": {
+                    "type": "string"
+                },
+                "last_seen": {
+                    "type": "string"
+                },
+                "profile_photo": {
+                    "type": "string"
+                },
+                "read_receipts": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.updateProfileRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "status_text": {
+                    "type": "string"
                 }
             }
         },

@@ -52,6 +52,12 @@ type fakeInstanceService struct {
 	listStatusesFn       func(ctx context.Context, id uuid.UUID) ([]session.StatusInfo, error)
 	deleteStatusFn       func(ctx context.Context, id uuid.UUID, statusID string) error
 	rejectCallFn         func(ctx context.Context, id uuid.UUID, fromJID, callID string) error
+	getProfileFn         func(ctx context.Context, id uuid.UUID) (session.Profile, error)
+	setProfileNameFn     func(ctx context.Context, id uuid.UUID, name string) error
+	setProfileStatusFn   func(ctx context.Context, id uuid.UUID, text string) error
+	setProfilePhotoFn    func(ctx context.Context, id uuid.UUID, image []byte) error
+	getPrivacyFn         func(ctx context.Context, id uuid.UUID) (session.Privacy, error)
+	setPrivacyFn         func(ctx context.Context, id uuid.UUID, input session.Privacy) (session.Privacy, error)
 
 	createInputs            []instance.CreateInput
 	updateInputs            []instance.UpdateInput
@@ -81,6 +87,10 @@ type fakeInstanceService struct {
 	listStatusCalls         []uuid.UUID
 	deleteStatusCalls       []deleteStatusCall
 	rejectCallCalls         []rejectCallRecord
+	setProfileNameCalls     []profileNameCall
+	setProfileStatusCalls   []profileStatusCall
+	setProfilePhotoCalls    []profilePhotoCall
+	setPrivacyCalls         []privacyCall
 	listLimit               int
 	listCursor              string
 }
@@ -184,6 +194,31 @@ type rejectCallRecord struct {
 	InstanceID uuid.UUID
 	FromJID    string
 	CallID     string
+}
+
+// profileNameCall records one SetProfileName call received by the fake.
+type profileNameCall struct {
+	InstanceID uuid.UUID
+	Name       string
+}
+
+// profileStatusCall records one SetProfileStatusText call received by the
+// fake.
+type profileStatusCall struct {
+	InstanceID uuid.UUID
+	Text       string
+}
+
+// profilePhotoCall records one SetProfilePhoto call received by the fake.
+type profilePhotoCall struct {
+	InstanceID uuid.UUID
+	Image      []byte
+}
+
+// privacyCall records one SetPrivacy call received by the fake.
+type privacyCall struct {
+	InstanceID uuid.UUID
+	Input      session.Privacy
 }
 
 // Create records the input and returns the configured instance with its
@@ -462,6 +497,58 @@ func (f *fakeInstanceService) RejectCall(ctx context.Context, id uuid.UUID, from
 		return f.rejectCallFn(ctx, id, fromJID, callID)
 	}
 	return nil
+}
+
+// GetProfile records the call and returns the configured profile.
+func (f *fakeInstanceService) GetProfile(ctx context.Context, id uuid.UUID) (session.Profile, error) {
+	if f.getProfileFn != nil {
+		return f.getProfileFn(ctx, id)
+	}
+	return session.Profile{}, nil
+}
+
+// SetProfileName records the call and returns the configured error.
+func (f *fakeInstanceService) SetProfileName(ctx context.Context, id uuid.UUID, name string) error {
+	f.setProfileNameCalls = append(f.setProfileNameCalls, profileNameCall{InstanceID: id, Name: name})
+	if f.setProfileNameFn != nil {
+		return f.setProfileNameFn(ctx, id, name)
+	}
+	return nil
+}
+
+// SetProfileStatusText records the call and returns the configured error.
+func (f *fakeInstanceService) SetProfileStatusText(ctx context.Context, id uuid.UUID, text string) error {
+	f.setProfileStatusCalls = append(f.setProfileStatusCalls, profileStatusCall{InstanceID: id, Text: text})
+	if f.setProfileStatusFn != nil {
+		return f.setProfileStatusFn(ctx, id, text)
+	}
+	return nil
+}
+
+// SetProfilePhoto records the call and returns the configured error.
+func (f *fakeInstanceService) SetProfilePhoto(ctx context.Context, id uuid.UUID, image []byte) error {
+	f.setProfilePhotoCalls = append(f.setProfilePhotoCalls, profilePhotoCall{InstanceID: id, Image: image})
+	if f.setProfilePhotoFn != nil {
+		return f.setProfilePhotoFn(ctx, id, image)
+	}
+	return nil
+}
+
+// GetPrivacy records the call and returns the configured settings.
+func (f *fakeInstanceService) GetPrivacy(ctx context.Context, id uuid.UUID) (session.Privacy, error) {
+	if f.getPrivacyFn != nil {
+		return f.getPrivacyFn(ctx, id)
+	}
+	return session.Privacy{}, nil
+}
+
+// SetPrivacy records the call and returns the configured settings.
+func (f *fakeInstanceService) SetPrivacy(ctx context.Context, id uuid.UUID, input session.Privacy) (session.Privacy, error) {
+	f.setPrivacyCalls = append(f.setPrivacyCalls, privacyCall{InstanceID: id, Input: input})
+	if f.setPrivacyFn != nil {
+		return f.setPrivacyFn(ctx, id, input)
+	}
+	return session.Privacy{}, nil
 }
 
 // instancesServer builds the server under test with svc as the instance service.

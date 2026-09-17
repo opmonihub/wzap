@@ -62,6 +62,12 @@ type InstanceService interface {
 	ListStatuses(ctx context.Context, id uuid.UUID) ([]session.StatusInfo, error)
 	DeleteStatus(ctx context.Context, id uuid.UUID, statusID string) error
 	RejectCall(ctx context.Context, id uuid.UUID, fromJID, callID string) error
+	GetProfile(ctx context.Context, id uuid.UUID) (session.Profile, error)
+	SetProfileName(ctx context.Context, id uuid.UUID, name string) error
+	SetProfileStatusText(ctx context.Context, id uuid.UUID, text string) error
+	SetProfilePhoto(ctx context.Context, id uuid.UUID, image []byte) error
+	GetPrivacy(ctx context.Context, id uuid.UUID) (session.Privacy, error)
+	SetPrivacy(ctx context.Context, id uuid.UUID, input session.Privacy) (session.Privacy, error)
 }
 
 // The service satisfies the handler contract; the assertion catches signature

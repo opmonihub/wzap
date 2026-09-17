@@ -308,6 +308,19 @@ definitions:
       normalized:
         type: string
     type: object
+  httpapi.ownStatusResponse:
+    properties:
+      caption:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      text:
+        type: string
+      type:
+        type: string
+    type: object
   httpapi.pairPhoneRequest:
     properties:
       phone:
@@ -334,6 +347,40 @@ definitions:
       sent:
         type: boolean
     type: object
+  httpapi.privacyResponse:
+    properties:
+      groups_add:
+        type: string
+      last_seen:
+        type: string
+      profile_photo:
+        type: string
+      read_receipts:
+        type: string
+      status:
+        type: string
+    type: object
+  httpapi.profilePhotoResponse:
+    properties:
+      updated:
+        type: boolean
+    type: object
+  httpapi.profileResponse:
+    properties:
+      name:
+        type: string
+      photo_url:
+        type: string
+      status_text:
+        type: string
+    type: object
+  httpapi.publishStatusRequest:
+    properties:
+      text:
+        type: string
+      type:
+        type: string
+    type: object
   httpapi.readiness:
     properties:
       checks:
@@ -342,6 +389,18 @@ definitions:
         type: object
       status:
         type: string
+    type: object
+  httpapi.rejectCallRequest:
+    properties:
+      call_id:
+        type: string
+      from:
+        type: string
+    type: object
+  httpapi.rejectCallResponse:
+    properties:
+      rejected:
+        type: boolean
     type: object
   httpapi.revokeRequest:
     properties:
@@ -451,6 +510,25 @@ definitions:
       to:
         type: string
     type: object
+  httpapi.statusDeleteResponse:
+    properties:
+      deleted:
+        type: boolean
+    type: object
+  httpapi.statusListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/httpapi.ownStatusResponse'
+        type: array
+    type: object
+  httpapi.statusPublishResponse:
+    properties:
+      message_id:
+        type: string
+      status:
+        type: string
+    type: object
   httpapi.statusResponse:
     properties:
       last_connected_at:
@@ -492,6 +570,26 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  httpapi.updatePrivacyRequest:
+    properties:
+      groups_add:
+        type: string
+      last_seen:
+        type: string
+      profile_photo:
+        type: string
+      read_receipts:
+        type: string
+      status:
+        type: string
+    type: object
+  httpapi.updateProfileRequest:
+    properties:
+      name:
+        type: string
+      status_text:
+        type: string
     type: object
   httpapi.userQuotaResponse:
     properties:
@@ -966,6 +1064,79 @@ paths:
       summary: Rotate an instance API key
       tags:
       - apikeys
+  /instances/{id}/calls/reject:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Reject payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.rejectCallRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Rejected, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.rejectCallResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Missing call id or caller
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "501":
+          description: Upstream cannot reject the call
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Reject the active call
+      tags:
+      - calls
   /instances/{id}/chats/mark-read:
     post:
       consumes:
@@ -1156,7 +1327,9 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created, wrapped in the data envelope
+          description: Created, wrapped in the data envelope (invite_code empty when
+            the post-create invite lookup fails; reconcile via GET .../invite, do
+            not retry the create)
           schema:
             $ref: '#/definitions/httpapi.groupResponse'
         "400":
@@ -2723,6 +2896,307 @@ paths:
       summary: Send a presence signal
       tags:
       - presence
+  /instances/{id}/privacy:
+    get:
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Own privacy, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.privacyResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Get the own privacy settings
+      tags:
+      - privacy
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Privacy patch
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.updatePrivacyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Applied settings, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.privacyResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Empty patch or values outside the allowlists
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Update the own privacy settings
+      tags:
+      - privacy
+  /instances/{id}/profile:
+    get:
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Own profile, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.profileResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Get the own profile
+      tags:
+      - profile
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Profile patch
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.updateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Refreshed profile, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.profileResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Empty patch or values outside the allowlists
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "501":
+          description: Upstream cannot apply the name change
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Update the own profile
+      tags:
+      - profile
+  /instances/{id}/profile/photo:
+    put:
+      consumes:
+      - application/octet-stream
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.profilePhotoResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Image exceeds the cap
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Missing or non image body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "501":
+          description: Upstream cannot apply the photo
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Update the own profile photo
+      tags:
+      - profile
   /instances/{id}/qr:
     get:
       parameters:
@@ -2817,6 +3291,258 @@ paths:
       summary: Get connection status
       tags:
       - connection
+  /instances/{id}/status/updates:
+    get:
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Own statuses, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.statusListResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: List own statuses
+      tags:
+      - status
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Idempotency key, 24h replay per instance
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 'Status payload: type text plus its text'
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.publishStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.statusPublishResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected, or key already in flight
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Invalid type or text, or reused key
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Publish a text status
+      tags:
+      - status
+  /instances/{id}/status/updates/{status_id}:
+    delete:
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Status ID
+        in: path
+        name: status_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Deleted, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.statusDeleteResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance or status not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Delete an own status
+      tags:
+      - status
+  /instances/{id}/status/updates/media:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Idempotency key, 24h replay per instance
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 'Media kind: image or video'
+        in: formData
+        name: type
+        required: true
+        type: string
+      - description: Caption, max 700 characters
+        in: formData
+        name: caption
+        type: string
+      - description: Media file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.statusPublishResponse'
+        "400":
+          description: Invalid multipart body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected, or key already in flight
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Invalid file, mismatched type, or reused key
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Publish an image or video status
+      tags:
+      - status
   /instances/stats:
     get:
       parameters:

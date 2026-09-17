@@ -319,6 +319,29 @@ type CallEvent struct {
 	Raw json.RawMessage
 }
 
+// Profile is the own profile of the instance: the display name, the recado
+// (status text) and the photo URL (empty when the instance carries no photo
+// or the upstream reports none). The name is best-effort: the pinned library
+// exposes no profile fetch, so the adapter reports the device push name.
+type Profile struct {
+	Name       string
+	StatusText string
+	PhotoURL   string
+}
+
+// Privacy is the own privacy of the instance, one value per field. Every
+// field travels as the upstream literal: last_seen, profile_photo, status
+// and groups_add take all, contacts, contact_blacklist or none; read_receipts
+// takes all or none (the pinned library models it as a two-value switch, so
+// the API exposes the allowlist instead of a boolean — Ruling D3).
+type Privacy struct {
+	LastSeen     string
+	ProfilePhoto string
+	Status       string
+	ReadReceipts string
+	GroupsAdd    string
+}
+
 // EventSink consumes session events. Implementations must be safe for
 // concurrent use and should not block the session for long.
 type EventSink interface {
@@ -419,6 +442,25 @@ type Session interface {
 	// never initiates calls; when the upstream cannot reject, the adapter
 	// returns ErrUnsupported for the documented 501.
 	RejectCall(ctx context.Context, fromJID, callID string) error
+	// GetProfile returns the own profile of the instance (name, recado and
+	// photo URL).
+	GetProfile(ctx context.Context) (Profile, error)
+	// SetProfileName replaces the own display name. The pinned library
+	// exposes no setter, so the adapter returns ErrUnsupported for the
+	// documented 501.
+	SetProfileName(ctx context.Context, name string) error
+	// SetProfileStatusText replaces the own recado (status text). An empty
+	// text clears it.
+	SetProfileStatusText(ctx context.Context, text string) error
+	// SetProfilePhoto replaces the own photo with the image bytes (jpeg,
+	// png or webp). The pinned library exposes no setter, so the adapter
+	// returns ErrUnsupported for the documented 501.
+	SetProfilePhoto(ctx context.Context, image []byte) error
+	// GetPrivacy returns the own privacy settings, one value per field.
+	GetPrivacy(ctx context.Context) (Privacy, error)
+	// SetPrivacy applies the non-empty fields of input to the upstream
+	// privacy settings and returns the resulting settings.
+	SetPrivacy(ctx context.Context, input Privacy) (Privacy, error)
 	// HistorySyncSnapshot returns the accumulated history-sync feed of the
 	// instance (progress, conversation batches, contacts). The Import plan
 	// consumes it after pairing; each session accumulates only its own feed.

@@ -185,6 +185,23 @@ type RejectCallRecord struct {
 	CallID  string
 }
 
+// ProfileCall records one profile invocation: Op names the method (get, set,
+// set-name, set-status, set-photo) and the remaining fields carry its
+// arguments.
+type ProfileCall struct {
+	Op         string
+	Name       string
+	StatusText string
+	PhotoBytes int
+}
+
+// PrivacyCall records one privacy invocation: Op names the method (get, set)
+// and Input the applied settings on set calls.
+type PrivacyCall struct {
+	Op    string
+	Input session.Privacy
+}
+
 // defaultPairPhoneCode is the pairing code a fake returns when the test did
 // not configure one.
 const defaultPairPhoneCode = "12345678"
@@ -221,6 +238,11 @@ type FakeSession struct {
 	// CallErr, when set, is returned by RejectCall. It lets tests force the
 	// 409/501 paths without a live call.
 	CallErr error
+	// ProfileErr, when set, is returned by every profile method; PrivacyErr
+	// by every privacy method. They let tests force the 409/501 paths
+	// without upstream state.
+	ProfileErr error
+	PrivacyErr error
 
 	// PairPhoneCode is returned by PairPhone; empty falls back to
 	// defaultPairPhoneCode.
@@ -242,6 +264,8 @@ type FakeSession struct {
 	newsletterCalls   []NewsletterCall
 	statusCalls       []StatusCall
 	rejectCalls       []RejectCallRecord
+	profileCalls      []ProfileCall
+	privacyCalls      []PrivacyCall
 
 	// groups is the in-memory group directory keyed by group JID; invites
 	// maps the invite code to the group JID. Seed them with PutGroup or let
@@ -253,6 +277,10 @@ type FakeSession struct {
 	// statuses is the in-memory registry of the own statuses published
 	// through this fake, keyed by status id.
 	statuses map[string]session.StatusInfo
+	// profile is the in-memory own profile; privacy the in-memory own
+	// privacy settings.
+	profile session.Profile
+	privacy session.Privacy
 
 	// history accumulates the history-sync feed the Import plan consumes.
 	// The zero value is ready to use.
@@ -759,6 +787,109 @@ func (s *FakeSession) RejectCalls() []RejectCallRecord {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]RejectCallRecord(nil), s.rejectCalls...)
+}
+
+// GetProfile records the call and returns the in-memory profile, or the
+// forced ProfileErr.
+func (s *FakeSession) GetProfile(_ context.Context) (session.Profile, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.profileCalls = append(s.profileCalls, ProfileCall{Op: "get"})
+	if s.ProfileErr != nil {
+		return session.Profile{}, s.ProfileErr
+	}
+	return s.profile, nil
+}
+
+// SetProfileName records the call and renames the in-memory profile, or
+// returns the forced ProfileErr.
+func (s *FakeSession) SetProfileName(_ context.Context, name string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.profileCalls = append(s.profileCalls, ProfileCall{Op: "set-name", Name: name})
+	if s.ProfileErr != nil {
+		return s.ProfileErr
+	}
+	s.profile.Name = name
+	return nil
+}
+
+// SetProfileStatusText records the call and re-texts the in-memory recado,
+// or returns the forced ProfileErr.
+func (s *FakeSession) SetProfileStatusText(_ context.Context, text string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.profileCalls = append(s.profileCalls, ProfileCall{Op: "set-status", StatusText: text})
+	if s.ProfileErr != nil {
+		return s.ProfileErr
+	}
+	s.profile.StatusText = text
+	return nil
+}
+
+// SetProfilePhoto records the call and returns the forced ProfileErr; the
+// bytes themselves are not stored.
+func (s *FakeSession) SetProfilePhoto(_ context.Context, image []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.profileCalls = append(s.profileCalls, ProfileCall{Op: "set-photo", PhotoBytes: len(image)})
+	if s.ProfileErr != nil {
+		return s.ProfileErr
+	}
+	return nil
+}
+
+// ProfileCalls returns the profile calls, in order.
+func (s *FakeSession) ProfileCalls() []ProfileCall {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]ProfileCall(nil), s.profileCalls...)
+}
+
+// GetPrivacy records the call and returns the in-memory privacy, or the
+// forced PrivacyErr.
+func (s *FakeSession) GetPrivacy(_ context.Context) (session.Privacy, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.privacyCalls = append(s.privacyCalls, PrivacyCall{Op: "get"})
+	if s.PrivacyErr != nil {
+		return session.Privacy{}, s.PrivacyErr
+	}
+	return s.privacy, nil
+}
+
+// SetPrivacy records the call, applies the non-empty fields to the in-memory
+// privacy and returns it, or returns the forced PrivacyErr.
+func (s *FakeSession) SetPrivacy(_ context.Context, input session.Privacy) (session.Privacy, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.privacyCalls = append(s.privacyCalls, PrivacyCall{Op: "set", Input: input})
+	if s.PrivacyErr != nil {
+		return session.Privacy{}, s.PrivacyErr
+	}
+	if input.LastSeen != "" {
+		s.privacy.LastSeen = input.LastSeen
+	}
+	if input.ProfilePhoto != "" {
+		s.privacy.ProfilePhoto = input.ProfilePhoto
+	}
+	if input.Status != "" {
+		s.privacy.Status = input.Status
+	}
+	if input.ReadReceipts != "" {
+		s.privacy.ReadReceipts = input.ReadReceipts
+	}
+	if input.GroupsAdd != "" {
+		s.privacy.GroupsAdd = input.GroupsAdd
+	}
+	return s.privacy, nil
+}
+
+// PrivacyCalls returns the privacy calls, in order.
+func (s *FakeSession) PrivacyCalls() []PrivacyCall {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]PrivacyCall(nil), s.privacyCalls...)
 }
 
 // NewsletterCalls returns the newsletter calls, in order.

@@ -1,17 +1,16 @@
 <script setup lang="ts">
 import { ApiError } from '~/composables/useApi'
-import ChatwootCard from '~/components/instances/ChatwootCard.vue'
 import DeleteInstanceModal from '~/components/instances/DeleteInstanceModal.vue'
 import { useConfirmDelete } from '~/components/instances/ConfirmDelete'
 import InstanceChannelsSection from '~/components/instances/detail/InstanceChannelsSection.vue'
 import InstanceGroupsSection from '~/components/instances/detail/InstanceGroupsSection.vue'
+import InstanceIntegrationsSection from '~/components/instances/detail/InstanceIntegrationsSection.vue'
 import InstanceMessagesSection from '~/components/instances/detail/InstanceMessagesSection.vue'
 import InstanceOverviewSection from '~/components/instances/detail/InstanceOverviewSection.vue'
 import InstanceProfileSection from '~/components/instances/detail/InstanceProfileSection.vue'
 import InstanceSectionNav from '~/components/instances/detail/InstanceSectionNav.vue'
 import InstanceStatusBadge from '~/components/instances/InstanceStatusBadge.vue'
 import OneTimeKeyDisplay from '~/components/instances/OneTimeKeyDisplay.vue'
-import WebhookCard from '~/components/instances/WebhookCard.vue'
 import type { Instance, RotatedInstanceKey } from '~/types/api'
 
 const { t } = useI18n()
@@ -63,12 +62,6 @@ async function load() {
 function onDeleted() {
   toast.add({ title: t('instances.detail.deleted'), icon: 'i-lucide-check', color: 'success' })
   navigateTo('/instances')
-}
-
-// The webhook card emits the stored instance answered by its PATCH; the
-// detail keeps showing the persisted configuration.
-function onWebhookUpdated(updated: Instance) {
-  instance.value = updated
 }
 
 async function onGenerate() {
@@ -217,14 +210,11 @@ await load()
             :status="instance.status"
           />
 
-          <div v-else-if="section === 'integrations'" class="flex w-full min-w-0 flex-col gap-4 sm:gap-6">
-            <WebhookCard
-              :instance="instance"
-              @updated="onWebhookUpdated"
-            />
-
-            <ChatwootCard :instance-id="instance.id" :status="instance.status" />
-          </div>
+          <InstanceIntegrationsSection
+            v-else-if="section === 'integrations'"
+            :instance="instance"
+            @webhook-updated="(value: Instance) => { instance = value }"
+          />
 
           <div v-else class="flex w-full min-w-0 flex-col gap-4 sm:gap-6">
             <UPageCard v-if="isAdmin" :title="t('instances.key.cardTitle')" variant="subtle">

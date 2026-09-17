@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ApiError } from '~/composables/useApi'
-import MessageStatusBadge from '~/components/instances/MessageStatusBadge.vue'
 import type { OutboundMessage } from '~/types/api'
 
 // Message history for one instance: first page on mount, manual refresh and
@@ -21,6 +20,8 @@ const pending = ref(true)
 const loadingMore = ref(false)
 const refreshing = ref(false)
 const failure = ref<string | null>(null)
+const selectedId = ref<string | null>(null)
+const selectedMessage = computed(() => items.value.find(m => m.id === selectedId.value) ?? null)
 
 async function loadFirst() {
   pending.value = true
@@ -74,14 +75,6 @@ async function loadMore() {
   } finally {
     loadingMore.value = false
   }
-}
-
-function formatDateTime(value: string | null): string {
-  if (!value) {
-    return t('common.notSet')
-  }
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString()
 }
 
 watch(() => props.instanceId, () => {
@@ -142,55 +135,8 @@ await loadFirst()
     />
 
     <div v-else class="flex flex-col gap-3">
-      <UCard v-for="message in items" :key="message.id" variant="subtle">
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <span class="font-mono text-xs text-muted">{{ message.type }}</span>
-          <span class="min-w-0 flex-1 truncate font-mono text-sm text-highlighted">{{ message.recipient }}</span>
-          <MessageStatusBadge :status="message.status" />
-        </div>
-        <dl class="mt-2 flex flex-col gap-1 text-sm">
-          <div v-if="message.whatsapp_message_id" class="flex justify-between gap-4">
-            <dt class="text-muted">
-              {{ t('instances.messages.whatsappId') }}
-            </dt>
-            <dd class="truncate font-mono text-highlighted">
-              {{ message.whatsapp_message_id }}
-            </dd>
-          </div>
-          <div v-if="message.last_error" class="flex justify-between gap-4">
-            <dt class="text-muted">
-              {{ t('instances.messages.lastError') }}
-            </dt>
-            <dd class="text-right text-highlighted">
-              {{ message.last_error }}
-            </dd>
-          </div>
-          <div class="flex justify-between gap-4">
-            <dt class="text-muted">
-              {{ t('instances.messages.createdAt') }}
-            </dt>
-            <dd class="text-highlighted">
-              {{ formatDateTime(message.created_at) }}
-            </dd>
-          </div>
-          <div v-if="message.delivered_at" class="flex justify-between gap-4">
-            <dt class="text-muted">
-              {{ t('instances.messages.deliveredAt') }}
-            </dt>
-            <dd class="text-highlighted">
-              {{ formatDateTime(message.delivered_at) }}
-            </dd>
-          </div>
-          <div v-if="message.read_at" class="flex justify-between gap-4">
-            <dt class="text-muted">
-              {{ t('instances.messages.readAt') }}
-            </dt>
-            <dd class="text-highlighted">
-              {{ formatDateTime(message.read_at) }}
-            </dd>
-          </div>
-        </dl>
-      </UCard>
+      <ConversationList v-model="selectedId" :items="items" :empty-title="t('instances.messages.empty')" />
+      <MessageDetail :message="selectedMessage" />
 
       <div v-if="nextCursor !== ''" class="flex justify-center pt-2">
         <UButton

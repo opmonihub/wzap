@@ -87,60 +87,35 @@ await refresh()
       <!-- Initial load renders skeletons; after the first fetch the snapshot
         stays on screen across retries (useOverview never clears stats/items
         on failure), with the alert and retry rendered inline. -->
-      <div v-if="pending && !stats" class="flex flex-col gap-4">
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-6">
-          <USkeleton class="h-28 w-full" />
-          <USkeleton class="h-28 w-full" />
-          <USkeleton class="h-28 w-full" />
-          <USkeleton class="h-28 w-full" />
-        </div>
-        <USkeleton class="h-96 w-full" />
-      </div>
-
-      <UAlert
-        v-else-if="failure && !stats"
-        color="error"
-        variant="subtle"
-        :title="t('overview.loadFailed')"
-        :description="failure"
-      >
-        <template #actions>
-          <UButton
+      <PageState :pending="pending" :error="failure && !stats ? failure : null" @retry="refresh">
+        <div v-if="stats" class="flex flex-col gap-4 sm:gap-6">
+          <UAlert
+            v-if="failure"
             color="error"
-            variant="soft"
-            :label="t('common.retry')"
-            @click="refresh"
+            variant="subtle"
+            :title="t('overview.loadFailed')"
+            :description="failure"
+          >
+            <template #actions>
+              <UButton
+                color="error"
+                variant="soft"
+                :label="t('common.retry')"
+                @click="refresh"
+              />
+            </template>
+          </UAlert>
+          <UAlert
+            v-if="fallback"
+            color="warning"
+            variant="subtle"
+            :title="t('overview.fallbackNotice')"
           />
-        </template>
-      </UAlert>
-
-      <div v-else-if="stats" class="flex flex-col gap-4 sm:gap-6">
-        <UAlert
-          v-if="failure"
-          color="error"
-          variant="subtle"
-          :title="t('overview.loadFailed')"
-          :description="failure"
-        >
-          <template #actions>
-            <UButton
-              color="error"
-              variant="soft"
-              :label="t('common.retry')"
-              @click="refresh"
-            />
-          </template>
-        </UAlert>
-        <UAlert
-          v-if="fallback"
-          color="warning"
-          variant="subtle"
-          :title="t('overview.fallbackNotice')"
-        />
-        <OverviewStats :stats="stats" />
-        <OverviewChart :period="period" :range="range" :items="items" />
-        <OverviewRecent :recent="recent" :listing-failed="listingFailed" @retry="refresh" />
-      </div>
+          <OverviewStats :stats="stats" />
+          <OverviewChart :period="period" :range="range" :items="items" />
+          <OverviewRecent :recent="recent" :listing-failed="listingFailed" @retry="refresh" />
+        </div>
+      </PageState>
     </template>
   </UDashboardPanel>
 </template>

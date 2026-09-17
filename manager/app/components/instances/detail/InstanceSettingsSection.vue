@@ -77,10 +77,6 @@ async function onRevoke() {
 watch(() => props.instance.id, (nextId: string) => {
   keySeen.value = hasSeenInstanceKey(nextId)
 }, { immediate: true })
-
-onMounted(() => {
-  keySeen.value = hasSeenInstanceKey(props.instance.id)
-})
 </script>
 
 <template>

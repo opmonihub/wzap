@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ApiError } from '~/composables/useApi'
+import ConversationList from '~/components/instances/ConversationList.vue'
+import MessageDetail from '~/components/instances/MessageDetail.vue'
 import type { OutboundMessage } from '~/types/api'
 
 // Message history for one instance: first page on mount, manual refresh and

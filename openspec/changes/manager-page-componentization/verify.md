@@ -56,6 +56,14 @@ Page sizes (`wc -l`, target budgets from plan.md in parens):
 
 - `git add openspec/changes/manager-page-componentization/verify.md` only, committed as `docs(specs): verify manager page componentization`. AGENTS.md left uncommitted; no other file staged.
 
+## 6. Re-apply session (subagent-driven, 2026-09-17)
+
+- Auditoria somente-leitura das tarefas 1.1–5.2 contra o plan (relatório em `.superpowers/sdd/plan/audit-report.md`, git-ignored): 13/16 CONFORME integral; resto com extensões compatíveis documentadas (emit `create` extra nas duas tabelas, prop `bulkDeleting`, tetos de linhas subestimados — grep confirma zero `UTable|UModal|UForm` em `pages/`).
+- Único fix de código: redundância trivial `onMounted` + watcher `immediate` em `InstanceSettingsSection.vue` → commit `69963a5` (`refactor(manager): drop redundant onMounted keySeen init in settings section`), re-revisão escopada: ADDRESSED, sem breakage.
+- Gates re-executados após o fix: `typecheck` exit 0, `lint` 0 errors + 2 warnings plan-mandated, `build` exit 0.
+- `tasks.md`: itens 1.2–6.1 marcados `[x]` (1.1 já estava).
+- Toolchain Go indisponível nesta sessão (`go`/`gofmt` off-PATH); sem arquivos `.go` tocados (`git status` mostra só `manager/` + `openspec/` + `AGENTS.md` pré-existente).
+
 ## 5. Final-review acknowledgements (fix wave, 2026-09-17)
 
 - (a) UCard → UPageCard: the branch carries UCard→UPageCard conversions from the carried-in baseline plus new UPageCard wrappers in detail sections — accepted as visual-neutral pending human visual pass.

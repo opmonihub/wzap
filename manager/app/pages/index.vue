@@ -87,7 +87,7 @@ await refresh()
       <!-- Initial load renders skeletons; after the first fetch the snapshot
         stays on screen across retries (useOverview never clears stats/items
         on failure), with the alert and retry rendered inline. -->
-      <PageState :pending="pending" :error="failure && !stats ? failure : null" @retry="refresh">
+      <PageState :pending="pending && !stats" :error="failure && !stats ? failure : null" @retry="refresh">
         <div v-if="stats" class="flex flex-col gap-4 sm:gap-6">
           <UAlert
             v-if="failure"

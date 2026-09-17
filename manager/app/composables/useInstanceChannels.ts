@@ -1,21 +1,28 @@
-import type { Newsletter, NewsletterListPage, OwnStatus, StatusPublishResult } from '~/types/api'
+import type {
+  Newsletter,
+  NewsletterFollowResult,
+  NewsletterListPage,
+  StatusDeleteResult,
+  StatusListPage,
+  StatusPublishResult
+} from '~/types/api'
 
 // Typed client for newsletters (4 routes) and own statuses (4 routes).
 // Text/caption validation mirrors status.go: trimmed 1..700 characters;
 // media kind is image|video only. Publish is fire-and-forget (no outbox
 // retry); the 202 answer carries message_id with idempotency replay.
 export function useInstanceChannels() {
-  const { api, raw } = useApi()
+  const { api } = useApi()
 
-  async function followNewsletter(instanceId: string, channel: string): Promise<{ followed: boolean }> {
-    return await api<{ followed: boolean }>(`/instances/${instanceId}/newsletters/follow`, {
+  async function followNewsletter(instanceId: string, channel: string): Promise<NewsletterFollowResult> {
+    return await api<NewsletterFollowResult>(`/instances/${instanceId}/newsletters/follow`, {
       method: 'POST',
       body: { channel: channel.trim() }
     })
   }
 
-  async function unfollowNewsletter(instanceId: string, channel: string): Promise<{ followed: boolean }> {
-    return await api<{ followed: boolean }>(`/instances/${instanceId}/newsletters/unfollow`, {
+  async function unfollowNewsletter(instanceId: string, channel: string): Promise<NewsletterFollowResult> {
+    return await api<NewsletterFollowResult>(`/instances/${instanceId}/newsletters/unfollow`, {
       method: 'POST',
       body: { channel: channel.trim() }
     })
@@ -57,13 +64,12 @@ export function useInstanceChannels() {
     })
   }
 
-  async function listStatuses(instanceId: string): Promise<{ items: OwnStatus[] }> {
-    return await api<{ items: OwnStatus[] }>(`/instances/${instanceId}/status/updates`)
+  async function listStatuses(instanceId: string): Promise<StatusListPage> {
+    return await api<StatusListPage>(`/instances/${instanceId}/status/updates`)
   }
 
-  async function deleteStatus(instanceId: string, statusId: string): Promise<{ deleted: boolean }> {
-    await raw(`/instances/${instanceId}/status/updates/${encodeURIComponent(statusId)}`, { method: 'DELETE' })
-    return { deleted: true }
+  async function deleteStatus(instanceId: string, statusId: string): Promise<StatusDeleteResult> {
+    return await api<StatusDeleteResult>(`/instances/${instanceId}/status/updates/${encodeURIComponent(statusId)}`, { method: 'DELETE' })
   }
 
   return {

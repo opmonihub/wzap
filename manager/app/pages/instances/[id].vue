@@ -2,17 +2,15 @@
 import { ApiError } from '~/composables/useApi'
 import ChatwootCard from '~/components/instances/ChatwootCard.vue'
 import DeleteInstanceModal from '~/components/instances/DeleteInstanceModal.vue'
-import DeviceActionsCard from '~/components/instances/DeviceActionsCard.vue'
 import { useConfirmDelete } from '~/components/instances/ConfirmDelete'
 import InstanceChannelsSection from '~/components/instances/detail/InstanceChannelsSection.vue'
 import InstanceGroupsSection from '~/components/instances/detail/InstanceGroupsSection.vue'
 import InstanceMessagesSection from '~/components/instances/detail/InstanceMessagesSection.vue'
 import InstanceOverviewSection from '~/components/instances/detail/InstanceOverviewSection.vue'
+import InstanceProfileSection from '~/components/instances/detail/InstanceProfileSection.vue'
 import InstanceSectionNav from '~/components/instances/detail/InstanceSectionNav.vue'
 import InstanceStatusBadge from '~/components/instances/InstanceStatusBadge.vue'
 import OneTimeKeyDisplay from '~/components/instances/OneTimeKeyDisplay.vue'
-import PrivacyCard from '~/components/instances/PrivacyCard.vue'
-import ProfileCard from '~/components/instances/ProfileCard.vue'
 import WebhookCard from '~/components/instances/WebhookCard.vue'
 import type { Instance, RotatedInstanceKey } from '~/types/api'
 
@@ -213,11 +211,11 @@ await load()
             :status="instance.status"
           />
 
-          <div v-else-if="section === 'profile'" class="flex w-full min-w-0 flex-col gap-4 sm:gap-6">
-            <ProfileCard :instance-id="instance.id" :status="instance.status" />
-            <PrivacyCard :instance-id="instance.id" :status="instance.status" />
-            <DeviceActionsCard :instance-id="instance.id" :status="instance.status" />
-          </div>
+          <InstanceProfileSection
+            v-else-if="section === 'profile'"
+            :instance-id="instance.id"
+            :status="instance.status"
+          />
 
           <div v-else-if="section === 'integrations'" class="flex w-full min-w-0 flex-col gap-4 sm:gap-6">
             <WebhookCard

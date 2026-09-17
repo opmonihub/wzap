@@ -144,7 +144,12 @@ watch(() => props.instanceId, () => {
         <div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
           <UInput v-model="channel" :placeholder="t('instances.channels.channelPlaceholder')" class="w-full font-mono" />
           <div class="flex w-fit shrink-0 gap-2">
-            <UButton :disabled="!canAct" variant="soft" :label="t('instances.channels.lookup')" @click="onLookup" />
+            <UButton
+              :disabled="!canAct"
+              variant="soft"
+              :label="t('instances.channels.lookup')"
+              @click="onLookup"
+            />
             <UButton :disabled="!canAct" :label="t('instances.channels.follow')" @click="onFollow" />
           </div>
         </div>
@@ -163,7 +168,13 @@ watch(() => props.instanceId, () => {
           <span class="block truncate font-medium text-highlighted">{{ lookedUp.title || lookedUp.channel }}</span>
           <span class="block truncate text-sm text-muted">{{ lookedUp.channel }} · {{ lookedUp.follower_count }}</span>
         </span>
-        <UButton :disabled="!canAct" size="xs" variant="soft" :label="t('instances.channels.follow')" @click="onFollow" />
+        <UButton
+          :disabled="!canAct"
+          size="xs"
+          variant="soft"
+          :label="t('instances.channels.follow')"
+          @click="onFollow"
+        />
       </li>
       <li v-for="item in followed" :key="item.channel" class="flex min-w-0 items-center gap-3 px-4 py-3 sm:px-6">
         <UAvatar :alt="item.title || item.channel" size="md" />
@@ -171,7 +182,14 @@ watch(() => props.instanceId, () => {
           <span class="block truncate font-medium text-highlighted">{{ item.title || item.channel }}</span>
           <span class="block truncate text-sm text-muted">{{ item.channel }} · {{ item.follower_count }}</span>
         </span>
-        <UButton :disabled="!canAct" size="xs" variant="ghost" color="error" :label="t('instances.channels.unfollow')" @click="onUnfollow(item.channel)" />
+        <UButton
+          :disabled="!canAct"
+          size="xs"
+          variant="ghost"
+          color="error"
+          :label="t('instances.channels.unfollow')"
+          @click="onUnfollow(item.channel)"
+        />
       </li>
       <li v-for="item in statuses.filter(entry => (entry.text ?? '') !== '' || (entry.caption ?? '') !== '')" :key="item.id" class="flex min-w-0 items-center gap-3 px-4 py-3 sm:px-6">
         <span class="min-w-0 flex-1 rounded-2xl bg-elevated px-3 py-2 text-sm text-highlighted">
@@ -206,9 +224,19 @@ watch(() => props.instanceId, () => {
           />
         </div>
         <div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-          <USelect v-model="statusKind" :items="statusKinds" :placeholder="t('instances.channels.statusKind')" class="w-full sm:w-32" />
+          <USelect
+            v-model="statusKind"
+            :items="statusKinds"
+            :placeholder="t('instances.channels.statusKind')"
+            class="w-full sm:w-32"
+          />
           <UFileUpload v-model="statusFile" accept="image/*,video/*" class="w-full" />
-          <UInput v-model="statusCaption" maxlength="700" class="w-full" :placeholder="t('instances.send.caption')" />
+          <UInput
+            v-model="statusCaption"
+            maxlength="700"
+            class="w-full"
+            :placeholder="t('instances.send.caption')"
+          />
           <UButton
             :disabled="!canAct || !statusFile"
             class="w-fit shrink-0"

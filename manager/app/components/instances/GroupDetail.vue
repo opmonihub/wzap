@@ -224,7 +224,12 @@ async function onLeave() {
         <UInput v-model="jid" :placeholder="t('instances.groups.search')" class="w-full font-mono" />
         <div class="flex flex-wrap gap-2">
           <UButton :disabled="!canAct" :label="t('instances.groups.lookup')" @click="onLookup" />
-          <UButton :disabled="!canAct" variant="soft" :label="t('instances.groups.create')" @click="createOpen = true" />
+          <UButton
+            :disabled="!canAct"
+            variant="soft"
+            :label="t('instances.groups.create')"
+            @click="createOpen = true"
+          />
           <UButton
             :disabled="!canAct"
             variant="soft"
@@ -255,10 +260,20 @@ async function onLeave() {
         </span>
       </div>
       <div class="flex flex-col gap-2">
-        <UInput v-model="editName" maxlength="25" :placeholder="t('instances.groups.name')" class="w-full" />
+        <UInput
+          v-model="editName"
+          maxlength="25"
+          :placeholder="t('instances.groups.name')"
+          class="w-full"
+        />
         <UInput v-model="editDescription" :placeholder="t('instances.groups.description')" class="w-full" />
         <div class="flex justify-end">
-          <UButton :disabled="!canAct" variant="soft" :label="t('instances.groups.update')" @click="onUpdate" />
+          <UButton
+            :disabled="!canAct"
+            variant="soft"
+            :label="t('instances.groups.update')"
+            @click="onUpdate"
+          />
         </div>
       </div>
       <div class="flex flex-col gap-2">
@@ -266,22 +281,63 @@ async function onLeave() {
           {{ t('instances.groups.inviteCode') }}: {{ invite || t('common.notSet') }}
         </p>
         <div class="flex flex-wrap gap-2">
-          <UButton :disabled="!canAct" variant="soft" :label="t('instances.groups.getInvite')" @click="onGetInvite" />
-          <UButton :disabled="!canAct" variant="soft" :label="t('instances.groups.resetInvite')" @click="onResetInvite" />
-          <UButton :disabled="!canAct || !invite" variant="soft" :label="t('instances.groups.copyInvite')" @click="onCopyInvite" />
+          <UButton
+            :disabled="!canAct"
+            variant="soft"
+            :label="t('instances.groups.getInvite')"
+            @click="onGetInvite"
+          />
+          <UButton
+            :disabled="!canAct"
+            variant="soft"
+            :label="t('instances.groups.resetInvite')"
+            @click="onResetInvite"
+          />
+          <UButton
+            :disabled="!canAct || !invite"
+            variant="soft"
+            :label="t('instances.groups.copyInvite')"
+            @click="onCopyInvite"
+          />
         </div>
       </div>
       <div class="flex flex-col gap-2">
-        <UFileUpload v-model="photoFile" accept="image/*" :hint="t('instances.groups.photoHint')" variant="area" />
+        <UFileUpload
+          v-model="photoFile"
+          accept="image/*"
+          :hint="t('instances.groups.photoHint')"
+          variant="area"
+        />
         <div class="flex justify-end">
-          <UButton :disabled="!canAct || !photoFile" variant="soft" :label="t('instances.groups.uploadPhoto')" @click="onPhoto" />
+          <UButton
+            :disabled="!canAct || !photoFile"
+            variant="soft"
+            :label="t('instances.groups.uploadPhoto')"
+            @click="onPhoto"
+          />
         </div>
       </div>
       <div class="flex flex-col gap-2">
-        <USelect v-model="participantAction" :items="participantActions" :placeholder="t('instances.groups.participantsAction')" class="w-full" />
-        <UTextarea v-model="participantJids" :rows="3" :placeholder="t('instances.groups.participants')" :hint="t('instances.groups.participantsHint')" class="w-full font-mono" />
+        <USelect
+          v-model="participantAction"
+          :items="participantActions"
+          :placeholder="t('instances.groups.participantsAction')"
+          class="w-full"
+        />
+        <UTextarea
+          v-model="participantJids"
+          :rows="3"
+          :placeholder="t('instances.groups.participants')"
+          :hint="t('instances.groups.participantsHint')"
+          class="w-full font-mono"
+        />
         <div class="flex justify-end">
-          <UButton :disabled="!canAct" variant="soft" :label="t('instances.groups.participants')" @click="onParticipants" />
+          <UButton
+            :disabled="!canAct"
+            variant="soft"
+            :label="t('instances.groups.participants')"
+            @click="onParticipants"
+          />
         </div>
       </div>
       <ul class="divide-y divide-default">
@@ -294,7 +350,12 @@ async function onLeave() {
     <UEmpty v-else icon="i-lucide-users" :title="t('instances.groups.empty')" />
     <UModal v-model:open="createOpen" :title="t('instances.groups.create')">
       <template #body>
-        <UInput v-model="newName" maxlength="25" :placeholder="t('instances.groups.name')" class="w-full" />
+        <UInput
+          v-model="newName"
+          maxlength="25"
+          :placeholder="t('instances.groups.name')"
+          class="w-full"
+        />
       </template>
       <template #footer>
         <UButton :label="t('instances.groups.create')" @click="onCreate" />

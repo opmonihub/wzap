@@ -114,7 +114,12 @@ watch(() => props.instanceId, () => void load(), { immediate: true })
         <UFileUpload v-model="photoFile" accept="image/*" variant="area" />
       </UFormField>
       <div class="flex justify-end">
-        <UButton :disabled="!canAct || !photoFile" variant="soft" :label="t('instances.profile.uploadPhoto')" @click="onPhoto" />
+        <UButton
+          :disabled="!canAct || !photoFile"
+          variant="soft"
+          :label="t('instances.profile.uploadPhoto')"
+          @click="onPhoto"
+        />
       </div>
     </div>
   </UPageCard>

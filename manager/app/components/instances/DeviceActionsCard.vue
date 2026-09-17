@@ -79,10 +79,30 @@ async function onReject() {
       />
       <UInput v-model="chat" :placeholder="t('instances.actions.chatPlaceholder')" class="w-full font-mono" />
       <div class="flex flex-wrap gap-2">
-        <UButton :disabled="!canAct" variant="soft" :label="t('instances.actions.composing')" @click="onPresence('composing')" />
-        <UButton :disabled="!canAct" variant="soft" :label="t('instances.actions.paused')" @click="onPresence('paused')" />
-        <UButton :disabled="!canAct" variant="soft" :label="t('instances.actions.available')" @click="onPresence('available')" />
-        <UButton :disabled="!canAct" variant="soft" :label="t('instances.actions.unavailable')" @click="onPresence('unavailable')" />
+        <UButton
+          :disabled="!canAct"
+          variant="soft"
+          :label="t('instances.actions.composing')"
+          @click="onPresence('composing')"
+        />
+        <UButton
+          :disabled="!canAct"
+          variant="soft"
+          :label="t('instances.actions.paused')"
+          @click="onPresence('paused')"
+        />
+        <UButton
+          :disabled="!canAct"
+          variant="soft"
+          :label="t('instances.actions.available')"
+          @click="onPresence('available')"
+        />
+        <UButton
+          :disabled="!canAct"
+          variant="soft"
+          :label="t('instances.actions.unavailable')"
+          @click="onPresence('unavailable')"
+        />
       </div>
       <div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
         <UInput v-model="callId" :placeholder="t('instances.actions.callIdPlaceholder')" class="w-full font-mono" />

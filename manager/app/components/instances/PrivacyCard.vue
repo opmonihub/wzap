@@ -18,7 +18,7 @@ const { getPrivacy, setPrivacy } = useInstanceProfile()
 const privacy = ref<Privacy | null>(null)
 const lastSeen = ref('all')
 const profilePhoto = ref('all')
-const status = ref('all')
+const statusPrivacy = ref('all')
 const readReceipts = ref('all')
 const groupsAdd = ref('all')
 const failure = ref<string | null>(null)
@@ -42,7 +42,7 @@ async function load() {
     privacy.value = await getPrivacy(props.instanceId)
     lastSeen.value = privacy.value.last_seen
     profilePhoto.value = privacy.value.profile_photo
-    status.value = privacy.value.status
+    statusPrivacy.value = privacy.value.status
     readReceipts.value = privacy.value.read_receipts
     groupsAdd.value = privacy.value.groups_add
   } catch (error) {
@@ -56,7 +56,7 @@ async function onSave() {
     privacy.value = await setPrivacy(props.instanceId, {
       last_seen: lastSeen.value as Privacy['last_seen'],
       profile_photo: profilePhoto.value as Privacy['profile_photo'],
-      status: status.value as Privacy['status'],
+      status: statusPrivacy.value as Privacy['status'],
       read_receipts: readReceipts.value as Privacy['read_receipts'],
       groups_add: groupsAdd.value as Privacy['groups_add']
     })
@@ -91,7 +91,7 @@ watch(() => props.instanceId, () => void load(), { immediate: true })
         <USelect v-model="profilePhoto" :items="allowOptions" class="w-full" />
       </UFormField>
       <UFormField :label="t('instances.privacy.status')">
-        <USelect v-model="status" :items="allowOptions" class="w-full" />
+        <USelect v-model="statusPrivacy" :items="allowOptions" class="w-full" />
       </UFormField>
       <UFormField :label="t('instances.privacy.readReceipts')">
         <USelect v-model="readReceipts" :items="receiptOptions" class="w-full" />

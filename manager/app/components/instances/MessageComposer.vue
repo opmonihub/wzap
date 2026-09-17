@@ -298,28 +298,61 @@ watch(() => props.instanceId, () => {
       </div>
       <div v-else-if="tab === 'contact'" class="flex flex-col gap-2">
         <UInput v-model="displayName" :placeholder="t('instances.send.displayName')" class="w-full" />
-        <UTextarea v-model="vcard" :rows="4" :placeholder="t('instances.send.vcard')" class="w-full font-mono" />
+        <UTextarea
+          v-model="vcard"
+          :rows="4"
+          :placeholder="t('instances.send.vcard')"
+          class="w-full font-mono"
+        />
       </div>
       <div v-else-if="tab === 'poll'" class="flex flex-col gap-2">
         <UInput v-model="question" :placeholder="t('instances.send.question')" class="w-full" />
-        <UTextarea v-model="options" :rows="3" :placeholder="t('instances.send.options')" :hint="t('instances.send.optionsHint')" class="w-full" />
+        <UTextarea
+          v-model="options"
+          :rows="3"
+          :placeholder="t('instances.send.options')"
+          :hint="t('instances.send.optionsHint')"
+          class="w-full"
+        />
         <UInput v-model="selectableCount" :placeholder="t('instances.send.selectableCount')" class="w-full font-mono" />
       </div>
       <div v-else-if="tab === 'reaction'" class="flex flex-col gap-2 sm:flex-row">
         <UInput v-model="reactionTarget" :placeholder="t('instances.send.targetMessage')" class="w-full font-mono" />
-        <UInput v-model="emoji" :placeholder="t('instances.send.emoji')" :hint="t('instances.send.emojiHint')" class="w-full" />
+        <UInput
+          v-model="emoji"
+          :placeholder="t('instances.send.emoji')"
+          :hint="t('instances.send.emojiHint')"
+          class="w-full"
+        />
       </div>
       <div v-else-if="tab === 'list'" class="flex flex-col gap-2">
         <UInput v-model="listTitle" :placeholder="t('instances.send.itemTitle')" class="w-full" />
         <UInput v-model="listDescription" :placeholder="t('instances.send.itemDescription')" class="w-full" />
         <UInput v-model="listButton" :placeholder="t('instances.send.buttonLabel')" class="w-full" />
         <UInput v-model="listSection" :placeholder="t('instances.send.sectionTitle')" class="w-full" />
-        <UTextarea v-model="listRows" :rows="3" :placeholder="t('instances.send.options')" :hint="t('instances.send.sectionsHint')" class="w-full font-mono" />
+        <UTextarea
+          v-model="listRows"
+          :rows="3"
+          :placeholder="t('instances.send.options')"
+          :hint="t('instances.send.sectionsHint')"
+          class="w-full font-mono"
+        />
         <UInput v-model="listFooter" :placeholder="t('instances.send.footer')" class="w-full" />
       </div>
       <div v-else class="flex flex-col gap-2">
-        <UTextarea v-model="buttonsText" :rows="2" :placeholder="t('instances.send.text')" class="w-full" />
-        <UTextarea v-model="buttonsRows" :rows="3" :placeholder="t('instances.send.options')" :hint="t('instances.send.sectionsHint')" class="w-full font-mono" />
+        <UTextarea
+          v-model="buttonsText"
+          :rows="2"
+          :placeholder="t('instances.send.text')"
+          class="w-full"
+        />
+        <UTextarea
+          v-model="buttonsRows"
+          :rows="3"
+          :placeholder="t('instances.send.options')"
+          :hint="t('instances.send.sectionsHint')"
+          class="w-full font-mono"
+        />
         <UInput v-model="buttonsFooter" :placeholder="t('instances.send.footer')" class="w-full" />
       </div>
       <div class="flex justify-end">

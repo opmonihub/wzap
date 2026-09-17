@@ -203,7 +203,12 @@ void props.status
         <UInput v-model="daysLimit" :disabled="disabled" class="w-full font-mono" />
       </UFormField>
       <div class="flex flex-wrap gap-2">
-        <UButton :disabled="!canSave" :loading="saving" :label="t('common.save')" @click="onSave" />
+        <UButton
+          :disabled="!canSave"
+          :loading="saving"
+          :label="t('common.save')"
+          @click="onSave"
+        />
         <UButton
           :disabled="disabled"
           variant="soft"
@@ -213,8 +218,18 @@ void props.status
         />
       </div>
       <div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-        <UInput v-model="command" :disabled="disabled" :placeholder="t('instances.chatwoot.commandPlaceholder')" class="w-full font-mono" />
-        <UInput v-model="conversationId" :disabled="disabled" :placeholder="t('instances.chatwoot.conversationId')" class="w-full font-mono sm:w-40" />
+        <UInput
+          v-model="command"
+          :disabled="disabled"
+          :placeholder="t('instances.chatwoot.commandPlaceholder')"
+          class="w-full font-mono"
+        />
+        <UInput
+          v-model="conversationId"
+          :disabled="disabled"
+          :placeholder="t('instances.chatwoot.conversationId')"
+          class="w-full font-mono sm:w-40"
+        />
         <UButton
           :disabled="disabled"
           class="w-fit shrink-0"

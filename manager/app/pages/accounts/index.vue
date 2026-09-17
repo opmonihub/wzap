@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import * as z from 'zod'
-import type { FormSubmitEvent } from '#ui/types'
 import type { DropdownMenuItem, TableRow } from '@nuxt/ui'
 import { ApiError } from '~/composables/useApi'
 import { useAccountsTable } from '~/composables/useAccountsTable'
@@ -35,7 +33,7 @@ interface AccountsTableApi {
 const { t } = useI18n()
 const toast = useToast()
 const { isAdmin, user: sessionUser } = useAuth()
-const { listUsers, deleteUser, updateUserQuota } = useAccounts()
+const { listUsers, deleteUser } = useAccounts()
 const { confirmDelete } = useConfirmDelete()
 const { listInstances } = useInstances()
 const { copy } = useClipboard()
@@ -220,13 +218,6 @@ const createOpen = ref(false)
 
 const quotaTarget = ref<AccountUser | null>(null)
 const quotaOpen = ref(false)
-const quotaSchema = z.object({
-  instance_quota: z.string()
-})
-type QuotaSchema = z.output<typeof quotaSchema>
-const quotaState = reactive<Partial<QuotaSchema>>({ instance_quota: '' })
-const quotaSaving = ref(false)
-const quotaFailure = ref<string | null>(null)
 
 const deleteTarget = ref<AccountUser | null>(null)
 const deleteOpen = ref(false)
@@ -269,52 +260,6 @@ async function loadUsage() {
     usageByOwner.value = counts
   } catch {
     usageByOwner.value = counts
-  }
-}
-
-// An empty quota stays omitted so the server default applies; 0 is a valid
-// explicit value meaning unlimited.
-function parseQuota(raw: string): number | undefined | null {
-  const trimmed = raw.trim()
-  if (trimmed === '') {
-    return undefined
-  }
-  const parsed = Number(trimmed)
-  if (!Number.isInteger(parsed) || parsed < 0) {
-    return null
-  }
-  return parsed
-}
-
-function openQuota(user: AccountUser) {
-  quotaTarget.value = user
-  quotaState.instance_quota = String(user.instance_quota)
-  quotaSaving.value = false
-  quotaFailure.value = null
-  quotaOpen.value = true
-}
-
-async function onSaveQuota(event: FormSubmitEvent<QuotaSchema>) {
-  if (!quotaTarget.value || quotaSaving.value) {
-    return
-  }
-  const quota = parseQuota(event.data.instance_quota ?? '')
-  if (quota === null || quota === undefined) {
-    quotaFailure.value = t('accounts.quota.quotaInvalid')
-    return
-  }
-  quotaSaving.value = true
-  quotaFailure.value = null
-  try {
-    const updated = await updateUserQuota(quotaTarget.value.id, quota)
-    users.value = users.value.map(user => user.id === updated.id ? updated : user)
-    quotaOpen.value = false
-    quotaTarget.value = null
-    toast.add({ title: t('accounts.quota.updated'), icon: 'i-lucide-check', color: 'success' })
-  } catch (error) {
-    quotaFailure.value = error instanceof ApiError ? error.message : t('accounts.quota.saveFailed')
-  } finally {
-    quotaSaving.value = false
   }
 }
 
@@ -617,7 +562,7 @@ if (isAdmin.value) {
             <AccountsTableActionsCell
               :user="row.original"
               :is-self="sessionUser?.id === row.original.id"
-              @edit-quota="openQuota($event)"
+              @edit-quota="quotaTarget = $event; quotaOpen = true"
               @remove="openDelete($event)"
             />
           </template>
@@ -671,49 +616,7 @@ if (isAdmin.value) {
 
   <CreateAccountModal v-model:open="createOpen" @created="(user) => { users = [user, ...users] }" />
 
-  <UModal v-model:open="quotaOpen" :title="t('accounts.quota.title')" :description="t('accounts.quota.body', { email: quotaTarget?.email ?? '' })">
-    <template #body>
-      <UForm
-        id="edit-quota"
-        :schema="quotaSchema"
-        :state="quotaState"
-        class="flex flex-col gap-4"
-        @submit="onSaveQuota"
-      >
-        <UAlert
-          v-if="quotaFailure"
-          color="error"
-          variant="subtle"
-          :title="quotaFailure"
-        />
-
-        <UFormField
-          :label="t('accounts.quotaLabel')"
-          :hint="t('accounts.quota.hint')"
-          name="instance_quota"
-          required
-        >
-          <UInput
-            v-model="quotaState.instance_quota"
-            type="number"
-            step="1"
-            class="w-full"
-          />
-        </UFormField>
-
-        <div class="flex justify-end gap-2">
-          <UButton
-            type="button"
-            color="neutral"
-            variant="ghost"
-            :label="t('common.cancel')"
-            @click="quotaOpen = false"
-          />
-          <UButton type="submit" :loading="quotaSaving" :label="quotaSaving ? t('common.saving') : t('common.save')" />
-        </div>
-      </UForm>
-    </template>
-  </UModal>
+  <EditQuotaModal v-model:open="quotaOpen" :target="quotaTarget" @updated="(user) => { users = users.map(entry => entry.id === user.id ? user : entry) }" />
 
   <UModal
     v-model:open="deleteOpen"

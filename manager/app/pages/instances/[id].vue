@@ -5,17 +5,14 @@ import ChatwootCard from '~/components/instances/ChatwootCard.vue'
 import DeleteInstanceModal from '~/components/instances/DeleteInstanceModal.vue'
 import DeviceActionsCard from '~/components/instances/DeviceActionsCard.vue'
 import GroupDetail from '~/components/instances/GroupDetail.vue'
-import MessageActionsCard from '~/components/instances/MessageActionsCard.vue'
-import MessageComposer from '~/components/instances/MessageComposer.vue'
 import { useConfirmDelete } from '~/components/instances/ConfirmDelete'
+import InstanceMessagesSection from '~/components/instances/detail/InstanceMessagesSection.vue'
 import InstanceOverviewSection from '~/components/instances/detail/InstanceOverviewSection.vue'
 import InstanceSectionNav from '~/components/instances/detail/InstanceSectionNav.vue'
 import InstanceStatusBadge from '~/components/instances/InstanceStatusBadge.vue'
-import MessagesCard from '~/components/instances/MessagesCard.vue'
 import OneTimeKeyDisplay from '~/components/instances/OneTimeKeyDisplay.vue'
 import PrivacyCard from '~/components/instances/PrivacyCard.vue'
 import ProfileCard from '~/components/instances/ProfileCard.vue'
-import TestSendCard from '~/components/instances/TestSendCard.vue'
 import WebhookCard from '~/components/instances/WebhookCard.vue'
 import type { Instance, RotatedInstanceKey } from '~/types/api'
 
@@ -40,7 +37,6 @@ const keySeen = ref(false)
 const generating = ref(false)
 const keyFailure = ref<string | null>(null)
 const revoking = ref(false)
-const messagesRefresh = ref(0)
 
 const section = ref('overview')
 
@@ -75,12 +71,6 @@ function onDeleted() {
 // detail keeps showing the persisted configuration.
 function onWebhookUpdated(updated: Instance) {
   instance.value = updated
-}
-
-// A test send emits on accept and again when the message settles; either
-// refresh bumps the message history so the new row shows up.
-function onMessagesRefresh() {
-  messagesRefresh.value += 1
 }
 
 async function onGenerate() {
@@ -205,29 +195,11 @@ await load()
             @changed="load"
           />
 
-          <!-- Single-column stack shared by every tab: one card per row at
-          the same max-w-2xl width, so sections never shift horizontally. -->
-          <div v-else-if="section === 'messages'" class="flex w-full min-w-0 flex-col gap-4 sm:gap-6">
-            <TestSendCard
-              :instance-id="instance.id"
-              :status="instance.status"
-              @sent="onMessagesRefresh"
-              @settled="onMessagesRefresh"
-            />
-
-            <MessageComposer
-              :instance-id="instance.id"
-              :status="instance.status"
-              @sent="onMessagesRefresh"
-              @settled="onMessagesRefresh"
-            />
-
-            <MessageActionsCard :instance-id="instance.id" :status="instance.status" />
-
-            <ClientOnly>
-              <MessagesCard :instance-id="instance.id" :refresh-key="messagesRefresh" />
-            </ClientOnly>
-          </div>
+          <InstanceMessagesSection
+            v-else-if="section === 'messages'"
+            :instance-id="instance.id"
+            :status="instance.status"
+          />
 
           <div v-else-if="section === 'groups'" class="flex w-full min-w-0 flex-col gap-4 sm:gap-6">
             <GroupDetail :instance-id="instance.id" :status="instance.status" />

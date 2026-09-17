@@ -23,6 +23,7 @@ async function onRequest() {
   }
   requesting.value = true
   failure.value = null
+  result.value = null
   try {
     result.value = await pairPhone(props.instanceId, phone.value)
   } catch (error) {

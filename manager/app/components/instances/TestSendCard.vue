@@ -2,7 +2,7 @@
 import * as z from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
 import { ApiError } from '~/composables/useApi'
-import MessageStatusBadge from '~/components/instances/MessageStatusBadge.vue'
+import MessageDetail from '~/components/instances/MessageDetail.vue'
 import type { InstanceStatus, MediaKind, NumberCheckResult, OutboundMessage } from '~/types/api'
 
 // Test-send card for one instance: number check (numbers/check, which never
@@ -589,36 +589,11 @@ onUnmounted(() => {
           variant="subtle"
           :title="t('instances.send.settleTimeout')"
         />
-        <dl v-if="tracked" class="flex flex-col gap-3 text-sm sm:gap-2">
-          <div class="flex min-w-0 flex-wrap items-center gap-2">
-            <MessageStatusBadge :status="tracked.status" />
-            <span class="min-w-0 font-mono break-all text-xs text-muted">{{ tracked.id }}</span>
-          </div>
-          <div v-if="tracked.last_error" class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-            <dt class="shrink-0 text-muted">
-              {{ t('instances.messages.lastError') }}
-            </dt>
-            <dd class="min-w-0 break-all text-highlighted sm:text-right">
-              {{ tracked.last_error }}
-            </dd>
-          </div>
-          <div v-if="tracked.whatsapp_message_id" class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-            <dt class="shrink-0 text-muted">
-              {{ t('instances.messages.whatsappId') }}
-            </dt>
-            <dd class="min-w-0 font-mono break-all text-highlighted sm:text-right">
-              {{ tracked.whatsapp_message_id }}
-            </dd>
-          </div>
-          <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-            <dt class="shrink-0 text-muted">
-              {{ t('instances.messages.attempts') }}
-            </dt>
-            <dd class="min-w-0 text-highlighted sm:text-right">
-              {{ tracked.attempts }}
-            </dd>
-          </div>
-        </dl>
+        <!-- The tracked message renders through the shared MessageDetail leaf
+        (same as the history panel) instead of a one-off dl: meta, attempts,
+        IDs and last_error stay identical in both places. Emits and the
+        test-send-card testid are unchanged. -->
+        <MessageDetail v-if="tracked" :message="tracked" />
       </div>
     </div>
   </UCard>

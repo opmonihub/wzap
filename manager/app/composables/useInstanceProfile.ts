@@ -1,4 +1,12 @@
-import type { PairPhoneResult, Privacy, Profile, RejectCallInput } from '~/types/api'
+import type {
+  PairPhoneResult,
+  Privacy,
+  Profile,
+  ProfilePhotoResult,
+  RejectCallInput,
+  RejectCallResult,
+  UpdateProfileInput
+} from '~/types/api'
 
 // Typed client for profile, privacy, pair-phone and call reject. Name/recado
 // limits mirror profile.go (name trimmed 1..100, recado 0..500 with empty
@@ -15,13 +23,13 @@ export function useInstanceProfile() {
 
   async function updateProfile(
     instanceId: string,
-    input: { name?: string, status_text?: string }
+    input: UpdateProfileInput
   ): Promise<Profile> {
     return await api<Profile>(`/instances/${instanceId}/profile`, { method: 'PATCH', body: input })
   }
 
-  async function setProfilePhoto(instanceId: string, file: File): Promise<{ updated: boolean }> {
-    return await api<{ updated: boolean }>(`/instances/${instanceId}/profile/photo`, {
+  async function setProfilePhoto(instanceId: string, file: File): Promise<ProfilePhotoResult> {
+    return await api<ProfilePhotoResult>(`/instances/${instanceId}/profile/photo`, {
       method: 'PUT',
       headers: { 'Content-Type': file.type || 'image/jpeg' },
       body: file
@@ -43,8 +51,8 @@ export function useInstanceProfile() {
     })
   }
 
-  async function rejectCall(instanceId: string, input: RejectCallInput): Promise<{ rejected: boolean }> {
-    return await api<{ rejected: boolean }>(`/instances/${instanceId}/calls/reject`, {
+  async function rejectCall(instanceId: string, input: RejectCallInput): Promise<RejectCallResult> {
+    return await api<RejectCallResult>(`/instances/${instanceId}/calls/reject`, {
       method: 'POST',
       body: { call_id: input.call_id, from: input.from }
     })

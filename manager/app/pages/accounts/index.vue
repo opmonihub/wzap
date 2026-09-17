@@ -189,19 +189,6 @@ function onUpdatePage(page: number) {
   }
 }
 
-// Page size travels through the table API when mounted (keeps v-model in
-// sync) and resets to the first page; fallback writes the ref directly.
-// USelect may emit a string, so the signature accepts both and normalizes.
-function onUpdatePageSize(size: number | string) {
-  const next = Number(size) || 10
-  if (table.value?.tableApi) {
-    table.value.tableApi.setPageSize(next)
-  } else {
-    pagination.value.pageSize = next
-  }
-  pagination.value.pageIndex = 0
-}
-
 // The table owns ordering, so filter/sort changes restart at the first page;
 // a shrunken result only clamps an out-of-range page.
 watch([globalFilter, columnFilters, sorting], () => {
@@ -215,9 +202,6 @@ watch(pageCount, (count) => {
 })
 
 // Table copy lives in accounts.table.* (en.json); no UI literal stays here.
-const loadedLabel = computed(() => t('accounts.table.loadedCount', { count: users.value.length }))
-const pageLabel = computed(() => t('accounts.table.pageOf', { page: pagination.value.pageIndex + 1, pages: pageCount.value }))
-
 function sortActionLabel(columnId: string): string {
   const current = sorting.value[0]
   const nextDesc = current?.id === columnId && !current.desc
@@ -540,75 +524,65 @@ if (isAdmin.value) {
       </UAlert>
 
       <div v-else class="flex flex-col gap-3">
-        <UDashboardToolbar role="group" :aria-label="t('accounts.table.filtersLabel')">
-          <template #left>
-            <UInput
-              v-model="searchInput"
-              icon="i-lucide-search"
-              :placeholder="t('accounts.table.search')"
-              :aria-label="t('accounts.table.search')"
-              class="min-w-52 flex-1"
-            />
-          </template>
-          <template #right>
+        <div class="flex flex-wrap items-center justify-between gap-1.5" role="group" :aria-label="t('accounts.table.filtersLabel')">
+          <UInput
+            v-model="searchInput"
+            icon="i-lucide-search"
+            :placeholder="t('accounts.table.search')"
+            :aria-label="t('accounts.table.search')"
+            class="max-w-sm"
+          />
+
+          <div class="flex flex-wrap items-center gap-1.5">
+            <UButton
+              v-if="selectedCount > 0"
+              color="neutral"
+              variant="subtle"
+              icon="i-lucide-copy"
+              :label="t('accounts.table.copyEmails')"
+              @click="copySelectedEmails"
+            >
+              <template #trailing>
+                <UKbd>
+                  {{ selectedCount }}
+                </UKbd>
+              </template>
+            </UButton>
+            <UButton
+              v-if="selectedCount > 0"
+              color="error"
+              variant="subtle"
+              icon="i-lucide-trash-2"
+              :loading="bulkDeleting"
+              :label="t('accounts.table.deleteSelected')"
+              @click="openBulkDelete"
+            >
+              <template #trailing>
+                <UKbd>
+                  {{ selectedCount }}
+                </UKbd>
+              </template>
+            </UButton>
             <USelect
               v-model="roleFilter"
               :items="roleFilterItems"
               :aria-label="t('accounts.table.roleFilter')"
-              class="min-w-40"
+              :placeholder="t('accounts.table.roleFilter')"
+              class="min-w-28"
+              :ui="{ trailingIcon: 'group-data-[state=open]:rotate-180 transition-transform duration-200' }"
             />
             <UDropdownMenu
               :items="[columnItems]"
               :content="{ align: 'end' }"
             >
               <UButton
-                :label="t('accounts.table.visibility')"
+                :label="t('accounts.table.display')"
                 color="neutral"
                 variant="outline"
-                trailing-icon="i-lucide-chevron-down"
-                class="min-h-11"
-                :aria-label="t('accounts.table.visibility')"
+                trailing-icon="i-lucide-settings-2"
               />
             </UDropdownMenu>
-          </template>
-        </UDashboardToolbar>
-
-        <p class="text-sm text-muted">
-          {{ loadedLabel }}
-        </p>
-
-        <div
-          v-if="selectedCount > 0"
-          class="flex flex-wrap items-center gap-2 rounded-lg bg-elevated px-3 py-2"
-        >
-          <p class="text-sm">
-            {{ t('accounts.table.selectedCount', { count: selectedCount }) }}
-          </p>
-          <UButton
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            icon="i-lucide-copy"
-            :label="t('accounts.table.copyEmails')"
-            @click="copySelectedEmails"
-          />
-          <UButton
-            color="error"
-            variant="ghost"
-            size="sm"
-            icon="i-lucide-trash-2"
-            :loading="bulkDeleting"
-            :label="t('accounts.table.deleteSelected')"
-            @click="openBulkDelete"
-          />
-          <UButton
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            icon="i-lucide-x"
-            :label="t('accounts.table.clearSelection')"
-            @click="clearSelection"
-          />
+          </div>
         </div>
 
         <UTable
@@ -631,7 +605,8 @@ if (isAdmin.value) {
             thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
             tbody: '[&>tr]:last:[&>td]:border-b-0',
             th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-            td: 'border-b border-default'
+            td: 'border-b border-default',
+            separator: 'h-0'
           }"
         >
           <template #select-header="{ table: api }">
@@ -652,10 +627,9 @@ if (isAdmin.value) {
 
           <template #email-header="{ column }">
             <UButton
-              :color="column.getIsSorted() ? 'primary' : 'neutral'"
-              :variant="column.getIsSorted() ? 'soft' : 'ghost'"
-              size="sm"
-              class="min-h-11"
+              color="neutral"
+              variant="ghost"
+              class="-mx-2.5"
               :label="t('common.email')"
               :icon="column.getIsSorted() ? (column.getIsSorted() === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow') : 'i-lucide-arrow-up-down'"
               :aria-label="sortActionLabel('email')"
@@ -665,10 +639,9 @@ if (isAdmin.value) {
 
           <template #role-header="{ column }">
             <UButton
-              :color="column.getIsSorted() ? 'primary' : 'neutral'"
-              :variant="column.getIsSorted() ? 'soft' : 'ghost'"
-              size="sm"
-              class="min-h-11"
+              color="neutral"
+              variant="ghost"
+              class="-mx-2.5"
               :label="t('common.role')"
               :icon="column.getIsSorted() ? (column.getIsSorted() === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow') : 'i-lucide-arrow-up-down'"
               :aria-label="sortActionLabel('role')"
@@ -678,10 +651,9 @@ if (isAdmin.value) {
 
           <template #instance_quota-header="{ column }">
             <UButton
-              :color="column.getIsSorted() ? 'primary' : 'neutral'"
-              :variant="column.getIsSorted() ? 'soft' : 'ghost'"
-              size="sm"
-              class="min-h-11"
+              color="neutral"
+              variant="ghost"
+              class="-mx-2.5"
               :label="t('accounts.quotaLabel')"
               :icon="column.getIsSorted() ? (column.getIsSorted() === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow') : 'i-lucide-arrow-up-down'"
               :aria-label="sortActionLabel('instance_quota')"
@@ -740,16 +712,11 @@ if (isAdmin.value) {
         </UTable>
 
         <div class="flex items-center justify-between gap-3 border-t border-default pt-4 mt-auto">
-          <p class="text-sm text-muted">
-            {{ pageLabel }}
-          </p>
-          <div class="flex flex-wrap items-center gap-3">
-            <USelect
-              :model-value="pagination.pageSize"
-              :items="[10, 25, 50]"
-              :aria-label="t('accounts.table.pageSize')"
-              @update:model-value="onUpdatePageSize"
-            />
+          <div class="text-sm text-muted">
+            {{ t('accounts.table.selectedOf', { selected: selectedCount, filtered: totalFiltered }) }}
+          </div>
+
+          <div class="flex items-center gap-1.5">
             <UPagination
               v-if="pageCount > 1"
               :page="pagination.pageIndex + 1"

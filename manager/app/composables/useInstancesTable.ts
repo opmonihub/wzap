@@ -22,7 +22,9 @@ export function useInstancesTable(
   // the items and role travel unused here beyond keeping the shared
   // signature.
 
-  const sorting = ref<{ id: string, desc: boolean }[]>([{ id: 'name', desc: false }])
+  // Default sorting is empty, mirroring the template customers table: the
+  // list renders in server order until the account sorts a header.
+  const sorting = ref<{ id: string, desc: boolean }[]>([])
   const globalFilter = ref('')
   const columnFilters = ref<{ id: string, value: unknown }[]>([])
   // User visibility overrides from the columns dropdown; the page merges them

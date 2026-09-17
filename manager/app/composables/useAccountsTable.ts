@@ -11,7 +11,9 @@ import type { AccountUser } from '~/types/api'
 export function useAccountsTable() {
   const { t } = useI18n()
 
-  const sorting = ref<{ id: string, desc: boolean }[]>([{ id: 'email', desc: false }])
+  // Default sorting is empty, mirroring the template customers table: the
+  // list renders in server order until the account sorts a header.
+  const sorting = ref<{ id: string, desc: boolean }[]>([])
   const globalFilter = ref('')
   const columnFilters = ref<{ id: string, value: unknown }[]>([])
   const columnVisibility = ref<Record<string, boolean>>({})

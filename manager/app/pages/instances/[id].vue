@@ -48,6 +48,18 @@ const messagesRefresh = ref(0)
 const section = ref('overview')
 const chatwootEnabled = ref<boolean | null>(false)
 
+// UNavigationMenu emits the selected item (object) on some versions instead
+// of the item value string, which silently broke every section branch into
+// the v-else settings fallback. Normalize any payload back to a section
+// value string so the nav can never wedge the page on settings again.
+const SECTION_VALUES = ['overview', 'messages', 'groups', 'channels', 'profile', 'integrations', 'settings'] as const
+type SectionValue = (typeof SECTION_VALUES)[number]
+
+function onSectionUpdate(value: unknown): void {
+  const next = typeof value === 'string' ? value : (value as { value?: unknown } | null)?.value
+  section.value = typeof next === 'string' && (SECTION_VALUES as readonly string[]).includes(next) ? (next as SectionValue) : 'overview'
+}
+
 const sections = computed(() => [
   { label: t('instances.sections.overview'), value: 'overview' },
   { label: t('instances.sections.messages'), value: 'messages' },
@@ -300,10 +312,11 @@ await load()
         <div v-else-if="instance" class="flex w-full max-w-6xl flex-col gap-4">
           <UDashboardToolbar>
             <UNavigationMenu
-              v-model="section"
+              :model-value="section"
               highlight
-              class="-mx-1 flex-1"
+              class="-mx-1 flex-1 min-w-0 overflow-x-auto"
               :items="sections"
+              @update:model-value="onSectionUpdate"
             />
           </UDashboardToolbar>
           <InstanceHeaderStats :instance="instance" :chatwoot-enabled="chatwootEnabled" />

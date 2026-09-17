@@ -127,22 +127,24 @@ const totalFiltered = computed(() => {
 })
 const pageCount = computed(() => Math.max(1, Math.ceil(totalFiltered.value / pagination.value.pageSize)))
 
-// Status column filter behind a USelect: '' means Todos (no column filter).
+// Status column filter behind a USelect. Reka SelectItem forbids an empty
+// value string (it throws and unmounts the page), so the "all" option uses
+// the 'all' sentinel, mapped back to "no column filter" in the setter.
 const statusFilter = computed<string>({
   get: () => {
     const current = columnFilters.value.find(entry => entry.id === 'status')?.value
-    return typeof current === 'string' ? current : ''
+    return typeof current === 'string' && current !== '' ? current : 'all'
   },
   set: (value) => {
     const rest = columnFilters.value.filter(entry => entry.id !== 'status')
-    columnFilters.value = value === '' ? rest : [...rest, { id: 'status', value }]
+    columnFilters.value = value === '' || value === 'all' ? rest : [...rest, { id: 'status', value }]
   }
 })
 
 const instanceStatuses: InstanceStatus[] = ['disconnected', 'pairing', 'connected', 'error']
 
 const statusFilterItems = computed(() => [
-  { label: t('instances.table.allStatuses'), value: '' },
+  { label: t('instances.table.allStatuses'), value: 'all' },
   ...instanceStatuses.map(status => ({ label: t(`instances.status.${status}`), value: status }))
 ])
 

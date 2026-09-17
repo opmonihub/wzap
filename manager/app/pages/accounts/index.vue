@@ -95,15 +95,17 @@ const totalFiltered = computed(() => {
 })
 const pageCount = computed(() => Math.max(1, Math.ceil(totalFiltered.value / pagination.value.pageSize)))
 
-// Role column filter behind a USelect: '' means Todos (no column filter).
+// Role column filter behind a USelect. Reka SelectItem forbids an empty
+// value string (it throws and unmounts the page), so the "all" option uses
+// the 'all' sentinel, mapped back to "no column filter" in the setter.
 const roleFilter = computed<string>({
   get: () => {
     const current = columnFilters.value.find(entry => entry.id === 'role')?.value
-    return typeof current === 'string' ? current : ''
+    return typeof current === 'string' && current !== '' ? current : 'all'
   },
   set: (value) => {
     const rest = columnFilters.value.filter(entry => entry.id !== 'role')
-    columnFilters.value = value === '' ? rest : [...rest, { id: 'role', value }]
+    columnFilters.value = value === '' || value === 'all' ? rest : [...rest, { id: 'role', value }]
   }
 })
 
@@ -114,7 +116,7 @@ function roleOptionLabel(role: AccountRole): string {
 }
 
 const roleFilterItems = computed(() => [
-  { label: t('accounts.table.allRoles'), value: '' },
+  { label: t('accounts.table.allRoles'), value: 'all' },
   ...accountRoles.map(role => ({ label: roleOptionLabel(role), value: role }))
 ])
 

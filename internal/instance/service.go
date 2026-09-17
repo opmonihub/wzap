@@ -638,13 +638,17 @@ func (s *Service) PairPhone(ctx context.Context, id uuid.UUID, phone string) (Pa
 		return PairPhoneResult{}, fmt.Errorf("pair phone: %w", ErrNoPairingChannel)
 	}
 
+	// Read the channel expiry before requesting the code: a channel that
+	// expired or closed between the status check and the request must answer
+	// 409 (no open pairing channel) without emitting a code the client would
+	// never receive.
+	_, expiresAt, err := sess.QR(ctx)
+	if err != nil {
+		return PairPhoneResult{}, fmt.Errorf("pair phone: %w", ErrNoPairingChannel)
+	}
 	code, err := sess.PairPhone(ctx, phone)
 	if err != nil {
 		return PairPhoneResult{}, mapSessionError("pair phone", err)
-	}
-	_, expiresAt, err := sess.QR(ctx)
-	if err != nil {
-		return PairPhoneResult{}, fmt.Errorf("pair phone: read channel expiry: %w", err)
 	}
 	return PairPhoneResult{Code: code, ExpiresAt: expiresAt}, nil
 }

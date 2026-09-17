@@ -124,7 +124,13 @@
       "open": "Open details",
       "connect": "Connect",
       "edit": "Edit",
-      "delete": "Delete"
+      "delete": "Delete",
+      "revoke": "Revoke",
+      "markRead": "Mark read",
+      "presence": "Presence",
+      "rejectCall": "Reject call",
+      "notConnected": "Instance is not connected. Pair it before acting.",
+      "unsupported": "Not supported by this upstream."
     },
     "connect": {
       "pairingStarted": "Pairing started. Scan the QR on the details page.",
@@ -285,6 +291,66 @@
       "createdAt": "Created",
       "deliveredAt": "Delivered",
       "readAt": "Read"
+    },
+    "sections": {
+      "overview": "Overview",
+      "messages": "Messages",
+      "groups": "Groups",
+      "channels": "Channels",
+      "profile": "Profile",
+      "integrations": "Integrations",
+      "settings": "Settings"
+    },
+    "stats": {
+      "connection": "Connection",
+      "identity": "Identity",
+      "webhook": "Webhook",
+      "chatwoot": "Chatwoot",
+      "subscribed": "{count} subscribed",
+      "globalOff": "Chatwoot is disabled on this service."
+    },
+    "pairPhone": {
+      "cardTitle": "Pair by phone code",
+      "connectFirst": "Start pairing with Connect first, then request the code.",
+      "phone": "Phone number",
+      "request": "Get pairing code",
+      "requesting": "Issuing...",
+      "expiresAt": "Code expires at {when}",
+      "failed": "Could not issue the pairing code."
+    },
+    "groups": {
+      "cardTitle": "Groups",
+      "search": "Search by JID or name",
+      "create": "New group",
+      "join": "Join by invite",
+      "nameTooLong": "Name must be 25 characters or fewer.",
+      "reconcileInvite": "Group created but the invite lookup failed. Fetch the invite below instead of creating again.",
+      "empty": "No groups loaded. Look one up by JID."
+    },
+    "channels": {
+      "cardTitle": "Channels",
+      "newslettersTitle": "Newsletters",
+      "statusTitle": "Statuses",
+      "follow": "Follow",
+      "unfollow": "Unfollow",
+      "publish": "Publish status",
+      "empty": "Nothing here yet."
+    },
+    "profile": {
+      "cardTitle": "Profile",
+      "nameHint": "1 to 100 characters.",
+      "recadoHint": "Up to 500 characters. Empty clears it.",
+      "unsupported": "This upstream cannot apply this change."
+    },
+    "privacy": {
+      "cardTitle": "Privacy",
+      "atLeastOne": "Change at least one field."
+    },
+    "chatwoot": {
+      "cardTitle": "Chatwoot",
+      "disabled": "Chatwoot is disabled on this service. Configuration is unavailable.",
+      "imported": "{count} messages imported.",
+      "tokenHint": "Write-only. The stored token is never shown again."
     }
   },
   "accounts": {

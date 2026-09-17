@@ -96,13 +96,7 @@ watch(() => props.instance.id, () => {
 </script>
 
 <template>
-  <UCard data-testid="webhook-card">
-    <template #header>
-      <h2 class="font-medium text-highlighted">
-        {{ t('instances.webhook.cardTitle') }}
-      </h2>
-    </template>
-
+  <UPageCard :title="t('instances.webhook.cardTitle')" variant="subtle" data-testid="webhook-card">
     <UForm
       id="webhook"
       :schema="schema"
@@ -185,5 +179,5 @@ watch(() => props.instance.id, () => {
         />
       </div>
     </UForm>
-  </UCard>
+  </UPageCard>
 </template>

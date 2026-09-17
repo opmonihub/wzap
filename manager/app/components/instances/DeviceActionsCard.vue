@@ -44,12 +44,7 @@ void onPresence
 </script>
 
 <template>
-  <UPageCard variant="subtle" data-testid="device-actions-card">
-    <template #header>
-      <h3 class="font-medium text-highlighted">
-        {{ t('instances.actions.presence') }}
-      </h3>
-    </template>
+  <UPageCard :title="t('instances.actions.presence')" variant="subtle" data-testid="device-actions-card">
     <div class="flex flex-col gap-3">
       <UAlert
         v-if="!canAct"
@@ -70,10 +65,15 @@ void onPresence
         :title="t('instances.actions.unsupported')"
       />
       <UInput v-model="chat" class="w-full font-mono" />
-      <div class="flex gap-2">
+      <div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
         <UInput v-model="callId" class="w-full font-mono" />
         <UInput v-model="from" class="w-full font-mono" />
-        <UButton :disabled="!canAct" :label="t('instances.actions.rejectCall')" @click="onReject" />
+        <UButton
+          :disabled="!canAct"
+          class="w-fit shrink-0"
+          :label="t('instances.actions.rejectCall')"
+          @click="onReject"
+        />
       </div>
     </div>
   </UPageCard>

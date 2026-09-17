@@ -3,9 +3,12 @@ import type { InstanceStatus } from '~/types/api'
 
 // Colored dot + label for the instance connection state. The API reports
 // disconnected | pairing | connected | error.
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   status: InstanceStatus
-}>()
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+}>(), {
+  size: 'md'
+})
 
 const { t } = useI18n()
 
@@ -24,7 +27,7 @@ const color = computed(() => {
 </script>
 
 <template>
-  <UBadge :color="color" variant="subtle">
+  <UBadge :color="color" variant="subtle" :size="size">
     {{ t(`instances.status.${status}`) }}
   </UBadge>
 </template>

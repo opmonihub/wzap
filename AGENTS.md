@@ -132,6 +132,9 @@ direct Chatwoot Postgres SQL (`internal/chatwoot/import`, inert without
   uses `openspec-apply-change` (worktree + subagents, apply requires `plan.md`);
   finished changes get `verify.md` + `retrospective.md` BEFORE the PR and are
   archived last with `openspec-archive-change`.
+- Agent worktrees live in `.worktrees/` at the repo root (git-ignored, one
+  directory per change, e.g. `git worktree add .worktrees/<name> -b <branch>`);
+  remove the worktree after the branch merges. Never nest worktrees elsewhere.
 - Never write brainstorm/plan output to `docs/superpowers/`; it belongs in the
   change directory.
 - Treat `tasks.md` as the scope contract. Mark an item complete only after its

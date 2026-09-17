@@ -42,12 +42,7 @@ void RECEIPTS
 </script>
 
 <template>
-  <UPageCard variant="subtle" data-testid="privacy-card">
-    <template #header>
-      <h3 class="font-medium text-highlighted">
-        {{ t('instances.privacy.cardTitle') }}
-      </h3>
-    </template>
+  <UPageCard :title="t('instances.privacy.cardTitle')" variant="subtle" data-testid="privacy-card">
     <div class="flex flex-col gap-3">
       <UAlert
         v-if="!canAct"

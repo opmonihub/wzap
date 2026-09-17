@@ -68,9 +68,14 @@ watch(() => props.instanceId, () => void refresh(), { immediate: true })
 <template>
   <UPageCard variant="subtle" data-testid="channels-card" :ui="{ container: 'p-0 sm:p-0 gap-y-0', wrapper: 'items-stretch', header: 'p-4 mb-0 border-b border-default' }">
     <template #header>
-      <div class="flex items-center gap-2">
+      <div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
         <UInput v-model="channel" :placeholder="t('instances.groups.search')" class="w-full font-mono" />
-        <UButton :disabled="!canAct" :label="t('instances.channels.follow')" @click="onFollow" />
+        <UButton
+          :disabled="!canAct"
+          class="w-fit shrink-0"
+          :label="t('instances.channels.follow')"
+          @click="onFollow"
+        />
       </div>
     </template>
     <UAlert
@@ -103,14 +108,19 @@ watch(() => props.instanceId, () => void refresh(), { immediate: true })
       </li>
     </ul>
     <template #footer>
-      <div class="flex gap-2">
+      <div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
         <UInput
           v-model="statusText"
           maxlength="700"
           class="w-full"
           :placeholder="t('instances.channels.publish')"
         />
-        <UButton :disabled="!canAct" :label="t('instances.channels.publish')" @click="onPublish" />
+        <UButton
+          :disabled="!canAct"
+          class="w-fit shrink-0"
+          :label="t('instances.channels.publish')"
+          @click="onPublish"
+        />
       </div>
     </template>
   </UPageCard>

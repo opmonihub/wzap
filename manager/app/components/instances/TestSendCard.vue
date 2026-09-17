@@ -589,32 +589,32 @@ onUnmounted(() => {
           variant="subtle"
           :title="t('instances.send.settleTimeout')"
         />
-        <dl v-if="tracked" class="flex flex-col gap-2 text-sm">
-          <div class="flex flex-wrap items-center gap-2">
+        <dl v-if="tracked" class="flex flex-col gap-3 text-sm sm:gap-2">
+          <div class="flex min-w-0 flex-wrap items-center gap-2">
             <MessageStatusBadge :status="tracked.status" />
-            <span class="font-mono text-xs text-muted">{{ tracked.id }}</span>
+            <span class="min-w-0 font-mono break-all text-xs text-muted">{{ tracked.id }}</span>
           </div>
-          <div v-if="tracked.last_error" class="flex justify-between gap-4">
-            <dt class="text-muted">
+          <div v-if="tracked.last_error" class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+            <dt class="shrink-0 text-muted">
               {{ t('instances.messages.lastError') }}
             </dt>
-            <dd class="text-right text-highlighted">
+            <dd class="min-w-0 break-all text-highlighted sm:text-right">
               {{ tracked.last_error }}
             </dd>
           </div>
-          <div v-if="tracked.whatsapp_message_id" class="flex justify-between gap-4">
-            <dt class="text-muted">
+          <div v-if="tracked.whatsapp_message_id" class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+            <dt class="shrink-0 text-muted">
               {{ t('instances.messages.whatsappId') }}
             </dt>
-            <dd class="font-mono text-highlighted">
+            <dd class="min-w-0 font-mono break-all text-highlighted sm:text-right">
               {{ tracked.whatsapp_message_id }}
             </dd>
           </div>
-          <div class="flex justify-between gap-4">
-            <dt class="text-muted">
+          <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+            <dt class="shrink-0 text-muted">
               {{ t('instances.messages.attempts') }}
             </dt>
-            <dd class="text-highlighted">
+            <dd class="min-w-0 text-highlighted sm:text-right">
               {{ tracked.attempts }}
             </dd>
           </div>

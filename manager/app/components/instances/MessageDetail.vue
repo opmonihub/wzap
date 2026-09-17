@@ -30,52 +30,52 @@ function formatDateTime(value: string | null): string {
       </div>
       <MessageStatusBadge :status="props.message.status" />
     </div>
-    <dl class="flex flex-col gap-2 text-sm">
-      <div class="flex justify-between gap-4">
-        <dt class="text-muted">
+    <dl class="flex flex-col gap-3 text-sm sm:gap-2">
+      <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+        <dt class="shrink-0 text-muted">
           {{ t('instances.messages.type') }}
         </dt>
-        <dd class="font-mono text-highlighted">
+        <dd class="min-w-0 font-mono break-all text-highlighted sm:text-right">
           {{ props.message.type }}
         </dd>
       </div>
-      <div class="flex justify-between gap-4">
-        <dt class="text-muted">
+      <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+        <dt class="shrink-0 text-muted">
           {{ t('instances.messages.whatsappId') }}
         </dt>
-        <dd class="font-mono text-highlighted">
+        <dd class="min-w-0 font-mono break-all text-highlighted sm:text-right">
           {{ props.message.whatsapp_message_id || t('common.notSet') }}
         </dd>
       </div>
-      <div v-if="props.message.last_error" class="flex justify-between gap-4">
-        <dt class="text-muted">
+      <div v-if="props.message.last_error" class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+        <dt class="shrink-0 text-muted">
           {{ t('instances.messages.lastError') }}
         </dt>
-        <dd class="text-right text-highlighted">
+        <dd class="min-w-0 break-all text-highlighted sm:text-right">
           {{ props.message.last_error }}
         </dd>
       </div>
-      <div class="flex justify-between gap-4">
-        <dt class="text-muted">
+      <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+        <dt class="shrink-0 text-muted">
           {{ t('instances.messages.attempts') }}
         </dt>
-        <dd class="text-highlighted">
+        <dd class="min-w-0 text-highlighted sm:text-right">
           {{ props.message.attempts }}
         </dd>
       </div>
-      <div class="flex justify-between gap-4">
-        <dt class="text-muted">
+      <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+        <dt class="shrink-0 text-muted">
           {{ t('instances.messages.deliveredAt') }}
         </dt>
-        <dd class="text-highlighted">
+        <dd class="min-w-0 break-all text-highlighted sm:text-right">
           {{ formatDateTime(props.message.delivered_at) }}
         </dd>
       </div>
-      <div class="flex justify-between gap-4">
-        <dt class="text-muted">
+      <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+        <dt class="shrink-0 text-muted">
           {{ t('instances.messages.readAt') }}
         </dt>
-        <dd class="text-highlighted">
+        <dd class="min-w-0 break-all text-highlighted sm:text-right">
           {{ formatDateTime(props.message.read_at) }}
         </dd>
       </div>

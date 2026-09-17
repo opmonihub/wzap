@@ -1,32 +1,22 @@
 <script setup lang="ts">
-import * as z from 'zod'
-import type { FormSubmitEvent } from '#ui/types'
 import { ApiError } from '~/composables/useApi'
-import ChannelsCard from '~/components/instances/ChannelsCard.vue'
-import ChatwootCard from '~/components/instances/ChatwootCard.vue'
 import DeleteInstanceModal from '~/components/instances/DeleteInstanceModal.vue'
-import DeviceActionsCard from '~/components/instances/DeviceActionsCard.vue'
-import GroupDetail from '~/components/instances/GroupDetail.vue'
-import MessageActionsCard from '~/components/instances/MessageActionsCard.vue'
-import MessageComposer from '~/components/instances/MessageComposer.vue'
-import { useConfirmDelete } from '~/components/instances/ConfirmDelete'
+import InstanceChannelsSection from '~/components/instances/detail/InstanceChannelsSection.vue'
+import InstanceGroupsSection from '~/components/instances/detail/InstanceGroupsSection.vue'
+import InstanceIntegrationsSection from '~/components/instances/detail/InstanceIntegrationsSection.vue'
+import InstanceMessagesSection from '~/components/instances/detail/InstanceMessagesSection.vue'
+import InstanceOverviewSection from '~/components/instances/detail/InstanceOverviewSection.vue'
+import InstanceProfileSection from '~/components/instances/detail/InstanceProfileSection.vue'
+import InstanceSectionNav from '~/components/instances/detail/InstanceSectionNav.vue'
+import InstanceSettingsSection from '~/components/instances/detail/InstanceSettingsSection.vue'
 import InstanceStatusBadge from '~/components/instances/InstanceStatusBadge.vue'
-import MessagesCard from '~/components/instances/MessagesCard.vue'
-import OneTimeKeyDisplay from '~/components/instances/OneTimeKeyDisplay.vue'
-import PairingCard from '~/components/instances/PairingCard.vue'
-import PairPhoneCard from '~/components/instances/PairPhoneCard.vue'
-import PrivacyCard from '~/components/instances/PrivacyCard.vue'
-import ProfileCard from '~/components/instances/ProfileCard.vue'
-import TestSendCard from '~/components/instances/TestSendCard.vue'
-import WebhookCard from '~/components/instances/WebhookCard.vue'
-import type { Instance, RotatedInstanceKey } from '~/types/api'
+import type { Instance } from '~/types/api'
 
 const { t } = useI18n()
 const toast = useToast()
 const route = useRoute()
 const { isAdmin } = useAuth()
-const { getInstance, updateInstance, disconnectInstance, rotateInstanceKey, revokeInstanceKey } = useInstances()
-const { confirmDelete } = useConfirmDelete()
+const { getInstance } = useInstances()
 
 const id = computed(() => String(route.params.id ?? ''))
 
@@ -35,57 +25,9 @@ const pending = ref(true)
 const notFound = ref(false)
 const failure = ref<string | null>(null)
 
-const schema = z.object({
-  name: z.string().min(1, t('instances.create.nameRequired')).max(255),
-  external_ref: z.string().max(255)
-})
-type Schema = z.output<typeof schema>
-const state = reactive<Partial<Schema>>({ name: '', external_ref: '' })
-const saving = ref(false)
-const saveFailure = ref<string | null>(null)
-
 const deleteOpen = ref(false)
-const disconnecting = ref(false)
-
-const freshKey = ref<RotatedInstanceKey | null>(null)
-const keySeen = ref(false)
-const generating = ref(false)
-const keyFailure = ref<string | null>(null)
-const revoking = ref(false)
-const messagesRefresh = ref(0)
 
 const section = ref('overview')
-
-// Section switching rides on each item's onSelect: UNavigationMenu does not
-// reliably emit update:modelValue for these items (observed: the active pill
-// moves but v-model never receives the item value string, wedging every
-// section branch into the v-else settings fallback). Setting the string
-// directly keeps section inside the union the template branches on.
-const sections = computed(() => [
-  { label: t('instances.sections.overview'), value: 'overview', onSelect: () => { section.value = 'overview' } },
-  { label: t('instances.sections.messages'), value: 'messages', onSelect: () => { section.value = 'messages' } },
-  { label: t('instances.sections.groups'), value: 'groups', onSelect: () => { section.value = 'groups' } },
-  { label: t('instances.sections.channels'), value: 'channels', onSelect: () => { section.value = 'channels' } },
-  { label: t('instances.sections.profile'), value: 'profile', onSelect: () => { section.value = 'profile' } },
-  { label: t('instances.sections.integrations'), value: 'integrations', onSelect: () => { section.value = 'integrations' } },
-  { label: t('instances.sections.settings'), value: 'settings', onSelect: () => { section.value = 'settings' } }
-])
-
-// Message history split (template inbox pattern): at lg+ it renders as a
-// side panel, below lg it opens as a slideover via the messages button.
-// Visibility is CSS-gated (hidden/lg: wrappers), which does not prevent
-// mount: the desktop aside mounts and fetches once per page load on every
-// viewport, while the slideover content mounts lazily on first open (its
-// Presence unmounts on close). Opening the slideover on mobile therefore
-// issues one redundant history fetch; accepted (no v-if gating, which would
-// reintroduce the SSR-breakpoint double-mount, and no lifted fetch, which
-// would change child-card contracts).
-const isMessagesOpen = ref(false)
-
-// The slideover closes on navigation, mirroring the dashboard slideover.
-watch(() => route.fullPath, () => {
-  isMessagesOpen.value = false
-})
 
 useSeoMeta({
   title: 'Instance details'
@@ -97,9 +39,6 @@ async function load() {
   failure.value = null
   try {
     instance.value = await getInstance(id.value)
-    state.name = instance.value.name
-    state.external_ref = instance.value.external_ref
-    keySeen.value = hasSeenInstanceKey(instance.value.id)
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       notFound.value = true
@@ -111,153 +50,16 @@ async function load() {
   }
 }
 
-async function onSave(event: FormSubmitEvent<Schema>) {
-  if (!instance.value || saving.value) {
-    return
-  }
-  const trimmedName = (event.data.name ?? '').trim()
-  if (trimmedName === '') {
-    saveFailure.value = t('instances.create.nameRequired')
-    return
-  }
-  saving.value = true
-  saveFailure.value = null
-  try {
-    instance.value = await updateInstance(instance.value.id, {
-      name: trimmedName,
-      external_ref: (event.data.external_ref ?? '').trim()
-    })
-    toast.add({ title: t('instances.detail.saved'), icon: 'i-lucide-check', color: 'success' })
-  } catch (error) {
-    saveFailure.value = friendlySaveError(error)
-  } finally {
-    saving.value = false
-  }
-}
-
-function friendlySaveError(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.status === 409) {
-      return t('instances.detail.externalRefTaken')
-    }
-    return error.message
-  }
-  return t('instances.detail.saveFailed')
-}
-
-// Disconnect runs behind the programmatic confirm: the overlay resolves true
-// only on the confirm button, and the API (with its loading state and toasts)
-// runs on the trigger afterwards.
-async function onDisconnect() {
-  if (!instance.value || disconnecting.value) {
-    return
-  }
-  const confirmed = await confirmDelete({
-    title: t('instances.detail.disconnectConfirmTitle'),
-    description: t('instances.detail.disconnectConfirmBody'),
-    confirmLabel: t('instances.detail.disconnect'),
-    confirmColor: 'warning'
-  })
-  if (!confirmed || !instance.value || disconnecting.value) {
-    return
-  }
-  const instanceId = instance.value.id
-  disconnecting.value = true
-  try {
-    await disconnectInstance(instanceId)
-    toast.add({ title: t('instances.detail.disconnected'), icon: 'i-lucide-check', color: 'success' })
-    await load()
-  } catch (error) {
-    toast.add({ title: error instanceof ApiError ? error.message : t('instances.detail.disconnectFailed'), icon: 'i-lucide-triangle-alert', color: 'error' })
-  } finally {
-    disconnecting.value = false
-  }
-}
-
 function onDeleted() {
   toast.add({ title: t('instances.detail.deleted'), icon: 'i-lucide-check', color: 'success' })
   navigateTo('/instances')
-}
-
-// The pairing card emits after the phone scan flips the session to
-// connected; reloading refreshes the badge, JID and disconnect action.
-async function onPaired() {
-  await load()
-}
-
-// The webhook card emits the stored instance answered by its PATCH; the
-// detail keeps showing the persisted configuration.
-function onWebhookUpdated(updated: Instance) {
-  instance.value = updated
-}
-
-// A test send emits on accept and again when the message settles; either
-// refresh bumps the message history so the new row shows up.
-function onMessagesRefresh() {
-  messagesRefresh.value += 1
-}
-
-async function onGenerate() {
-  if (!instance.value || generating.value) {
-    return
-  }
-  generating.value = true
-  keyFailure.value = null
-  try {
-    freshKey.value = await rotateInstanceKey(instance.value.id)
-    markInstanceKeySeen(instance.value.id)
-    keySeen.value = true
-    toast.add({ title: t('instances.key.generated'), icon: 'i-lucide-check', color: 'success' })
-  } catch (error) {
-    keyFailure.value = error instanceof ApiError ? error.message : t('instances.key.generateFailed')
-  } finally {
-    generating.value = false
-  }
-}
-
-// Revoke runs behind the programmatic confirm like disconnect: failures
-// surface as toasts, while keyFailure stays owned by the generate path whose
-// alert renders in the card.
-async function onRevoke() {
-  if (!instance.value || revoking.value) {
-    return
-  }
-  const confirmed = await confirmDelete({
-    title: t('instances.key.revokeConfirmTitle'),
-    description: t('instances.key.revokeConfirmBody'),
-    confirmLabel: t('instances.key.revoke')
-  })
-  if (!confirmed || !instance.value || revoking.value) {
-    return
-  }
-  const instanceId = instance.value.id
-  revoking.value = true
-  try {
-    await revokeInstanceKey(instanceId)
-    forgetInstanceKeySeen(instanceId)
-    keySeen.value = false
-    freshKey.value = null
-    toast.add({ title: t('instances.key.revoked'), icon: 'i-lucide-check', color: 'success' })
-  } catch (error) {
-    toast.add({ title: error instanceof ApiError ? error.message : t('instances.key.revokeFailed'), icon: 'i-lucide-triangle-alert', color: 'error' })
-  } finally {
-    revoking.value = false
-  }
-}
-
-function formatDateTime(value: string | null): string {
-  if (!value) {
-    return t('common.notSet')
-  }
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString()
 }
 
 await load()
 </script>
 
 <template>
-  <UDashboardPanel id="instance-detail">
+  <UDashboardPanel id="instance-detail" :ui="{ body: 'lg:py-12' }">
     <template #header>
       <UDashboardNavbar :title="instance?.name ?? t('instances.title')">
         <template #leading>
@@ -273,299 +75,83 @@ await load()
           <InstanceStatusBadge :status="instance.status" />
         </template>
       </UDashboardNavbar>
+
+      <InstanceSectionNav
+        v-if="instance && !pending && !notFound && !failure"
+        :section="section"
+        @select="(value: string) => { section = value }"
+      />
     </template>
 
     <template #body>
-      <div class="flex justify-center px-0 sm:px-6">
-        <div v-if="pending" class="flex w-full max-w-6xl flex-col gap-2">
-          <USkeleton class="h-32 w-full" />
-          <USkeleton class="h-48 w-full" />
-        </div>
-
-        <UEmpty
-          v-else-if="notFound"
-          class="w-full max-w-6xl"
-          icon="i-lucide-search-x"
-          :title="t('instances.detail.notFound')"
+      <!-- Single width for every tab, mirroring settings.vue: the body
+      centers one max-w-2xl column on lg+ and stretches full-width below. -->
+      <div class="mx-auto flex w-full min-w-0 max-w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl lg:gap-12">
+        <PageState
+          :pending="pending"
+          :error="failure"
+          :skeleton-rows="2"
+          @retry="load"
         >
-          <template #actions>
-            <UButton :label="t('instances.title')" @click="navigateTo('/instances')" />
-          </template>
-        </UEmpty>
+          <UEmpty
+            v-if="notFound"
+            class="w-full"
+            icon="i-lucide-search-x"
+            :title="t('instances.detail.notFound')"
+          >
+            <template #actions>
+              <UButton :label="t('instances.title')" @click="navigateTo('/instances')" />
+            </template>
+          </UEmpty>
 
-        <UAlert
-          v-else-if="failure"
-          class="w-full max-w-6xl"
-          color="error"
-          variant="subtle"
-          :title="failure"
-        >
-          <template #actions>
-            <UButton
-              color="error"
-              variant="soft"
-              :label="t('common.retry')"
-              @click="load"
+          <template v-else-if="instance">
+            <InstanceOverviewSection
+              v-if="section === 'overview'"
+              :instance="instance"
+              @paired="load"
+              @updated="(value: Instance) => { instance = value }"
+              @changed="load"
             />
-          </template>
-        </UAlert>
 
-        <div v-else-if="instance" class="flex w-full flex-col gap-4 sm:gap-6">
-          <UDashboardToolbar>
-            <UNavigationMenu
-              :model-value="section"
-              highlight
-              class="-mx-1 flex-1 min-w-0 overflow-x-auto"
-              :items="sections"
-            />
-          </UDashboardToolbar>
-
-          <div v-if="section === 'overview'" class="mx-auto flex w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl">
-            <UCard>
-              <template #header>
-                <h2 class="font-medium text-highlighted">
-                  {{ instance.name }}
-                </h2>
-              </template>
-              <dl class="flex flex-col gap-2 text-sm">
-                <div class="flex justify-between gap-4">
-                  <dt class="text-muted">
-                    {{ t('instances.fields.jid') }}
-                  </dt>
-                  <dd class="font-mono text-highlighted">
-                    {{ instance.whatsapp_jid || t('common.notSet') }}
-                  </dd>
-                </div>
-                <div v-if="instance.last_error" class="flex justify-between gap-4">
-                  <dt class="text-muted">
-                    {{ t('instances.fields.lastError') }}
-                  </dt>
-                  <dd class="text-right text-highlighted">
-                    {{ instance.last_error }}
-                  </dd>
-                </div>
-                <div class="flex justify-between gap-4">
-                  <dt class="text-muted">
-                    {{ t('instances.fields.createdAt') }}
-                  </dt>
-                  <dd class="text-highlighted">
-                    {{ formatDateTime(instance.created_at) }}
-                  </dd>
-                </div>
-                <div class="flex justify-between gap-4">
-                  <dt class="text-muted">
-                    {{ t('instances.fields.updatedAt') }}
-                  </dt>
-                  <dd class="text-highlighted">
-                    {{ formatDateTime(instance.updated_at) }}
-                  </dd>
-                </div>
-              </dl>
-              <template v-if="instance.status === 'connected'" #footer>
-                <UButton
-                  color="warning"
-                  variant="soft"
-                  icon="i-lucide-unplug"
-                  :loading="disconnecting"
-                  :label="disconnecting ? t('instances.detail.disconnecting') : t('instances.detail.disconnect')"
-                  @click="onDisconnect"
-                />
-              </template>
-            </UCard>
-
-            <PairingCard
+            <InstanceMessagesSection
+              v-else-if="section === 'messages'"
               :instance-id="instance.id"
               :status="instance.status"
-              :whatsapp-jid="instance.whatsapp_jid"
-              @paired="onPaired"
             />
 
-            <PairPhoneCard :instance-id="instance.id" :status="instance.status" />
+            <InstanceGroupsSection
+              v-else-if="section === 'groups'"
+              :instance-id="instance.id"
+              :status="instance.status"
+            />
 
-            <UCard>
-              <template #header>
-                <h2 class="font-medium text-highlighted">
-                  {{ t('instances.fields.name') }}
-                </h2>
-              </template>
-              <UForm
-                id="instance-name"
-                :schema="schema"
-                :state="state"
-                class="flex flex-col gap-4"
-                @submit="onSave"
-              >
-                <UAlert
-                  v-if="saveFailure"
-                  color="error"
-                  variant="subtle"
-                  :title="saveFailure"
-                />
+            <InstanceChannelsSection
+              v-else-if="section === 'channels'"
+              :instance-id="instance.id"
+              :status="instance.status"
+            />
 
-                <UFormField :label="t('instances.fields.name')" name="name" required>
-                  <UInput
-                    v-model="state.name"
-                    maxlength="255"
-                    class="w-full"
-                  />
-                </UFormField>
+            <InstanceProfileSection
+              v-else-if="section === 'profile'"
+              :instance-id="instance.id"
+              :status="instance.status"
+            />
 
-                <UFormField :label="t('instances.fields.externalRef')" :hint="t('instances.fields.externalRefHint')" name="external_ref">
-                  <UInput v-model="state.external_ref" maxlength="255" class="w-full" />
-                </UFormField>
-
-                <div class="flex justify-end">
-                  <UButton type="submit" :loading="saving" :label="saving ? t('common.saving') : t('common.save')" />
-                </div>
-              </UForm>
-            </UCard>
-          </div>
-
-          <div v-else-if="section === 'messages'" class="flex w-full flex-col gap-4">
-            <div class="flex w-full flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
-              <div class="flex min-w-0 flex-1 flex-col gap-4 lg:max-w-2xl">
-                <TestSendCard
-                  :instance-id="instance.id"
-                  :status="instance.status"
-                  @sent="onMessagesRefresh"
-                  @settled="onMessagesRefresh"
-                />
-
-                <MessageComposer
-                  :instance-id="instance.id"
-                  :status="instance.status"
-                  @sent="onMessagesRefresh"
-                  @settled="onMessagesRefresh"
-                />
-
-                <MessageActionsCard :instance-id="instance.id" :status="instance.status" />
-
-                <UButton
-                  class="lg:hidden"
-                  icon="i-lucide-message-square-text"
-                  :label="t('instances.messages.cardTitle')"
-                  @click="isMessagesOpen = true"
-                />
-              </div>
-
-              <aside class="hidden min-w-0 flex-1 lg:block lg:max-w-md lg:shrink-0">
-                <div class="lg:sticky lg:top-4">
-                  <ClientOnly>
-                    <MessagesCard :instance-id="instance.id" :refresh-key="messagesRefresh" />
-                  </ClientOnly>
-                </div>
-              </aside>
-            </div>
-
-            <div class="flex w-full flex-col gap-4 lg:hidden">
-              <ClientOnly>
-                <USlideover v-model:open="isMessagesOpen" :title="t('instances.messages.cardTitle')">
-                  <template #content>
-                    <MessagesCard :instance-id="instance.id" :refresh-key="messagesRefresh" />
-                  </template>
-                </USlideover>
-              </ClientOnly>
-            </div>
-          </div>
-
-          <div v-else-if="section === 'groups'" class="mx-auto flex w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl">
-            <GroupDetail :instance-id="instance.id" :status="instance.status" />
-          </div>
-
-          <div v-else-if="section === 'channels'" class="mx-auto flex w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl">
-            <ChannelsCard :instance-id="instance.id" :status="instance.status" />
-          </div>
-
-          <div v-else-if="section === 'profile'" class="mx-auto flex w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl">
-            <ProfileCard :instance-id="instance.id" :status="instance.status" />
-            <PrivacyCard :instance-id="instance.id" :status="instance.status" />
-            <DeviceActionsCard :instance-id="instance.id" :status="instance.status" />
-          </div>
-
-          <div v-else-if="section === 'integrations'" class="mx-auto flex w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl">
-            <WebhookCard
+            <InstanceIntegrationsSection
+              v-else-if="section === 'integrations'"
               :instance="instance"
-              @updated="onWebhookUpdated"
+              @webhook-updated="(value: Instance) => { instance = value }"
             />
 
-            <ChatwootCard :instance-id="instance.id" :status="instance.status" />
-          </div>
-
-          <div v-else class="mx-auto flex w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl">
-            <UCard v-if="isAdmin">
-              <template #header>
-                <h2 class="font-medium text-highlighted">
-                  {{ t('instances.key.cardTitle') }}
-                </h2>
-              </template>
-
-              <div class="flex flex-col gap-4">
-                <UAlert
-                  v-if="keyFailure"
-                  color="error"
-                  variant="subtle"
-                  :title="keyFailure"
-                />
-
-                <OneTimeKeyDisplay v-if="freshKey" :api-key="freshKey.instance_api_key" />
-
-                <template v-else>
-                  <!-- Debt: no has-key flag exists in the API, so the banner is
-              driven by the browser-side key-seen marker. A future API
-              field (e.g. has_api_key) should replace this condition. -->
-                  <UAlert
-                    v-if="!keySeen"
-                    color="info"
-                    variant="subtle"
-                    :title="t('instances.key.keylessTitle')"
-                    :description="t('instances.key.keylessBody')"
-                  />
-
-                  <p v-else class="text-sm text-muted">
-                    {{ t('instances.key.rotateHint') }}
-                  </p>
-
-                  <div class="flex flex-wrap gap-2">
-                    <UButton
-                      icon="i-lucide-key-round"
-                      :loading="generating"
-                      :label="generating ? t('instances.key.generating') : t('instances.key.generate')"
-                      @click="onGenerate"
-                    />
-                    <UButton
-                      v-if="keySeen"
-                      color="error"
-                      variant="soft"
-                      :loading="revoking"
-                      :label="revoking ? t('instances.key.revoking') : t('instances.key.revoke')"
-                      @click="onRevoke"
-                    />
-                  </div>
-                </template>
-              </div>
-            </UCard>
-
-            <UCard>
-              <template #header>
-                <h2 class="font-medium text-error">
-                  {{ t('instances.detail.delete') }}
-                </h2>
-              </template>
-              <div class="flex items-center justify-between gap-4">
-                <p class="text-sm text-muted">
-                  {{ t('instances.delete.warning') }}
-                </p>
-                <UButton
-                  color="error"
-                  variant="soft"
-                  icon="i-lucide-trash-2"
-                  :label="t('instances.detail.delete')"
-                  @click="deleteOpen = true"
-                />
-              </div>
-            </UCard>
-          </div>
-        </div>
+            <InstanceSettingsSection
+              v-else
+              :instance="instance"
+              :is-admin="isAdmin"
+              @changed="load"
+              @delete-requested="deleteOpen = true"
+            />
+          </template>
+        </PageState>
       </div>
     </template>
   </UDashboardPanel>

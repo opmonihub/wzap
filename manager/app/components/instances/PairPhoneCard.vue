@@ -44,12 +44,7 @@ function formatExpiry(value: string): string {
 </script>
 
 <template>
-  <UCard data-testid="pair-phone-card">
-    <template #header>
-      <h2 class="font-medium text-highlighted">
-        {{ t('instances.pairPhone.cardTitle') }}
-      </h2>
-    </template>
+  <UPageCard :title="t('instances.pairPhone.cardTitle')" variant="subtle" data-testid="pair-phone-card">
     <div class="flex flex-col gap-3">
       <UAlert color="info" variant="subtle" :title="t('instances.pairPhone.connectFirst')" />
       <UAlert
@@ -77,5 +72,5 @@ function formatExpiry(value: string): string {
         />
       </div>
     </div>
-  </UCard>
+  </UPageCard>
 </template>

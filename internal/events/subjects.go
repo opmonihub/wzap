@@ -43,6 +43,23 @@ func (SubjectNamespace) MessageDelete(instanceID uuid.UUID) string {
 	return subject(instanceID, "message.delete")
 }
 
+// PollVote is the subject of the inbound poll vote events.
+func (SubjectNamespace) PollVote(instanceID uuid.UUID) string {
+	return subject(instanceID, "message.poll.vote")
+}
+
+// Reaction is the subject of the inbound reaction events, including
+// removals (empty emoji) on the same target.
+func (SubjectNamespace) Reaction(instanceID uuid.UUID) string {
+	return subject(instanceID, "message.reaction")
+}
+
+// InteractiveResponse is the subject of the inbound interactive answer
+// events (buttons, list and native flow unified).
+func (SubjectNamespace) InteractiveResponse(instanceID uuid.UUID) string {
+	return subject(instanceID, "message.interactive.response")
+}
+
 func subject(instanceID uuid.UUID, suffix string) string {
 	return subjectPrefix + instanceID.String() + "." + suffix
 }

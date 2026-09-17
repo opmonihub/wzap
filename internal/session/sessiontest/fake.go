@@ -445,6 +445,28 @@ func (s *FakeSession) EmitMessageDelete(del session.MessageDelete) {
 	}
 }
 
+// EmitPollVote forwards a poll vote to the sink, when one was configured.
+func (s *FakeSession) EmitPollVote(vote session.PollVote) {
+	if s.sink != nil {
+		s.sink.OnPollVote(context.Background(), vote)
+	}
+}
+
+// EmitReaction forwards a reaction to the sink, when one was configured.
+func (s *FakeSession) EmitReaction(reaction session.Reaction) {
+	if s.sink != nil {
+		s.sink.OnReaction(context.Background(), reaction)
+	}
+}
+
+// EmitInteractiveResponse forwards an interactive answer to the sink, when
+// one was configured.
+func (s *FakeSession) EmitInteractiveResponse(response session.InteractiveResponse) {
+	if s.sink != nil {
+		s.sink.OnInteractiveResponse(context.Background(), response)
+	}
+}
+
 // EmitReceipt forwards receipt to the sink, when one was configured.
 func (s *FakeSession) EmitReceipt(receipt session.Receipt) {
 	if s.sink != nil {

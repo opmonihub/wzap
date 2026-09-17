@@ -2,6 +2,7 @@ package whatsmeow
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -51,6 +52,21 @@ func (s *instanceSession) dispatch(evt any) {
 			} else {
 				s.log.Debug().Str("instance_id", s.instanceID.String()).Str("chat", e.Info.Chat.String()).Msg("dropping revoke without original message key")
 			}
+			return
+		}
+		// Rich inbound forks off the plain message path: votes, reactions and
+		// interactive answers become their own versioned events instead of
+		// text.
+		if e.Message.GetPollUpdateMessage() != nil {
+			s.sink.OnPollVote(context.Background(), pollVote(s.instanceID, e, s.decryptVote()))
+			return
+		}
+		if reaction := e.Message.GetReactionMessage(); reaction != nil {
+			s.sink.OnReaction(context.Background(), reactionEvent(s.instanceID, e, reaction))
+			return
+		}
+		if response, ok := interactiveResponse(e.Message); ok {
+			s.sink.OnInteractiveResponse(context.Background(), interactiveEvent(s.instanceID, e, response))
 			return
 		}
 		s.sink.OnMessage(context.Background(), inboundMessage(s.instanceID, e, s.client, s.maxMediaBytes))
@@ -244,6 +260,123 @@ func deleteMessage(instanceID uuid.UUID, evt *events.Message, originalID string)
 		ChatJID:    evt.Info.Chat.String(),
 		SenderJID:  senderJID(evt.Info),
 		IsGroup:    evt.Info.IsGroup,
+		Timestamp:  evt.Info.Timestamp,
+		Raw:        captureRaw(evt),
+	}
+}
+
+// decryptVote returns the selected option hashes of an inbound poll vote. The
+// test seam decryptVoteFn avoids the message-secret handshake; production
+// decrypts through the client. A failure yields no hashes and the vote is
+// still emitted, keyed by the poll, so consumers observe the voter.
+func (s *instanceSession) decryptVote() func(*events.Message) [][]byte {
+	return func(evt *events.Message) [][]byte {
+		ctx := context.Background()
+		if s.decryptVoteFn != nil {
+			hashes, err := s.decryptVoteFn(ctx, evt)
+			if err != nil {
+				s.log.Debug().Str("instance_id", s.instanceID.String()).Err(err).Msg("poll vote undecryptable, emitting without options")
+				return nil
+			}
+			return hashes
+		}
+		if s.client == nil {
+			return nil
+		}
+		vote, err := s.client.DecryptPollVote(ctx, evt)
+		if err != nil {
+			s.log.Debug().Str("instance_id", s.instanceID.String()).Err(err).Msg("poll vote undecryptable, emitting without options")
+			return nil
+		}
+		return vote.GetSelectedOptions()
+	}
+}
+
+// pollVote translates an inbound poll vote away from the library types. The
+// poll id comes from the creation key; the selected hashes are hex-encoded.
+// Names stay empty: the wire carries only option hashes, never names.
+func pollVote(instanceID uuid.UUID, evt *events.Message, decrypt func(*events.Message) [][]byte) session.PollVote {
+	var ids []string
+	for _, hash := range decrypt(evt) {
+		ids = append(ids, hex.EncodeToString(hash))
+	}
+	return session.PollVote{
+		InstanceID:        instanceID,
+		PollMessageID:     evt.Message.GetPollUpdateMessage().GetPollCreationMessageKey().GetID(),
+		ChatJID:           evt.Info.Chat.String(),
+		SenderJID:         senderJID(evt.Info),
+		IsGroup:           evt.Info.IsGroup,
+		SelectedOptionIDs: ids,
+		Timestamp:         evt.Info.Timestamp,
+		Raw:               captureRaw(evt),
+	}
+}
+
+// reactionEvent translates an inbound reaction away from the library types.
+// The target is the reacted message id from the reaction key; an empty text
+// is the removal of the reaction on the same target.
+func reactionEvent(instanceID uuid.UUID, evt *events.Message, reaction *waE2E.ReactionMessage) session.Reaction {
+	return session.Reaction{
+		InstanceID: instanceID,
+		MessageID:  reaction.GetKey().GetID(),
+		ChatJID:    evt.Info.Chat.String(),
+		SenderJID:  senderJID(evt.Info),
+		IsGroup:    evt.Info.IsGroup,
+		Emoji:      reaction.GetText(),
+		Timestamp:  evt.Info.Timestamp,
+		Raw:        captureRaw(evt),
+	}
+}
+
+// interactiveAnswer is one unified interactive answer resolved from the
+// library message: the source (buttons, list or native_flow), the selected
+// id (button id, list row id or flow name) and the display title.
+type interactiveAnswer struct {
+	source     string
+	selectedID string
+	title      string
+}
+
+// interactiveResponse resolves the interactive answer carried by a message:
+// a buttons response, a list response or a native-flow response. Anything
+// else reports false and stays on the plain message path.
+func interactiveResponse(msg *waE2E.Message) (interactiveAnswer, bool) {
+	if resp := msg.GetButtonsResponseMessage(); resp != nil {
+		return interactiveAnswer{
+			source:     "buttons",
+			selectedID: resp.GetSelectedButtonID(),
+			title:      resp.GetSelectedDisplayText(),
+		}, true
+	}
+	if resp := msg.GetListResponseMessage(); resp != nil {
+		return interactiveAnswer{
+			source:     "list",
+			selectedID: resp.GetSingleSelectReply().GetSelectedRowID(),
+			title:      resp.GetTitle(),
+		}, true
+	}
+	if resp := msg.GetInteractiveResponseMessage(); resp != nil {
+		return interactiveAnswer{
+			source:     "native_flow",
+			selectedID: resp.GetNativeFlowResponseMessage().GetName(),
+			title:      resp.GetBody().GetText(),
+		}, true
+	}
+	return interactiveAnswer{}, false
+}
+
+// interactiveEvent translates an inbound interactive answer away from the
+// library types.
+func interactiveEvent(instanceID uuid.UUID, evt *events.Message, answer interactiveAnswer) session.InteractiveResponse {
+	return session.InteractiveResponse{
+		InstanceID: instanceID,
+		MessageID:  evt.Info.ID,
+		ChatJID:    evt.Info.Chat.String(),
+		SenderJID:  senderJID(evt.Info),
+		IsGroup:    evt.Info.IsGroup,
+		Source:     answer.source,
+		SelectedID: answer.selectedID,
+		Title:      answer.title,
 		Timestamp:  evt.Info.Timestamp,
 		Raw:        captureRaw(evt),
 	}

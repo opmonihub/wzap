@@ -125,12 +125,69 @@ type MessageDelete struct {
 	Raw json.RawMessage
 }
 
+// PollVote is a vote on a poll message, translated away from the library
+// types. PollMessageID is the poll being voted on. SelectedOptionIDs are the
+// hex of the option hashes carried on the wire; SelectedOptionNames stays
+// empty on inbound votes because the wire carries only hashes, never names.
+type PollVote struct {
+	InstanceID          uuid.UUID
+	PollMessageID       string
+	ChatJID             string
+	SenderJID           string
+	IsGroup             bool
+	SelectedOptionIDs   []string
+	SelectedOptionNames []string
+	Timestamp           time.Time
+	// Raw is the best-effort JSON of the raw upstream event, captured by the
+	// adapter for webhook delivery. It is nil when the capture failed.
+	Raw json.RawMessage
+}
+
+// Reaction is a reaction to a previous message, translated away from the
+// library types. MessageID is the reacted message and Emoji the reaction
+// content; an empty emoji removes the reaction on the same target.
+type Reaction struct {
+	InstanceID uuid.UUID
+	MessageID  string
+	ChatJID    string
+	SenderJID  string
+	IsGroup    bool
+	Emoji      string
+	Timestamp  time.Time
+	// Raw is the best-effort JSON of the raw upstream event, captured by the
+	// adapter for webhook delivery. It is nil when the capture failed.
+	Raw json.RawMessage
+}
+
+// InteractiveResponse is a unified answer to an interactive message
+// (buttons, list or native flow), translated away from the library types.
+// MessageID is the response stanza id. Source is one of buttons, list or
+// native_flow; SelectedID carries the button id, the list row id or the flow
+// name, and Title the display text.
+type InteractiveResponse struct {
+	InstanceID uuid.UUID
+	MessageID  string
+	ChatJID    string
+	SenderJID  string
+	IsGroup    bool
+	Source     string
+	SelectedID string
+	Title      string
+	Timestamp  time.Time
+	// Raw is the best-effort JSON of the raw upstream event, captured by the
+	// adapter for webhook delivery. It is nil when the capture failed.
+	Raw json.RawMessage
+}
+
 // EventSink consumes session events. Implementations must be safe for
 // concurrent use and should not block the session for long.
 type EventSink interface {
 	OnMessage(ctx context.Context, msg InboundMessage)
 	OnMessageEdit(ctx context.Context, edit MessageEdit)
 	OnMessageDelete(ctx context.Context, del MessageDelete)
+	OnPollVote(ctx context.Context, vote PollVote)
+	OnReaction(ctx context.Context, reaction Reaction)
+	OnInteractiveResponse(ctx context.Context, response InteractiveResponse)
 	OnReceipt(ctx context.Context, receipt Receipt)
 	OnConnection(ctx context.Context, instanceID uuid.UUID, status Status, jid string, reason string)
 }

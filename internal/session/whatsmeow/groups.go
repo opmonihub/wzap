@@ -348,9 +348,9 @@ func groupInfoFromTypes(info *types.GroupInfo) session.GroupInfo {
 	}
 	out := session.GroupInfo{
 		JID:              info.JID.String(),
-		Name:             info.GroupName.Name,
-		Description:      info.GroupTopic.Topic,
-		DescriptionID:    info.GroupTopic.TopicID,
+		Name:             info.Name,
+		Description:      info.Topic,
+		DescriptionID:    info.TopicID,
 		ParticipantCount: info.ParticipantCount,
 		CreatedAt:        info.GroupCreated,
 	}

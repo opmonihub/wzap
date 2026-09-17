@@ -614,9 +614,9 @@ if (isAdmin.value) {
     </template>
   </UDashboardPanel>
 
-  <CreateAccountModal v-model:open="createOpen" @created="(user) => { users = [user, ...users] }" />
+  <CreateAccountModal v-model:open="createOpen" @created="(user: AccountUser) => { users = [user, ...users] }" />
 
-  <EditQuotaModal v-model:open="quotaOpen" :target="quotaTarget" @updated="(user) => { users = users.map(entry => entry.id === user.id ? user : entry) }" />
+  <EditQuotaModal v-model:open="quotaOpen" :target="quotaTarget" @updated="(user: AccountUser) => { users = users.map(entry => entry.id === user.id ? user : entry) }" />
 
   <UModal
     v-model:open="deleteOpen"

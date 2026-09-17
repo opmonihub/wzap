@@ -3,7 +3,7 @@ import type { InstanceStatus } from '~/types/api'
 
 // Colored dot + label for the instance connection state. The API reports
 // disconnected | pairing | connected | error.
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   status: InstanceStatus
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 }>(), {

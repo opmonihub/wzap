@@ -43,6 +43,10 @@ type fakeInstanceService struct {
 	resetGroupInviteFn   func(ctx context.Context, id uuid.UUID, groupJID string) (string, error)
 	joinGroupFn          func(ctx context.Context, id uuid.UUID, inviteCode string) (string, error)
 	leaveGroupFn         func(ctx context.Context, id uuid.UUID, groupJID string) error
+	followNewsletterFn   func(ctx context.Context, id uuid.UUID, channelJID string) error
+	unfollowNewsletterFn func(ctx context.Context, id uuid.UUID, channelJID string) error
+	getNewsletterFn      func(ctx context.Context, id uuid.UUID, channelJID string) (instance.Newsletter, error)
+	listNewslettersFn    func(ctx context.Context, id uuid.UUID, limit int, cursor string) ([]instance.Newsletter, string, error)
 
 	createInputs            []instance.CreateInput
 	updateInputs            []instance.UpdateInput
@@ -64,6 +68,10 @@ type fakeInstanceService struct {
 	resetGroupInviteCalls   []groupTargetCall
 	joinGroupCalls          []joinGroupCall
 	leaveGroupCalls         []groupTargetCall
+	followNewsletterCalls   []newsletterTargetCall
+	unfollowNewsletterCalls []newsletterTargetCall
+	getNewsletterCalls      []newsletterTargetCall
+	listNewsletterCalls     []listNewsletterCall
 	listLimit               int
 	listCursor              string
 }
@@ -135,6 +143,19 @@ type updateParticipantsCall struct {
 type joinGroupCall struct {
 	InstanceID uuid.UUID
 	InviteCode string
+}
+
+// newsletterTargetCall records one newsletter call addressing a channel.
+type newsletterTargetCall struct {
+	InstanceID uuid.UUID
+	ChannelJID string
+}
+
+// listNewsletterCall records one ListNewsletters call received by the fake.
+type listNewsletterCall struct {
+	InstanceID uuid.UUID
+	Limit      int
+	Cursor     string
 }
 
 // Create records the input and returns the configured instance with its
@@ -341,6 +362,42 @@ func (f *fakeInstanceService) LeaveGroup(ctx context.Context, id uuid.UUID, grou
 		return f.leaveGroupFn(ctx, id, groupJID)
 	}
 	return nil
+}
+
+// FollowNewsletter records the call and returns the configured error.
+func (f *fakeInstanceService) FollowNewsletter(ctx context.Context, id uuid.UUID, channelJID string) error {
+	f.followNewsletterCalls = append(f.followNewsletterCalls, newsletterTargetCall{InstanceID: id, ChannelJID: channelJID})
+	if f.followNewsletterFn != nil {
+		return f.followNewsletterFn(ctx, id, channelJID)
+	}
+	return nil
+}
+
+// UnfollowNewsletter records the call and returns the configured error.
+func (f *fakeInstanceService) UnfollowNewsletter(ctx context.Context, id uuid.UUID, channelJID string) error {
+	f.unfollowNewsletterCalls = append(f.unfollowNewsletterCalls, newsletterTargetCall{InstanceID: id, ChannelJID: channelJID})
+	if f.unfollowNewsletterFn != nil {
+		return f.unfollowNewsletterFn(ctx, id, channelJID)
+	}
+	return nil
+}
+
+// GetNewsletter records the call and returns the configured channel.
+func (f *fakeInstanceService) GetNewsletter(ctx context.Context, id uuid.UUID, channelJID string) (instance.Newsletter, error) {
+	f.getNewsletterCalls = append(f.getNewsletterCalls, newsletterTargetCall{InstanceID: id, ChannelJID: channelJID})
+	if f.getNewsletterFn != nil {
+		return f.getNewsletterFn(ctx, id, channelJID)
+	}
+	return instance.Newsletter{ChannelJID: channelJID}, nil
+}
+
+// ListNewsletters records the call and returns the configured page.
+func (f *fakeInstanceService) ListNewsletters(ctx context.Context, id uuid.UUID, limit int, cursor string) ([]instance.Newsletter, string, error) {
+	f.listNewsletterCalls = append(f.listNewsletterCalls, listNewsletterCall{InstanceID: id, Limit: limit, Cursor: cursor})
+	if f.listNewslettersFn != nil {
+		return f.listNewslettersFn(ctx, id, limit, cursor)
+	}
+	return nil, "", nil
 }
 
 // instancesServer builds the server under test with svc as the instance service.

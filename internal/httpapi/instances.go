@@ -53,6 +53,10 @@ type InstanceService interface {
 	ResetGroupInvite(ctx context.Context, id uuid.UUID, groupJID string) (string, error)
 	JoinGroup(ctx context.Context, id uuid.UUID, inviteCode string) (string, error)
 	LeaveGroup(ctx context.Context, id uuid.UUID, groupJID string) error
+	FollowNewsletter(ctx context.Context, id uuid.UUID, channelJID string) error
+	UnfollowNewsletter(ctx context.Context, id uuid.UUID, channelJID string) error
+	GetNewsletter(ctx context.Context, id uuid.UUID, channelJID string) (instance.Newsletter, error)
+	ListNewsletters(ctx context.Context, id uuid.UUID, limit int, cursor string) ([]instance.Newsletter, string, error)
 }
 
 // The service satisfies the handler contract; the assertion catches signature

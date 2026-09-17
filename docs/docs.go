@@ -1017,6 +1017,872 @@ const docTemplate = `{
                 }
             }
         },
+        "/instances/{id}/groups": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "Create a group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Group payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.createGroupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.groupResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid name or participants",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/groups/join": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "Join a group by invite",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Join payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.joinGroupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Joined group, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.groupJoinResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found, or unknown invite",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid invite code",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/groups/{group_id}": {
+            "get": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "Get a group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Group JID",
+                        "name": "group_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Group, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.groupResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance or group not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "Update a group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Group JID",
+                        "name": "group_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Group patch",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.updateGroupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated group, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.groupResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner, or no group permission",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance or group not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Empty patch or invalid values",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/groups/{group_id}/invite": {
+            "get": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "Get a group invite code",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Group JID",
+                        "name": "group_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Invite, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.groupInviteResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner, or no group permission",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance or group not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/groups/{group_id}/invite/reset": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "Reset a group invite code",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Group JID",
+                        "name": "group_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Fresh invite, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.groupInviteResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner, or no group permission",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance or group not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/groups/{group_id}/leave": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "Leave a group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Group JID",
+                        "name": "group_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Left, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.groupLeaveResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance or group not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/groups/{group_id}/participants": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "Manage group participants",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Group JID",
+                        "name": "group_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Participants payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.updateParticipantsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Applied, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.groupPhotoResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner, or no group permission",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance or group not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Unknown action or invalid participants",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/groups/{group_id}/photo": {
+            "put": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/octet-stream"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "Update a group picture",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Group JID",
+                        "name": "group_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.groupPhotoResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner, or no group permission",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance or group not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "413": {
+                        "description": "Image exceeds the cap",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Missing or non image body",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/instances/{id}/messages": {
             "get": {
                 "security": [
@@ -1887,6 +2753,389 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Instance or message not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/newsletters": {
+            "get": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "newsletters"
+                ],
+                "summary": "List newsletter channels",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size, default 50, max 100",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Opaque pagination cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "One page, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.newsletterListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/newsletters/follow": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "newsletters"
+                ],
+                "summary": "Follow a newsletter channel",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Follow payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.followNewsletterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Followed, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.newsletterFollowResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found, or unknown channel",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid channel",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/newsletters/unfollow": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "newsletters"
+                ],
+                "summary": "Unfollow a newsletter channel",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Unfollow payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.followNewsletterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Unfollowed, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.newsletterFollowResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found, or unknown channel",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid channel",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/newsletters/{channel}": {
+            "get": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "newsletters"
+                ],
+                "summary": "Get a newsletter channel",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Channel JID",
+                        "name": "channel",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Channel, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.newsletterResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found, or unknown channel",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         }
@@ -2868,6 +4117,20 @@ const docTemplate = `{
                 }
             }
         },
+        "httpapi.createGroupRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "participants": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "httpapi.createInstanceRequest": {
             "type": "object",
             "properties": {
@@ -2966,6 +4229,89 @@ const docTemplate = `{
                 }
             }
         },
+        "httpapi.followNewsletterRequest": {
+            "type": "object",
+            "properties": {
+                "channel": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.groupInviteResponse": {
+            "type": "object",
+            "properties": {
+                "invite_code": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.groupJoinResponse": {
+            "type": "object",
+            "properties": {
+                "jid": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.groupLeaveResponse": {
+            "type": "object",
+            "properties": {
+                "left": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "httpapi.groupParticipantResponse": {
+            "type": "object",
+            "properties": {
+                "is_admin": {
+                    "type": "boolean"
+                },
+                "is_super_admin": {
+                    "type": "boolean"
+                },
+                "jid": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.groupPhotoResponse": {
+            "type": "object",
+            "properties": {
+                "updated": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "httpapi.groupResponse": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "invite_code": {
+                    "type": "string"
+                },
+                "jid": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "participant_count": {
+                    "type": "integer"
+                },
+                "participants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httpapi.groupParticipantResponse"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "httpapi.identityResponse": {
             "type": "object",
             "properties": {
@@ -3052,6 +4398,14 @@ const docTemplate = `{
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "httpapi.joinGroupRequest": {
+            "type": "object",
+            "properties": {
+                "invite_code": {
+                    "type": "string"
                 }
             }
         },
@@ -3158,6 +4512,48 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "whatsapp_message_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.newsletterFollowResponse": {
+            "type": "object",
+            "properties": {
+                "followed": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "httpapi.newsletterListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httpapi.newsletterResponse"
+                    }
+                },
+                "next_cursor": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.newsletterResponse": {
+            "type": "object",
+            "properties": {
+                "channel": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "follower_count": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }
@@ -3423,6 +4819,17 @@ const docTemplate = `{
                 }
             }
         },
+        "httpapi.updateGroupRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "httpapi.updateInstanceRequest": {
             "type": "object",
             "properties": {
@@ -3443,6 +4850,20 @@ const docTemplate = `{
                 },
                 "webhook_url": {
                     "type": "string"
+                }
+            }
+        },
+        "httpapi.updateParticipantsRequest": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "participants": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

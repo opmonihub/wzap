@@ -234,6 +234,10 @@ func instanceRouteCases(target uuid.UUID, mediaID uuid.UUID) []struct {
 		{name: "update group", method: http.MethodPatch, path: "/instances/" + target.String() + "/groups/120363000000000000@g.us", body: `{"name":"Novo assunto"}`},
 		{name: "group participants", method: http.MethodPost, path: "/instances/" + target.String() + "/groups/120363000000000000@g.us/participants", body: `{"action":"add","participants":["5511888888888@s.whatsapp.net"]}`},
 		{name: "join group", method: http.MethodPost, path: "/instances/" + target.String() + "/groups/join", body: `{"invite_code":"invite-code-1"}`},
+		{name: "follow newsletter", method: http.MethodPost, path: "/instances/" + target.String() + "/newsletters/follow", body: `{"channel":"12345@newsletter"}`},
+		{name: "unfollow newsletter", method: http.MethodPost, path: "/instances/" + target.String() + "/newsletters/unfollow", body: `{"channel":"12345@newsletter"}`},
+		{name: "get newsletter", method: http.MethodGet, path: "/instances/" + target.String() + "/newsletters/12345@newsletter"},
+		{name: "list newsletters", method: http.MethodGet, path: "/instances/" + target.String() + "/newsletters"},
 		{name: "download media of instance", method: http.MethodGet, path: "/media/" + mediaID.String()},
 	}
 }

@@ -133,9 +133,10 @@ async function onLeave() {
     </UModal>
     <template v-if="group" #footer>
       <UButton
+        :disabled="!canAct"
         color="error"
         variant="soft"
-        label="Leave"
+        :label="t('instances.groups.leave')"
         @click="onLeave"
       />
     </template>

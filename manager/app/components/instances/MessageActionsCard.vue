@@ -76,8 +76,8 @@ async function onPresence(state: 'composing' | 'paused' | 'available' | 'unavail
         variant="subtle"
         :title="done"
       />
-      <UInput v-model="chat" placeholder="chat" class="w-full font-mono" />
-      <UInput v-model="messageId" placeholder="message_id" class="w-full font-mono" />
+      <UInput v-model="chat" :placeholder="t('instances.actions.chatPlaceholder')" class="w-full font-mono" />
+      <UInput v-model="messageId" :placeholder="t('instances.actions.messageIdPlaceholder')" class="w-full font-mono" />
       <div class="flex flex-wrap gap-2">
         <UButton :disabled="!canAct" :label="t('instances.actions.revoke')" @click="onRevoke" />
         <UButton
@@ -89,13 +89,13 @@ async function onPresence(state: 'composing' | 'paused' | 'available' | 'unavail
         <UButton
           :disabled="!canAct"
           variant="soft"
-          label="composing"
+          :label="t('instances.actions.composing')"
           @click="onPresence('composing')"
         />
         <UButton
           :disabled="!canAct"
           variant="soft"
-          label="paused"
+          :label="t('instances.actions.paused')"
           @click="onPresence('paused')"
         />
       </div>

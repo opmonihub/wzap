@@ -128,6 +128,10 @@
       "revoke": "Revoke",
       "markRead": "Mark read",
       "presence": "Presence",
+      "composing": "composing",
+      "paused": "paused",
+      "chatPlaceholder": "chat",
+      "messageIdPlaceholder": "message_id",
       "rejectCall": "Reject call",
       "notConnected": "Instance is not connected. Pair it before acting.",
       "unsupported": "Not supported by this upstream."
@@ -286,6 +290,7 @@
         "failed": "failed"
       },
       "whatsappId": "WhatsApp ID",
+      "type": "Type",
       "lastError": "Last error",
       "attempts": "Attempts",
       "createdAt": "Created",
@@ -323,6 +328,7 @@
       "search": "Search by JID or name",
       "create": "New group",
       "join": "Join by invite",
+      "leave": "Leave",
       "nameTooLong": "Name must be 25 characters or fewer.",
       "reconcileInvite": "Group created but the invite lookup failed. Fetch the invite below instead of creating again.",
       "empty": "No groups loaded. Look one up by JID."
@@ -334,10 +340,13 @@
       "follow": "Follow",
       "unfollow": "Unfollow",
       "publish": "Publish status",
+      "delete": "Delete",
+      "statusHint": "1 to 700 characters.",
       "empty": "Nothing here yet."
     },
     "profile": {
       "cardTitle": "Profile",
+      "recado": "Recado",
       "nameHint": "1 to 100 characters.",
       "recadoHint": "Up to 500 characters. Empty clears it.",
       "unsupported": "This upstream cannot apply this change."

@@ -33,6 +33,14 @@ function formatDateTime(value: string | null): string {
     <dl class="flex flex-col gap-2 text-sm">
       <div class="flex justify-between gap-4">
         <dt class="text-muted">
+          {{ t('instances.messages.type') }}
+        </dt>
+        <dd class="font-mono text-highlighted">
+          {{ props.message.type }}
+        </dd>
+      </div>
+      <div class="flex justify-between gap-4">
+        <dt class="text-muted">
           {{ t('instances.messages.whatsappId') }}
         </dt>
         <dd class="font-mono text-highlighted">
@@ -53,6 +61,22 @@ function formatDateTime(value: string | null): string {
         </dt>
         <dd class="text-highlighted">
           {{ props.message.attempts }}
+        </dd>
+      </div>
+      <div class="flex justify-between gap-4">
+        <dt class="text-muted">
+          {{ t('instances.messages.deliveredAt') }}
+        </dt>
+        <dd class="text-highlighted">
+          {{ formatDateTime(props.message.delivered_at) }}
+        </dd>
+      </div>
+      <div class="flex justify-between gap-4">
+        <dt class="text-muted">
+          {{ t('instances.messages.readAt') }}
+        </dt>
+        <dd class="text-highlighted">
+          {{ formatDateTime(props.message.read_at) }}
         </dd>
       </div>
     </dl>

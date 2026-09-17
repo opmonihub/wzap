@@ -41,6 +41,7 @@ async function onFollow() {
 async function onPublish() {
   const text = statusText.value.trim()
   if ([...text].length === 0 || [...text].length > 700) {
+    failure.value = t('instances.channels.statusHint')
     return
   }
   try {
@@ -92,10 +93,11 @@ watch(() => props.instanceId, () => void refresh(), { immediate: true })
           {{ item.text || item.caption }}
         </p>
         <UButton
+          :disabled="!canAct"
           size="xs"
           variant="ghost"
           color="error"
-          label="Delete"
+          :label="t('instances.channels.delete')"
           @click="onDeleteStatus(item.id)"
         />
       </li>

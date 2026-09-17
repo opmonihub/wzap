@@ -31,7 +31,12 @@ async function onSave() {
   failure.value = null
   unsupported.value = false
   const trimmedName = name.value.trim()
-  if ([...trimmedName].length === 0 || [...trimmedName].length > 100 || [...recado.value].length > 500) {
+  if ([...trimmedName].length === 0 || [...trimmedName].length > 100) {
+    failure.value = t('instances.profile.nameHint')
+    return
+  }
+  if ([...recado.value].length > 500) {
+    failure.value = t('instances.profile.recadoHint')
     return
   }
   try {
@@ -77,7 +82,7 @@ watch(() => props.instanceId, () => void load(), { immediate: true })
       <UFormField :label="t('instances.fields.name')" :hint="t('instances.profile.nameHint')">
         <UInput v-model="name" maxlength="100" class="w-full" />
       </UFormField>
-      <UFormField :label="t('instances.fields.lastError')" :hint="t('instances.profile.recadoHint')">
+      <UFormField :label="t('instances.profile.recado')" :hint="t('instances.profile.recadoHint')">
         <UInput v-model="recado" maxlength="500" class="w-full" />
       </UFormField>
       <div class="flex justify-end">

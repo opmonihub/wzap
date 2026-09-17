@@ -649,11 +649,11 @@ func TestSendMediaRejections(t *testing.T) {
 			content:     []byte("%PDF"),
 		},
 		{
-			name:        "unsupported type",
+			name:        "sticker rejects non-webp",
 			fields:      [][2]string{{"to", "5547988359190"}, {"type", "sticker"}},
-			filename:    "figurinha.webp",
-			contentType: "image/webp",
-			content:     []byte("webp"),
+			filename:    "foto.jpg",
+			contentType: "image/jpeg",
+			content:     []byte("jpeg"),
 		},
 		{
 			name:        "missing type",

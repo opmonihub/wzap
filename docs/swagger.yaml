@@ -270,6 +270,13 @@ definitions:
       instance_api_key:
         type: string
     type: object
+  httpapi.sendButton:
+    properties:
+      id:
+        type: string
+      title:
+        type: string
+    type: object
   httpapi.sendContactRequest:
     properties:
       display_name:
@@ -279,6 +286,24 @@ definitions:
       vcard:
         type: string
     type: object
+  httpapi.sendListRow:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      title:
+        type: string
+    type: object
+  httpapi.sendListSection:
+    properties:
+      rows:
+        items:
+          $ref: '#/definitions/httpapi.sendListRow'
+        type: array
+      title:
+        type: string
+    type: object
   httpapi.sendLocationRequest:
     properties:
       latitude:
@@ -286,6 +311,43 @@ definitions:
       longitude:
         type: number
       to:
+        type: string
+    type: object
+  httpapi.sendMessageRequest:
+    properties:
+      button_text:
+        type: string
+      buttons:
+        items:
+          $ref: '#/definitions/httpapi.sendButton'
+        type: array
+      description:
+        type: string
+      emoji:
+        type: string
+      footer:
+        type: string
+      options:
+        items:
+          type: string
+        type: array
+      question:
+        type: string
+      sections:
+        items:
+          $ref: '#/definitions/httpapi.sendListSection'
+        type: array
+      selectable_count:
+        type: integer
+      target:
+        type: string
+      text:
+        type: string
+      title:
+        type: string
+      to:
+        type: string
+      type:
         type: string
     type: object
   httpapi.sendTextRequest:
@@ -1012,6 +1074,83 @@ paths:
       summary: List messages
       tags:
       - messages
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Idempotency key, 24h replay per instance
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 'Rich payload: type poll|reaction|list|buttons plus its fields'
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.sendMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.messageAcceptedResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected, or key already in flight
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Invalid content, unknown number, unsupported type, or reused
+            key
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "503":
+          description: Number resolution unavailable
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Send a rich message
+      tags:
+      - messages
   /instances/{id}/messages/{message_id}:
     get:
       parameters:
@@ -1244,7 +1383,8 @@ paths:
         name: to
         required: true
         type: string
-      - description: 'Media kind: image, video, audio or document'
+      - description: 'Media kind: image, video, audio, document or sticker (webp only,
+          stored apart from media)'
         in: formData
         name: type
         required: true

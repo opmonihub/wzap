@@ -1103,6 +1103,122 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Send a rich message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global, owning user, or own instance key",
+                        "name": "apikey",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Idempotency key, 24h replay per instance",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Rich payload: type poll|reaction|list|buttons plus its fields",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.sendMessageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted, wrapped in the data envelope",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.messageAcceptedResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected, or key already in flight",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid content, unknown number, unsupported type, or reused key",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "Number resolution unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        }
+                    }
+                }
             }
         },
         "/instances/{id}/messages/contact": {
@@ -1394,7 +1510,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Media kind: image, video, audio or document",
+                        "description": "Media kind: image, video, audio, document or sticker (webp only, stored apart from media)",
                         "name": "type",
                         "in": "formData",
                         "required": true
@@ -3156,6 +3272,17 @@ const docTemplate = `{
                 }
             }
         },
+        "httpapi.sendButton": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
         "httpapi.sendContactRequest": {
             "type": "object",
             "properties": {
@@ -3170,6 +3297,34 @@ const docTemplate = `{
                 }
             }
         },
+        "httpapi.sendListRow": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.sendListSection": {
+            "type": "object",
+            "properties": {
+                "rows": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httpapi.sendListRow"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
         "httpapi.sendLocationRequest": {
             "type": "object",
             "properties": {
@@ -3180,6 +3335,62 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "to": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.sendMessageRequest": {
+            "type": "object",
+            "properties": {
+                "button_text": {
+                    "type": "string"
+                },
+                "buttons": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httpapi.sendButton"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "emoji": {
+                    "type": "string"
+                },
+                "footer": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "question": {
+                    "type": "string"
+                },
+                "sections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httpapi.sendListSection"
+                    }
+                },
+                "selectable_count": {
+                    "type": "integer"
+                },
+                "target": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "string"
+                },
+                "type": {
                     "type": "string"
                 }
             }

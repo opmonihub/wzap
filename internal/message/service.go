@@ -21,6 +21,22 @@ const (
 	TypeLocation = "location"
 	TypeContact  = "contact"
 	TypeMedia    = "media"
+	// TypePoll is a poll creation message (question + options).
+	TypePoll = "poll"
+	// TypeReaction is a reaction to a previous message; an empty emoji
+	// removes the reaction on the same target.
+	TypeReaction = "reaction"
+	// TypeSticker is a webp sticker uploaded through /messages/media with
+	// type=sticker. It is stored apart from TypeMedia so senders upload it
+	// as a sticker instead of an image.
+	TypeSticker = "sticker"
+	// TypeList is an interactive list message (sections of rows).
+	TypeList = "list"
+	// TypeButtons is an interactive buttons message (up to three quick
+	// replies). A PIX key travels as button content pass-through: there is
+	// no distinct PIX button type, the {id,title} pair carries the key as
+	// documented by the API.
+	TypeButtons = "buttons"
 )
 
 // Message statuses persisted in message_queue.status.
@@ -53,6 +69,41 @@ var (
 	ErrInvalidInput = errors.New("invalid message input")
 )
 
+// Rich message limits, enforced by Enqueue before anything is persisted.
+// Anything outside them is ErrInvalidInput (HTTP 422).
+const (
+	// MaxPollQuestion is the longest poll question in characters.
+	MaxPollQuestion = 300
+	// MinPollOptions and MaxPollOptions bound the poll option count.
+	MinPollOptions = 2
+	MaxPollOptions = 12
+	// MaxPollOption is the longest poll option in characters.
+	MaxPollOption = 100
+	// MaxReactionEmoji is the longest reaction content in characters; zero
+	// (empty) removes the reaction on the same target.
+	MaxReactionEmoji = 32
+	// MinListSections and MaxListSections bound the list section count.
+	MinListSections = 1
+	MaxListSections = 10
+	// MinListRows and MaxListRows bound the row count of one list section.
+	MinListRows = 1
+	MaxListRows = 10
+	// MaxListText is the longest list text (button, title, description,
+	// footer, section title, row id/title/description) in characters.
+	MaxListText = 300
+	// MinButtons and MaxButtons bound the button count of a buttons message.
+	MinButtons = 1
+	MaxButtons = 3
+	// MaxButtonID and MaxButtonTitle bound the button id and title in
+	// characters.
+	MaxButtonID    = 64
+	MaxButtonTitle = 64
+	// MaxButtonsText is the longest buttons body in characters.
+	MaxButtonsText = 300
+	// MaxButtonsFooter is the longest buttons footer in characters.
+	MaxButtonsFooter = 300
+)
+
 // InstanceReader reads the instance a message is enqueued for.
 type InstanceReader interface {
 	Get(ctx context.Context, id uuid.UUID) (*model.Instance, error)
@@ -73,6 +124,9 @@ type MessageStore interface {
 // EnqueueInput is the content accepted by Enqueue. Only the fields of the
 // chosen Type are used; the rest are ignored. QuotedID carries the WhatsApp
 // message id being replied to (a quote); empty means no quote.
+// PollSelectableCount is 0 or 1 (the HTTP layer defaults an omitted value to
+// 1); ReactionTarget is the WhatsApp id of the reacted message and an empty
+// ReactionEmoji removes the reaction.
 type EnqueueInput struct {
 	Type        string
 	To          string
@@ -86,6 +140,41 @@ type EnqueueInput struct {
 	VCard       string
 	MediaID     *uuid.UUID
 	QuotedID    string
+
+	PollQuestion        string
+	PollOptions         []string
+	PollSelectableCount int
+	ReactionTarget      string
+	ReactionEmoji       string
+	ListTitle           string
+	ListDescription     string
+	ListButton          string
+	ListSections        []ListSection
+	ListFooter          string
+	ButtonsText         string
+	ButtonsFooter       string
+	Buttons             []Button
+}
+
+// ListSection is one section of a list message: a titled group of rows.
+type ListSection struct {
+	Title string    `json:"title"`
+	Rows  []ListRow `json:"rows"`
+}
+
+// ListRow is one selectable row of a list section.
+type ListRow struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+}
+
+// Button is one quick-reply button of a buttons message. A PIX key travels
+// as pass-through content (for example in the title), not as a distinct
+// button type.
+type Button struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
 }
 
 // Service accepts outbound messages: it validates the target instance, resolves
@@ -200,9 +289,125 @@ func buildPayload(input EnqueueInput) ([]byte, error) {
 			return nil, fmt.Errorf("%w: media_id is required", ErrInvalidInput)
 		}
 		return json.Marshal(mediaPayload{Caption: input.Caption, Filename: input.Filename, PTT: input.PTT, QuotedID: input.QuotedID})
+	case TypePoll:
+		if err := validatePoll(input); err != nil {
+			return nil, err
+		}
+		return json.Marshal(pollPayload{Question: input.PollQuestion, Options: input.PollOptions, SelectableCount: input.PollSelectableCount})
+	case TypeReaction:
+		if strings.TrimSpace(input.ReactionTarget) == "" {
+			return nil, fmt.Errorf("%w: reaction target is required", ErrInvalidInput)
+		}
+		if len([]rune(input.ReactionEmoji)) > MaxReactionEmoji {
+			return nil, fmt.Errorf("%w: reaction emoji exceeds %d characters", ErrInvalidInput, MaxReactionEmoji)
+		}
+		return json.Marshal(reactionPayload{Target: input.ReactionTarget, Emoji: input.ReactionEmoji})
+	case TypeSticker:
+		if input.MediaID == nil {
+			return nil, fmt.Errorf("%w: sticker rides /messages/media with type=sticker, not the generic endpoint", ErrInvalidInput)
+		}
+		return json.Marshal(stickerPayload{Caption: input.Caption, Filename: input.Filename, QuotedID: input.QuotedID})
+	case TypeList:
+		if err := validateList(input); err != nil {
+			return nil, err
+		}
+		return json.Marshal(listPayload{
+			Title:       input.ListTitle,
+			Description: input.ListDescription,
+			Button:      input.ListButton,
+			Sections:    input.ListSections,
+			Footer:      input.ListFooter,
+		})
+	case TypeButtons:
+		if err := validateButtons(input); err != nil {
+			return nil, err
+		}
+		return json.Marshal(buttonsPayload{Text: input.ButtonsText, Footer: input.ButtonsFooter, Buttons: input.Buttons})
 	default:
 		return nil, fmt.Errorf("%w: unsupported type %q", ErrInvalidInput, input.Type)
 	}
+}
+
+// validatePoll rejects a poll outside the documented limits: a question of
+// 1..MaxPollQuestion characters, MinPollOptions..MaxPollOptions options of
+// 1..MaxPollOption characters each and a selectable count of 0 or 1.
+func validatePoll(input EnqueueInput) error {
+	if n := len([]rune(input.PollQuestion)); n == 0 || n > MaxPollQuestion {
+		return fmt.Errorf("%w: poll question must be 1..%d characters", ErrInvalidInput, MaxPollQuestion)
+	}
+	if len(input.PollOptions) < MinPollOptions || len(input.PollOptions) > MaxPollOptions {
+		return fmt.Errorf("%w: poll must carry %d..%d options", ErrInvalidInput, MinPollOptions, MaxPollOptions)
+	}
+	for _, option := range input.PollOptions {
+		if n := len([]rune(option)); n == 0 || n > MaxPollOption {
+			return fmt.Errorf("%w: poll options must be 1..%d characters", ErrInvalidInput, MaxPollOption)
+		}
+	}
+	if input.PollSelectableCount < 0 || input.PollSelectableCount > 1 {
+		return fmt.Errorf("%w: poll selectable count must be 0 or 1", ErrInvalidInput)
+	}
+	return nil
+}
+
+// validateList rejects a list outside the documented limits: 1..MaxListSections
+// sections of 1..MaxListRows rows each, a required button text and every text
+// within 1..MaxListText characters where required.
+func validateList(input EnqueueInput) error {
+	if n := len([]rune(input.ListButton)); n == 0 || n > MaxListText {
+		return fmt.Errorf("%w: list button text must be 1..%d characters", ErrInvalidInput, MaxListText)
+	}
+	for _, text := range []string{input.ListTitle, input.ListDescription, input.ListFooter} {
+		if len([]rune(text)) > MaxListText {
+			return fmt.Errorf("%w: list texts must be at most %d characters", ErrInvalidInput, MaxListText)
+		}
+	}
+	if len(input.ListSections) < MinListSections || len(input.ListSections) > MaxListSections {
+		return fmt.Errorf("%w: list must carry %d..%d sections", ErrInvalidInput, MinListSections, MaxListSections)
+	}
+	for _, section := range input.ListSections {
+		if n := len([]rune(section.Title)); n == 0 || n > MaxListText {
+			return fmt.Errorf("%w: list section titles must be 1..%d characters", ErrInvalidInput, MaxListText)
+		}
+		if len(section.Rows) < MinListRows || len(section.Rows) > MaxListRows {
+			return fmt.Errorf("%w: list sections must carry %d..%d rows", ErrInvalidInput, MinListRows, MaxListRows)
+		}
+		for _, row := range section.Rows {
+			if n := len([]rune(row.ID)); n == 0 || n > MaxListText {
+				return fmt.Errorf("%w: list row ids must be 1..%d characters", ErrInvalidInput, MaxListText)
+			}
+			if n := len([]rune(row.Title)); n == 0 || n > MaxListText {
+				return fmt.Errorf("%w: list row titles must be 1..%d characters", ErrInvalidInput, MaxListText)
+			}
+			if len([]rune(row.Description)) > MaxListText {
+				return fmt.Errorf("%w: list row descriptions must be at most %d characters", ErrInvalidInput, MaxListText)
+			}
+		}
+	}
+	return nil
+}
+
+// validateButtons rejects a buttons message outside the documented limits: a
+// body of 1..MaxButtonsText characters and MinButtons..MaxButtons buttons
+// with ids of 1..MaxButtonID and titles of 1..MaxButtonTitle characters.
+func validateButtons(input EnqueueInput) error {
+	if n := len([]rune(input.ButtonsText)); n == 0 || n > MaxButtonsText {
+		return fmt.Errorf("%w: buttons text must be 1..%d characters", ErrInvalidInput, MaxButtonsText)
+	}
+	if len([]rune(input.ButtonsFooter)) > MaxButtonsFooter {
+		return fmt.Errorf("%w: buttons footer must be at most %d characters", ErrInvalidInput, MaxButtonsFooter)
+	}
+	if len(input.Buttons) < MinButtons || len(input.Buttons) > MaxButtons {
+		return fmt.Errorf("%w: buttons must carry %d..%d buttons", ErrInvalidInput, MinButtons, MaxButtons)
+	}
+	for _, button := range input.Buttons {
+		if n := len([]rune(button.ID)); n == 0 || n > MaxButtonID {
+			return fmt.Errorf("%w: button ids must be 1..%d characters", ErrInvalidInput, MaxButtonID)
+		}
+		if n := len([]rune(button.Title)); n == 0 || n > MaxButtonTitle {
+			return fmt.Errorf("%w: button titles must be 1..%d characters", ErrInvalidInput, MaxButtonTitle)
+		}
+	}
+	return nil
 }
 
 // textPayload is the stored body of a text message. QuotedID is the WhatsApp
@@ -232,6 +437,47 @@ type mediaPayload struct {
 	Filename string `json:"filename,omitempty"`
 	PTT      bool   `json:"ptt,omitempty"`
 	QuotedID string `json:"quoted_id,omitempty"`
+}
+
+// pollPayload is the stored body of a poll message: the question, the option
+// names in order and how many options the recipient may select (0 or 1).
+type pollPayload struct {
+	Question        string   `json:"question"`
+	Options         []string `json:"options"`
+	SelectableCount int      `json:"selectable_count"`
+}
+
+// reactionPayload is the stored body of a reaction message: the WhatsApp id
+// of the reacted message and the emoji. An empty emoji removes the reaction
+// on the same target; the emoji itself is not validated.
+type reactionPayload struct {
+	Target string `json:"target"`
+	Emoji  string `json:"emoji"`
+}
+
+// stickerPayload is the stored body of a sticker message. The webp mimetype
+// is resolved from the media row by the sender, like media messages.
+type stickerPayload struct {
+	Caption  string `json:"caption,omitempty"`
+	Filename string `json:"filename,omitempty"`
+	QuotedID string `json:"quoted_id,omitempty"`
+}
+
+// listPayload is the stored body of a list message.
+type listPayload struct {
+	Title       string        `json:"title,omitempty"`
+	Description string        `json:"description,omitempty"`
+	Button      string        `json:"button_text"`
+	Sections    []ListSection `json:"sections"`
+	Footer      string        `json:"footer,omitempty"`
+}
+
+// buttonsPayload is the stored body of a buttons message. A PIX key travels
+// as button content pass-through, not as a distinct button type.
+type buttonsPayload struct {
+	Text    string   `json:"text"`
+	Footer  string   `json:"footer,omitempty"`
+	Buttons []Button `json:"buttons"`
 }
 
 // mapMessageError translates a storage error into the service sentinel the HTTP

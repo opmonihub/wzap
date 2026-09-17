@@ -90,6 +90,7 @@ func New(cfg config.Config, log zerolog.Logger, deps Deps) *http.Server {
 	api.Handle("POST /instances/{id}/messages/location", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleSendLocation(deps.Instances, deps.Messages)))
 	api.Handle("POST /instances/{id}/messages/contact", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleSendContact(deps.Instances, deps.Messages)))
 	api.Handle("POST /instances/{id}/messages/media", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleSendMedia(deps.Instances, deps.Messages, deps.Media, cfg.MaxMediaBytes)))
+	api.Handle("POST /instances/{id}/messages", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleSendMessage(deps.Instances, deps.Messages)))
 	api.HandleFunc("GET /instances/{id}/messages", handleListMessages(deps.Instances, deps.Messages))
 	api.HandleFunc("GET /instances/{id}/messages/{message_id}", handleGetMessage(deps.Instances, deps.Messages))
 	api.HandleFunc("POST /instances/{id}/messages/revoke", handleRevokeMessage(deps.Instances, log))

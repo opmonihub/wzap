@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -83,8 +84,8 @@ type groupLeaveResponse struct {
 	Left bool `json:"left"`
 }
 
-// groupPhotoResponse is the answer to a picture update.
-type groupPhotoResponse struct {
+// groupUpdatedResponse is the answer to a picture or participants update.
+type groupUpdatedResponse struct {
 	Updated bool `json:"updated"`
 }
 
@@ -108,6 +109,13 @@ func newGroupResponse(group instance.Group) groupResponse {
 		ParticipantCount: group.ParticipantCount,
 		UpdatedAt:        group.UpdatedAt,
 	}
+}
+
+// groupNameValid reports whether name fits the upstream subject limit of 25
+// characters.
+func groupNameValid(name string) bool {
+	trimmed := strings.TrimSpace(name)
+	return trimmed != "" && utf8.RuneCountInString(trimmed) <= maxGroupNameLen
 }
 
 // validParticipantAction reports whether action is one of the group member
@@ -186,7 +194,7 @@ func handleCreateGroup(instances InstanceService, log zerolog.Logger) http.Handl
 			return
 		}
 		name := strings.TrimSpace(request.Name)
-		if name == "" || len(name) > maxGroupNameLen {
+		if !groupNameValid(name) {
 			Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "name is required, max 25 characters")
 			return
 		}
@@ -292,7 +300,7 @@ func handleUpdateGroup(instances InstanceService, log zerolog.Logger) http.Handl
 		input := instance.UpdateGroupInput{Description: request.Description}
 		if request.Name != nil {
 			name := strings.TrimSpace(*request.Name)
-			if name == "" || len(name) > maxGroupNameLen {
+			if !groupNameValid(name) {
 				Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "name is required, max 25 characters")
 				return
 			}
@@ -321,7 +329,7 @@ func handleUpdateGroup(instances InstanceService, log zerolog.Logger) http.Handl
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param group_id path string true "Group JID"
-// @Success 200 {object} groupPhotoResponse "Updated, wrapped in the data envelope"
+// @Success 200 {object} groupUpdatedResponse "Updated, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner, or no group permission"
 // @Failure 404 {object} errorEnvelope "Instance or group not found"
@@ -364,7 +372,7 @@ func handleSetGroupPhoto(instances InstanceService, log zerolog.Logger, maxBytes
 			writeInstanceError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusOK, groupPhotoResponse{Updated: true})
+		JSON(w, r, http.StatusOK, groupUpdatedResponse{Updated: true})
 	}
 }
 
@@ -381,7 +389,7 @@ func handleSetGroupPhoto(instances InstanceService, log zerolog.Logger, maxBytes
 // @Param id path string true "Instance ID (UUID)"
 // @Param group_id path string true "Group JID"
 // @Param request body updateParticipantsRequest true "Participants payload"
-// @Success 200 {object} groupPhotoResponse "Applied, wrapped in the data envelope"
+// @Success 200 {object} groupUpdatedResponse "Applied, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner, or no group permission"
@@ -419,7 +427,7 @@ func handleUpdateGroupParticipants(instances InstanceService, log zerolog.Logger
 			writeInstanceError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusOK, groupPhotoResponse{Updated: true})
+		JSON(w, r, http.StatusOK, groupUpdatedResponse{Updated: true})
 	}
 }
 

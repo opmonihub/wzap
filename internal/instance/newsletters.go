@@ -51,8 +51,10 @@ func (s *Service) FollowNewsletter(ctx context.Context, id uuid.UUID, channelJID
 	return nil
 }
 
-// UnfollowNewsletter ends the subscription of the instance to channelJID.
-// Error mapping follows FollowNewsletter.
+// UnfollowNewsletter ends the subscription of the instance to channelJID. The
+// metadata cache keeps its last-known row: it is a refresh log, not a
+// subscription registry, so unfollow writes nothing. Error mapping follows
+// FollowNewsletter.
 func (s *Service) UnfollowNewsletter(ctx context.Context, id uuid.UUID, channelJID string) error {
 	instance, err := s.repo.Get(ctx, id)
 	if err != nil {

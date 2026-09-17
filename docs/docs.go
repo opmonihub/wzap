@@ -1731,7 +1731,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Applied, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.groupPhotoResponse"
+                            "$ref": "#/definitions/httpapi.groupUpdatedResponse"
                         }
                     },
                     "400": {
@@ -1835,7 +1835,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Updated, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.groupPhotoResponse"
+                            "$ref": "#/definitions/httpapi.groupUpdatedResponse"
                         }
                     },
                     "401": {
@@ -4275,14 +4275,6 @@ const docTemplate = `{
                 }
             }
         },
-        "httpapi.groupPhotoResponse": {
-            "type": "object",
-            "properties": {
-                "updated": {
-                    "type": "boolean"
-                }
-            }
-        },
         "httpapi.groupResponse": {
             "type": "object",
             "properties": {
@@ -4309,6 +4301,14 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "httpapi.groupUpdatedResponse": {
+            "type": "object",
+            "properties": {
+                "updated": {
+                    "type": "boolean"
                 }
             }
         },

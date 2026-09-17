@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
@@ -23,7 +24,7 @@ const maxGroupDescriptionLen = 512
 // empty name or an unparsable participant is ErrInvalidRecipient; an offline
 // client is ErrNotConnected.
 func (s *instanceSession) CreateGroup(ctx context.Context, name string, participantJIDs []string) (session.GroupInfo, error) {
-	if strings.TrimSpace(name) == "" || len(name) > maxGroupNameLen {
+	if utf8.RuneCountInString(strings.TrimSpace(name)) == 0 || utf8.RuneCountInString(name) > maxGroupNameLen {
 		return session.GroupInfo{}, fmt.Errorf("%w: invalid group name", session.ErrInvalidRecipient)
 	}
 	participants := make([]types.JID, 0, len(participantJIDs))
@@ -67,7 +68,7 @@ func (s *instanceSession) SetGroupName(ctx context.Context, groupJID, name strin
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(name) == "" || len(name) > maxGroupNameLen {
+	if utf8.RuneCountInString(strings.TrimSpace(name)) == 0 || utf8.RuneCountInString(name) > maxGroupNameLen {
 		return fmt.Errorf("%w: invalid group name", session.ErrInvalidRecipient)
 	}
 	if !s.client.IsConnected() {

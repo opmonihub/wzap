@@ -15,6 +15,12 @@ import (
 func TestCreateGroupRejectsInvalidName(t *testing.T) {
 	sess := actionSession(t)
 
+	// The upstream limit counts characters, not bytes: a 21-rune multibyte
+	// name passes the guard (and fails later on the disconnected client),
+	// while blank and 26-character names never reach the session.
+	if _, err := sess.CreateGroup(context.Background(), "çãõéíúâêôàäöüßñýÿžšćčđ", nil); !errors.Is(err, session.ErrNotConnected) {
+		t.Errorf("CreateGroup(multibyte) error = %v, want %v (guard passed, client offline)", err, session.ErrNotConnected)
+	}
 	for _, name := range []string{"", "   ", string(make([]byte, maxGroupNameLen+1))} {
 		if _, err := sess.CreateGroup(context.Background(), name, nil); !errors.Is(err, session.ErrInvalidRecipient) {
 			t.Errorf("CreateGroup(%q) error = %v, want %v", name, err, session.ErrInvalidRecipient)

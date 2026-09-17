@@ -18,22 +18,42 @@ import (
 var ErrInvalid = errors.New("invalid webhook config")
 
 // canonicalEvents is the only accepted subscription set, in the deterministic
-// order stored regardless of input order.
-var canonicalEvents = []string{"message", "receipt", "connection", "message.status"}
+// order stored regardless of input order. The rich inbound types (poll vote,
+// reaction, interactive response), the group types (participants, info) and
+// the unified call type (call.offer) are opt-in: they validate explicitly but
+// never enter the default set, so existing webhooks keep receiving exactly
+// what they subscribed to.
+var canonicalEvents = []string{
+	"message", "receipt", "connection", "message.status",
+	"poll.vote", "message.reaction", "interactive.response",
+	"group.participants", "group.info",
+	"call.offer",
+}
 
 // canonicalSet is the exact lowercase membership of canonicalEvents: matching
 // is case-sensitive ("Message" is rejected, not normalized).
 var canonicalSet = map[string]bool{
-	"message":        true,
-	"receipt":        true,
-	"connection":     true,
-	"message.status": true,
+	"message":              true,
+	"receipt":              true,
+	"connection":           true,
+	"message.status":       true,
+	"poll.vote":            true,
+	"message.reaction":     true,
+	"interactive.response": true,
+	"group.participants":   true,
+	"group.info":           true,
+	"call.offer":           true,
 }
 
+// defaultEvents is the subscription used when webhook_events is omitted: the
+// four original types in canonical order, pinned so later additions stay
+// opt-in. The slice is never shared: DefaultEvents returns a fresh copy.
+var defaultEvents = []string{"message", "receipt", "connection", "message.status"}
+
 // DefaultEvents returns the subscription used when webhook_events is omitted:
-// all four canonical types in canonical order. The slice is a fresh copy.
+// the four original types in canonical order. The slice is a fresh copy.
 func DefaultEvents() []string {
-	return append([]string(nil), canonicalEvents...)
+	return append([]string(nil), defaultEvents...)
 }
 
 // ValidateURL checks a webhook URL. Empty stays valid and returns nil (unset,

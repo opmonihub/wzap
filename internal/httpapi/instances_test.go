@@ -15,31 +15,210 @@ import (
 	"wzap/internal/config"
 	"wzap/internal/instance"
 	"wzap/internal/model"
+	"wzap/internal/session"
 )
 
 // fakeInstanceService is an in-memory InstanceService: the function fields
 // configure each outcome and the recorded fields expose the calls the handlers
 // made.
 type fakeInstanceService struct {
-	createFn      func(ctx context.Context, input instance.CreateInput) (*model.Instance, string, error)
-	oldestAdminFn func(ctx context.Context) (uuid.UUID, error)
-	getFn         func(ctx context.Context, id uuid.UUID) (*model.Instance, error)
-	listFn        func(ctx context.Context, limit int, cursor string) ([]model.Instance, string, error)
-	updateFn      func(ctx context.Context, id uuid.UUID, input instance.UpdateInput) (*model.Instance, error)
-	deleteFn      func(ctx context.Context, id uuid.UUID) error
-	disconnectFn  func(ctx context.Context, id uuid.UUID) error
-	connectFn     func(ctx context.Context, id uuid.UUID) (instance.ConnectResult, error)
-	qrFn          func(ctx context.Context, id uuid.UUID) (instance.ConnectResult, error)
+	createFn             func(ctx context.Context, input instance.CreateInput) (*model.Instance, string, error)
+	oldestAdminFn        func(ctx context.Context) (uuid.UUID, error)
+	getFn                func(ctx context.Context, id uuid.UUID) (*model.Instance, error)
+	listFn               func(ctx context.Context, limit int, cursor string) ([]model.Instance, string, error)
+	updateFn             func(ctx context.Context, id uuid.UUID, input instance.UpdateInput) (*model.Instance, error)
+	deleteFn             func(ctx context.Context, id uuid.UUID) error
+	disconnectFn         func(ctx context.Context, id uuid.UUID) error
+	connectFn            func(ctx context.Context, id uuid.UUID) (instance.ConnectResult, error)
+	qrFn                 func(ctx context.Context, id uuid.UUID) (instance.ConnectResult, error)
+	revokeFn             func(ctx context.Context, id uuid.UUID, chatJID, messageID string) error
+	markReadFn           func(ctx context.Context, id uuid.UUID, chatJID, senderJID, messageID string) error
+	sendPresenceFn       func(ctx context.Context, id uuid.UUID, chatJID, state string) error
+	pairPhoneFn          func(ctx context.Context, id uuid.UUID, phone string) (instance.PairPhoneResult, error)
+	createGroupFn        func(ctx context.Context, id uuid.UUID, input instance.CreateGroupInput) (instance.Group, error)
+	getGroupFn           func(ctx context.Context, id uuid.UUID, groupJID string) (instance.Group, error)
+	updateGroupFn        func(ctx context.Context, id uuid.UUID, groupJID string, input instance.UpdateGroupInput) (instance.Group, error)
+	setGroupPhotoFn      func(ctx context.Context, id uuid.UUID, groupJID string, image []byte) error
+	updateParticipantsFn func(ctx context.Context, id uuid.UUID, groupJID, action string, participants []string) error
+	getGroupInviteFn     func(ctx context.Context, id uuid.UUID, groupJID string) (string, error)
+	resetGroupInviteFn   func(ctx context.Context, id uuid.UUID, groupJID string) (string, error)
+	joinGroupFn          func(ctx context.Context, id uuid.UUID, inviteCode string) (string, error)
+	leaveGroupFn         func(ctx context.Context, id uuid.UUID, groupJID string) error
+	followNewsletterFn   func(ctx context.Context, id uuid.UUID, channelJID string) error
+	unfollowNewsletterFn func(ctx context.Context, id uuid.UUID, channelJID string) error
+	getNewsletterFn      func(ctx context.Context, id uuid.UUID, channelJID string) (instance.Newsletter, error)
+	listNewslettersFn    func(ctx context.Context, id uuid.UUID, limit int, cursor string) ([]instance.Newsletter, string, error)
+	publishStatusFn      func(ctx context.Context, id uuid.UUID, input session.StatusInput) (string, error)
+	listStatusesFn       func(ctx context.Context, id uuid.UUID) ([]session.StatusInfo, error)
+	deleteStatusFn       func(ctx context.Context, id uuid.UUID, statusID string) error
+	rejectCallFn         func(ctx context.Context, id uuid.UUID, fromJID, callID string) error
+	getProfileFn         func(ctx context.Context, id uuid.UUID) (session.Profile, error)
+	setProfileNameFn     func(ctx context.Context, id uuid.UUID, name string) error
+	setProfileStatusFn   func(ctx context.Context, id uuid.UUID, text string) error
+	setProfilePhotoFn    func(ctx context.Context, id uuid.UUID, image []byte) error
+	getPrivacyFn         func(ctx context.Context, id uuid.UUID) (session.Privacy, error)
+	setPrivacyFn         func(ctx context.Context, id uuid.UUID, input session.Privacy) (session.Privacy, error)
 
-	createInputs  []instance.CreateInput
-	updateInputs  []instance.UpdateInput
-	getIDs        []uuid.UUID
-	deleteIDs     []uuid.UUID
-	disconnectIDs []uuid.UUID
-	connectIDs    []uuid.UUID
-	qrIDs         []uuid.UUID
-	listLimit     int
-	listCursor    string
+	createInputs            []instance.CreateInput
+	updateInputs            []instance.UpdateInput
+	getIDs                  []uuid.UUID
+	deleteIDs               []uuid.UUID
+	disconnectIDs           []uuid.UUID
+	connectIDs              []uuid.UUID
+	qrIDs                   []uuid.UUID
+	revokeCalls             []revokeCall
+	markReadCalls           []markReadCall
+	presenceCalls           []presenceCall
+	pairPhoneCalls          []pairPhoneCall
+	createGroupCalls        []createGroupCall
+	getGroupCalls           []groupTargetCall
+	updateGroupCalls        []updateGroupCall
+	setGroupPhotoCalls      []setGroupPhotoCall
+	updateParticipantsCalls []updateParticipantsCall
+	getGroupInviteCalls     []groupTargetCall
+	resetGroupInviteCalls   []groupTargetCall
+	joinGroupCalls          []joinGroupCall
+	leaveGroupCalls         []groupTargetCall
+	followNewsletterCalls   []newsletterTargetCall
+	unfollowNewsletterCalls []newsletterTargetCall
+	getNewsletterCalls      []newsletterTargetCall
+	listNewsletterCalls     []listNewsletterCall
+	publishStatusCalls      []publishStatusCall
+	listStatusCalls         []uuid.UUID
+	deleteStatusCalls       []deleteStatusCall
+	rejectCallCalls         []rejectCallRecord
+	setProfileNameCalls     []profileNameCall
+	setProfileStatusCalls   []profileStatusCall
+	setProfilePhotoCalls    []profilePhotoCall
+	setPrivacyCalls         []privacyCall
+	listLimit               int
+	listCursor              string
+}
+
+// revokeCall records one RevokeMessage call received by the fake.
+type revokeCall struct {
+	InstanceID uuid.UUID
+	ChatJID    string
+	MessageID  string
+}
+
+// markReadCall records one MarkRead call received by the fake.
+type markReadCall struct {
+	InstanceID uuid.UUID
+	ChatJID    string
+	SenderJID  string
+	MessageID  string
+}
+
+// presenceCall records one SendPresence call received by the fake.
+type presenceCall struct {
+	InstanceID uuid.UUID
+	ChatJID    string
+	State      string
+}
+
+// pairPhoneCall records one PairPhone call received by the fake.
+type pairPhoneCall struct {
+	InstanceID uuid.UUID
+	Phone      string
+}
+
+// createGroupCall records one CreateGroup call received by the fake.
+type createGroupCall struct {
+	InstanceID uuid.UUID
+	Input      instance.CreateGroupInput
+}
+
+// groupTargetCall records one group call addressing a group JID.
+type groupTargetCall struct {
+	InstanceID uuid.UUID
+	GroupJID   string
+}
+
+// updateGroupCall records one UpdateGroup call received by the fake.
+type updateGroupCall struct {
+	InstanceID uuid.UUID
+	GroupJID   string
+	Input      instance.UpdateGroupInput
+}
+
+// setGroupPhotoCall records one SetGroupPhoto call received by the fake.
+type setGroupPhotoCall struct {
+	InstanceID uuid.UUID
+	GroupJID   string
+	Image      []byte
+}
+
+// updateParticipantsCall records one UpdateGroupParticipants call received by
+// the fake.
+type updateParticipantsCall struct {
+	InstanceID   uuid.UUID
+	GroupJID     string
+	Action       string
+	Participants []string
+}
+
+// joinGroupCall records one JoinGroup call received by the fake.
+type joinGroupCall struct {
+	InstanceID uuid.UUID
+	InviteCode string
+}
+
+// newsletterTargetCall records one newsletter call addressing a channel.
+type newsletterTargetCall struct {
+	InstanceID uuid.UUID
+	ChannelJID string
+}
+
+// listNewsletterCall records one ListNewsletters call received by the fake.
+type listNewsletterCall struct {
+	InstanceID uuid.UUID
+	Limit      int
+	Cursor     string
+}
+
+// publishStatusCall records one PublishStatus call received by the fake.
+type publishStatusCall struct {
+	InstanceID uuid.UUID
+	Input      session.StatusInput
+}
+
+// deleteStatusCall records one DeleteStatus call received by the fake.
+type deleteStatusCall struct {
+	InstanceID uuid.UUID
+	StatusID   string
+}
+
+// rejectCallRecord records one RejectCall call received by the fake.
+type rejectCallRecord struct {
+	InstanceID uuid.UUID
+	FromJID    string
+	CallID     string
+}
+
+// profileNameCall records one SetProfileName call received by the fake.
+type profileNameCall struct {
+	InstanceID uuid.UUID
+	Name       string
+}
+
+// profileStatusCall records one SetProfileStatusText call received by the
+// fake.
+type profileStatusCall struct {
+	InstanceID uuid.UUID
+	Text       string
+}
+
+// profilePhotoCall records one SetProfilePhoto call received by the fake.
+type profilePhotoCall struct {
+	InstanceID uuid.UUID
+	Image      []byte
+}
+
+// privacyCall records one SetPrivacy call received by the fake.
+type privacyCall struct {
+	InstanceID uuid.UUID
+	Input      session.Privacy
 }
 
 // Create records the input and returns the configured instance with its
@@ -129,6 +308,247 @@ func (f *fakeInstanceService) QR(ctx context.Context, id uuid.UUID) (instance.Co
 	}
 	expiresAt := time.Now().Add(time.Minute)
 	return instance.ConnectResult{Status: "pairing", QRCode: "qr-code", QRExpiresAt: &expiresAt}, nil
+}
+
+// RevokeMessage records the call and returns the configured error.
+func (f *fakeInstanceService) RevokeMessage(ctx context.Context, id uuid.UUID, chatJID, messageID string) error {
+	f.revokeCalls = append(f.revokeCalls, revokeCall{InstanceID: id, ChatJID: chatJID, MessageID: messageID})
+	if f.revokeFn != nil {
+		return f.revokeFn(ctx, id, chatJID, messageID)
+	}
+	return nil
+}
+
+// MarkRead records the call and returns the configured error.
+func (f *fakeInstanceService) MarkRead(ctx context.Context, id uuid.UUID, chatJID, senderJID, messageID string) error {
+	f.markReadCalls = append(f.markReadCalls, markReadCall{InstanceID: id, ChatJID: chatJID, SenderJID: senderJID, MessageID: messageID})
+	if f.markReadFn != nil {
+		return f.markReadFn(ctx, id, chatJID, senderJID, messageID)
+	}
+	return nil
+}
+
+// SendPresence records the call and returns the configured error.
+func (f *fakeInstanceService) SendPresence(ctx context.Context, id uuid.UUID, chatJID, state string) error {
+	f.presenceCalls = append(f.presenceCalls, presenceCall{InstanceID: id, ChatJID: chatJID, State: state})
+	if f.sendPresenceFn != nil {
+		return f.sendPresenceFn(ctx, id, chatJID, state)
+	}
+	return nil
+}
+
+// PairPhone records the call and returns the configured result.
+func (f *fakeInstanceService) PairPhone(ctx context.Context, id uuid.UUID, phone string) (instance.PairPhoneResult, error) {
+	f.pairPhoneCalls = append(f.pairPhoneCalls, pairPhoneCall{InstanceID: id, Phone: phone})
+	if f.pairPhoneFn != nil {
+		return f.pairPhoneFn(ctx, id, phone)
+	}
+	return instance.PairPhoneResult{Code: "12345678", ExpiresAt: time.Now().Add(time.Minute)}, nil
+}
+
+// CreateGroup records the call and returns the configured group.
+func (f *fakeInstanceService) CreateGroup(ctx context.Context, id uuid.UUID, input instance.CreateGroupInput) (instance.Group, error) {
+	f.createGroupCalls = append(f.createGroupCalls, createGroupCall{InstanceID: id, Input: input})
+	if f.createGroupFn != nil {
+		return f.createGroupFn(ctx, id, input)
+	}
+	return instance.Group{JID: "120363000000000000@g.us", Name: input.Name}, nil
+}
+
+// GetGroup records the call and returns the configured group.
+func (f *fakeInstanceService) GetGroup(ctx context.Context, id uuid.UUID, groupJID string) (instance.Group, error) {
+	f.getGroupCalls = append(f.getGroupCalls, groupTargetCall{InstanceID: id, GroupJID: groupJID})
+	if f.getGroupFn != nil {
+		return f.getGroupFn(ctx, id, groupJID)
+	}
+	return instance.Group{JID: groupJID}, nil
+}
+
+// UpdateGroup records the call and returns the configured group.
+func (f *fakeInstanceService) UpdateGroup(ctx context.Context, id uuid.UUID, groupJID string, input instance.UpdateGroupInput) (instance.Group, error) {
+	f.updateGroupCalls = append(f.updateGroupCalls, updateGroupCall{InstanceID: id, GroupJID: groupJID, Input: input})
+	if f.updateGroupFn != nil {
+		return f.updateGroupFn(ctx, id, groupJID, input)
+	}
+	return instance.Group{JID: groupJID}, nil
+}
+
+// SetGroupPhoto records the call and returns the configured error.
+func (f *fakeInstanceService) SetGroupPhoto(ctx context.Context, id uuid.UUID, groupJID string, image []byte) error {
+	f.setGroupPhotoCalls = append(f.setGroupPhotoCalls, setGroupPhotoCall{InstanceID: id, GroupJID: groupJID, Image: image})
+	if f.setGroupPhotoFn != nil {
+		return f.setGroupPhotoFn(ctx, id, groupJID, image)
+	}
+	return nil
+}
+
+// UpdateGroupParticipants records the call and returns the configured error.
+func (f *fakeInstanceService) UpdateGroupParticipants(ctx context.Context, id uuid.UUID, groupJID, action string, participants []string) error {
+	f.updateParticipantsCalls = append(f.updateParticipantsCalls, updateParticipantsCall{InstanceID: id, GroupJID: groupJID, Action: action, Participants: participants})
+	if f.updateParticipantsFn != nil {
+		return f.updateParticipantsFn(ctx, id, groupJID, action, participants)
+	}
+	return nil
+}
+
+// GetGroupInvite records the call and returns the configured code.
+func (f *fakeInstanceService) GetGroupInvite(ctx context.Context, id uuid.UUID, groupJID string) (string, error) {
+	f.getGroupInviteCalls = append(f.getGroupInviteCalls, groupTargetCall{InstanceID: id, GroupJID: groupJID})
+	if f.getGroupInviteFn != nil {
+		return f.getGroupInviteFn(ctx, id, groupJID)
+	}
+	return "invite-code-1", nil
+}
+
+// ResetGroupInvite records the call and returns the configured code.
+func (f *fakeInstanceService) ResetGroupInvite(ctx context.Context, id uuid.UUID, groupJID string) (string, error) {
+	f.resetGroupInviteCalls = append(f.resetGroupInviteCalls, groupTargetCall{InstanceID: id, GroupJID: groupJID})
+	if f.resetGroupInviteFn != nil {
+		return f.resetGroupInviteFn(ctx, id, groupJID)
+	}
+	return "invite-code-2", nil
+}
+
+// JoinGroup records the call and returns the configured group JID.
+func (f *fakeInstanceService) JoinGroup(ctx context.Context, id uuid.UUID, inviteCode string) (string, error) {
+	f.joinGroupCalls = append(f.joinGroupCalls, joinGroupCall{InstanceID: id, InviteCode: inviteCode})
+	if f.joinGroupFn != nil {
+		return f.joinGroupFn(ctx, id, inviteCode)
+	}
+	return "120363000000000000@g.us", nil
+}
+
+// LeaveGroup records the call and returns the configured error.
+func (f *fakeInstanceService) LeaveGroup(ctx context.Context, id uuid.UUID, groupJID string) error {
+	f.leaveGroupCalls = append(f.leaveGroupCalls, groupTargetCall{InstanceID: id, GroupJID: groupJID})
+	if f.leaveGroupFn != nil {
+		return f.leaveGroupFn(ctx, id, groupJID)
+	}
+	return nil
+}
+
+// FollowNewsletter records the call and returns the configured error.
+func (f *fakeInstanceService) FollowNewsletter(ctx context.Context, id uuid.UUID, channelJID string) error {
+	f.followNewsletterCalls = append(f.followNewsletterCalls, newsletterTargetCall{InstanceID: id, ChannelJID: channelJID})
+	if f.followNewsletterFn != nil {
+		return f.followNewsletterFn(ctx, id, channelJID)
+	}
+	return nil
+}
+
+// UnfollowNewsletter records the call and returns the configured error.
+func (f *fakeInstanceService) UnfollowNewsletter(ctx context.Context, id uuid.UUID, channelJID string) error {
+	f.unfollowNewsletterCalls = append(f.unfollowNewsletterCalls, newsletterTargetCall{InstanceID: id, ChannelJID: channelJID})
+	if f.unfollowNewsletterFn != nil {
+		return f.unfollowNewsletterFn(ctx, id, channelJID)
+	}
+	return nil
+}
+
+// GetNewsletter records the call and returns the configured channel.
+func (f *fakeInstanceService) GetNewsletter(ctx context.Context, id uuid.UUID, channelJID string) (instance.Newsletter, error) {
+	f.getNewsletterCalls = append(f.getNewsletterCalls, newsletterTargetCall{InstanceID: id, ChannelJID: channelJID})
+	if f.getNewsletterFn != nil {
+		return f.getNewsletterFn(ctx, id, channelJID)
+	}
+	return instance.Newsletter{ChannelJID: channelJID}, nil
+}
+
+// ListNewsletters records the call and returns the configured page.
+func (f *fakeInstanceService) ListNewsletters(ctx context.Context, id uuid.UUID, limit int, cursor string) ([]instance.Newsletter, string, error) {
+	f.listNewsletterCalls = append(f.listNewsletterCalls, listNewsletterCall{InstanceID: id, Limit: limit, Cursor: cursor})
+	if f.listNewslettersFn != nil {
+		return f.listNewslettersFn(ctx, id, limit, cursor)
+	}
+	return nil, "", nil
+}
+
+// PublishStatus records the call and returns the configured upstream id.
+func (f *fakeInstanceService) PublishStatus(ctx context.Context, id uuid.UUID, input session.StatusInput) (string, error) {
+	f.publishStatusCalls = append(f.publishStatusCalls, publishStatusCall{InstanceID: id, Input: input})
+	if f.publishStatusFn != nil {
+		return f.publishStatusFn(ctx, id, input)
+	}
+	return "wamid.status", nil
+}
+
+// ListStatuses records the call and returns the configured statuses.
+func (f *fakeInstanceService) ListStatuses(ctx context.Context, id uuid.UUID) ([]session.StatusInfo, error) {
+	f.listStatusCalls = append(f.listStatusCalls, id)
+	if f.listStatusesFn != nil {
+		return f.listStatusesFn(ctx, id)
+	}
+	return nil, nil
+}
+
+// DeleteStatus records the call and returns the configured error.
+func (f *fakeInstanceService) DeleteStatus(ctx context.Context, id uuid.UUID, statusID string) error {
+	f.deleteStatusCalls = append(f.deleteStatusCalls, deleteStatusCall{InstanceID: id, StatusID: statusID})
+	if f.deleteStatusFn != nil {
+		return f.deleteStatusFn(ctx, id, statusID)
+	}
+	return nil
+}
+
+// RejectCall records the call and returns the configured error.
+func (f *fakeInstanceService) RejectCall(ctx context.Context, id uuid.UUID, fromJID, callID string) error {
+	f.rejectCallCalls = append(f.rejectCallCalls, rejectCallRecord{InstanceID: id, FromJID: fromJID, CallID: callID})
+	if f.rejectCallFn != nil {
+		return f.rejectCallFn(ctx, id, fromJID, callID)
+	}
+	return nil
+}
+
+// GetProfile records the call and returns the configured profile.
+func (f *fakeInstanceService) GetProfile(ctx context.Context, id uuid.UUID) (session.Profile, error) {
+	if f.getProfileFn != nil {
+		return f.getProfileFn(ctx, id)
+	}
+	return session.Profile{}, nil
+}
+
+// SetProfileName records the call and returns the configured error.
+func (f *fakeInstanceService) SetProfileName(ctx context.Context, id uuid.UUID, name string) error {
+	f.setProfileNameCalls = append(f.setProfileNameCalls, profileNameCall{InstanceID: id, Name: name})
+	if f.setProfileNameFn != nil {
+		return f.setProfileNameFn(ctx, id, name)
+	}
+	return nil
+}
+
+// SetProfileStatusText records the call and returns the configured error.
+func (f *fakeInstanceService) SetProfileStatusText(ctx context.Context, id uuid.UUID, text string) error {
+	f.setProfileStatusCalls = append(f.setProfileStatusCalls, profileStatusCall{InstanceID: id, Text: text})
+	if f.setProfileStatusFn != nil {
+		return f.setProfileStatusFn(ctx, id, text)
+	}
+	return nil
+}
+
+// SetProfilePhoto records the call and returns the configured error.
+func (f *fakeInstanceService) SetProfilePhoto(ctx context.Context, id uuid.UUID, image []byte) error {
+	f.setProfilePhotoCalls = append(f.setProfilePhotoCalls, profilePhotoCall{InstanceID: id, Image: image})
+	if f.setProfilePhotoFn != nil {
+		return f.setProfilePhotoFn(ctx, id, image)
+	}
+	return nil
+}
+
+// GetPrivacy records the call and returns the configured settings.
+func (f *fakeInstanceService) GetPrivacy(ctx context.Context, id uuid.UUID) (session.Privacy, error) {
+	if f.getPrivacyFn != nil {
+		return f.getPrivacyFn(ctx, id)
+	}
+	return session.Privacy{}, nil
+}
+
+// SetPrivacy records the call and returns the configured settings.
+func (f *fakeInstanceService) SetPrivacy(ctx context.Context, id uuid.UUID, input session.Privacy) (session.Privacy, error) {
+	f.setPrivacyCalls = append(f.setPrivacyCalls, privacyCall{InstanceID: id, Input: input})
+	if f.setPrivacyFn != nil {
+		return f.setPrivacyFn(ctx, id, input)
+	}
+	return session.Privacy{}, nil
 }
 
 // instancesServer builds the server under test with svc as the instance service.

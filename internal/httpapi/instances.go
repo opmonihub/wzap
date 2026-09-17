@@ -14,6 +14,7 @@ import (
 	"wzap/internal/auth"
 	"wzap/internal/instance"
 	"wzap/internal/model"
+	"wzap/internal/session"
 	"wzap/internal/storage"
 	"wzap/internal/webhook"
 )
@@ -40,6 +41,33 @@ type InstanceService interface {
 	Disconnect(ctx context.Context, id uuid.UUID) error
 	Connect(ctx context.Context, id uuid.UUID) (instance.ConnectResult, error)
 	QR(ctx context.Context, id uuid.UUID) (instance.ConnectResult, error)
+	RevokeMessage(ctx context.Context, id uuid.UUID, chatJID, messageID string) error
+	MarkRead(ctx context.Context, id uuid.UUID, chatJID, senderJID, messageID string) error
+	SendPresence(ctx context.Context, id uuid.UUID, chatJID, state string) error
+	PairPhone(ctx context.Context, id uuid.UUID, phone string) (instance.PairPhoneResult, error)
+	CreateGroup(ctx context.Context, id uuid.UUID, input instance.CreateGroupInput) (instance.Group, error)
+	GetGroup(ctx context.Context, id uuid.UUID, groupJID string) (instance.Group, error)
+	UpdateGroup(ctx context.Context, id uuid.UUID, groupJID string, input instance.UpdateGroupInput) (instance.Group, error)
+	SetGroupPhoto(ctx context.Context, id uuid.UUID, groupJID string, image []byte) error
+	UpdateGroupParticipants(ctx context.Context, id uuid.UUID, groupJID, action string, participants []string) error
+	GetGroupInvite(ctx context.Context, id uuid.UUID, groupJID string) (string, error)
+	ResetGroupInvite(ctx context.Context, id uuid.UUID, groupJID string) (string, error)
+	JoinGroup(ctx context.Context, id uuid.UUID, inviteCode string) (string, error)
+	LeaveGroup(ctx context.Context, id uuid.UUID, groupJID string) error
+	FollowNewsletter(ctx context.Context, id uuid.UUID, channelJID string) error
+	UnfollowNewsletter(ctx context.Context, id uuid.UUID, channelJID string) error
+	GetNewsletter(ctx context.Context, id uuid.UUID, channelJID string) (instance.Newsletter, error)
+	ListNewsletters(ctx context.Context, id uuid.UUID, limit int, cursor string) ([]instance.Newsletter, string, error)
+	PublishStatus(ctx context.Context, id uuid.UUID, input session.StatusInput) (string, error)
+	ListStatuses(ctx context.Context, id uuid.UUID) ([]session.StatusInfo, error)
+	DeleteStatus(ctx context.Context, id uuid.UUID, statusID string) error
+	RejectCall(ctx context.Context, id uuid.UUID, fromJID, callID string) error
+	GetProfile(ctx context.Context, id uuid.UUID) (session.Profile, error)
+	SetProfileName(ctx context.Context, id uuid.UUID, name string) error
+	SetProfileStatusText(ctx context.Context, id uuid.UUID, text string) error
+	SetProfilePhoto(ctx context.Context, id uuid.UUID, image []byte) error
+	GetPrivacy(ctx context.Context, id uuid.UUID) (session.Privacy, error)
+	SetPrivacy(ctx context.Context, id uuid.UUID, input session.Privacy) (session.Privacy, error)
 }
 
 // The service satisfies the handler contract; the assertion catches signature
@@ -640,6 +668,22 @@ func writeInstanceError(w http.ResponseWriter, r *http.Request, err error) {
 		Error(w, r, http.StatusBadRequest, "invalid_request", "invalid cursor")
 	case errors.Is(err, instance.ErrAlreadyConnected):
 		Error(w, r, http.StatusConflict, "conflict", "instance already connected")
+	case errors.Is(err, instance.ErrNotConnected):
+		Error(w, r, http.StatusConflict, "conflict", "instance not connected")
+	case errors.Is(err, instance.ErrNoPairingChannel):
+		Error(w, r, http.StatusConflict, "conflict", "no open pairing channel")
+	case errors.Is(err, instance.ErrInvalidInput):
+		Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "invalid operation input")
+	case errors.Is(err, instance.ErrGroupNotFound):
+		Error(w, r, http.StatusNotFound, "not_found", "group not found")
+	case errors.Is(err, instance.ErrNewsletterNotFound):
+		Error(w, r, http.StatusNotFound, "not_found", "newsletter not found")
+	case errors.Is(err, instance.ErrStatusNotFound):
+		Error(w, r, http.StatusNotFound, "not_found", "status not found")
+	case errors.Is(err, instance.ErrUnsupported):
+		Error(w, r, http.StatusNotImplemented, "not_supported", "operation not supported by the upstream")
+	case errors.Is(err, instance.ErrForbidden):
+		Error(w, r, http.StatusForbidden, "forbidden", "forbidden")
 	case errors.Is(err, instance.ErrOwnerNotFound):
 		Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "unknown owner")
 	case errors.Is(err, instance.ErrInvalidWebhook):

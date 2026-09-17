@@ -28,14 +28,18 @@ var (
 )
 
 // defaultSenders maps every message type accepted by Enqueue to its sender.
-// A nil media resolver leaves media messages unsupported.
+// A nil media resolver leaves media and sticker messages unsupported.
 func defaultSenders(media MediaPathResolver) map[string]Sender {
-	return map[string]Sender{
+	senders := map[string]Sender{
 		TypeText:     textSender{},
 		TypeLocation: locationSender{},
 		TypeContact:  contactSender{},
 		TypeMedia:    mediaSender{media: media},
 	}
+	for messageType, sender := range RichSenders(media) {
+		senders[messageType] = sender
+	}
+	return senders
 }
 
 // textSender validates the stored text body before handing it to the session.

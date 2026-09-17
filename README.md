@@ -2,8 +2,9 @@
 
 Gateway independente para WhatsApp. O wzap mantém sessões multi-instância,
 expõe um contrato REST de comandos para aplicações consumidoras e publica os
-eventos recebidos (mensagens, recibos, conexão e status de envio) em um stream
-durável do NATS JetStream.
+eventos recebidos (mensagens, recibos, conexão, status de envio, votos de
+enquete, reações, respostas interativas, eventos de grupo e chamadas) em um
+stream durável do NATS JetStream.
 
 ## Visão e escopo
 
@@ -16,16 +17,24 @@ durável do NATS JetStream.
 - Múltiplas instâncias de WhatsApp em um processo, com sessões persistidas no
   Postgres (`whatsmeow`/sqlstore) e restauradas no boot.
 - Envio assíncrono (`202` + `message_id`) de texto, localização, contato e
-  mídia (imagem, vídeo, áudio/PTT e documento), com idempotência por
-  `Idempotency-Key` e estados observáveis.
+  mídia (imagem, vídeo, áudio/PTT e documento), além de mensagens ricas
+  (enquete, reação, figurinha via `type=sticker` no upload, lista e botões),
+  com idempotência por `Idempotency-Key` e estados observáveis.
+- Ciclo de vida de mensagens (revogação, confirmação de leitura), presença,
+  pareamento por código de telefone, grupos, newsletters, status/stories,
+  observação/rejeição de chamadas, perfil e privacidade por instância
+  conectada (operações síncronas, sem outbox; exceção: publicar status
+  responde `202` + `message_id` com backing síncrono fire-and-forget, sem
+  retry de outbox).
 - Eventos publicados por instância com envelope versionado e entrega
   at-least-once via outbox transacional (sem perda em queda do broker ou do
   processo; duplicatas possíveis, deduplicáveis por `event_id`).
 - Mídia recebida baixada automaticamente até o limite configurado, armazenada
   com checksum e servida por download autenticado enquanto não expira.
 
-Fora de escopo na v1: grupos/newsletters/stories, webhooks globais, SQLite,
-Redis, métricas Prometheus, escala horizontal e implementações de
+Fora de escopo na v1: webhooks globais, SQLite,
+Redis, métricas Prometheus, escala horizontal, iniciar chamada de voz/vídeo
+pelo companion (só observação/rejeição) e implementações de
 consumidores. O serviço roda como **uma réplica**; locks são em memória e o
 boot adquire um advisory lock do Postgres (segunda réplica aborta).
 
@@ -151,8 +160,12 @@ estado; acima da cota a criação responde `403 quota_exceeded`. Contas
 
 Cada instância tem webhook próprio (`webhook_url`, `webhook_enabled`,
 `webhook_events`, gerenciáveis no create/update/get por quem opera a
-instância). `events` aceita `message`, `receipt`, `connection` e
-`message.status` (padrão: todos); tipo desconhecido → `422`. Só URLs HTTP(S);
+instância). `events` aceita os 4 tipos padrão (`message`, `receipt`,
+`connection`, `message.status`) mais os opt-in das novas famílias
+(`poll.vote`, `message.reaction`, `interactive.response`,
+`group.participants`, `group.info`, `call.offer`); omitir `webhook_events`
+assina exatamente os 4 originais (os novos nunca entram no default).
+Tipo desconhecido → `422`. Só URLs HTTP(S);
 HTTP fora de loopback → `422` (fora de loopback use HTTPS). Sem URL, com o
 webhook desabilitado ou sem instance key, nada é entregue.
 
@@ -183,7 +196,8 @@ seguintes. A entrega é at-least-once: deduplique pelo `event_id` estável.
 | `POST /instances/{id}/messages/text` | `{"to","text"}` → `202` com `{"message_id","status":"queued"}`. |
 | `POST /instances/{id}/messages/location` | `{"to","latitude","longitude"}` → `202`. |
 | `POST /instances/{id}/messages/contact` | `{"to","display_name","vcard"}` → `202`. |
-| `POST /instances/{id}/messages/media` | `multipart/form-data`: `to`, `type` (`image\|video\|audio\|document`), `file` e opcionais `caption`, `filename`, `ptt` (`true`/`1`) → `202`. Tipo declarado precisa bater com o `Content-Type` do arquivo. |
+| `POST /instances/{id}/messages/media` | `multipart/form-data`: `to`, `type` (`image\|video\|audio\|document\|sticker`), `file` e opcionais `caption`, `filename`, `ptt` (`true`/`1`) → `202`. Tipo declarado precisa bater com o `Content-Type` do arquivo; `sticker` exige `image/webp`. |
+| `POST /instances/{id}/messages` | `{"to","type":"poll\|reaction\|list\|buttons", ...}` → `202` com `{"message_id","status":"queued"}`. Tipos legados (`text`/`location`/`contact`) e `sticker` são `422` aqui (usem as rotas próprias). |
 | `GET /instances/{id}/messages?limit&cursor` | `200` com `{"items":[...],"next_cursor"}`; `limit` padrão `50`, máximo `100`. |
 | `GET /instances/{id}/messages/{message_id}` | `200` com estado atual, marcos temporais (`delivered_at`, `read_at`), tentativas (`attempts`) e `last_error`. |
 | `GET /media/{id}` | Conteúdo bruto (fora do envelope) com `Content-Type`/`Content-Length` corretos; sem credencial → `401`; mídia inexistente ou expirada → `404`. |
@@ -208,6 +222,98 @@ Tipos de mídia aceitos no upload: `image/jpeg`, `image/png`, `image/webp`,
 `video/mp4`, `video/3gpp`, `audio/aac`, `audio/amr`, `audio/mpeg`, `audio/mp4`,
 `audio/ogg`, `application/pdf`, `text/plain`, `.doc`, `.xls`, `.ppt`, `.docx`,
 `.xlsx` e `.pptx`.
+
+Limites das mensagens ricas (validados antes de enfileirar, `422` fora
+deles, nada persistido): enquete com pergunta de 1..300 caracteres, 2..12
+opções de 1..100 caracteres cada e `selectable_count` 0 ou 1 (omitido vira
+1); lista com 1..10 seções de 1..10 linhas cada e textos de 1..300
+caracteres; botões com 1..3 botões (`id`/`title` de até 64 caracteres, corpo
+e rodapé de até 300). Reação com emoji vazio remove a reação anterior;
+reações de saída endereçam mensagens enviadas pela própria instância. Sem
+suporte ausente conhecido no upstream pinado: nenhuma rota emite `501` por
+tipo não suportado (tudo construtível no whatsmeow atual).
+
+### Ciclo de vida, presença e pareamento por telefone
+
+Todas síncronas, direto na sessão (sem outbox, sem `202`): instância não
+conectada → `409`; instância inexistente → `404`; sem ownership → `403`.
+
+| Método e rota | Corpo/Resposta |
+| --- | --- |
+| `POST /instances/{id}/messages/revoke` | `{"chat","message_id"}` → `200` com `{"revoked":true}`. Alvo inválido → `422` (nunca `500`); o campo `reason` existe `omitempty` para compatibilidade futura. O adapter não sinaliza "fora da janela": envio bem-sucedido ao protocolo é `revoked:true`; a janela do WhatsApp é documentada no Swagger. |
+| `POST /instances/{id}/chats/mark-read` | `{"chat","message_id","sender"?}` → `200`. Em grupo `sender` (autor) é obrigatório (`422` sem ele); em conversa direta é completado com o próprio `chat` quando ausente. |
+| `POST /instances/{id}/presence` | `{"chat","state"}` → `200`. Allowlist `composing\|paused` (conversa) e `available\|unavailable` (usuário); fora dela → `422` antes de tocar a sessão. Sem modo contínuo/heartbeat. |
+| `POST /instances/{id}/pair-phone` | `{"phone"}` → `200` com `{pairing_code, expires_at}` (código de 8 dígitos). Exige canal de pareamento aberto (`connect` antes): já `connected` ou sem canal → `409` sem emitir código (a expiração é lida antes da emissão); número vazio/malformado → `422` genérica (anti-enumeração, sem logar o número). |
+
+### Grupos
+
+Operações síncronas de conta/conversa (sem outbox): `409` desconectada,
+`404` grupo ou instância desconhecidos, `403` sem ownership **ou** sem
+permissão no grupo, `422` conteúdo inválido. Nome de grupo limitado a 25
+runas (limite do assunto no upstream).
+
+| Método e rota | Corpo/Resposta |
+| --- | --- |
+| `POST /instances/{id}/groups` | `{"name","participants"?}` → `201` com `{group, invite_code}`. Se o grupo for criado mas a leitura do convite falhar, a resposta continua `201` com o grupo e `invite_code` vazio (`omitempty`): **não** repita o create (duplicaria o grupo); reconcilie via `GET .../invite`. |
+| `GET /instances/{id}/groups/{group_id}` | `200` com os metadados + `updated_at` (refresh sob demanda, ver abaixo). |
+| `PATCH /instances/{id}/groups/{group_id}` | `{"name"?,"description"?}` → `200`. |
+| `PUT /instances/{id}/groups/{group_id}/photo` | Corpo `image/*` cru → `200`; acima de `WZAP_MAX_MEDIA_BYTES` → `413`. Só troca (sem remoção). |
+| `POST /instances/{id}/groups/{group_id}/participants` | `{"action":"add\|remove\|promote\|demote","participants":[...]}` → `200`. `leave` próprio é pela rota de saída; remover terceiros exige admin. |
+| `GET /instances/{id}/groups/{group_id}/invite` | `200` com o código vigente. |
+| `POST /instances/{id}/groups/{group_id}/invite/reset` | Revoga o código atual e emite outro → `200`. |
+| `POST /instances/{id}/groups/join` | `{"code"}` ou link cheio → `200`. |
+| `POST /instances/{id}/groups/{group_id}/leave` | Saída própria → `200`. |
+
+Metadados (`group_metadata`, migration aditiva `00006`): toda leitura live
+faz write-through do cache e expõe `updated_at`; o cache é log de refresh,
+nunca fonte (sem leitura stale/TTL — consultar sempre reflete o upstream).
+Falha de cache só loga e devolve o live; sem store configurado a leitura
+passa direto (`updated_at` zero). `unfollow`/saída não tocam o cache.
+
+### Newsletters
+
+`409` desconectada, `404` canal desconhecido, `403` sem ownership.
+Listagem paginada por cursor (`limit` padrão 50, máximo 100, `next_cursor`
+com o último canal).
+
+| Método e rota | Corpo/Resposta |
+| --- | --- |
+| `POST /instances/{id}/newsletters/follow` | `{"channel"}` → `200` com a assinatura + `updated_at`. |
+| `POST /instances/{id}/newsletters/unfollow` | `{"channel"}` → `200` (não toca o cache de metadados). |
+| `GET /instances/{id}/newsletters/{channel}` | `200` com os metadados + `updated_at`. |
+| `GET /instances/{id}/newsletters` | `200` com `{"items":[...],"next_cursor"}` ordenado por canal. |
+
+### Status/stories e chamadas
+
+Status publica sob `/instances/{id}/status/updates` (`GET /status` segue
+sendo o connection-status). Publicar responde `202` + `message_id` com
+replay `X-Idempotent-Replay` via o mesmo middleware de idempotência das
+mensagens, mas o backing é **síncrono fire-and-forget** para o broadcast
+(`status@broadcast`) — sem retry de outbox. Texto/caption de 1..700 runas;
+mídia acima de `WZAP_MAX_MEDIA_BYTES` → `422`; `409` desconectada. A
+ listagem cobre só status publicados desde o boot e poda entradas expiradas (~24 h do protocolo); apagar status
+ desconhecido ou anterior ao boot → `404`.
+
+| Método e rota | Corpo/Resposta |
+| --- | --- |
+| `POST /instances/{id}/status/updates` | `{"text"}` → `202` com `{"message_id","status":"published"}`. |
+| `POST /instances/{id}/status/updates/media` | `multipart/form-data` imagem/vídeo + `caption` opcional → `202`. |
+| `GET /instances/{id}/status/updates` | `200` com `{"items":[...]}` (array nunca nil). |
+| `DELETE /instances/{id}/status/updates/{status_id}` | `200` com `{"deleted":true}`; desconhecido → `404`. |
+| `POST /instances/{id}/calls/reject` | `{"call_id","from"}` → `200` com `{"rejected":true}`; campos ausentes → `422`; `409` desconectada; `501 not_supported` quando o upstream não suportar a rejeição. O companion nunca inicia chamada — só observa (evento `call.offer`) e rejeita. |
+
+### Perfil e privacidade
+
+Síncronas, `200`: `409` desconectada, `422` fora das allowlists (validado
+antes da sessão; patch vazio → `422`).
+
+| Método e rota | Corpo/Resposta |
+| --- | --- |
+| `GET /instances/{id}/profile` | `200` com nome, recado e URL da foto (push name best-effort). |
+| `PATCH /instances/{id}/profile` | `{"name"?,"status_text"?}` → `200`. Nome 1..100 caracteres; recado 0..500 (vazio limpa). **Nome → `501 not_supported`** (a lib pinada não expõe o setter; quando `name` vem, nada é aplicado — nem o recado). |
+| `PUT /instances/{id}/profile/photo` | Corpo `image/*` → `200`; acima do cap → `413`. **Foto → `501 not_supported`** (mesmo motivo). |
+| `GET /instances/{id}/privacy` | `200` com a configuração vigente. |
+| `PUT /instances/{id}/privacy` | `{"last_seen"?,"profile_photo"?,"status"?,"groups_add"?,"read_receipts"?}` → `200`. `last_seen`/`profile_photo`/`status`/`groups_add` em `all\|contacts\|contact_blacklist\|none`; `read_receipts` em `all\|none` (a lib modela receipts como switch de dois valores, não boolean). Todas as operações de privacidade são suportadas (sem `501`); `SetPrivacy` não é atômico — falha parcial pode aplicar um subset. |
 
 ## Chatwoot
 
@@ -259,7 +365,7 @@ contra escritas do Rails).
 
 O serviço publica em um stream JetStream (nome em `WZAP_NATS_STREAM`, padrão
 `WZAP`, subjects `wzap.>`, retenção em `WZAP_EVENT_RETENTION_DAYS`). Cada
-instância tem seis subjects:
+instância tem doze subjects:
 
 - `wzap.instances.{instance_id}.message` — mensagem recebida.
 - `wzap.instances.{instance_id}.receipt` — recibo de entrega/leitura/reprodução.
@@ -267,9 +373,18 @@ instância tem seis subjects:
 - `wzap.instances.{instance_id}.message.status` — status de envio.
 - `wzap.instances.{instance_id}.message.edit` — edição de mensagem recebida.
 - `wzap.instances.{instance_id}.message.delete` — remoção/revoke de mensagem recebida.
+- `wzap.instances.{instance_id}.message.poll.vote` — voto em enquete (`type: poll.vote`).
+- `wzap.instances.{instance_id}.message.reaction` — reação recebida, incl. remoção (`type: message.reaction`).
+- `wzap.instances.{instance_id}.message.interactive.response` — resposta de lista/botão/fluxo (`type: interactive.response`).
+- `wzap.instances.{instance_id}.group.participants` — entradas/saídas (`type: group.participants`).
+- `wzap.instances.{instance_id}.group.info` — assunto/tópico/foto (`type: group.info`).
+- `wzap.instances.{instance_id}.call.offer` — oferta/aceite/recusa/fim de chamada (`type: call.offer`, campo `state`).
 
-O webhook por instância assina quatro tipos (`message`, `receipt`,
-`connection`, `message.status`); edição/remoção trafegam só no NATS.
+O webhook por instância assina os quatro tipos padrão (`message`, `receipt`,
+`connection`, `message.status`); os demais (`poll.vote`,
+`message.reaction`, `interactive.response`, `group.participants`,
+`group.info`, `call.offer`) são opt-in via `webhook_events`, e
+edição/remoção trafegam só no NATS.
 
 Todo evento carrega o mesmo envelope versionado (`event_version: 1`);
 `event_id` é estável e enviado como `Nats-Msg-Id` para deduplicação no broker
@@ -306,6 +421,33 @@ Payloads por `type`:
   `whatsapp_jid` quando conhecido e `reason` em falha.
 - `message.status`: `message_id` (UUID do wzap), `status` (`sent` ou `failed`),
   `whatsapp_id` quando enviada e `error` quando falha.
+- `poll.vote`: `from_jid`, `chat_jid`, `is_group`, `poll_message_id`,
+  `selected_option_ids` (hex dos hashes do protocolo) e
+  `selected_option_names` (vazio quando o fio carrega só hashes —
+  irreversíveis — ou o voto não pôde ser descriptografado; o evento é
+  emitido mesmo assim com eleitor + chave da enquete).
+- `message.reaction`: `from_jid`, `chat_jid`, `is_group`,
+  `target_message_id`, `emoji` (vazio = remoção).
+- `interactive.response`: `from_jid`, `chat_jid`, `is_group`, `message_id`,
+  `source` (`buttons`|`list`|`native_flow`), `selected_id`, `title`.
+- `group.participants`: `group_jid`, `actor_jid` (vazio quando o upstream
+  não informa), `affected` (vazio = a própria instância).
+- `group.info`: `group_jid` + snapshot `name`/`description`.
+- `call.offer`: `call_id`, `from_jid`, `state`
+  (`offer`|`accept`|`reject`|`end`), `is_video` (best-effort).
+
+```json
+{
+  "event_id": "0f8c3f1e-...",
+  "event_version": 1,
+  "type": "message.reaction",
+  "instance_id": "3b1d...",
+  "occurred_at": "2026-09-13T18:00:00.123456789Z",
+  "payload": { "from_jid": "...", "chat_jid": "...", "is_group": false,
+               "target_message_id": "...", "emoji": "👍",
+               "timestamp": "2026-09-13T18:00:00Z" }
+}
+```
 
 ## Operação local
 
@@ -407,4 +549,9 @@ teste):
 - Specs e decisões: `openspec/changes/wzap-foundation/` (proposal, design,
   specs por capability) e `openspec/changes/wzap-product/` (contrato produto:
   contas, api keys, webhooks, manager; quebras marcadas **BREAKING**).
+- Cobertura WhatsApp (revogação, leitura, presença, pair-phone, mensagens
+  ricas, grupos, newsletters, status, chamadas, perfil/privacidade):
+  `openspec/specs/wzap-{message-lifecycle,presence,phone-pairing,rich-messaging,groups,newsletters,status-calls,profile-privacy}/`
+  e `openspec/changes/expand-whatsapp-coverage/` (proposal, design, specs por
+  capability; sem **BREAKING** — tudo aditivo).
 - Licenças e trechos reaproveitados: `THIRD_PARTY_NOTICES.md`.

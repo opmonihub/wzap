@@ -142,3 +142,27 @@ type ChatwootMessage struct {
 	IsRead            bool
 	CreatedAt         time.Time
 }
+
+// GroupMetadata is the cached metadata of a group: refreshed on demand from
+// the live upstream view, never the source of truth. Rows disappear on
+// instance DELETE via cascade.
+type GroupMetadata struct {
+	InstanceID       uuid.UUID
+	GroupJID         string
+	Name             string
+	Description      string
+	ParticipantCount int
+	UpdatedAt        time.Time
+}
+
+// NewsletterMetadata is the cached metadata of a channel: refreshed on demand
+// from the live upstream view, never the source of truth. Rows disappear on
+// instance DELETE via cascade.
+type NewsletterMetadata struct {
+	InstanceID    uuid.UUID
+	ChannelJID    string
+	Title         string
+	Description   string
+	FollowerCount int
+	UpdatedAt     time.Time
+}

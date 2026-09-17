@@ -50,7 +50,7 @@ O serviço SHALL normalizar o destinatário para o identificador canônico do Wh
 
 ### Requirement: Tipos de mensagem suportados
 
-O serviço SHALL suportar texto, imagem, vídeo, áudio (incluindo mensagem de voz), documento, localização e contato; conteúdo inválido ou tipo não suportado MUST responder `422`.
+O serviço SHALL suportar texto, imagem, vídeo, áudio (incluindo mensagem de voz), documento, localização e contato; conteúdo inválido ou tipo não suportado MUST responder `422`. Tipos ricos (enquete, reação, figurinha via `type=sticker` no upload, lista, botões) seguem `wzap-rich-messaging` no mesmo aceite `202` idempotente.
 
 #### Scenario: Mídia inválida
 

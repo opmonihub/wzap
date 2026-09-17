@@ -4,6 +4,7 @@ package whatsmeow
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,10 +16,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
+	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
 
 	"wzap/internal/model"
@@ -348,11 +351,27 @@ type instanceSession struct {
 	// pairPhoneFn requests a phone pairing code. It defaults to the client
 	// PairPhone and is replaced in the tests to avoid the pairing handshake.
 	pairPhoneFn func(ctx context.Context, phone string) (string, error)
+	// decryptVoteFn decrypts the selected option hashes of an inbound poll
+	// vote. It defaults to the client DecryptPollVote and is replaced in the
+	// tests to avoid the message-secret handshake.
+	decryptVoteFn func(ctx context.Context, evt *events.Message) ([][]byte, error)
+	// statusSendFn publishes a status message to the status broadcast. It
+	// defaults to the client SendMessage and is replaced in the tests to
+	// assert the built status without a network round-trip.
+	statusSendFn func(ctx context.Context, msg *waE2E.Message) (whatsmeow.SendResponse, error)
+	// statusUploadFn uploads status media bytes. It defaults to the client
+	// Upload and is replaced in the tests to avoid the media handshake.
+	statusUploadFn func(ctx context.Context, data []byte, mediaType whatsmeow.MediaType) (whatsmeow.UploadResponse, error)
 
 	// history accumulates the per-instance history-sync feed the Import plan
 	// consumes. Each session owns one, so feeds never cross instance
 	// boundaries. The zero value is ready to use.
 	history session.HistorySyncAccumulator
+	// statusMu guards statuses, the process-local registry of the own
+	// statuses published through this session. The supported runtime is one
+	// replica, so no shared store is needed.
+	statusMu sync.Mutex
+	statuses []session.StatusInfo
 
 	mu           sync.RWMutex
 	status       session.Status
@@ -701,6 +720,9 @@ func classifySessionError(err error) error {
 
 // outboundPayload is the JSON body shared by every message type. QuotedID is
 // the WhatsApp id being replied to, empty when the message is not a quote.
+// The rich fields carry the stored poll, reaction, list and buttons bodies:
+// Target is the WhatsApp id of the reacted message (an empty Emoji removes
+// the reaction), and the list/buttons sections mirror the API shapes.
 type outboundPayload struct {
 	Text        string   `json:"text"`
 	Latitude    *float64 `json:"latitude"`
@@ -714,6 +736,37 @@ type outboundPayload struct {
 	MimeType    string   `json:"mime_type"`
 	PTT         bool     `json:"ptt"`
 	QuotedID    string   `json:"quoted_id"`
+
+	Question        string            `json:"question"`
+	Options         []string          `json:"options"`
+	SelectableCount int               `json:"selectable_count"`
+	Target          string            `json:"target"`
+	Emoji           string            `json:"emoji"`
+	Title           string            `json:"title"`
+	Description     string            `json:"description"`
+	ButtonText      string            `json:"button_text"`
+	Sections        []outboundSection `json:"sections"`
+	Footer          string            `json:"footer"`
+	Buttons         []outboundButton  `json:"buttons"`
+}
+
+// outboundSection is one section of a list message payload.
+type outboundSection struct {
+	Title string        `json:"title"`
+	Rows  []outboundRow `json:"rows"`
+}
+
+// outboundRow is one selectable row of a list section payload.
+type outboundRow struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+}
+
+// outboundButton is one quick-reply button of a buttons message payload.
+type outboundButton struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
 }
 
 // buildMessage builds a non-media message from its normalized payload.
@@ -754,8 +807,135 @@ func buildMessage(msg session.OutboundMessage) (*waE2E.Message, error) {
 			DisplayName: optionalString(payload.DisplayName),
 			Vcard:       proto.String(payload.VCard),
 		}}, nil
+	case "poll":
+		return buildPoll(payload)
+	case "reaction":
+		return buildReaction(msg.RecipientJID, payload)
+	case "list":
+		return buildList(payload)
+	case "buttons":
+		return buildButtons(payload)
 	}
 	return nil, fmt.Errorf("unsupported message type %q", msg.Type)
+}
+
+// buildPoll builds a poll creation message from its normalized payload. The
+// shape mirrors the library BuildPollCreation (name, ordered options,
+// selectable count) with a fresh random message secret.
+func buildPoll(payload outboundPayload) (*waE2E.Message, error) {
+	if payload.Question == "" {
+		return nil, errors.New("poll payload is empty")
+	}
+	if len(payload.Options) < 2 {
+		return nil, errors.New("poll payload needs at least two options")
+	}
+	options := make([]*waE2E.PollCreationMessage_Option, len(payload.Options))
+	for i, option := range payload.Options {
+		options[i] = &waE2E.PollCreationMessage_Option{OptionName: proto.String(option)}
+	}
+	secret := make([]byte, 32)
+	if _, err := cryptorand.Read(secret); err != nil {
+		return nil, fmt.Errorf("poll secret: %w", err)
+	}
+	return &waE2E.Message{
+		PollCreationMessage: &waE2E.PollCreationMessage{
+			Name:                   proto.String(payload.Question),
+			Options:                options,
+			SelectableOptionsCount: proto.Uint32(uint32(payload.SelectableCount)),
+		},
+		MessageContextInfo: &waE2E.MessageContextInfo{
+			MessageSecret: secret,
+		},
+	}, nil
+}
+
+// buildReaction builds a reaction to a message sent by the instance. The key
+// marks the reacted message as from-me keyed by the chat: reactions to
+// messages sent by other participants are out of scope. An empty emoji
+// removes the reaction on the same target, on the same endpoint.
+func buildReaction(chatJID string, payload outboundPayload) (*waE2E.Message, error) {
+	if payload.Target == "" {
+		return nil, errors.New("reaction payload is missing the target")
+	}
+	chat, err := types.ParseJID(chatJID)
+	if err != nil || chat.IsEmpty() {
+		return nil, fmt.Errorf("%w: %s", session.ErrInvalidRecipient, chatJID)
+	}
+	return &waE2E.Message{
+		ReactionMessage: &waE2E.ReactionMessage{
+			Key: &waCommon.MessageKey{
+				FromMe:    proto.Bool(true),
+				ID:        proto.String(payload.Target),
+				RemoteJID: proto.String(chat.String()),
+			},
+			Text:              proto.String(payload.Emoji),
+			SenderTimestampMS: proto.Int64(time.Now().UnixMilli()),
+		},
+	}, nil
+}
+
+// buildList builds an interactive single-select list message from its
+// normalized payload.
+func buildList(payload outboundPayload) (*waE2E.Message, error) {
+	if payload.ButtonText == "" {
+		return nil, errors.New("list payload is missing the button text")
+	}
+	if len(payload.Sections) == 0 {
+		return nil, errors.New("list payload needs at least one section")
+	}
+	sections := make([]*waE2E.ListMessage_Section, 0, len(payload.Sections))
+	for _, section := range payload.Sections {
+		if len(section.Rows) == 0 {
+			return nil, errors.New("list payload needs at least one row per section")
+		}
+		rows := make([]*waE2E.ListMessage_Row, 0, len(section.Rows))
+		for _, row := range section.Rows {
+			rows = append(rows, &waE2E.ListMessage_Row{
+				RowID:       proto.String(row.ID),
+				Title:       proto.String(row.Title),
+				Description: optionalString(row.Description),
+			})
+		}
+		sections = append(sections, &waE2E.ListMessage_Section{
+			Title: proto.String(section.Title),
+			Rows:  rows,
+		})
+	}
+	return &waE2E.Message{ListMessage: &waE2E.ListMessage{
+		Title:       optionalString(payload.Title),
+		Description: optionalString(payload.Description),
+		ButtonText:  proto.String(payload.ButtonText),
+		ListType:    waE2E.ListMessage_SINGLE_SELECT.Enum(),
+		Sections:    sections,
+		FooterText:  optionalString(payload.Footer),
+	}}, nil
+}
+
+// buildButtons builds an interactive quick-reply buttons message from its
+// normalized payload. A PIX key travels as button content pass-through (for
+// example in the title): there is no distinct PIX button type.
+func buildButtons(payload outboundPayload) (*waE2E.Message, error) {
+	if payload.Text == "" {
+		return nil, errors.New("buttons payload is empty")
+	}
+	if len(payload.Buttons) == 0 {
+		return nil, errors.New("buttons payload needs at least one button")
+	}
+	buttons := make([]*waE2E.ButtonsMessage_Button, 0, len(payload.Buttons))
+	for _, button := range payload.Buttons {
+		buttons = append(buttons, &waE2E.ButtonsMessage_Button{
+			ButtonID: proto.String(button.ID),
+			ButtonText: &waE2E.ButtonsMessage_Button_ButtonText{
+				DisplayText: proto.String(button.Title),
+			},
+			Type: waE2E.ButtonsMessage_Button_RESPONSE.Enum(),
+		})
+	}
+	return &waE2E.Message{ButtonsMessage: &waE2E.ButtonsMessage{
+		ContentText: proto.String(payload.Text),
+		FooterText:  optionalString(payload.Footer),
+		Buttons:     buttons,
+	}}, nil
 }
 
 // newMediaMessage builds a media message from an uploaded attachment.
@@ -775,6 +955,20 @@ func newMediaMessage(msg session.OutboundMessage, upload whatsmeow.UploadRespons
 		ctxInfo = quotedContext(payload.QuotedID)
 	}
 	switch msg.Type {
+	case "sticker":
+		if payload.MimeType != "image/webp" {
+			return nil, fmt.Errorf("unsupported sticker mimetype %q", payload.MimeType)
+		}
+		return &waE2E.Message{StickerMessage: &waE2E.StickerMessage{
+			URL:           proto.String(upload.URL),
+			DirectPath:    proto.String(upload.DirectPath),
+			MediaKey:      upload.MediaKey,
+			FileSHA256:    upload.FileSHA256,
+			FileEncSHA256: upload.FileEncSHA256,
+			FileLength:    proto.Uint64(upload.FileLength),
+			Mimetype:      proto.String(payload.MimeType),
+			ContextInfo:   ctxInfo,
+		}}, nil
 	case "image":
 		return &waE2E.Message{ImageMessage: &waE2E.ImageMessage{
 			URL:           proto.String(upload.URL),
@@ -855,19 +1049,21 @@ func decodePayload(raw []byte) (outboundPayload, error) {
 	return payload, nil
 }
 
-// isMediaType reports whether type is delivered as an uploaded attachment.
+// isMediaType reports whether type is delivered as an uploaded attachment,
+// including stickers (webp uploaded under the image namespace).
 func isMediaType(messageType string) bool {
 	switch messageType {
-	case "image", "video", "audio", "document":
+	case "image", "video", "audio", "document", "sticker":
 		return true
 	}
 	return false
 }
 
 // mediaTypeFor maps a message type to the whatsmeow media key namespace.
+// Stickers upload under the image namespace, like the library does.
 func mediaTypeFor(messageType string) whatsmeow.MediaType {
 	switch messageType {
-	case "image":
+	case "image", "sticker":
 		return whatsmeow.MediaImage
 	case "video":
 		return whatsmeow.MediaVideo

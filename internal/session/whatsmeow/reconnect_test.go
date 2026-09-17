@@ -27,11 +27,16 @@ type connectionEvent struct {
 
 // recordingSink collects the connection events emitted by a session.
 type recordingSink struct {
-	mu       sync.Mutex
-	events   []connectionEvent
-	messages []session.InboundMessage
-	edits    []session.MessageEdit
-	deletes  []session.MessageDelete
+	mu          sync.Mutex
+	events      []connectionEvent
+	messages    []session.InboundMessage
+	edits       []session.MessageEdit
+	deletes     []session.MessageDelete
+	pollVotes   []session.PollVote
+	reactions   []session.Reaction
+	interactive []session.InteractiveResponse
+	groupEvents []session.GroupEvent
+	calls       []session.CallEvent
 }
 
 func (r *recordingSink) OnMessage(_ context.Context, msg session.InboundMessage) {
@@ -52,7 +57,37 @@ func (r *recordingSink) OnMessageDelete(_ context.Context, del session.MessageDe
 	r.deletes = append(r.deletes, del)
 }
 
+func (r *recordingSink) OnPollVote(_ context.Context, vote session.PollVote) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.pollVotes = append(r.pollVotes, vote)
+}
+
+func (r *recordingSink) OnReaction(_ context.Context, reaction session.Reaction) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.reactions = append(r.reactions, reaction)
+}
+
+func (r *recordingSink) OnInteractiveResponse(_ context.Context, response session.InteractiveResponse) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.interactive = append(r.interactive, response)
+}
+
 func (r *recordingSink) OnReceipt(context.Context, session.Receipt) {}
+
+func (r *recordingSink) OnGroupEvent(_ context.Context, event session.GroupEvent) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.groupEvents = append(r.groupEvents, event)
+}
+
+func (r *recordingSink) OnCallEvent(_ context.Context, event session.CallEvent) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls = append(r.calls, event)
+}
 
 func (r *recordingSink) OnConnection(_ context.Context, _ uuid.UUID, status session.Status, jid, reason string) {
 	r.mu.Lock()
@@ -122,6 +157,63 @@ func (r *recordingSink) lastDelete(t *testing.T) session.MessageDelete {
 		t.Fatal("no message delete was emitted")
 	}
 	return r.deletes[len(r.deletes)-1]
+}
+
+// pollVoteCount returns how many poll votes were emitted.
+func (r *recordingSink) pollVoteCount() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.pollVotes)
+}
+
+// lastPollVote returns the most recent poll vote or fails the test when none
+// was emitted.
+func (r *recordingSink) lastPollVote(t *testing.T) session.PollVote {
+	t.Helper()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if len(r.pollVotes) == 0 {
+		t.Fatal("no poll vote was emitted")
+	}
+	return r.pollVotes[len(r.pollVotes)-1]
+}
+
+// reactionCount returns how many reactions were emitted.
+func (r *recordingSink) reactionCount() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.reactions)
+}
+
+// reactions returns every emitted reaction in order or fails the test when
+// none was emitted.
+func (r *recordingSink) allReactions(t *testing.T) []session.Reaction {
+	t.Helper()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if len(r.reactions) == 0 {
+		t.Fatal("no reaction was emitted")
+	}
+	return append([]session.Reaction(nil), r.reactions...)
+}
+
+// interactiveCount returns how many interactive responses were emitted.
+func (r *recordingSink) interactiveCount() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.interactive)
+}
+
+// lastInteractive returns the most recent interactive response or fails the
+// test when none was emitted.
+func (r *recordingSink) lastInteractive(t *testing.T) session.InteractiveResponse {
+	t.Helper()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if len(r.interactive) == 0 {
+		t.Fatal("no interactive response was emitted")
+	}
+	return r.interactive[len(r.interactive)-1]
 }
 
 // sleepRecorder records the backoff delays requested by the reconnect loop.

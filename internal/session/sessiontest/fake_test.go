@@ -25,6 +25,11 @@ type recordingSink struct {
 	messages    []session.InboundMessage
 	edits       []session.MessageEdit
 	deletes     []session.MessageDelete
+	pollVotes   []session.PollVote
+	reactions   []session.Reaction
+	interactive []session.InteractiveResponse
+	groupEvents []session.GroupEvent
+	calls       []session.CallEvent
 	receipts    []session.Receipt
 	connections []connectionCall
 }
@@ -39,6 +44,26 @@ func (r *recordingSink) OnMessageEdit(_ context.Context, edit session.MessageEdi
 
 func (r *recordingSink) OnMessageDelete(_ context.Context, del session.MessageDelete) {
 	r.deletes = append(r.deletes, del)
+}
+
+func (r *recordingSink) OnPollVote(_ context.Context, vote session.PollVote) {
+	r.pollVotes = append(r.pollVotes, vote)
+}
+
+func (r *recordingSink) OnReaction(_ context.Context, reaction session.Reaction) {
+	r.reactions = append(r.reactions, reaction)
+}
+
+func (r *recordingSink) OnInteractiveResponse(_ context.Context, response session.InteractiveResponse) {
+	r.interactive = append(r.interactive, response)
+}
+
+func (r *recordingSink) OnGroupEvent(_ context.Context, event session.GroupEvent) {
+	r.groupEvents = append(r.groupEvents, event)
+}
+
+func (r *recordingSink) OnCallEvent(_ context.Context, event session.CallEvent) {
+	r.calls = append(r.calls, event)
 }
 
 func (r *recordingSink) OnReceipt(_ context.Context, receipt session.Receipt) {
@@ -232,6 +257,12 @@ func TestFakeSessionEmitsEventsToSink(t *testing.T) {
 	receipt := session.Receipt{InstanceID: instance.ID, MessageIDs: []string{"m1"}, Status: "read"}
 	fakeSession.EmitReceipt(receipt)
 	fakeSession.EmitConnection(session.StatusConnected, "5511@s.whatsapp.net", "")
+	vote := session.PollVote{InstanceID: instance.ID, PollMessageID: "poll-1", SelectedOptionIDs: []string{"ab12"}}
+	fakeSession.EmitPollVote(vote)
+	reaction := session.Reaction{InstanceID: instance.ID, MessageID: "m1", Emoji: "👍"}
+	fakeSession.EmitReaction(reaction)
+	answer := session.InteractiveResponse{InstanceID: instance.ID, MessageID: "r1", Source: "buttons", SelectedID: "a"}
+	fakeSession.EmitInteractiveResponse(answer)
 
 	if len(sink.messages) != 1 || sink.messages[0].MessageID != "m1" {
 		t.Fatalf("sink messages = %v, want the emitted message", sink.messages)
@@ -243,6 +274,15 @@ func TestFakeSessionEmitsEventsToSink(t *testing.T) {
 	if len(sink.connections) != 1 || sink.connections[0] != want {
 		t.Fatalf("sink connections = %v, want [%v]", sink.connections, want)
 	}
+	if len(sink.pollVotes) != 1 || sink.pollVotes[0].PollMessageID != "poll-1" {
+		t.Fatalf("sink poll votes = %v, want the emitted vote", sink.pollVotes)
+	}
+	if len(sink.reactions) != 1 || sink.reactions[0].Emoji != "👍" {
+		t.Fatalf("sink reactions = %v, want the emitted reaction", sink.reactions)
+	}
+	if len(sink.interactive) != 1 || sink.interactive[0].SelectedID != "a" {
+		t.Fatalf("sink interactive = %v, want the emitted answer", sink.interactive)
+	}
 }
 
 func TestFakeSessionWithoutSinkIsSafe(t *testing.T) {
@@ -252,5 +292,8 @@ func TestFakeSessionWithoutSinkIsSafe(t *testing.T) {
 
 	fakeSession.EmitMessage(session.InboundMessage{})
 	fakeSession.EmitReceipt(session.Receipt{})
+	fakeSession.EmitPollVote(session.PollVote{})
+	fakeSession.EmitReaction(session.Reaction{})
+	fakeSession.EmitInteractiveResponse(session.InteractiveResponse{})
 	fakeSession.EmitConnection(session.StatusError, "", "boom")
 }

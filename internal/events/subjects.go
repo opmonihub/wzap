@@ -43,6 +43,41 @@ func (SubjectNamespace) MessageDelete(instanceID uuid.UUID) string {
 	return subject(instanceID, "message.delete")
 }
 
+// PollVote is the subject of the inbound poll vote events.
+func (SubjectNamespace) PollVote(instanceID uuid.UUID) string {
+	return subject(instanceID, "message.poll.vote")
+}
+
+// Reaction is the subject of the inbound reaction events, including
+// removals (empty emoji) on the same target.
+func (SubjectNamespace) Reaction(instanceID uuid.UUID) string {
+	return subject(instanceID, "message.reaction")
+}
+
+// InteractiveResponse is the subject of the inbound interactive answer
+// events (buttons, list and native flow unified).
+func (SubjectNamespace) InteractiveResponse(instanceID uuid.UUID) string {
+	return subject(instanceID, "message.interactive.response")
+}
+
+// GroupParticipants is the subject of the group membership events (members
+// joined, left, added or removed).
+func (SubjectNamespace) GroupParticipants(instanceID uuid.UUID) string {
+	return subject(instanceID, "group.participants")
+}
+
+// GroupInfo is the subject of the group metadata events (subject, topic or
+// picture changes).
+func (SubjectNamespace) GroupInfo(instanceID uuid.UUID) string {
+	return subject(instanceID, "group.info")
+}
+
+// CallOffer is the subject of the unified inbound call events: the offer,
+// the accept, the reject and the end travel here with their state field.
+func (SubjectNamespace) CallOffer(instanceID uuid.UUID) string {
+	return subject(instanceID, "call.offer")
+}
+
 func subject(instanceID uuid.UUID, suffix string) string {
 	return subjectPrefix + instanceID.String() + "." + suffix
 }

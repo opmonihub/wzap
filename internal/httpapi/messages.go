@@ -93,6 +93,178 @@ type sendContactRequest struct {
 	VCard       string `json:"vcard"`
 }
 
+// sendListSection is one section of a generic list message request.
+type sendListSection struct {
+	Title string        `json:"title"`
+	Rows  []sendListRow `json:"rows"`
+}
+
+// sendListRow is one selectable row of a generic list section request.
+type sendListRow struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+}
+
+// sendButton is one quick-reply button of a generic buttons message request.
+// A PIX key travels as pass-through content (for example in the title): there
+// is no distinct PIX button type.
+type sendButton struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+// sendMessageRequest is the POST /instances/{id}/messages payload. It carries
+// the rich types (poll, reaction, list, buttons); the historical text,
+// location and contact types keep their dedicated routes, and stickers ride
+// /messages/media with type=sticker. Only the fields of the chosen type are
+// used. SelectableCount defaults to 1 when omitted; an empty reaction emoji
+// removes the reaction on the same target.
+type sendMessageRequest struct {
+	Type            string            `json:"type"`
+	To              string            `json:"to"`
+	Question        string            `json:"question,omitempty"`
+	Options         []string          `json:"options,omitempty"`
+	SelectableCount *int              `json:"selectable_count,omitempty"`
+	Target          string            `json:"target,omitempty"`
+	Emoji           string            `json:"emoji,omitempty"`
+	Title           string            `json:"title,omitempty"`
+	Description     string            `json:"description,omitempty"`
+	ButtonText      string            `json:"button_text,omitempty"`
+	Sections        []sendListSection `json:"sections,omitempty"`
+	Footer          string            `json:"footer,omitempty"`
+	Text            string            `json:"text,omitempty"`
+	Buttons         []sendButton      `json:"buttons,omitempty"`
+}
+
+// handleSendMessage accepts a rich message (poll, reaction, list or buttons)
+// and answers 202 with its id. It loads the target instance first (404) and
+// authorizes (403) before reading the body or enqueueing anything. Content
+// outside the documented limits answers 422 without persisting anything; a
+// disconnected instance answers 409. Reactions address messages sent by the
+// instance; removal reuses the same endpoint with an empty emoji.
+//
+// @Summary Send a rich message
+// @Tags messages
+// @Accept json
+// @Produce json
+// @Security apikey
+// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param X-Request-Id header string false "Correlation id, echoed back"
+// @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
+// @Param id path string true "Instance ID (UUID)"
+// @Param request body sendMessageRequest true "Rich payload: type poll|reaction|list|buttons plus its fields"
+// @Header 202 {string} X-Idempotent-Replay "true when replayed from a previous call"
+// @Success 202 {object} messageAcceptedResponse "Accepted, wrapped in the data envelope"
+// @Failure 400 {object} errorEnvelope "Malformed body"
+// @Failure 401 {object} errorEnvelope "Missing or invalid credential"
+// @Failure 403 {object} errorEnvelope "Not the owner"
+// @Failure 404 {object} errorEnvelope "Instance not found"
+// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight"
+// @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
+// @Failure 422 {object} errorEnvelope "Invalid content, unknown number, unsupported type, or reused key"
+// @Failure 500 {object} errorEnvelope "Internal error"
+// @Failure 503 {object} errorEnvelope "Number resolution unavailable"
+// @Router /instances/{id}/messages [post]
+func handleSendMessage(instances InstanceService, messages MessageService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, ok := instanceID(w, r)
+		if !ok {
+			return
+		}
+		if denyForeignInstanceKey(w, r, id) {
+			return
+		}
+
+		stored, err := instances.Get(r.Context(), id)
+		if err != nil {
+			writeInstanceError(w, r, err)
+			return
+		}
+		if err := authorizeInstance(r, stored); err != nil {
+			writeForbidden(w, r)
+			return
+		}
+
+		var request sendMessageRequest
+		if err := decodeJSONBody(w, r, &request); err != nil {
+			writeJSONBodyError(w, r, err)
+			return
+		}
+
+		input, ok := richEnqueueInput(request)
+		if !ok {
+			Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity",
+				`type must be poll, reaction, list or buttons (text, location and contact keep their routes, sticker rides /messages/media)`)
+			return
+		}
+
+		messageID, err := messages.Enqueue(r.Context(), id, input)
+		if err != nil {
+			writeMessageError(w, r, err)
+			return
+		}
+		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID))
+	}
+}
+
+// richEnqueueInput maps a generic send request onto the service input. It
+// reports false for types the generic endpoint does not carry.
+func richEnqueueInput(request sendMessageRequest) (message.EnqueueInput, bool) {
+	switch request.Type {
+	case message.TypePoll:
+		selectable := 1
+		if request.SelectableCount != nil {
+			selectable = *request.SelectableCount
+		}
+		return message.EnqueueInput{
+			Type:                message.TypePoll,
+			To:                  request.To,
+			PollQuestion:        request.Question,
+			PollOptions:         request.Options,
+			PollSelectableCount: selectable,
+		}, true
+	case message.TypeReaction:
+		return message.EnqueueInput{
+			Type:           message.TypeReaction,
+			To:             request.To,
+			ReactionTarget: request.Target,
+			ReactionEmoji:  request.Emoji,
+		}, true
+	case message.TypeList:
+		sections := make([]message.ListSection, 0, len(request.Sections))
+		for _, section := range request.Sections {
+			rows := make([]message.ListRow, 0, len(section.Rows))
+			for _, row := range section.Rows {
+				rows = append(rows, message.ListRow{ID: row.ID, Title: row.Title, Description: row.Description})
+			}
+			sections = append(sections, message.ListSection{Title: section.Title, Rows: rows})
+		}
+		return message.EnqueueInput{
+			Type:            message.TypeList,
+			To:              request.To,
+			ListTitle:       request.Title,
+			ListDescription: request.Description,
+			ListButton:      request.ButtonText,
+			ListSections:    sections,
+			ListFooter:      request.Footer,
+		}, true
+	case message.TypeButtons:
+		buttons := make([]message.Button, 0, len(request.Buttons))
+		for _, button := range request.Buttons {
+			buttons = append(buttons, message.Button{ID: button.ID, Title: button.Title})
+		}
+		return message.EnqueueInput{
+			Type:          message.TypeButtons,
+			To:            request.To,
+			ButtonsText:   request.Text,
+			ButtonsFooter: request.Footer,
+			Buttons:       buttons,
+		}, true
+	}
+	return message.EnqueueInput{}, false
+}
+
 // handleSendText accepts a text message and answers 202 with its id. It loads
 // the target instance first (404) and authorizes (403) before reading the
 // body or enqueueing anything.
@@ -310,7 +482,7 @@ func handleSendContact(instances InstanceService, messages MessageService) http.
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
 // @Param id path string true "Instance ID (UUID)"
 // @Param to formData string true "Recipient phone"
-// @Param type formData string true "Media kind: image, video, audio or document"
+// @Param type formData string true "Media kind: image, video, audio, document or sticker (webp only, stored apart from media)"
 // @Param caption formData string false "Caption"
 // @Param filename formData string false "Override filename"
 // @Param ptt formData string false "Push-to-talk flag for audio"
@@ -370,7 +542,7 @@ func handleSendMedia(instances InstanceService, messages MessageService, mediaSt
 		}
 		if !validMediaKind(kind) {
 			Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity",
-				"type must be image, video, audio or document")
+				"type must be image, video, audio, document or sticker")
 			return
 		}
 		ptt, err := parseFormBool(r.FormValue("ptt"))
@@ -391,15 +563,22 @@ func handleSendMedia(instances InstanceService, messages MessageService, mediaSt
 			Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "file type is not supported")
 			return
 		}
-		fileKind, ok := media.Kind(mimetype)
-		if !ok {
-			Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "file type is not supported")
-			return
-		}
-		if fileKind != kind {
-			Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity",
-				"type does not match the file content type")
-			return
+		if kind == message.TypeSticker {
+			if !message.ValidStickerMime(mimetype) {
+				Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "sticker must be webp")
+				return
+			}
+		} else {
+			fileKind, ok := media.Kind(mimetype)
+			if !ok {
+				Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "file type is not supported")
+				return
+			}
+			if fileKind != kind {
+				Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity",
+					"type does not match the file content type")
+				return
+			}
 		}
 		if filename == "" {
 			filename = header.Filename
@@ -425,14 +604,24 @@ func handleSendMedia(instances InstanceService, messages MessageService, mediaSt
 			return
 		}
 
-		messageID, err := messages.Enqueue(r.Context(), id, message.EnqueueInput{
+		enqueue := message.EnqueueInput{
 			Type:     message.TypeMedia,
 			To:       to,
 			Caption:  caption,
 			Filename: stored.Filename,
 			PTT:      ptt,
 			MediaID:  &stored.ID,
-		})
+		}
+		if kind == message.TypeSticker {
+			enqueue = message.EnqueueInput{
+				Type:     message.TypeSticker,
+				To:       to,
+				Caption:  caption,
+				Filename: stored.Filename,
+				MediaID:  &stored.ID,
+			}
+		}
+		messageID, err := messages.Enqueue(r.Context(), id, enqueue)
 		if err != nil {
 			writeMessageError(w, r, err)
 			return
@@ -441,10 +630,11 @@ func handleSendMedia(instances InstanceService, messages MessageService, mediaSt
 	}
 }
 
-// validMediaKind reports whether kind is one of the outbound media kinds.
+// validMediaKind reports whether kind is one of the outbound media kinds,
+// including sticker for webp uploads stored apart from media.
 func validMediaKind(kind string) bool {
 	switch kind {
-	case media.KindImage, media.KindVideo, media.KindAudio, media.KindDocument:
+	case media.KindImage, media.KindVideo, media.KindAudio, media.KindDocument, message.TypeSticker:
 		return true
 	}
 	return false

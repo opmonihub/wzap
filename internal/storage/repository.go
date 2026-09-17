@@ -207,3 +207,30 @@ type DeadLetterRepository interface {
 	// are trimmed to a bounded tail so the table cannot grow without bound.
 	RecordDeadLetter(ctx context.Context, instanceID, eventID uuid.UUID, eventType string, payload []byte, attempts int, lastError string) error
 }
+
+// GroupMetadataRepository persists the on-demand refreshed group metadata
+// cache. The live upstream view stays the source of truth; the rows only
+// carry the last refresh with its updated_at.
+type GroupMetadataRepository interface {
+	// Upsert stores the refreshed metadata of a group, refreshing updated_at.
+	Upsert(ctx context.Context, meta model.GroupMetadata) (model.GroupMetadata, error)
+	// Get returns the cached metadata of a group or ErrNotFound.
+	Get(ctx context.Context, instanceID uuid.UUID, groupJID string) (model.GroupMetadata, error)
+	// DeleteByInstance removes every cached row of an instance.
+	DeleteByInstance(ctx context.Context, instanceID uuid.UUID) (int64, error)
+}
+
+// NewsletterMetadataRepository persists the on-demand refreshed channel
+// metadata cache, following the same cache contract as the groups.
+type NewsletterMetadataRepository interface {
+	// Upsert stores the refreshed metadata of a channel, refreshing
+	// updated_at.
+	Upsert(ctx context.Context, meta model.NewsletterMetadata) (model.NewsletterMetadata, error)
+	// Get returns the cached metadata of a channel or ErrNotFound.
+	Get(ctx context.Context, instanceID uuid.UUID, channelJID string) (model.NewsletterMetadata, error)
+	// ListByInstance returns every cached row of an instance ordered by
+	// channel JID.
+	ListByInstance(ctx context.Context, instanceID uuid.UUID) ([]model.NewsletterMetadata, error)
+	// DeleteByInstance removes every cached row of an instance.
+	DeleteByInstance(ctx context.Context, instanceID uuid.UUID) (int64, error)
+}

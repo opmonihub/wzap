@@ -685,6 +685,8 @@ func mapSessionError(op string, err error) error {
 		return fmt.Errorf("%s: %w", op, ErrNotConnected)
 	case errors.Is(err, session.ErrInvalidRecipient):
 		return fmt.Errorf("%s: %w", op, ErrInvalidInput)
+	case errors.Is(err, session.ErrUnsupported):
+		return fmt.Errorf("%s: %w", op, ErrUnsupported)
 	default:
 		return fmt.Errorf("%s: %w", op, err)
 	}

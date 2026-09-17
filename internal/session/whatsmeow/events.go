@@ -85,6 +85,36 @@ func (s *instanceSession) dispatch(evt any) {
 			return
 		}
 		s.sink.OnGroupEvent(context.Background(), groupChangeEvent(s.instanceID, e))
+	// Calls are only observed, never initiated: offers (1:1 and group
+	// notices), accepts, rejects and terminations become the unified
+	// call.offer event with its state field. Transport noise (pre-accept,
+	// relay latency, unknown elements) is dropped: it carries no call
+	// lifecycle the API promises.
+	case *events.CallOffer:
+		if s.sink == nil {
+			return
+		}
+		s.sink.OnCallEvent(context.Background(), callOfferEvent(s.instanceID, e))
+	case *events.CallOfferNotice:
+		if s.sink == nil {
+			return
+		}
+		s.sink.OnCallEvent(context.Background(), callOfferNoticeEvent(s.instanceID, e))
+	case *events.CallAccept:
+		if s.sink == nil {
+			return
+		}
+		s.sink.OnCallEvent(context.Background(), callAcceptEvent(s.instanceID, e))
+	case *events.CallReject:
+		if s.sink == nil {
+			return
+		}
+		s.sink.OnCallEvent(context.Background(), callRejectEvent(s.instanceID, e))
+	case *events.CallTerminate:
+		if s.sink == nil {
+			return
+		}
+		s.sink.OnCallEvent(context.Background(), callTerminateEvent(s.instanceID, e))
 	case *events.HistorySync:
 		s.observeHistorySync(e)
 	case *events.OfflineSyncPreview:

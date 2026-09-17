@@ -36,6 +36,7 @@ type recordingSink struct {
 	reactions   []session.Reaction
 	interactive []session.InteractiveResponse
 	groupEvents []session.GroupEvent
+	calls       []session.CallEvent
 }
 
 func (r *recordingSink) OnMessage(_ context.Context, msg session.InboundMessage) {
@@ -80,6 +81,12 @@ func (r *recordingSink) OnGroupEvent(_ context.Context, event session.GroupEvent
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.groupEvents = append(r.groupEvents, event)
+}
+
+func (r *recordingSink) OnCallEvent(_ context.Context, event session.CallEvent) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls = append(r.calls, event)
 }
 
 func (r *recordingSink) OnConnection(_ context.Context, _ uuid.UUID, status session.Status, jid, reason string) {

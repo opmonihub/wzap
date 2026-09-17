@@ -179,6 +179,12 @@ type StatusCall struct {
 	StatusID string
 }
 
+// RejectCallRecord records one RejectCall invocation.
+type RejectCallRecord struct {
+	FromJID string
+	CallID  string
+}
+
 // defaultPairPhoneCode is the pairing code a fake returns when the test did
 // not configure one.
 const defaultPairPhoneCode = "12345678"
@@ -212,6 +218,9 @@ type FakeSession struct {
 	// StatusErr, when set, is returned by every status method. It lets tests
 	// force the 404/409 paths without seeding state.
 	StatusErr error
+	// CallErr, when set, is returned by RejectCall. It lets tests force the
+	// 409/501 paths without a live call.
+	CallErr error
 
 	// PairPhoneCode is returned by PairPhone; empty falls back to
 	// defaultPairPhoneCode.
@@ -232,6 +241,7 @@ type FakeSession struct {
 	groupCalls        []GroupCall
 	newsletterCalls   []NewsletterCall
 	statusCalls       []StatusCall
+	rejectCalls       []RejectCallRecord
 
 	// groups is the in-memory group directory keyed by group JID; invites
 	// maps the invite code to the group JID. Seed them with PutGroup or let
@@ -736,6 +746,21 @@ func (s *FakeSession) StatusCalls() []StatusCall {
 	return append([]StatusCall(nil), s.statusCalls...)
 }
 
+// RejectCall records the call and returns the forced CallErr, when set.
+func (s *FakeSession) RejectCall(_ context.Context, fromJID, callID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.rejectCalls = append(s.rejectCalls, RejectCallRecord{FromJID: fromJID, CallID: callID})
+	return s.CallErr
+}
+
+// RejectCalls returns the reject calls, in order.
+func (s *FakeSession) RejectCalls() []RejectCallRecord {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]RejectCallRecord(nil), s.rejectCalls...)
+}
+
 // NewsletterCalls returns the newsletter calls, in order.
 func (s *FakeSession) NewsletterCalls() []NewsletterCall {
 	s.mu.Lock()
@@ -913,6 +938,13 @@ func (s *FakeSession) EmitInteractiveResponse(response session.InteractiveRespon
 func (s *FakeSession) EmitGroupEvent(event session.GroupEvent) {
 	if s.sink != nil {
 		s.sink.OnGroupEvent(context.Background(), event)
+	}
+}
+
+// EmitCallEvent forwards a call change to the sink, when one was configured.
+func (s *FakeSession) EmitCallEvent(event session.CallEvent) {
+	if s.sink != nil {
+		s.sink.OnCallEvent(context.Background(), event)
 	}
 }
 

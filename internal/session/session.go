@@ -287,6 +287,38 @@ type StatusInfo struct {
 	CreatedAt time.Time
 }
 
+// Call states carried by CallEvent.State: the unified call.offer event
+// distinguishes the offer, the accept, the reject and the end through this
+// field (Ruling D2).
+const (
+	// CallStateOffer marks an incoming call offer (1:1 or group notice).
+	CallStateOffer = "offer"
+	// CallStateAccept marks a call accepted on another device.
+	CallStateAccept = "accept"
+	// CallStateReject marks a call rejected on another device.
+	CallStateReject = "reject"
+	// CallStateEnd marks a terminated call.
+	CallStateEnd = "end"
+)
+
+// CallEvent is a call change observed on the wire, translated away from the
+// library types. CallID is the upstream call id; FromJID the caller (the
+// creator on group notices); State one of the CallState* values; IsVideo
+// best-effort (true only when the wire names video, as on group notices).
+// The service never initiates calls: it only observes them and rejects the
+// active one through RejectCall when the upstream allows it.
+type CallEvent struct {
+	InstanceID uuid.UUID
+	CallID     string
+	FromJID    string
+	State      string
+	IsVideo    bool
+	Timestamp  time.Time
+	// Raw is the best-effort JSON of the raw upstream event, captured by the
+	// adapter for webhook delivery. It is nil when the capture failed.
+	Raw json.RawMessage
+}
+
 // EventSink consumes session events. Implementations must be safe for
 // concurrent use and should not block the session for long.
 type EventSink interface {
@@ -297,6 +329,7 @@ type EventSink interface {
 	OnReaction(ctx context.Context, reaction Reaction)
 	OnInteractiveResponse(ctx context.Context, response InteractiveResponse)
 	OnGroupEvent(ctx context.Context, event GroupEvent)
+	OnCallEvent(ctx context.Context, event CallEvent)
 	OnReceipt(ctx context.Context, receipt Receipt)
 	OnConnection(ctx context.Context, instanceID uuid.UUID, status Status, jid string, reason string)
 }
@@ -382,6 +415,10 @@ type Session interface {
 	// DeleteStatus removes the own statusID published through this session.
 	// An unknown id is ErrStatusNotFound.
 	DeleteStatus(ctx context.Context, statusID string) error
+	// RejectCall rejects the active call callID from fromJID. The service
+	// never initiates calls; when the upstream cannot reject, the adapter
+	// returns ErrUnsupported for the documented 501.
+	RejectCall(ctx context.Context, fromJID, callID string) error
 	// HistorySyncSnapshot returns the accumulated history-sync feed of the
 	// instance (progress, conversation batches, contacts). The Import plan
 	// consumes it after pairing; each session accumulates only its own feed.

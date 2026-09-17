@@ -72,6 +72,12 @@ func (SubjectNamespace) GroupInfo(instanceID uuid.UUID) string {
 	return subject(instanceID, "group.info")
 }
 
+// CallOffer is the subject of the unified inbound call events: the offer,
+// the accept, the reject and the end travel here with their state field.
+func (SubjectNamespace) CallOffer(instanceID uuid.UUID) string {
+	return subject(instanceID, "call.offer")
+}
+
 func subject(instanceID uuid.UUID, suffix string) string {
 	return subjectPrefix + instanceID.String() + "." + suffix
 }

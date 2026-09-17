@@ -19,13 +19,15 @@ var ErrInvalid = errors.New("invalid webhook config")
 
 // canonicalEvents is the only accepted subscription set, in the deterministic
 // order stored regardless of input order. The rich inbound types (poll vote,
-// reaction, interactive response) and the group types (participants, info)
-// are opt-in: they validate explicitly but never enter the default set, so
-// existing webhooks keep receiving exactly what they subscribed to.
+// reaction, interactive response), the group types (participants, info) and
+// the unified call type (call.offer) are opt-in: they validate explicitly but
+// never enter the default set, so existing webhooks keep receiving exactly
+// what they subscribed to.
 var canonicalEvents = []string{
 	"message", "receipt", "connection", "message.status",
 	"poll.vote", "message.reaction", "interactive.response",
 	"group.participants", "group.info",
+	"call.offer",
 }
 
 // canonicalSet is the exact lowercase membership of canonicalEvents: matching
@@ -40,6 +42,7 @@ var canonicalSet = map[string]bool{
 	"interactive.response": true,
 	"group.participants":   true,
 	"group.info":           true,
+	"call.offer":           true,
 }
 
 // defaultEvents is the subscription used when webhook_events is omitted: the

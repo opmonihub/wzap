@@ -29,6 +29,7 @@ type recordingSink struct {
 	reactions   []session.Reaction
 	interactive []session.InteractiveResponse
 	groupEvents []session.GroupEvent
+	calls       []session.CallEvent
 	receipts    []session.Receipt
 	connections []connectionCall
 }
@@ -59,6 +60,10 @@ func (r *recordingSink) OnInteractiveResponse(_ context.Context, response sessio
 
 func (r *recordingSink) OnGroupEvent(_ context.Context, event session.GroupEvent) {
 	r.groupEvents = append(r.groupEvents, event)
+}
+
+func (r *recordingSink) OnCallEvent(_ context.Context, event session.CallEvent) {
+	r.calls = append(r.calls, event)
 }
 
 func (r *recordingSink) OnReceipt(_ context.Context, receipt session.Receipt) {

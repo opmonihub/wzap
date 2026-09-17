@@ -114,6 +114,7 @@ func New(cfg config.Config, log zerolog.Logger, deps Deps) *http.Server {
 	api.Handle("POST /instances/{id}/status/updates/media", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handlePublishStatusMedia(deps.Instances, log, cfg.MaxMediaBytes)))
 	api.HandleFunc("GET /instances/{id}/status/updates", handleListStatuses(deps.Instances, log))
 	api.HandleFunc("DELETE /instances/{id}/status/updates/{status_id}", handleDeleteStatus(deps.Instances, log))
+	api.HandleFunc("POST /instances/{id}/calls/reject", handleRejectCall(deps.Instances, log))
 	api.HandleFunc("GET /media/{id}", handleGetMedia(deps.Instances, deps.Media))
 	api.HandleFunc("POST /users", handleCreateUser(deps.Users, cfg.DefaultUserQuota))
 	api.HandleFunc("GET /users", handleListUsers(deps.Users))

@@ -51,6 +51,7 @@ type fakeInstanceService struct {
 	publishStatusFn      func(ctx context.Context, id uuid.UUID, input session.StatusInput) (string, error)
 	listStatusesFn       func(ctx context.Context, id uuid.UUID) ([]session.StatusInfo, error)
 	deleteStatusFn       func(ctx context.Context, id uuid.UUID, statusID string) error
+	rejectCallFn         func(ctx context.Context, id uuid.UUID, fromJID, callID string) error
 
 	createInputs            []instance.CreateInput
 	updateInputs            []instance.UpdateInput
@@ -79,6 +80,7 @@ type fakeInstanceService struct {
 	publishStatusCalls      []publishStatusCall
 	listStatusCalls         []uuid.UUID
 	deleteStatusCalls       []deleteStatusCall
+	rejectCallCalls         []rejectCallRecord
 	listLimit               int
 	listCursor              string
 }
@@ -175,6 +177,13 @@ type publishStatusCall struct {
 type deleteStatusCall struct {
 	InstanceID uuid.UUID
 	StatusID   string
+}
+
+// rejectCallRecord records one RejectCall call received by the fake.
+type rejectCallRecord struct {
+	InstanceID uuid.UUID
+	FromJID    string
+	CallID     string
 }
 
 // Create records the input and returns the configured instance with its
@@ -442,6 +451,15 @@ func (f *fakeInstanceService) DeleteStatus(ctx context.Context, id uuid.UUID, st
 	f.deleteStatusCalls = append(f.deleteStatusCalls, deleteStatusCall{InstanceID: id, StatusID: statusID})
 	if f.deleteStatusFn != nil {
 		return f.deleteStatusFn(ctx, id, statusID)
+	}
+	return nil
+}
+
+// RejectCall records the call and returns the configured error.
+func (f *fakeInstanceService) RejectCall(ctx context.Context, id uuid.UUID, fromJID, callID string) error {
+	f.rejectCallCalls = append(f.rejectCallCalls, rejectCallRecord{InstanceID: id, FromJID: fromJID, CallID: callID})
+	if f.rejectCallFn != nil {
+		return f.rejectCallFn(ctx, id, fromJID, callID)
 	}
 	return nil
 }

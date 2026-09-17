@@ -61,6 +61,7 @@ type InstanceService interface {
 	PublishStatus(ctx context.Context, id uuid.UUID, input session.StatusInput) (string, error)
 	ListStatuses(ctx context.Context, id uuid.UUID) ([]session.StatusInfo, error)
 	DeleteStatus(ctx context.Context, id uuid.UUID, statusID string) error
+	RejectCall(ctx context.Context, id uuid.UUID, fromJID, callID string) error
 }
 
 // The service satisfies the handler contract; the assertion catches signature
@@ -673,6 +674,8 @@ func writeInstanceError(w http.ResponseWriter, r *http.Request, err error) {
 		Error(w, r, http.StatusNotFound, "not_found", "newsletter not found")
 	case errors.Is(err, instance.ErrStatusNotFound):
 		Error(w, r, http.StatusNotFound, "not_found", "status not found")
+	case errors.Is(err, instance.ErrUnsupported):
+		Error(w, r, http.StatusNotImplemented, "not_supported", "operation not supported by the upstream")
 	case errors.Is(err, instance.ErrForbidden):
 		Error(w, r, http.StatusForbidden, "forbidden", "forbidden")
 	case errors.Is(err, instance.ErrOwnerNotFound):

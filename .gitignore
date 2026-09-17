@@ -17,3 +17,5 @@ build-errors.log
 /CLAUDE.md
 /image.png
 docs/superpowers/
+# Local example repos for exploration (never commit).
+/research/

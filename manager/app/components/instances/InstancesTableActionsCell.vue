@@ -6,9 +6,14 @@ import type { Instance } from '~/types/api'
 // the connect call, the edit modal and the delete modal (and all API logic),
 // mapping open -> detail navigation, connect -> pairing start,
 // edit -> openEdit and remove -> openDelete.
-defineProps<{
+withDefaults(defineProps<{
   instance: Instance
-}>()
+  icon?: string
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+}>(), {
+  icon: 'i-lucide-ellipsis',
+  size: 'md'
+})
 
 const emit = defineEmits<{
   (e: 'open' | 'connect' | 'edit' | 'remove', instance: Instance): void
@@ -52,7 +57,8 @@ function menuItems(instance: Instance): DropdownMenuItem[] {
     <UButton
       color="neutral"
       variant="ghost"
-      icon="i-lucide-ellipsis"
+      :icon="icon"
+      :size="size"
       :aria-label="t('instances.table.actions')"
     />
   </UDropdownMenu>

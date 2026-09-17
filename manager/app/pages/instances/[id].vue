@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import * as z from 'zod'
-import type { FormSubmitEvent } from '#ui/types'
+import type { FormSubmitEvent, NavigationMenuItem } from '#ui/types'
 import { ApiError } from '~/composables/useApi'
 import ChannelsCard from '~/components/instances/ChannelsCard.vue'
 import ChatwootCard from '~/components/instances/ChatwootCard.vue'
@@ -56,36 +56,20 @@ const messagesRefresh = ref(0)
 
 const section = ref('overview')
 
-// Section switching rides on each item's onSelect: UNavigationMenu does not
-// reliably emit update:modelValue for these items (observed: the active pill
-// moves but v-model never receives the item value string, wedging every
-// section branch into the v-else settings fallback). Setting the string
-// directly keeps section inside the union the template branches on.
-const sections = computed(() => [
-  { label: t('instances.sections.overview'), value: 'overview', onSelect: () => { section.value = 'overview' } },
-  { label: t('instances.sections.messages'), value: 'messages', onSelect: () => { section.value = 'messages' } },
-  { label: t('instances.sections.groups'), value: 'groups', onSelect: () => { section.value = 'groups' } },
-  { label: t('instances.sections.channels'), value: 'channels', onSelect: () => { section.value = 'channels' } },
-  { label: t('instances.sections.profile'), value: 'profile', onSelect: () => { section.value = 'profile' } },
-  { label: t('instances.sections.integrations'), value: 'integrations', onSelect: () => { section.value = 'integrations' } },
-  { label: t('instances.sections.settings'), value: 'settings', onSelect: () => { section.value = 'settings' } }
+// Section nav mirrors research/dashboard settings.vue: UNavigationMenu in a
+// UDashboardToolbar with icons + highlight. Switching still rides on each
+// item's onSelect (UNavigationMenu does not reliably emit update:modelValue
+// for value-only items), while `active` keeps the highlight pill in sync
+// with the local section state instead of the route.
+const sections = computed<NavigationMenuItem[]>(() => [
+  { label: t('instances.sections.overview'), icon: 'i-lucide-house', value: 'overview', active: section.value === 'overview', onSelect: () => { section.value = 'overview' } },
+  { label: t('instances.sections.messages'), icon: 'i-lucide-message-square-text', value: 'messages', active: section.value === 'messages', onSelect: () => { section.value = 'messages' } },
+  { label: t('instances.sections.groups'), icon: 'i-lucide-users', value: 'groups', active: section.value === 'groups', onSelect: () => { section.value = 'groups' } },
+  { label: t('instances.sections.channels'), icon: 'i-lucide-megaphone', value: 'channels', active: section.value === 'channels', onSelect: () => { section.value = 'channels' } },
+  { label: t('instances.sections.profile'), icon: 'i-lucide-user', value: 'profile', active: section.value === 'profile', onSelect: () => { section.value = 'profile' } },
+  { label: t('instances.sections.integrations'), icon: 'i-lucide-plug', value: 'integrations', active: section.value === 'integrations', onSelect: () => { section.value = 'integrations' } },
+  { label: t('instances.sections.settings'), icon: 'i-lucide-settings', value: 'settings', active: section.value === 'settings', onSelect: () => { section.value = 'settings' } }
 ])
-
-// Message history split (template inbox pattern): at lg+ it renders as a
-// side panel, below lg it opens as a slideover via the messages button.
-// Visibility is CSS-gated (hidden/lg: wrappers), which does not prevent
-// mount: the desktop aside mounts and fetches once per page load on every
-// viewport, while the slideover content mounts lazily on first open (its
-// Presence unmounts on close). Opening the slideover on mobile therefore
-// issues one redundant history fetch; accepted (no v-if gating, which would
-// reintroduce the SSR-breakpoint double-mount, and no lifted fetch, which
-// would change child-card contracts).
-const isMessagesOpen = ref(false)
-
-// The slideover closes on navigation, mirroring the dashboard slideover.
-watch(() => route.fullPath, () => {
-  isMessagesOpen.value = false
-})
 
 useSeoMeta({
   title: 'Instance details'
@@ -257,7 +241,7 @@ await load()
 </script>
 
 <template>
-  <UDashboardPanel id="instance-detail">
+  <UDashboardPanel id="instance-detail" :ui="{ body: 'lg:py-12' }">
     <template #header>
       <UDashboardNavbar :title="instance?.name ?? t('instances.title')">
         <template #leading>
@@ -273,18 +257,29 @@ await load()
           <InstanceStatusBadge :status="instance.status" />
         </template>
       </UDashboardNavbar>
+
+      <UDashboardToolbar v-if="instance && !pending && !notFound && !failure">
+        <!-- NOTE: The `-mx-1` class is used to align with the `DashboardSidebarCollapse` button here. -->
+        <UNavigationMenu
+          highlight
+          class="-mx-1 max-w-full min-w-0 flex-1 overflow-x-auto"
+          :items="sections"
+        />
+      </UDashboardToolbar>
     </template>
 
     <template #body>
-      <div class="flex justify-center px-0 sm:px-6">
-        <div v-if="pending" class="flex w-full max-w-6xl flex-col gap-2">
+      <!-- Single width for every tab, mirroring settings.vue: the body
+      centers one max-w-2xl column on lg+ and stretches full-width below. -->
+      <div class="mx-auto flex w-full min-w-0 max-w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl lg:gap-12">
+        <div v-if="pending" class="flex w-full flex-col gap-2">
           <USkeleton class="h-32 w-full" />
           <USkeleton class="h-48 w-full" />
         </div>
 
         <UEmpty
           v-else-if="notFound"
-          class="w-full max-w-6xl"
+          class="w-full"
           icon="i-lucide-search-x"
           :title="t('instances.detail.notFound')"
         >
@@ -295,7 +290,7 @@ await load()
 
         <UAlert
           v-else-if="failure"
-          class="w-full max-w-6xl"
+          class="w-full"
           color="error"
           variant="subtle"
           :title="failure"
@@ -310,53 +305,39 @@ await load()
           </template>
         </UAlert>
 
-        <div v-else-if="instance" class="flex w-full flex-col gap-4 sm:gap-6">
-          <UDashboardToolbar>
-            <UNavigationMenu
-              :model-value="section"
-              highlight
-              class="-mx-1 flex-1 min-w-0 overflow-x-auto"
-              :items="sections"
-            />
-          </UDashboardToolbar>
-
-          <div v-if="section === 'overview'" class="mx-auto flex w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl">
-            <UCard>
-              <template #header>
-                <h2 class="font-medium text-highlighted">
-                  {{ instance.name }}
-                </h2>
-              </template>
-              <dl class="flex flex-col gap-2 text-sm">
-                <div class="flex justify-between gap-4">
-                  <dt class="text-muted">
+        <template v-else-if="instance">
+          <div v-if="section === 'overview'" class="flex w-full min-w-0 flex-col gap-4 sm:gap-6">
+            <UPageCard :title="instance.name" variant="subtle">
+              <dl class="flex flex-col gap-3 text-sm sm:gap-2">
+                <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+                  <dt class="shrink-0 text-muted">
                     {{ t('instances.fields.jid') }}
                   </dt>
-                  <dd class="font-mono text-highlighted">
+                  <dd class="min-w-0 font-mono break-all text-highlighted sm:text-right">
                     {{ instance.whatsapp_jid || t('common.notSet') }}
                   </dd>
                 </div>
-                <div v-if="instance.last_error" class="flex justify-between gap-4">
-                  <dt class="text-muted">
+                <div v-if="instance.last_error" class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+                  <dt class="shrink-0 text-muted">
                     {{ t('instances.fields.lastError') }}
                   </dt>
-                  <dd class="text-right text-highlighted">
+                  <dd class="min-w-0 break-all text-highlighted sm:text-right">
                     {{ instance.last_error }}
                   </dd>
                 </div>
-                <div class="flex justify-between gap-4">
-                  <dt class="text-muted">
+                <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+                  <dt class="shrink-0 text-muted">
                     {{ t('instances.fields.createdAt') }}
                   </dt>
-                  <dd class="text-highlighted">
+                  <dd class="min-w-0 break-all text-highlighted sm:text-right">
                     {{ formatDateTime(instance.created_at) }}
                   </dd>
                 </div>
-                <div class="flex justify-between gap-4">
-                  <dt class="text-muted">
+                <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+                  <dt class="shrink-0 text-muted">
                     {{ t('instances.fields.updatedAt') }}
                   </dt>
-                  <dd class="text-highlighted">
+                  <dd class="min-w-0 break-all text-highlighted sm:text-right">
                     {{ formatDateTime(instance.updated_at) }}
                   </dd>
                 </div>
@@ -371,7 +352,7 @@ await load()
                   @click="onDisconnect"
                 />
               </template>
-            </UCard>
+            </UPageCard>
 
             <PairingCard
               :instance-id="instance.id"
@@ -382,12 +363,7 @@ await load()
 
             <PairPhoneCard :instance-id="instance.id" :status="instance.status" />
 
-            <UCard>
-              <template #header>
-                <h2 class="font-medium text-highlighted">
-                  {{ t('instances.fields.name') }}
-                </h2>
-              </template>
+            <UPageCard :title="t('instances.fields.name')" variant="subtle">
               <UForm
                 id="instance-name"
                 :schema="schema"
@@ -418,71 +394,48 @@ await load()
                   <UButton type="submit" :loading="saving" :label="saving ? t('common.saving') : t('common.save')" />
                 </div>
               </UForm>
-            </UCard>
+            </UPageCard>
           </div>
 
-          <div v-else-if="section === 'messages'" class="flex w-full flex-col gap-4">
-            <div class="flex w-full flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
-              <div class="flex min-w-0 flex-1 flex-col gap-4 lg:max-w-2xl">
-                <TestSendCard
-                  :instance-id="instance.id"
-                  :status="instance.status"
-                  @sent="onMessagesRefresh"
-                  @settled="onMessagesRefresh"
-                />
+          <!-- Single-column stack shared by every tab: one card per row at
+          the same max-w-2xl width, so sections never shift horizontally. -->
+          <div v-else-if="section === 'messages'" class="flex w-full min-w-0 flex-col gap-4 sm:gap-6">
+            <TestSendCard
+              :instance-id="instance.id"
+              :status="instance.status"
+              @sent="onMessagesRefresh"
+              @settled="onMessagesRefresh"
+            />
 
-                <MessageComposer
-                  :instance-id="instance.id"
-                  :status="instance.status"
-                  @sent="onMessagesRefresh"
-                  @settled="onMessagesRefresh"
-                />
+            <MessageComposer
+              :instance-id="instance.id"
+              :status="instance.status"
+              @sent="onMessagesRefresh"
+              @settled="onMessagesRefresh"
+            />
 
-                <MessageActionsCard :instance-id="instance.id" :status="instance.status" />
+            <MessageActionsCard :instance-id="instance.id" :status="instance.status" />
 
-                <UButton
-                  class="lg:hidden"
-                  icon="i-lucide-message-square-text"
-                  :label="t('instances.messages.cardTitle')"
-                  @click="isMessagesOpen = true"
-                />
-              </div>
-
-              <aside class="hidden min-w-0 flex-1 lg:block lg:max-w-md lg:shrink-0">
-                <div class="lg:sticky lg:top-4">
-                  <ClientOnly>
-                    <MessagesCard :instance-id="instance.id" :refresh-key="messagesRefresh" />
-                  </ClientOnly>
-                </div>
-              </aside>
-            </div>
-
-            <div class="flex w-full flex-col gap-4 lg:hidden">
-              <ClientOnly>
-                <USlideover v-model:open="isMessagesOpen" :title="t('instances.messages.cardTitle')">
-                  <template #content>
-                    <MessagesCard :instance-id="instance.id" :refresh-key="messagesRefresh" />
-                  </template>
-                </USlideover>
-              </ClientOnly>
-            </div>
+            <ClientOnly>
+              <MessagesCard :instance-id="instance.id" :refresh-key="messagesRefresh" />
+            </ClientOnly>
           </div>
 
-          <div v-else-if="section === 'groups'" class="mx-auto flex w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl">
+          <div v-else-if="section === 'groups'" class="flex w-full min-w-0 flex-col gap-4 sm:gap-6">
             <GroupDetail :instance-id="instance.id" :status="instance.status" />
           </div>
 
-          <div v-else-if="section === 'channels'" class="mx-auto flex w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl">
+          <div v-else-if="section === 'channels'" class="flex w-full min-w-0 flex-col gap-4 sm:gap-6">
             <ChannelsCard :instance-id="instance.id" :status="instance.status" />
           </div>
 
-          <div v-else-if="section === 'profile'" class="mx-auto flex w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl">
+          <div v-else-if="section === 'profile'" class="flex w-full min-w-0 flex-col gap-4 sm:gap-6">
             <ProfileCard :instance-id="instance.id" :status="instance.status" />
             <PrivacyCard :instance-id="instance.id" :status="instance.status" />
             <DeviceActionsCard :instance-id="instance.id" :status="instance.status" />
           </div>
 
-          <div v-else-if="section === 'integrations'" class="mx-auto flex w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl">
+          <div v-else-if="section === 'integrations'" class="flex w-full min-w-0 flex-col gap-4 sm:gap-6">
             <WebhookCard
               :instance="instance"
               @updated="onWebhookUpdated"
@@ -491,14 +444,8 @@ await load()
             <ChatwootCard :instance-id="instance.id" :status="instance.status" />
           </div>
 
-          <div v-else class="mx-auto flex w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl">
-            <UCard v-if="isAdmin">
-              <template #header>
-                <h2 class="font-medium text-highlighted">
-                  {{ t('instances.key.cardTitle') }}
-                </h2>
-              </template>
-
+          <div v-else class="flex w-full min-w-0 flex-col gap-4 sm:gap-6">
+            <UPageCard v-if="isAdmin" :title="t('instances.key.cardTitle')" variant="subtle">
               <div class="flex flex-col gap-4">
                 <UAlert
                   v-if="keyFailure"
@@ -543,29 +490,25 @@ await load()
                   </div>
                 </template>
               </div>
-            </UCard>
+            </UPageCard>
 
-            <UCard>
-              <template #header>
-                <h2 class="font-medium text-error">
-                  {{ t('instances.detail.delete') }}
-                </h2>
-              </template>
-              <div class="flex items-center justify-between gap-4">
-                <p class="text-sm text-muted">
+            <UPageCard :title="t('instances.detail.delete')" variant="subtle" :ui="{ title: 'text-error' }">
+              <div class="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <p class="min-w-0 text-sm text-muted">
                   {{ t('instances.delete.warning') }}
                 </p>
                 <UButton
                   color="error"
                   variant="soft"
                   icon="i-lucide-trash-2"
+                  class="w-fit shrink-0"
                   :label="t('instances.detail.delete')"
                   @click="deleteOpen = true"
                 />
               </div>
-            </UCard>
+            </UPageCard>
           </div>
-        </div>
+        </template>
       </div>
     </template>
   </UDashboardPanel>

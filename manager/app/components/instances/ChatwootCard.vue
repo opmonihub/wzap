@@ -62,12 +62,7 @@ void props.status
 </script>
 
 <template>
-  <UCard variant="subtle" data-testid="chatwoot-card">
-    <template #header>
-      <h3 class="font-medium text-highlighted">
-        {{ t('instances.chatwoot.cardTitle') }}
-      </h3>
-    </template>
+  <UPageCard :title="t('instances.chatwoot.cardTitle')" variant="subtle" data-testid="chatwoot-card">
     <div class="flex flex-col gap-3">
       <UAlert
         v-if="disabled"
@@ -98,7 +93,7 @@ void props.status
         type="password"
         :hint="t('instances.chatwoot.tokenHint')"
       />
-      <div class="flex gap-2">
+      <div class="flex flex-wrap gap-2">
         <UButton :disabled="disabled" label="Save" @click="onSave" />
         <UButton
           :disabled="disabled"
@@ -108,5 +103,5 @@ void props.status
         />
       </div>
     </div>
-  </UCard>
+  </UPageCard>
 </template>

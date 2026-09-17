@@ -277,13 +277,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <UCard data-testid="pairing-card">
-    <template #header>
-      <h2 class="font-medium text-highlighted">
-        {{ t('instances.pairing.cardTitle') }}
-      </h2>
-    </template>
-
+  <UPageCard :title="t('instances.pairing.cardTitle')" variant="subtle" data-testid="pairing-card">
     <div v-if="phase === 'starting'" class="flex flex-col items-center gap-3 py-4">
       <USkeleton class="h-56 w-56" />
       <p class="text-sm text-muted">
@@ -339,5 +333,5 @@ onUnmounted(() => {
         />
       </div>
     </div>
-  </UCard>
+  </UPageCard>
 </template>

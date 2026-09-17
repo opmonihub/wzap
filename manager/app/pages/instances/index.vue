@@ -6,6 +6,7 @@ import { useInstancesTable } from '~/composables/useInstancesTable'
 import CreateInstanceModal from '~/components/instances/CreateInstanceModal.vue'
 import DeleteInstanceModal from '~/components/instances/DeleteInstanceModal.vue'
 import EditInstanceModal from '~/components/instances/EditInstanceModal.vue'
+import InstanceCard from '~/components/instances/InstanceCard.vue'
 import InstancesTableActionsCell from '~/components/instances/InstancesTableActionsCell.vue'
 import InstancesTableJidCell from '~/components/instances/InstancesTableJidCell.vue'
 import InstancesTableNameCell from '~/components/instances/InstancesTableNameCell.vue'
@@ -107,6 +108,44 @@ const columnVisibility = computed<Record<string, boolean>>({
 function getRowId(row: Instance): string {
   return row.id
 }
+
+// Card/grid view sits beside the table on the same loaded items: search,
+// status and sorting state stay shared so switching views never loses the
+// filter. The table keeps owning its native filtering; the cards re-apply the
+// same predicates client-side (name/external_ref match + status equals).
+const viewCookie = useCookie<'cards' | 'table'>('wzap-instances-view', { default: () => 'cards' })
+const view = computed<'cards' | 'table'>({
+  get: () => viewCookie.value === 'table' ? 'table' : 'cards',
+  set: value => viewCookie.value = value
+})
+
+const cardItems = computed(() => {
+  const query = globalFilter.value.trim().toLowerCase()
+  const status = columnFilters.value.find(entry => entry.id === 'status')?.value
+  const filtered = items.value.filter((entry) => {
+    if (typeof status === 'string' && status !== '' && entry.status !== status) {
+      return false
+    }
+    if (query !== '' && ![entry.name, entry.external_ref].some(value => (value ?? '').toLowerCase().includes(query))) {
+      return false
+    }
+    return true
+  })
+  const sort = sorting.value[0]
+  if (!sort || (sort.id !== 'name' && sort.id !== 'status')) {
+    return filtered
+  }
+  const direction = sort.desc ? -1 : 1
+  const key = sort.id as 'name' | 'status'
+  return [...filtered].sort((a, b) => String(a[key]).localeCompare(String(b[key])) * direction)
+})
+
+const cardPageCount = computed(() => Math.max(1, Math.ceil(cardItems.value.length / pagination.value.pageSize)))
+
+const cardPageItems = computed(() => {
+  const start = pagination.value.pageIndex * pagination.value.pageSize
+  return cardItems.value.slice(start, start + pagination.value.pageSize)
+})
 
 // Native table state, read from the table API (UTable owns sorting, filtering
 // and pagination; the page only binds state and renders). Before the first
@@ -223,6 +262,12 @@ watch([globalFilter, columnFilters, sorting], () => {
 
 watch(pageCount, (count) => {
   if (pagination.value.pageIndex > count - 1) {
+    pagination.value.pageIndex = count - 1
+  }
+})
+
+watch(cardPageCount, (count) => {
+  if (view.value === 'cards' && pagination.value.pageIndex > count - 1) {
     pagination.value.pageIndex = count - 1
   }
 })
@@ -386,18 +431,62 @@ await loadFirst()
           <UButton icon="i-lucide-plus" :label="t('instances.create.title')" @click="createOpen = true" />
         </template>
       </UDashboardNavbar>
+
+      <UDashboardToolbar>
+        <template #left>
+          <UInput
+            v-model="searchInput"
+            icon="i-lucide-search"
+            :placeholder="t('instances.table.search')"
+            :aria-label="t('instances.table.search')"
+            class="max-w-xs"
+          />
+          <USelect
+            v-model="statusFilter"
+            :items="statusFilterItems"
+            :aria-label="t('instances.table.statusFilter')"
+            :placeholder="t('instances.table.statusFilter')"
+            size="sm"
+            class="w-36"
+            :ui="{ trailingIcon: 'group-data-[state=open]:rotate-180 transition-transform duration-200' }"
+          />
+          <div class="flex items-center gap-1.5" role="group" :aria-label="t('instances.table.viewLabel')">
+            <UButton
+              icon="i-lucide-layout-grid"
+              size="sm"
+              :color="view === 'cards' ? 'primary' : 'neutral'"
+              :variant="view === 'cards' ? 'solid' : 'outline'"
+              :aria-label="t('instances.table.viewCards')"
+              :aria-pressed="view === 'cards'"
+              @click="view = 'cards'"
+            />
+            <UButton
+              icon="i-lucide-table"
+              size="sm"
+              :color="view === 'table' ? 'primary' : 'neutral'"
+              :variant="view === 'table' ? 'solid' : 'outline'"
+              :aria-label="t('instances.table.viewTable')"
+              :aria-pressed="view === 'table'"
+              @click="view = 'table'"
+            />
+          </div>
+        </template>
+        <template #right>
+          <span class="text-sm text-muted">{{ t('instances.table.cardsCount', { filtered: view === 'cards' ? cardItems.length : totalFiltered }) }}</span>
+        </template>
+      </UDashboardToolbar>
     </template>
 
     <template #body>
-      <p class="mb-4 text-sm text-muted">
-        {{ isAdmin ? t('instances.subtitleAdmin') : t('instances.subtitleUser') }}
-      </p>
+      <!-- Initial load renders skeletons; the table/cards mount only after load, so no :loading prop (loadMore owns its button spinner). -->
+      <div v-if="pending && view === 'table'" class="flex flex-col gap-2">
+        <USkeleton class="h-12 w-full" />
+        <USkeleton class="h-12 w-full" />
+        <USkeleton class="h-12 w-full" />
+      </div>
 
-      <!-- Initial load renders skeletons; the table mounts only after load, so no :loading prop (loadMore owns its button spinner). -->
-      <div v-if="pending" class="flex flex-col gap-2">
-        <USkeleton class="h-12 w-full" />
-        <USkeleton class="h-12 w-full" />
-        <USkeleton class="h-12 w-full" />
+      <div v-else-if="pending" class="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+        <USkeleton v-for="n in 6" :key="n" class="h-36 w-full" />
       </div>
 
       <UAlert
@@ -416,54 +505,39 @@ await loadFirst()
         </template>
       </UAlert>
 
-      <div v-else class="flex flex-col gap-3">
-        <div class="flex flex-wrap items-center justify-between gap-1.5" role="group" :aria-label="t('instances.table.filtersLabel')">
-          <UInput
-            v-model="searchInput"
-            icon="i-lucide-search"
-            :placeholder="t('instances.table.search')"
-            :aria-label="t('instances.table.search')"
-            class="max-w-sm"
-          />
-
-          <div class="flex flex-wrap items-center gap-1.5">
+      <div v-else class="flex flex-col gap-4">
+        <!-- Table-only helpers: bulk copy plus the columns dropdown live above
+        the table; the cards view has no selection or hideable columns. -->
+        <div v-if="view === 'table'" class="flex flex-wrap items-center justify-end gap-1.5">
+          <UButton
+            v-if="selectedCount > 0"
+            color="neutral"
+            variant="subtle"
+            icon="i-lucide-copy"
+            :label="t('instances.table.copyNames')"
+            @click="copySelectedNames"
+          >
+            <template #trailing>
+              <UKbd>
+                {{ selectedCount }}
+              </UKbd>
+            </template>
+          </UButton>
+          <UDropdownMenu
+            :items="[columnItems]"
+            :content="{ align: 'end' }"
+          >
             <UButton
-              v-if="selectedCount > 0"
+              :label="t('instances.table.display')"
               color="neutral"
-              variant="subtle"
-              icon="i-lucide-copy"
-              :label="t('instances.table.copyNames')"
-              @click="copySelectedNames"
-            >
-              <template #trailing>
-                <UKbd>
-                  {{ selectedCount }}
-                </UKbd>
-              </template>
-            </UButton>
-            <USelect
-              v-model="statusFilter"
-              :items="statusFilterItems"
-              :aria-label="t('instances.table.statusFilter')"
-              :placeholder="t('instances.table.statusFilter')"
-              class="min-w-28"
-              :ui="{ trailingIcon: 'group-data-[state=open]:rotate-180 transition-transform duration-200' }"
+              variant="outline"
+              trailing-icon="i-lucide-settings-2"
             />
-            <UDropdownMenu
-              :items="[columnItems]"
-              :content="{ align: 'end' }"
-            >
-              <UButton
-                :label="t('instances.table.display')"
-                color="neutral"
-                variant="outline"
-                trailing-icon="i-lucide-settings-2"
-              />
-            </UDropdownMenu>
-          </div>
+          </UDropdownMenu>
         </div>
 
         <UTable
+          v-if="view === 'table'"
           ref="table"
           v-model:sorting="sorting"
           v-model:global-filter="globalFilter"
@@ -595,7 +669,57 @@ await loadFirst()
           </template>
         </UTable>
 
-        <div class="flex items-center justify-between gap-3 border-t border-default pt-4 mt-auto">
+        <div v-else class="flex flex-col gap-4">
+          <div v-if="cardPageItems.length > 0" class="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+            <InstanceCard
+              v-for="entry in cardPageItems"
+              :key="entry.id"
+              :instance="entry"
+              :email="ownerEmails[entry.owner_user_id ?? '']"
+              :show-owner="isAdmin"
+              @open="openDetails"
+              @connect="onConnect"
+              @edit="openEdit"
+              @remove="openDelete"
+            />
+          </div>
+
+          <UEmpty
+            v-else-if="items.length === 0"
+            icon="i-lucide-search-x"
+            :title="t('instances.empty')"
+          >
+            <template #actions>
+              <UButton icon="i-lucide-plus" :label="t('instances.create.title')" @click="createOpen = true" />
+            </template>
+          </UEmpty>
+          <UEmpty
+            v-else
+            icon="i-lucide-search-x"
+            :title="t('instances.table.noResults')"
+          >
+            <template #actions>
+              <UButton
+                color="neutral"
+                variant="soft"
+                :label="t('instances.table.clearFilters')"
+                @click="clearFilters"
+              />
+            </template>
+          </UEmpty>
+
+          <div v-if="cardPageCount > 1" class="flex items-center justify-end gap-3 border-t border-default pt-4 mt-auto">
+            <UPagination
+              :page="pagination.pageIndex + 1"
+              :items-per-page="pagination.pageSize"
+              :total="cardItems.length"
+              size="sm"
+              @update:page="onUpdatePage"
+            />
+          </div>
+        </div>
+
+        <div v-if="view === 'table'" class="flex items-center justify-between gap-3 border-t border-default pt-4 mt-auto">
           <div class="text-sm text-muted">
             {{ t('instances.table.selectedOf', { selected: selectedCount, filtered: totalFiltered }) }}
           </div>

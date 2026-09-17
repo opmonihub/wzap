@@ -54,12 +54,7 @@ watch(() => props.instanceId, () => void load(), { immediate: true })
 </script>
 
 <template>
-  <UPageCard variant="subtle" data-testid="profile-card">
-    <template #header>
-      <h3 class="font-medium text-highlighted">
-        {{ t('instances.profile.cardTitle') }}
-      </h3>
-    </template>
+  <UPageCard :title="t('instances.profile.cardTitle')" variant="subtle" data-testid="profile-card">
     <div class="flex flex-col gap-3">
       <UAlert
         v-if="!canAct"

@@ -95,6 +95,10 @@
     "table": {
       "search": "Search by name or external ref",
       "selectedOf": "{selected} of {filtered} row(s) selected.",
+      "cardsCount": "{filtered} instance(s).",
+      "viewLabel": "Change view",
+      "viewCards": "Card view",
+      "viewTable": "Table view",
       "noResults": "No instances match this search.",
       "sortAsc": "Sort {column} ascending",
       "sortDesc": "Sort {column} descending",

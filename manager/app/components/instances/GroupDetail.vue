@@ -80,16 +80,18 @@ async function onLeave() {
 <template>
   <UPageCard variant="subtle" data-testid="group-detail" :ui="{ container: 'p-0 sm:p-0 gap-y-0', wrapper: 'items-stretch', header: 'p-4 mb-0 border-b border-default' }">
     <template #header>
-      <div class="flex items-center gap-2">
+      <div class="flex min-w-0 flex-col gap-2">
         <UInput v-model="jid" :placeholder="t('instances.groups.search')" class="w-full font-mono" />
-        <UButton :disabled="!canAct" :label="t('common.refresh')" @click="onLookup" />
-        <UButton :disabled="!canAct" :label="t('instances.groups.create')" @click="createOpen = true" />
-        <UButton
-          :disabled="!canAct"
-          variant="soft"
-          :label="t('instances.groups.join')"
-          @click="joinOpen = true"
-        />
+        <div class="flex flex-wrap gap-2">
+          <UButton :disabled="!canAct" :label="t('common.refresh')" @click="onLookup" />
+          <UButton :disabled="!canAct" :label="t('instances.groups.create')" @click="createOpen = true" />
+          <UButton
+            :disabled="!canAct"
+            variant="soft"
+            :label="t('instances.groups.join')"
+            @click="joinOpen = true"
+          />
+        </div>
       </div>
     </template>
     <UAlert

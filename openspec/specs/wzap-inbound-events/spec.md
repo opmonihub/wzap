@@ -8,7 +8,7 @@ Definir o contrato observável dos eventos publicados no broker para que o backe
 
 ### Requirement: Publicação em stream durável
 
-O serviço SHALL publicar eventos em um stream durável, com subjects por instância, cobrindo mensagem recebida, recibo, status de envio, conexão, edição e remoção.
+O serviço SHALL publicar eventos em um stream durável, com subjects por instância, cobrindo mensagem recebida, recibo, status de envio, conexão, edição e remoção, além dos tipos das novas famílias (`poll.vote`, `message.reaction`, `interactive.response`, `group.participants`, `group.info`, `call.offer`, ver `wzap-rich-messaging`, `wzap-groups` e `wzap-status-calls`) no mesmo envelope versionado com `event_id` estável.
 
 #### Scenario: Consumidor recebe evento
 

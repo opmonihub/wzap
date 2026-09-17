@@ -12,8 +12,12 @@ reentrega limitada.
 
 Cada instância SHALL ter configuração própria de webhook (`url`, `enabled`,
 `events`), gerenciável por quem pode operar a instância. `events` SHALL ser
-uma lista dos tipos (`message`, `receipt`, `connection`, `message.status`) com
-padrão todos; tipo desconhecido MUST ser rejeitado. Somente URLs HTTP(S)
+uma lista dos tipos base (`message`, `receipt`, `connection`,
+`message.status`) mais os opt-in das novas famílias (`poll.vote`,
+`message.reaction`, `interactive.response`, `group.participants`,
+`group.info`, `call.offer`, ver `wzap-rich-messaging`, `wzap-groups` e
+`wzap-status-calls`), com padrão os 4 base quando omitido; tipo
+desconhecido MUST ser rejeitado. Somente URLs HTTP(S)
 SHALL ser aceitas, e HTTP não-loopback MUST ser rejeitado. Webhook
 desabilitado ou sem URL MUST NOT gerar nenhuma entrega.
 

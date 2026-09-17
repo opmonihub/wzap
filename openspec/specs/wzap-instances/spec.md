@@ -54,6 +54,18 @@ O serviço SHALL iniciar o pareamento de uma instância não conectada, retornan
 - **WHEN** o usuário lê o QR no aplicativo
 - **THEN** o estado passa a `connected`, o identificador público é registrado e um evento de conexão é publicado
 
+### Requirement: Pareamento por código de telefone
+
+Como alternativa ao QR, o serviço SHALL emitir código de 8 dígitos via
+`POST /instances/{id}/pair-phone` quando houver canal de pareamento aberto
+(`connect` prévio), sem mudar `connect`/`qr`/`status`/`disconnect` (ver
+`wzap-phone-pairing`).
+
+#### Scenario: Código emitido com canal aberto
+
+- **WHEN** o cliente pede código para número válido com canal aberto
+- **THEN** a resposta traz `pairing_code` e expiração alinhada ao canal
+
 ### Requirement: Instância já conectada
 
 O serviço SHALL ser idempotente ao receber pedido de conexão para instância já logada, sem gerar novo pareamento.

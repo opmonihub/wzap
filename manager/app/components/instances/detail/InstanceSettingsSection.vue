@@ -10,7 +10,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  changed: []
+  'changed': []
   'delete-requested': []
 }>()
 

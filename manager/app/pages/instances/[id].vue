@@ -87,86 +87,71 @@ await load()
       <!-- Single width for every tab, mirroring settings.vue: the body
       centers one max-w-2xl column on lg+ and stretches full-width below. -->
       <div class="mx-auto flex w-full min-w-0 max-w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl lg:gap-12">
-        <div v-if="pending" class="flex w-full flex-col gap-2">
-          <USkeleton class="h-32 w-full" />
-          <USkeleton class="h-48 w-full" />
-        </div>
-
-        <UEmpty
-          v-else-if="notFound"
-          class="w-full"
-          icon="i-lucide-search-x"
-          :title="t('instances.detail.notFound')"
+        <PageState
+          :pending="pending"
+          :error="failure"
+          :skeleton-rows="2"
+          @retry="load"
         >
-          <template #actions>
-            <UButton :label="t('instances.title')" @click="navigateTo('/instances')" />
-          </template>
-        </UEmpty>
+          <UEmpty
+            v-if="notFound"
+            class="w-full"
+            icon="i-lucide-search-x"
+            :title="t('instances.detail.notFound')"
+          >
+            <template #actions>
+              <UButton :label="t('instances.title')" @click="navigateTo('/instances')" />
+            </template>
+          </UEmpty>
 
-        <UAlert
-          v-else-if="failure"
-          class="w-full"
-          color="error"
-          variant="subtle"
-          :title="failure"
-        >
-          <template #actions>
-            <UButton
-              color="error"
-              variant="soft"
-              :label="t('common.retry')"
-              @click="load"
+          <template v-else-if="instance">
+            <InstanceOverviewSection
+              v-if="section === 'overview'"
+              :instance="instance"
+              @paired="load"
+              @updated="(value: Instance) => { instance = value }"
+              @changed="load"
+            />
+
+            <InstanceMessagesSection
+              v-else-if="section === 'messages'"
+              :instance-id="instance.id"
+              :status="instance.status"
+            />
+
+            <InstanceGroupsSection
+              v-else-if="section === 'groups'"
+              :instance-id="instance.id"
+              :status="instance.status"
+            />
+
+            <InstanceChannelsSection
+              v-else-if="section === 'channels'"
+              :instance-id="instance.id"
+              :status="instance.status"
+            />
+
+            <InstanceProfileSection
+              v-else-if="section === 'profile'"
+              :instance-id="instance.id"
+              :status="instance.status"
+            />
+
+            <InstanceIntegrationsSection
+              v-else-if="section === 'integrations'"
+              :instance="instance"
+              @webhook-updated="(value: Instance) => { instance = value }"
+            />
+
+            <InstanceSettingsSection
+              v-else
+              :instance="instance"
+              :is-admin="isAdmin"
+              @changed="load"
+              @delete-requested="deleteOpen = true"
             />
           </template>
-        </UAlert>
-
-        <template v-else-if="instance">
-          <InstanceOverviewSection
-            v-if="section === 'overview'"
-            :instance="instance"
-            @paired="load"
-            @updated="(value: Instance) => { instance = value }"
-            @changed="load"
-          />
-
-          <InstanceMessagesSection
-            v-else-if="section === 'messages'"
-            :instance-id="instance.id"
-            :status="instance.status"
-          />
-
-          <InstanceGroupsSection
-            v-else-if="section === 'groups'"
-            :instance-id="instance.id"
-            :status="instance.status"
-          />
-
-          <InstanceChannelsSection
-            v-else-if="section === 'channels'"
-            :instance-id="instance.id"
-            :status="instance.status"
-          />
-
-          <InstanceProfileSection
-            v-else-if="section === 'profile'"
-            :instance-id="instance.id"
-            :status="instance.status"
-          />
-
-          <InstanceIntegrationsSection
-            v-else-if="section === 'integrations'"
-            :instance="instance"
-            @webhook-updated="(value: Instance) => { instance = value }"
-          />
-
-          <InstanceSettingsSection
-            v-else
-            :instance="instance"
-            :is-admin="isAdmin"
-            @changed="load"
-            @delete-requested="deleteOpen = true"
-          />
-        </template>
+        </PageState>
       </div>
     </template>
   </UDashboardPanel>

@@ -11,3 +11,9 @@
 # Air live-reload output (Dockerfile.dev + .air.toml).
 tmp/
 build-errors.log
+# Local-only agent/tooling state (never commit).
+.kilo/
+.kilocode/
+/CLAUDE.md
+/image.png
+docs/superpowers/

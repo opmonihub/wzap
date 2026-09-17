@@ -27,7 +27,7 @@ func TestNoSlogInProd(t *testing.T) {
 		}
 		if entry.IsDir() {
 			switch entry.Name() {
-			case ".git", ".worktrees", "vendor", "node_modules", ".output", ".nuxt", "testdata":
+			case ".git", ".worktrees", ".kilo", "vendor", "node_modules", ".output", ".nuxt", "testdata":
 				return filepath.SkipDir
 			}
 			return nil

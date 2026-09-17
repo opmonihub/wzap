@@ -321,6 +321,7 @@
       "identity": "Identity",
       "webhook": "Webhook",
       "chatwoot": "Chatwoot",
+      "lastConnected": "Last connected",
       "enabled": "Enabled",
       "disabled": "Disabled",
       "subscribed": "{count} subscribed",

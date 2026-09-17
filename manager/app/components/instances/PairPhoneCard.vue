@@ -18,7 +18,11 @@ const result = ref<PairPhoneResult | null>(null)
 const canRequest = computed(() => props.status !== 'connected' && !requesting.value)
 
 async function onRequest() {
-  if (requesting.value || phone.value.trim() === '') {
+  if (requesting.value) {
+    return
+  }
+  if (phone.value.trim() === '') {
+    failure.value = t('instances.pairPhone.phoneRequired')
     return
   }
   requesting.value = true

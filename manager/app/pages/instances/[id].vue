@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import * as z from 'zod'
-import type { FormSubmitEvent, NavigationMenuItem } from '#ui/types'
+import type { FormSubmitEvent } from '#ui/types'
 import { ApiError } from '~/composables/useApi'
 import ChannelsCard from '~/components/instances/ChannelsCard.vue'
 import ChatwootCard from '~/components/instances/ChatwootCard.vue'
@@ -10,6 +10,7 @@ import GroupDetail from '~/components/instances/GroupDetail.vue'
 import MessageActionsCard from '~/components/instances/MessageActionsCard.vue'
 import MessageComposer from '~/components/instances/MessageComposer.vue'
 import { useConfirmDelete } from '~/components/instances/ConfirmDelete'
+import InstanceSectionNav from '~/components/instances/detail/InstanceSectionNav.vue'
 import InstanceStatusBadge from '~/components/instances/InstanceStatusBadge.vue'
 import MessagesCard from '~/components/instances/MessagesCard.vue'
 import OneTimeKeyDisplay from '~/components/instances/OneTimeKeyDisplay.vue'
@@ -55,21 +56,6 @@ const revoking = ref(false)
 const messagesRefresh = ref(0)
 
 const section = ref('overview')
-
-// Section nav mirrors research/dashboard settings.vue: UNavigationMenu in a
-// UDashboardToolbar with icons + highlight. Switching still rides on each
-// item's onSelect (UNavigationMenu does not reliably emit update:modelValue
-// for value-only items), while `active` keeps the highlight pill in sync
-// with the local section state instead of the route.
-const sections = computed<NavigationMenuItem[]>(() => [
-  { label: t('instances.sections.overview'), icon: 'i-lucide-house', value: 'overview', active: section.value === 'overview', onSelect: () => { section.value = 'overview' } },
-  { label: t('instances.sections.messages'), icon: 'i-lucide-message-square-text', value: 'messages', active: section.value === 'messages', onSelect: () => { section.value = 'messages' } },
-  { label: t('instances.sections.groups'), icon: 'i-lucide-users', value: 'groups', active: section.value === 'groups', onSelect: () => { section.value = 'groups' } },
-  { label: t('instances.sections.channels'), icon: 'i-lucide-megaphone', value: 'channels', active: section.value === 'channels', onSelect: () => { section.value = 'channels' } },
-  { label: t('instances.sections.profile'), icon: 'i-lucide-user', value: 'profile', active: section.value === 'profile', onSelect: () => { section.value = 'profile' } },
-  { label: t('instances.sections.integrations'), icon: 'i-lucide-plug', value: 'integrations', active: section.value === 'integrations', onSelect: () => { section.value = 'integrations' } },
-  { label: t('instances.sections.settings'), icon: 'i-lucide-settings', value: 'settings', active: section.value === 'settings', onSelect: () => { section.value = 'settings' } }
-])
 
 useSeoMeta({
   title: 'Instance details'
@@ -258,14 +244,11 @@ await load()
         </template>
       </UDashboardNavbar>
 
-      <UDashboardToolbar v-if="instance && !pending && !notFound && !failure">
-        <!-- NOTE: The `-mx-1` class is used to align with the `DashboardSidebarCollapse` button here. -->
-        <UNavigationMenu
-          highlight
-          class="-mx-1 max-w-full min-w-0 flex-1 overflow-x-auto"
-          :items="sections"
-        />
-      </UDashboardToolbar>
+      <InstanceSectionNav
+        v-if="instance && !pending && !notFound && !failure"
+        :section="section"
+        @select="(value: string) => { section = value }"
+      />
     </template>
 
     <template #body>

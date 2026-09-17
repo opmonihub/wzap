@@ -355,11 +355,23 @@ type instanceSession struct {
 	// vote. It defaults to the client DecryptPollVote and is replaced in the
 	// tests to avoid the message-secret handshake.
 	decryptVoteFn func(ctx context.Context, evt *events.Message) ([][]byte, error)
+	// statusSendFn publishes a status message to the status broadcast. It
+	// defaults to the client SendMessage and is replaced in the tests to
+	// assert the built status without a network round-trip.
+	statusSendFn func(ctx context.Context, msg *waE2E.Message) (whatsmeow.SendResponse, error)
+	// statusUploadFn uploads status media bytes. It defaults to the client
+	// Upload and is replaced in the tests to avoid the media handshake.
+	statusUploadFn func(ctx context.Context, data []byte, mediaType whatsmeow.MediaType) (whatsmeow.UploadResponse, error)
 
 	// history accumulates the per-instance history-sync feed the Import plan
 	// consumes. Each session owns one, so feeds never cross instance
 	// boundaries. The zero value is ready to use.
 	history session.HistorySyncAccumulator
+	// statusMu guards statuses, the process-local registry of the own
+	// statuses published through this session. The supported runtime is one
+	// replica, so no shared store is needed.
+	statusMu sync.Mutex
+	statuses []session.StatusInfo
 
 	mu           sync.RWMutex
 	status       session.Status

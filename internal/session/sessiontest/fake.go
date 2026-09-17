@@ -172,6 +172,13 @@ type NewsletterCall struct {
 	ChannelJID string
 }
 
+// StatusCall records one status invocation: Op names the method (publish,
+// list, delete) and StatusID the deleted status on delete calls.
+type StatusCall struct {
+	Op       string
+	StatusID string
+}
+
 // defaultPairPhoneCode is the pairing code a fake returns when the test did
 // not configure one.
 const defaultPairPhoneCode = "12345678"
@@ -202,6 +209,9 @@ type FakeSession struct {
 	// without seeding state.
 	GroupErr      error
 	NewsletterErr error
+	// StatusErr, when set, is returned by every status method. It lets tests
+	// force the 404/409 paths without seeding state.
+	StatusErr error
 
 	// PairPhoneCode is returned by PairPhone; empty falls back to
 	// defaultPairPhoneCode.
@@ -221,6 +231,7 @@ type FakeSession struct {
 	pairPhones        []PairPhoneCall
 	groupCalls        []GroupCall
 	newsletterCalls   []NewsletterCall
+	statusCalls       []StatusCall
 
 	// groups is the in-memory group directory keyed by group JID; invites
 	// maps the invite code to the group JID. Seed them with PutGroup or let
@@ -229,6 +240,9 @@ type FakeSession struct {
 	invites map[string]string
 	// newsletters is the in-memory channel directory keyed by channel JID.
 	newsletters map[string]session.NewsletterInfo
+	// statuses is the in-memory registry of the own statuses published
+	// through this fake, keyed by status id.
+	statuses map[string]session.StatusInfo
 
 	// history accumulates the history-sync feed the Import plan consumes.
 	// The zero value is ready to use.
@@ -653,6 +667,73 @@ func (s *FakeSession) GroupCalls() []GroupCall {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]GroupCall(nil), s.groupCalls...)
+}
+
+// PublishStatus records the call, stores the status in the in-memory
+// registry and returns a sequential fake id, or the forced StatusErr.
+func (s *FakeSession) PublishStatus(_ context.Context, input session.StatusInput) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.statusCalls = append(s.statusCalls, StatusCall{Op: "publish"})
+	if s.StatusErr != nil {
+		return "", s.StatusErr
+	}
+	if s.statuses == nil {
+		s.statuses = make(map[string]session.StatusInfo)
+	}
+	kind := session.StatusKindText
+	if len(input.MediaData) > 0 {
+		kind = session.StatusKindImage
+	}
+	id := fmt.Sprintf("fake-status-%d", len(s.statuses)+1)
+	s.statuses[id] = session.StatusInfo{
+		ID:        id,
+		Kind:      kind,
+		Text:      input.Text,
+		Caption:   input.Caption,
+		CreatedAt: time.Now().UTC(),
+	}
+	return id, nil
+}
+
+// ListStatuses records the call and returns the in-memory registry ordered
+// by id, so reads over the fake are deterministic.
+func (s *FakeSession) ListStatuses(_ context.Context) ([]session.StatusInfo, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.statusCalls = append(s.statusCalls, StatusCall{Op: "list"})
+	if s.StatusErr != nil {
+		return nil, s.StatusErr
+	}
+	out := make([]session.StatusInfo, 0, len(s.statuses))
+	for _, info := range s.statuses {
+		out = append(out, info)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out, nil
+}
+
+// DeleteStatus records the call and drops the status from the in-memory
+// registry, or reports session.ErrStatusNotFound for an unknown id.
+func (s *FakeSession) DeleteStatus(_ context.Context, statusID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.statusCalls = append(s.statusCalls, StatusCall{Op: "delete", StatusID: statusID})
+	if s.StatusErr != nil {
+		return s.StatusErr
+	}
+	if _, ok := s.statuses[statusID]; !ok {
+		return session.ErrStatusNotFound
+	}
+	delete(s.statuses, statusID)
+	return nil
+}
+
+// StatusCalls returns the status calls, in order.
+func (s *FakeSession) StatusCalls() []StatusCall {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]StatusCall(nil), s.statusCalls...)
 }
 
 // NewsletterCalls returns the newsletter calls, in order.

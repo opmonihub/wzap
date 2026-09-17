@@ -47,6 +47,15 @@ var (
 	// example after an external logout or a device removal. The pairing cannot
 	// be resumed and the instance must be paired again.
 	ErrNoDevice = errors.New("session device not found")
+	// ErrUnsupported marks an operation the upstream protocol does not
+	// support on this session (for example setting the profile name or
+	// photo, which the companion library exposes no setter for). The
+	// service maps it to the resource 501.
+	ErrUnsupported = errors.New("session operation not supported")
+	// ErrStatusNotFound marks a status id the session does not know: it was
+	// never published here or it already expired upstream. The service maps
+	// it to the resource 404.
+	ErrStatusNotFound = errors.New("session status not found")
 )
 
 // OutboundMessage is the normalized message handed to a session for delivery.
@@ -246,6 +255,38 @@ type GroupEvent struct {
 	Raw json.RawMessage
 }
 
+// Status kinds published by PublishStatus: plain text or an image/video with
+// an optional caption.
+const (
+	// StatusKindText is a plain text status.
+	StatusKindText = "text"
+	// StatusKindImage is an image status with an optional caption.
+	StatusKindImage = "image"
+	// StatusKindVideo is a video status with an optional caption.
+	StatusKindVideo = "video"
+)
+
+// StatusInput is the content accepted by PublishStatus. A text status carries
+// Text only; an image or video status carries the media bytes with their mime
+// type and an optional caption. The handler validates the kind and the size
+// before the session is touched.
+type StatusInput struct {
+	Text      string
+	MediaMime string
+	MediaData []byte
+	Caption   string
+}
+
+// StatusInfo is one own status published through the session: the upstream
+// id, its kind and content snapshot, and when it was published here.
+type StatusInfo struct {
+	ID        string
+	Kind      string
+	Text      string
+	Caption   string
+	CreatedAt time.Time
+}
+
 // EventSink consumes session events. Implementations must be safe for
 // concurrent use and should not block the session for long.
 type EventSink interface {
@@ -327,6 +368,20 @@ type Session interface {
 	// ListNewsletters returns the live metadata of every channel the instance
 	// follows.
 	ListNewsletters(ctx context.Context) ([]NewsletterInfo, error)
+	// PublishStatus publishes an own status (story) of the input kind and
+	// returns its upstream id. A text status carries Text; an image or video
+	// status carries the media bytes with their mime type and an optional
+	// caption. Publishing answers 202 at the REST boundary: the id travels
+	// as message_id with the same idempotency semantics as the message
+	// sends.
+	PublishStatus(ctx context.Context, input StatusInput) (statusID string, err error)
+	// ListStatuses returns the own statuses published through this session
+	// that are still known here. The upstream expiry still applies: an entry
+	// the protocol already dropped may be gone on read.
+	ListStatuses(ctx context.Context) ([]StatusInfo, error)
+	// DeleteStatus removes the own statusID published through this session.
+	// An unknown id is ErrStatusNotFound.
+	DeleteStatus(ctx context.Context, statusID string) error
 	// HistorySyncSnapshot returns the accumulated history-sync feed of the
 	// instance (progress, conversation batches, contacts). The Import plan
 	// consumes it after pairing; each session accumulates only its own feed.

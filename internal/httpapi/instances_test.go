@@ -15,6 +15,7 @@ import (
 	"wzap/internal/config"
 	"wzap/internal/instance"
 	"wzap/internal/model"
+	"wzap/internal/session"
 )
 
 // fakeInstanceService is an in-memory InstanceService: the function fields
@@ -47,6 +48,9 @@ type fakeInstanceService struct {
 	unfollowNewsletterFn func(ctx context.Context, id uuid.UUID, channelJID string) error
 	getNewsletterFn      func(ctx context.Context, id uuid.UUID, channelJID string) (instance.Newsletter, error)
 	listNewslettersFn    func(ctx context.Context, id uuid.UUID, limit int, cursor string) ([]instance.Newsletter, string, error)
+	publishStatusFn      func(ctx context.Context, id uuid.UUID, input session.StatusInput) (string, error)
+	listStatusesFn       func(ctx context.Context, id uuid.UUID) ([]session.StatusInfo, error)
+	deleteStatusFn       func(ctx context.Context, id uuid.UUID, statusID string) error
 
 	createInputs            []instance.CreateInput
 	updateInputs            []instance.UpdateInput
@@ -72,6 +76,9 @@ type fakeInstanceService struct {
 	unfollowNewsletterCalls []newsletterTargetCall
 	getNewsletterCalls      []newsletterTargetCall
 	listNewsletterCalls     []listNewsletterCall
+	publishStatusCalls      []publishStatusCall
+	listStatusCalls         []uuid.UUID
+	deleteStatusCalls       []deleteStatusCall
 	listLimit               int
 	listCursor              string
 }
@@ -156,6 +163,18 @@ type listNewsletterCall struct {
 	InstanceID uuid.UUID
 	Limit      int
 	Cursor     string
+}
+
+// publishStatusCall records one PublishStatus call received by the fake.
+type publishStatusCall struct {
+	InstanceID uuid.UUID
+	Input      session.StatusInput
+}
+
+// deleteStatusCall records one DeleteStatus call received by the fake.
+type deleteStatusCall struct {
+	InstanceID uuid.UUID
+	StatusID   string
 }
 
 // Create records the input and returns the configured instance with its
@@ -398,6 +417,33 @@ func (f *fakeInstanceService) ListNewsletters(ctx context.Context, id uuid.UUID,
 		return f.listNewslettersFn(ctx, id, limit, cursor)
 	}
 	return nil, "", nil
+}
+
+// PublishStatus records the call and returns the configured upstream id.
+func (f *fakeInstanceService) PublishStatus(ctx context.Context, id uuid.UUID, input session.StatusInput) (string, error) {
+	f.publishStatusCalls = append(f.publishStatusCalls, publishStatusCall{InstanceID: id, Input: input})
+	if f.publishStatusFn != nil {
+		return f.publishStatusFn(ctx, id, input)
+	}
+	return "wamid.status", nil
+}
+
+// ListStatuses records the call and returns the configured statuses.
+func (f *fakeInstanceService) ListStatuses(ctx context.Context, id uuid.UUID) ([]session.StatusInfo, error) {
+	f.listStatusCalls = append(f.listStatusCalls, id)
+	if f.listStatusesFn != nil {
+		return f.listStatusesFn(ctx, id)
+	}
+	return nil, nil
+}
+
+// DeleteStatus records the call and returns the configured error.
+func (f *fakeInstanceService) DeleteStatus(ctx context.Context, id uuid.UUID, statusID string) error {
+	f.deleteStatusCalls = append(f.deleteStatusCalls, deleteStatusCall{InstanceID: id, StatusID: statusID})
+	if f.deleteStatusFn != nil {
+		return f.deleteStatusFn(ctx, id, statusID)
+	}
+	return nil
 }
 
 // instancesServer builds the server under test with svc as the instance service.

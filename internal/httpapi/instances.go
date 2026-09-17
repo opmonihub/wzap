@@ -14,6 +14,7 @@ import (
 	"wzap/internal/auth"
 	"wzap/internal/instance"
 	"wzap/internal/model"
+	"wzap/internal/session"
 	"wzap/internal/storage"
 	"wzap/internal/webhook"
 )
@@ -57,6 +58,9 @@ type InstanceService interface {
 	UnfollowNewsletter(ctx context.Context, id uuid.UUID, channelJID string) error
 	GetNewsletter(ctx context.Context, id uuid.UUID, channelJID string) (instance.Newsletter, error)
 	ListNewsletters(ctx context.Context, id uuid.UUID, limit int, cursor string) ([]instance.Newsletter, string, error)
+	PublishStatus(ctx context.Context, id uuid.UUID, input session.StatusInput) (string, error)
+	ListStatuses(ctx context.Context, id uuid.UUID) ([]session.StatusInfo, error)
+	DeleteStatus(ctx context.Context, id uuid.UUID, statusID string) error
 }
 
 // The service satisfies the handler contract; the assertion catches signature
@@ -667,6 +671,8 @@ func writeInstanceError(w http.ResponseWriter, r *http.Request, err error) {
 		Error(w, r, http.StatusNotFound, "not_found", "group not found")
 	case errors.Is(err, instance.ErrNewsletterNotFound):
 		Error(w, r, http.StatusNotFound, "not_found", "newsletter not found")
+	case errors.Is(err, instance.ErrStatusNotFound):
+		Error(w, r, http.StatusNotFound, "not_found", "status not found")
 	case errors.Is(err, instance.ErrForbidden):
 		Error(w, r, http.StatusForbidden, "forbidden", "forbidden")
 	case errors.Is(err, instance.ErrOwnerNotFound):

@@ -44,6 +44,15 @@ type InstanceService interface {
 	MarkRead(ctx context.Context, id uuid.UUID, chatJID, senderJID, messageID string) error
 	SendPresence(ctx context.Context, id uuid.UUID, chatJID, state string) error
 	PairPhone(ctx context.Context, id uuid.UUID, phone string) (instance.PairPhoneResult, error)
+	CreateGroup(ctx context.Context, id uuid.UUID, input instance.CreateGroupInput) (instance.Group, error)
+	GetGroup(ctx context.Context, id uuid.UUID, groupJID string) (instance.Group, error)
+	UpdateGroup(ctx context.Context, id uuid.UUID, groupJID string, input instance.UpdateGroupInput) (instance.Group, error)
+	SetGroupPhoto(ctx context.Context, id uuid.UUID, groupJID string, image []byte) error
+	UpdateGroupParticipants(ctx context.Context, id uuid.UUID, groupJID, action string, participants []string) error
+	GetGroupInvite(ctx context.Context, id uuid.UUID, groupJID string) (string, error)
+	ResetGroupInvite(ctx context.Context, id uuid.UUID, groupJID string) (string, error)
+	JoinGroup(ctx context.Context, id uuid.UUID, inviteCode string) (string, error)
+	LeaveGroup(ctx context.Context, id uuid.UUID, groupJID string) error
 }
 
 // The service satisfies the handler contract; the assertion catches signature
@@ -650,6 +659,12 @@ func writeInstanceError(w http.ResponseWriter, r *http.Request, err error) {
 		Error(w, r, http.StatusConflict, "conflict", "no open pairing channel")
 	case errors.Is(err, instance.ErrInvalidInput):
 		Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "invalid operation input")
+	case errors.Is(err, instance.ErrGroupNotFound):
+		Error(w, r, http.StatusNotFound, "not_found", "group not found")
+	case errors.Is(err, instance.ErrNewsletterNotFound):
+		Error(w, r, http.StatusNotFound, "not_found", "newsletter not found")
+	case errors.Is(err, instance.ErrForbidden):
+		Error(w, r, http.StatusForbidden, "forbidden", "forbidden")
 	case errors.Is(err, instance.ErrOwnerNotFound):
 		Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "unknown owner")
 	case errors.Is(err, instance.ErrInvalidWebhook):

@@ -229,6 +229,11 @@ func instanceRouteCases(target uuid.UUID, mediaID uuid.UUID) []struct {
 		{name: "mark read", method: http.MethodPost, path: "/instances/" + target.String() + "/chats/mark-read", body: `{"chat":"5511999887766@s.whatsapp.net","message_id":"ORIG-9"}`},
 		{name: "presence", method: http.MethodPost, path: "/instances/" + target.String() + "/presence", body: `{"chat":"5511999887766@s.whatsapp.net","state":"composing"}`},
 		{name: "pair phone", method: http.MethodPost, path: "/instances/" + target.String() + "/pair-phone", body: `{"phone":"5547988359190"}`},
+		{name: "create group", method: http.MethodPost, path: "/instances/" + target.String() + "/groups", body: `{"name":"Time do churrasco"}`},
+		{name: "get group", method: http.MethodGet, path: "/instances/" + target.String() + "/groups/120363000000000000@g.us"},
+		{name: "update group", method: http.MethodPatch, path: "/instances/" + target.String() + "/groups/120363000000000000@g.us", body: `{"name":"Novo assunto"}`},
+		{name: "group participants", method: http.MethodPost, path: "/instances/" + target.String() + "/groups/120363000000000000@g.us/participants", body: `{"action":"add","participants":["5511888888888@s.whatsapp.net"]}`},
+		{name: "join group", method: http.MethodPost, path: "/instances/" + target.String() + "/groups/join", body: `{"invite_code":"invite-code-1"}`},
 		{name: "download media of instance", method: http.MethodGet, path: "/media/" + mediaID.String()},
 	}
 }

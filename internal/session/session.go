@@ -36,6 +36,13 @@ var (
 	ErrNotConnected = errors.New("session not connected")
 	// ErrInvalidRecipient marks a malformed recipient JID.
 	ErrInvalidRecipient = errors.New("session invalid recipient")
+	// ErrNotFound marks an operation on an unknown remote resource (group or
+	// channel). The service maps it to the resource 404.
+	ErrNotFound = errors.New("session resource not found")
+	// ErrForbidden marks an operation the instance may not perform on the
+	// remote resource (for example a non-admin managing a group). The service
+	// maps it to 403 without leaking the upstream cause.
+	ErrForbidden = errors.New("session forbidden")
 	// ErrNoDevice marks an instance whose persisted device is gone, for
 	// example after an external logout or a device removal. The pairing cannot
 	// be resumed and the instance must be paired again.
@@ -179,6 +186,38 @@ type InteractiveResponse struct {
 	Raw json.RawMessage
 }
 
+// GroupParticipant is one member of a group, translated away from the library
+// types. JID is the primary address; IsAdmin covers admins and IsSuperAdmin
+// the group creator.
+type GroupParticipant struct {
+	JID          string
+	IsAdmin      bool
+	IsSuperAdmin bool
+}
+
+// GroupInfo is the metadata of a group, translated away from the library
+// types. Description is the group topic; DescriptionID its version, empty
+// when the upstream carries none.
+type GroupInfo struct {
+	JID              string
+	Name             string
+	Description      string
+	DescriptionID    string
+	Participants     []GroupParticipant
+	ParticipantCount int
+	CreatedAt        time.Time
+}
+
+// NewsletterInfo is the metadata of a channel, translated away from the
+// library types. FollowerCount is best-effort: zero when the upstream omits
+// it.
+type NewsletterInfo struct {
+	ChannelJID    string
+	Title         string
+	Description   string
+	FollowerCount int
+}
+
 // EventSink consumes session events. Implementations must be safe for
 // concurrent use and should not block the session for long.
 type EventSink interface {
@@ -218,6 +257,47 @@ type Session interface {
 	// number without scanning a QR code. The session must already hold an open
 	// pairing channel (Connect first); the code expires with the QR channel.
 	PairPhone(ctx context.Context, number string) (code string, err error)
+	// CreateGroup creates a group with name and the initial participants and
+	// returns its metadata. participantJIDs are the member addresses; the
+	// instance itself joins implicitly.
+	CreateGroup(ctx context.Context, name string, participantJIDs []string) (GroupInfo, error)
+	// GetGroup returns the live metadata of groupJID. An unknown group is
+	// ErrNotFound; the metadata cache (storage) is never consulted here.
+	GetGroup(ctx context.Context, groupJID string) (GroupInfo, error)
+	// SetGroupName replaces the subject of groupJID.
+	SetGroupName(ctx context.Context, groupJID, name string) error
+	// SetGroupDescription replaces the topic of groupJID. An empty
+	// description clears it.
+	SetGroupDescription(ctx context.Context, groupJID, description string) error
+	// SetGroupPhoto replaces the picture of groupJID with the image bytes
+	// (jpeg, png or webp).
+	SetGroupPhoto(ctx context.Context, groupJID string, image []byte) error
+	// UpdateGroupParticipants applies action (add, remove, promote or demote)
+	// to participantJIDs of groupJID. Acting without group permission is
+	// ErrForbidden.
+	UpdateGroupParticipants(ctx context.Context, groupJID, action string, participantJIDs []string) error
+	// GetGroupInvite returns the current invite code of groupJID without
+	// revoking it.
+	GetGroupInvite(ctx context.Context, groupJID string) (code string, err error)
+	// ResetGroupInvite revokes the current invite code of groupJID and returns
+	// the fresh one.
+	ResetGroupInvite(ctx context.Context, groupJID string) (code string, err error)
+	// JoinGroup enters the group behind inviteCode (the bare code or the full
+	// invite link) and returns the group JID.
+	JoinGroup(ctx context.Context, inviteCode string) (groupJID string, err error)
+	// LeaveGroup removes the instance from groupJID.
+	LeaveGroup(ctx context.Context, groupJID string) error
+	// FollowNewsletter subscribes the instance to channelJID. An unknown
+	// channel is ErrNotFound.
+	FollowNewsletter(ctx context.Context, channelJID string) error
+	// UnfollowNewsletter ends the subscription of the instance to channelJID.
+	UnfollowNewsletter(ctx context.Context, channelJID string) error
+	// GetNewsletter returns the live metadata of channelJID, refreshed on
+	// demand: the stored metadata is a cache, never the source of truth.
+	GetNewsletter(ctx context.Context, channelJID string) (NewsletterInfo, error)
+	// ListNewsletters returns the live metadata of every channel the instance
+	// follows.
+	ListNewsletters(ctx context.Context) ([]NewsletterInfo, error)
 	// HistorySyncSnapshot returns the accumulated history-sync feed of the
 	// instance (progress, conversation batches, contacts). The Import plan
 	// consumes it after pairing; each session accumulates only its own feed.

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -150,6 +151,27 @@ type PairPhoneCall struct {
 	Number string
 }
 
+// GroupCall records one group invocation: Op names the method (create, get,
+// set-name, set-description, set-photo, participants, invite, reset-invite,
+// join, leave) and the remaining fields carry its arguments.
+type GroupCall struct {
+	Op           string
+	GroupJID     string
+	Name         string
+	Description  string
+	Action       string
+	Participants []string
+	Image        []byte
+	InviteCode   string
+}
+
+// NewsletterCall records one newsletter invocation: Op names the method
+// (follow, unfollow, get, list) and ChannelJID its target.
+type NewsletterCall struct {
+	Op         string
+	ChannelJID string
+}
+
 // defaultPairPhoneCode is the pairing code a fake returns when the test did
 // not configure one.
 const defaultPairPhoneCode = "12345678"
@@ -175,6 +197,11 @@ type FakeSession struct {
 	DeleteMessageErr error
 	MarkReadErr      error
 	PairPhoneErr     error
+	// GroupErr, when set, is returned by every group method; NewsletterErr by
+	// every newsletter method. They let tests force the 404/403/409 paths
+	// without seeding state.
+	GroupErr      error
+	NewsletterErr error
 
 	// PairPhoneCode is returned by PairPhone; empty falls back to
 	// defaultPairPhoneCode.
@@ -192,6 +219,16 @@ type FakeSession struct {
 	deletes           []DeleteCall
 	markReads         []MarkReadCall
 	pairPhones        []PairPhoneCall
+	groupCalls        []GroupCall
+	newsletterCalls   []NewsletterCall
+
+	// groups is the in-memory group directory keyed by group JID; invites
+	// maps the invite code to the group JID. Seed them with PutGroup or let
+	// CreateGroup allocate a fresh JID.
+	groups  map[string]session.GroupInfo
+	invites map[string]string
+	// newsletters is the in-memory channel directory keyed by channel JID.
+	newsletters map[string]session.NewsletterInfo
 
 	// history accumulates the history-sync feed the Import plan consumes.
 	// The zero value is ready to use.
@@ -300,6 +337,329 @@ func (s *FakeSession) PairPhone(_ context.Context, number string) (string, error
 		return s.PairPhoneCode, nil
 	}
 	return defaultPairPhoneCode, nil
+}
+
+// PutGroup seeds the in-memory directory with group, allocating its invite
+// code when info carries none. Tests use it to start from a known group.
+func (s *FakeSession) PutGroup(info session.GroupInfo) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.groups == nil {
+		s.groups = make(map[string]session.GroupInfo)
+	}
+	if s.invites == nil {
+		s.invites = make(map[string]string)
+	}
+	code := "invite-" + uuid.NewString()[:8]
+	s.invites[code] = info.JID
+	s.groups[info.JID] = info
+	return code
+}
+
+// PutNewsletter seeds the in-memory directory with info.
+func (s *FakeSession) PutNewsletter(info session.NewsletterInfo) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.newsletters == nil {
+		s.newsletters = make(map[string]session.NewsletterInfo)
+	}
+	s.newsletters[info.ChannelJID] = info
+}
+
+// CreateGroup records the call and allocates a fresh group with the name and
+// the participants (the first one admin), returning the forced GroupErr when
+// set.
+func (s *FakeSession) CreateGroup(_ context.Context, name string, participantJIDs []string) (session.GroupInfo, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.groupCalls = append(s.groupCalls, GroupCall{Op: "create", Name: name, Participants: participantJIDs})
+	if s.GroupErr != nil {
+		return session.GroupInfo{}, s.GroupErr
+	}
+	if s.groups == nil {
+		s.groups = make(map[string]session.GroupInfo)
+	}
+	if s.invites == nil {
+		s.invites = make(map[string]string)
+	}
+	jid := fmt.Sprintf("120363%08d@g.us", len(s.groups)+1)
+	participants := make([]session.GroupParticipant, 0, len(participantJIDs))
+	for i, p := range participantJIDs {
+		participants = append(participants, session.GroupParticipant{JID: p, IsAdmin: i == 0})
+	}
+	info := session.GroupInfo{JID: jid, Name: name, Participants: participants, ParticipantCount: len(participants)}
+	s.groups[jid] = info
+	code := "invite-" + uuid.NewString()[:8]
+	s.invites[code] = jid
+	return info, nil
+}
+
+// GetGroup records the call and returns the seeded group, or the forced
+// GroupErr, or session.ErrNotFound for an unknown JID.
+func (s *FakeSession) GetGroup(_ context.Context, groupJID string) (session.GroupInfo, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.groupCalls = append(s.groupCalls, GroupCall{Op: "get", GroupJID: groupJID})
+	if s.GroupErr != nil {
+		return session.GroupInfo{}, s.GroupErr
+	}
+	info, ok := s.groups[groupJID]
+	if !ok {
+		return session.GroupInfo{}, session.ErrNotFound
+	}
+	return info, nil
+}
+
+// SetGroupName records the call and renames the seeded group.
+func (s *FakeSession) SetGroupName(_ context.Context, groupJID, name string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.groupCalls = append(s.groupCalls, GroupCall{Op: "set-name", GroupJID: groupJID, Name: name})
+	if s.GroupErr != nil {
+		return s.GroupErr
+	}
+	info, ok := s.groups[groupJID]
+	if !ok {
+		return session.ErrNotFound
+	}
+	info.Name = name
+	s.groups[groupJID] = info
+	return nil
+}
+
+// SetGroupDescription records the call and re-topics the seeded group.
+func (s *FakeSession) SetGroupDescription(_ context.Context, groupJID, description string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.groupCalls = append(s.groupCalls, GroupCall{Op: "set-description", GroupJID: groupJID, Description: description})
+	if s.GroupErr != nil {
+		return s.GroupErr
+	}
+	info, ok := s.groups[groupJID]
+	if !ok {
+		return session.ErrNotFound
+	}
+	info.Description = description
+	s.groups[groupJID] = info
+	return nil
+}
+
+// SetGroupPhoto records the call; the bytes themselves are not stored.
+func (s *FakeSession) SetGroupPhoto(_ context.Context, groupJID string, image []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.groupCalls = append(s.groupCalls, GroupCall{Op: "set-photo", GroupJID: groupJID, Image: image})
+	if s.GroupErr != nil {
+		return s.GroupErr
+	}
+	if _, ok := s.groups[groupJID]; !ok {
+		return session.ErrNotFound
+	}
+	return nil
+}
+
+// UpdateGroupParticipants records the call and applies action to the seeded
+// group members.
+func (s *FakeSession) UpdateGroupParticipants(_ context.Context, groupJID, action string, participantJIDs []string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.groupCalls = append(s.groupCalls, GroupCall{Op: "participants", GroupJID: groupJID, Action: action, Participants: participantJIDs})
+	if s.GroupErr != nil {
+		return s.GroupErr
+	}
+	info, ok := s.groups[groupJID]
+	if !ok {
+		return session.ErrNotFound
+	}
+	switch action {
+	case "add":
+		for _, p := range participantJIDs {
+			found := false
+			for _, m := range info.Participants {
+				if m.JID == p {
+					found = true
+					break
+				}
+			}
+			if !found {
+				info.Participants = append(info.Participants, session.GroupParticipant{JID: p})
+			}
+		}
+	case "remove":
+		kept := info.Participants[:0]
+		for _, m := range info.Participants {
+			drop := false
+			for _, p := range participantJIDs {
+				if m.JID == p {
+					drop = true
+					break
+				}
+			}
+			if !drop {
+				kept = append(kept, m)
+			}
+		}
+		info.Participants = kept
+	case "promote", "demote":
+		for i := range info.Participants {
+			for _, p := range participantJIDs {
+				if info.Participants[i].JID == p {
+					info.Participants[i].IsAdmin = action == "promote"
+				}
+			}
+		}
+	default:
+		return session.ErrInvalidRecipient
+	}
+	info.ParticipantCount = len(info.Participants)
+	s.groups[groupJID] = info
+	return nil
+}
+
+// GetGroupInvite records the call and returns the code seeding the group.
+func (s *FakeSession) GetGroupInvite(_ context.Context, groupJID string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.groupCalls = append(s.groupCalls, GroupCall{Op: "invite", GroupJID: groupJID})
+	if s.GroupErr != nil {
+		return "", s.GroupErr
+	}
+	if _, ok := s.groups[groupJID]; !ok {
+		return "", session.ErrNotFound
+	}
+	for code, jid := range s.invites {
+		if jid == groupJID {
+			return code, nil
+		}
+	}
+	code := "invite-" + uuid.NewString()[:8]
+	s.invites[code] = groupJID
+	return code, nil
+}
+
+// ResetGroupInvite records the call, revokes the codes of the group and
+// returns a fresh one.
+func (s *FakeSession) ResetGroupInvite(_ context.Context, groupJID string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.groupCalls = append(s.groupCalls, GroupCall{Op: "reset-invite", GroupJID: groupJID})
+	if s.GroupErr != nil {
+		return "", s.GroupErr
+	}
+	if _, ok := s.groups[groupJID]; !ok {
+		return "", session.ErrNotFound
+	}
+	for code, jid := range s.invites {
+		if jid == groupJID {
+			delete(s.invites, code)
+		}
+	}
+	code := "invite-" + uuid.NewString()[:8]
+	s.invites[code] = groupJID
+	return code, nil
+}
+
+// JoinGroup records the call and resolves the code to its group.
+func (s *FakeSession) JoinGroup(_ context.Context, inviteCode string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.groupCalls = append(s.groupCalls, GroupCall{Op: "join", InviteCode: inviteCode})
+	if s.GroupErr != nil {
+		return "", s.GroupErr
+	}
+	if jid, ok := s.invites[inviteCode]; ok {
+		return jid, nil
+	}
+	return "", session.ErrNotFound
+}
+
+// LeaveGroup records the call.
+func (s *FakeSession) LeaveGroup(_ context.Context, groupJID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.groupCalls = append(s.groupCalls, GroupCall{Op: "leave", GroupJID: groupJID})
+	if s.GroupErr != nil {
+		return s.GroupErr
+	}
+	if _, ok := s.groups[groupJID]; !ok {
+		return session.ErrNotFound
+	}
+	return nil
+}
+
+// FollowNewsletter records the call; an unknown channel is
+// session.ErrNotFound unless NewsletterErr overrides it.
+func (s *FakeSession) FollowNewsletter(_ context.Context, channelJID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.newsletterCalls = append(s.newsletterCalls, NewsletterCall{Op: "follow", ChannelJID: channelJID})
+	if s.NewsletterErr != nil {
+		return s.NewsletterErr
+	}
+	if _, ok := s.newsletters[channelJID]; !ok {
+		return session.ErrNotFound
+	}
+	return nil
+}
+
+// UnfollowNewsletter records the call.
+func (s *FakeSession) UnfollowNewsletter(_ context.Context, channelJID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.newsletterCalls = append(s.newsletterCalls, NewsletterCall{Op: "unfollow", ChannelJID: channelJID})
+	if s.NewsletterErr != nil {
+		return s.NewsletterErr
+	}
+	if _, ok := s.newsletters[channelJID]; !ok {
+		return session.ErrNotFound
+	}
+	return nil
+}
+
+// GetNewsletter records the call and returns the seeded channel.
+func (s *FakeSession) GetNewsletter(_ context.Context, channelJID string) (session.NewsletterInfo, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.newsletterCalls = append(s.newsletterCalls, NewsletterCall{Op: "get", ChannelJID: channelJID})
+	if s.NewsletterErr != nil {
+		return session.NewsletterInfo{}, s.NewsletterErr
+	}
+	info, ok := s.newsletters[channelJID]
+	if !ok {
+		return session.NewsletterInfo{}, session.ErrNotFound
+	}
+	return info, nil
+}
+
+// ListNewsletters records the call and returns every seeded channel ordered
+// by JID, so pagination over the fake is deterministic.
+func (s *FakeSession) ListNewsletters(_ context.Context) ([]session.NewsletterInfo, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.newsletterCalls = append(s.newsletterCalls, NewsletterCall{Op: "list"})
+	if s.NewsletterErr != nil {
+		return nil, s.NewsletterErr
+	}
+	out := make([]session.NewsletterInfo, 0, len(s.newsletters))
+	for _, info := range s.newsletters {
+		out = append(out, info)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ChannelJID < out[j].ChannelJID })
+	return out, nil
+}
+
+// GroupCalls returns the group calls, in order.
+func (s *FakeSession) GroupCalls() []GroupCall {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]GroupCall(nil), s.groupCalls...)
+}
+
+// NewsletterCalls returns the newsletter calls, in order.
+func (s *FakeSession) NewsletterCalls() []NewsletterCall {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]NewsletterCall(nil), s.newsletterCalls...)
 }
 
 // HistorySyncSnapshot returns the accumulated history-sync feed, mirroring

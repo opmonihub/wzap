@@ -51,9 +51,24 @@ void onPresence
       </h3>
     </template>
     <div class="flex flex-col gap-3">
-      <UAlert v-if="!canAct" color="warning" variant="subtle" :title="t('instances.actions.notConnected')" />
-      <UAlert v-if="failure" color="error" variant="subtle" :title="failure" />
-      <UAlert v-if="unsupported" color="warning" variant="subtle" :title="t('instances.actions.unsupported')" />
+      <UAlert
+        v-if="!canAct"
+        color="warning"
+        variant="subtle"
+        :title="t('instances.actions.notConnected')"
+      />
+      <UAlert
+        v-if="failure"
+        color="error"
+        variant="subtle"
+        :title="failure"
+      />
+      <UAlert
+        v-if="unsupported"
+        color="warning"
+        variant="subtle"
+        :title="t('instances.actions.unsupported')"
+      />
       <UInput v-model="chat" class="w-full font-mono" />
       <div class="flex gap-2">
         <UInput v-model="callId" class="w-full font-mono" />

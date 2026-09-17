@@ -299,7 +299,12 @@ await load()
 
         <div v-else-if="instance" class="flex w-full max-w-6xl flex-col gap-4">
           <UDashboardToolbar>
-            <UNavigationMenu highlight class="-mx-1 flex-1" :items="sections" v-model="section" />
+            <UNavigationMenu
+              v-model="section"
+              highlight
+              class="-mx-1 flex-1"
+              :items="sections"
+            />
           </UDashboardToolbar>
           <InstanceHeaderStats :instance="instance" :chatwoot-enabled="chatwootEnabled" />
 

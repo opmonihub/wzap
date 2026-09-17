@@ -59,17 +59,40 @@ async function settle(messageId: string) {
 void sendLocation
 void sendContact
 void sendRich
+void sendMedia
 </script>
 
 <template>
   <UCard variant="subtle" data-testid="message-composer">
     <div class="flex flex-col gap-3">
-      <UAlert v-if="!canSend" color="warning" variant="subtle" :title="t('instances.send.notConnected')" />
-      <UAlert v-if="failure" color="error" variant="subtle" :title="failure" />
+      <UAlert
+        v-if="!canSend"
+        color="warning"
+        variant="subtle"
+        :title="t('instances.send.notConnected')"
+      />
+      <UAlert
+        v-if="failure"
+        color="error"
+        variant="subtle"
+        :title="failure"
+      />
       <UInput v-model="to" :placeholder="t('instances.send.phonePlaceholder')" class="w-full font-mono" />
-      <UTextarea v-model="text" variant="none" :rows="3" :placeholder="t('instances.send.text')" class="w-full" />
+      <UTextarea
+        v-model="text"
+        variant="none"
+        :rows="3"
+        :placeholder="t('instances.send.text')"
+        class="w-full"
+      />
       <div class="flex justify-end">
-        <UButton icon="i-lucide-send" :disabled="!canSend" :loading="sending" :label="sending ? t('instances.send.sending') : t('instances.send.send')" @click="onSendText" />
+        <UButton
+          icon="i-lucide-send"
+          :disabled="!canSend"
+          :loading="sending"
+          :label="sending ? t('instances.send.sending') : t('instances.send.send')"
+          @click="onSendText"
+        />
       </div>
     </div>
   </UCard>

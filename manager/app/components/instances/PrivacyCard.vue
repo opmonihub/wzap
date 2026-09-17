@@ -49,8 +49,18 @@ void RECEIPTS
       </h3>
     </template>
     <div class="flex flex-col gap-3">
-      <UAlert v-if="!canAct" color="warning" variant="subtle" :title="t('instances.actions.notConnected')" />
-      <UAlert v-if="failure" color="error" variant="subtle" :title="failure" />
+      <UAlert
+        v-if="!canAct"
+        color="warning"
+        variant="subtle"
+        :title="t('instances.actions.notConnected')"
+      />
+      <UAlert
+        v-if="failure"
+        color="error"
+        variant="subtle"
+        :title="failure"
+      />
       <UButton :disabled="!canAct" :label="t('common.save')" @click="onSave" />
     </div>
   </UPageCard>

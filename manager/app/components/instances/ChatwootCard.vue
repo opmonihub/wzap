@@ -69,16 +69,43 @@ void props.status
       </h3>
     </template>
     <div class="flex flex-col gap-3">
-      <UAlert v-if="disabled" color="info" variant="subtle" :title="t('instances.chatwoot.disabled')" />
-      <UAlert v-if="failure" color="error" variant="subtle" :title="failure" />
-      <UAlert v-if="imported !== null" color="success" variant="subtle" :title="t('instances.chatwoot.imported', { count: imported })" />
+      <UAlert
+        v-if="disabled"
+        color="info"
+        variant="subtle"
+        :title="t('instances.chatwoot.disabled')"
+      />
+      <UAlert
+        v-if="failure"
+        color="error"
+        variant="subtle"
+        :title="failure"
+      />
+      <UAlert
+        v-if="imported !== null"
+        color="success"
+        variant="subtle"
+        :title="t('instances.chatwoot.imported', { count: imported })"
+      />
       <p v-if="config?.webhook_url" class="truncate font-mono text-xs text-muted">
         {{ config.webhook_url }}
       </p>
-      <UInput v-if="config" v-model="config.token" :disabled="disabled" class="w-full font-mono" type="password" :hint="t('instances.chatwoot.tokenHint')" />
+      <UInput
+        v-if="config"
+        v-model="config.token"
+        :disabled="disabled"
+        class="w-full font-mono"
+        type="password"
+        :hint="t('instances.chatwoot.tokenHint')"
+      />
       <div class="flex gap-2">
         <UButton :disabled="disabled" label="Save" @click="onSave" />
-        <UButton :disabled="disabled" variant="soft" label="Import" @click="onImport" />
+        <UButton
+          :disabled="disabled"
+          variant="soft"
+          label="Import"
+          @click="onImport"
+        />
       </div>
     </div>
   </UCard>

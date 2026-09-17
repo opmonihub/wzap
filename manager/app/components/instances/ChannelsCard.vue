@@ -72,7 +72,12 @@ watch(() => props.instanceId, () => void refresh(), { immediate: true })
         <UButton :disabled="!canAct" :label="t('instances.channels.follow')" @click="onFollow" />
       </div>
     </template>
-    <UAlert v-if="failure" color="error" variant="subtle" :title="failure" />
+    <UAlert
+      v-if="failure"
+      color="error"
+      variant="subtle"
+      :title="failure"
+    />
     <ul class="divide-y divide-default">
       <li v-for="item in followed" :key="item.channel" class="px-4 py-3 sm:px-6">
         <p class="truncate font-medium text-highlighted">
@@ -86,12 +91,23 @@ watch(() => props.instanceId, () => void refresh(), { immediate: true })
         <p v-if="item.text || item.caption" class="text-sm text-highlighted">
           {{ item.text || item.caption }}
         </p>
-        <UButton size="xs" variant="ghost" color="error" label="Delete" @click="onDeleteStatus(item.id)" />
+        <UButton
+          size="xs"
+          variant="ghost"
+          color="error"
+          label="Delete"
+          @click="onDeleteStatus(item.id)"
+        />
       </li>
     </ul>
     <template #footer>
       <div class="flex gap-2">
-        <UInput v-model="statusText" maxlength="700" class="w-full" :placeholder="t('instances.channels.publish')" />
+        <UInput
+          v-model="statusText"
+          maxlength="700"
+          class="w-full"
+          :placeholder="t('instances.channels.publish')"
+        />
         <UButton :disabled="!canAct" :label="t('instances.channels.publish')" @click="onPublish" />
       </div>
     </template>

@@ -58,16 +58,46 @@ async function onPresence(state: 'composing' | 'paused' | 'available' | 'unavail
       </h3>
     </template>
     <div class="flex flex-col gap-3">
-      <UAlert v-if="!canAct" color="warning" variant="subtle" :title="t('instances.actions.notConnected')" />
-      <UAlert v-if="failure" color="error" variant="subtle" :title="failure" />
-      <UAlert v-if="done" color="success" variant="subtle" :title="done" />
+      <UAlert
+        v-if="!canAct"
+        color="warning"
+        variant="subtle"
+        :title="t('instances.actions.notConnected')"
+      />
+      <UAlert
+        v-if="failure"
+        color="error"
+        variant="subtle"
+        :title="failure"
+      />
+      <UAlert
+        v-if="done"
+        color="success"
+        variant="subtle"
+        :title="done"
+      />
       <UInput v-model="chat" placeholder="chat" class="w-full font-mono" />
       <UInput v-model="messageId" placeholder="message_id" class="w-full font-mono" />
       <div class="flex flex-wrap gap-2">
         <UButton :disabled="!canAct" :label="t('instances.actions.revoke')" @click="onRevoke" />
-        <UButton :disabled="!canAct" variant="soft" :label="t('instances.actions.markRead')" @click="onMarkRead" />
-        <UButton :disabled="!canAct" variant="soft" label="composing" @click="onPresence('composing')" />
-        <UButton :disabled="!canAct" variant="soft" label="paused" @click="onPresence('paused')" />
+        <UButton
+          :disabled="!canAct"
+          variant="soft"
+          :label="t('instances.actions.markRead')"
+          @click="onMarkRead"
+        />
+        <UButton
+          :disabled="!canAct"
+          variant="soft"
+          label="composing"
+          @click="onPresence('composing')"
+        />
+        <UButton
+          :disabled="!canAct"
+          variant="soft"
+          label="paused"
+          @click="onPresence('paused')"
+        />
       </div>
     </div>
   </UCard>

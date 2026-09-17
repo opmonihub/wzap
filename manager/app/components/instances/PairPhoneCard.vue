@@ -52,14 +52,29 @@ function formatExpiry(value: string): string {
     </template>
     <div class="flex flex-col gap-3">
       <UAlert color="info" variant="subtle" :title="t('instances.pairPhone.connectFirst')" />
-      <UAlert v-if="failure" color="error" variant="subtle" :title="failure" />
+      <UAlert
+        v-if="failure"
+        color="error"
+        variant="subtle"
+        :title="failure"
+      />
       <div v-if="result" class="flex flex-col gap-1">
         <span class="font-mono text-2xl tracking-widest text-highlighted">{{ result.pairing_code }}</span>
         <span class="text-sm text-muted">{{ t('instances.pairPhone.expiresAt', { when: formatExpiry(result.expires_at) }) }}</span>
       </div>
       <div class="flex flex-col gap-2 sm:flex-row">
-        <UInput v-model="phone" maxlength="32" :placeholder="t('instances.pairPhone.phone')" class="w-full font-mono" />
-        <UButton :disabled="!canRequest" :loading="requesting" :label="requesting ? t('instances.pairPhone.requesting') : t('instances.pairPhone.request')" @click="onRequest" />
+        <UInput
+          v-model="phone"
+          maxlength="32"
+          :placeholder="t('instances.pairPhone.phone')"
+          class="w-full font-mono"
+        />
+        <UButton
+          :disabled="!canRequest"
+          :loading="requesting"
+          :label="requesting ? t('instances.pairPhone.requesting') : t('instances.pairPhone.request')"
+          @click="onRequest"
+        />
       </div>
     </div>
   </UCard>

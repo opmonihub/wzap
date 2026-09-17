@@ -56,9 +56,24 @@ watch(() => props.instanceId, () => void load(), { immediate: true })
       </h3>
     </template>
     <div class="flex flex-col gap-3">
-      <UAlert v-if="!canAct" color="warning" variant="subtle" :title="t('instances.actions.notConnected')" />
-      <UAlert v-if="failure" color="error" variant="subtle" :title="failure" />
-      <UAlert v-if="unsupported" color="warning" variant="subtle" :title="t('instances.profile.unsupported')" />
+      <UAlert
+        v-if="!canAct"
+        color="warning"
+        variant="subtle"
+        :title="t('instances.actions.notConnected')"
+      />
+      <UAlert
+        v-if="failure"
+        color="error"
+        variant="subtle"
+        :title="failure"
+      />
+      <UAlert
+        v-if="unsupported"
+        color="warning"
+        variant="subtle"
+        :title="t('instances.profile.unsupported')"
+      />
       <UFormField :label="t('instances.fields.name')" :hint="t('instances.profile.nameHint')">
         <UInput v-model="name" maxlength="100" class="w-full" />
       </UFormField>

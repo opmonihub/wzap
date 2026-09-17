@@ -84,11 +84,26 @@ async function onLeave() {
         <UInput v-model="jid" :placeholder="t('instances.groups.search')" class="w-full font-mono" />
         <UButton :disabled="!canAct" :label="t('common.refresh')" @click="onLookup" />
         <UButton :disabled="!canAct" :label="t('instances.groups.create')" @click="createOpen = true" />
-        <UButton :disabled="!canAct" variant="soft" :label="t('instances.groups.join')" @click="joinOpen = true" />
+        <UButton
+          :disabled="!canAct"
+          variant="soft"
+          :label="t('instances.groups.join')"
+          @click="joinOpen = true"
+        />
       </div>
     </template>
-    <UAlert v-if="failure" color="error" variant="subtle" :title="failure" />
-    <UAlert v-if="notice" color="warning" variant="subtle" :title="notice" />
+    <UAlert
+      v-if="failure"
+      color="error"
+      variant="subtle"
+      :title="failure"
+    />
+    <UAlert
+      v-if="notice"
+      color="warning"
+      variant="subtle"
+      :title="notice"
+    />
     <ul v-if="group" class="divide-y divide-default">
       <li class="px-4 py-3 sm:px-6">
         <p class="truncate font-medium text-highlighted">
@@ -117,7 +132,12 @@ async function onLeave() {
       </template>
     </UModal>
     <template v-if="group" #footer>
-      <UButton color="error" variant="soft" label="Leave" @click="onLeave" />
+      <UButton
+        color="error"
+        variant="soft"
+        label="Leave"
+        @click="onLeave"
+      />
     </template>
   </UPageCard>
 </template>

@@ -251,6 +251,31 @@ export interface GroupInvite {
   invite_code: string
 }
 
+export interface GroupParticipantsInput {
+  action: 'add' | 'remove' | 'promote' | 'demote'
+  participants: string[]
+}
+
+export interface JoinGroupInput {
+  invite_code: string
+}
+
+// 200 answers of the group invite/participants/join/leave routes. Join
+// answers the entered group JID; leave and picture/participant updates
+// answer a boolean flag. Mirrors groupInviteResponse, groupJoinResponse,
+// groupLeaveResponse and groupUpdatedResponse in internal/httpapi/groups.go.
+export interface GroupJoinResult {
+  jid: string
+}
+
+export interface GroupLeaveResult {
+  left: boolean
+}
+
+export interface GroupUpdatedResult {
+  updated: boolean
+}
+
 // Newsletter channel as answered by follow/unfollow/get/list.
 export interface Newsletter {
   channel: string
@@ -265,6 +290,17 @@ export interface NewsletterListPage {
   next_cursor: string
 }
 
+export interface NewsletterFollowInput {
+  channel: string
+}
+
+// 200 answer of the newsletter follow/unfollow routes: followed is true
+// after a follow, false after an unfollow. Mirrors
+// newsletterFollowResponse in internal/httpapi/newsletters.go.
+export interface NewsletterFollowResult {
+  followed: boolean
+}
+
 // Own status entry of GET status/updates.
 export interface OwnStatus {
   id: string
@@ -277,6 +313,77 @@ export interface OwnStatus {
 export interface StatusPublishResult {
   message_id: string
   status: string
+}
+
+// Payload for POST /instances/{id}/status/updates (text statuses only;
+// image and video ride the multipart media route below). Mirrors
+// publishStatusRequest in internal/httpapi/status.go: text carries 1..700
+// characters.
+export interface PublishStatusInput {
+  type: 'text'
+  text: string
+}
+
+// Payload for POST /instances/{id}/status/updates/media
+// (multipart/form-data). Mirrors the media publish handler in
+// internal/httpapi/status.go: kind is image|video and must match the file
+// content type, caption caps at 700 characters.
+export interface PublishStatusMediaInput {
+  type: 'image' | 'video'
+  caption?: string
+  file: File
+}
+
+// 200 answer of GET /instances/{id}/status/updates. Items is always an
+// array, empty when nothing was published since boot. Mirrors
+// statusListResponse in internal/httpapi/status.go.
+export interface StatusListPage {
+  items: OwnStatus[]
+}
+
+// 200 answer of DELETE /instances/{id}/status/updates/{status_id}.
+// Mirrors statusDeleteResponse in internal/httpapi/status.go.
+export interface StatusDeleteResult {
+  deleted: boolean
+}
+
+// Payload for PATCH /instances/{id}/profile: nil-equivalent (omitted)
+// fields keep their upstream value, an explicit empty status_text clears
+// the recado while an empty name is rejected (1..100). Mirrors
+// updateProfileRequest in internal/httpapi/profile.go.
+export interface UpdateProfileInput {
+  name?: string
+  status_text?: string
+}
+
+// 200 answer of PUT /instances/{id}/profile/photo (octet-stream upload).
+// Mirrors profilePhotoResponse in internal/httpapi/profile.go.
+export interface ProfilePhotoResult {
+  updated: boolean
+}
+
+// Privacy field allowlists. Last seen, profile photo, status and groups
+// add take the four-valued literals; read receipts take all|none. Mirrors
+// validPrivacyValue/validReadReceiptsValue in internal/httpapi/profile.go.
+export type PrivacyFieldValue = 'all' | 'contacts' | 'contact_blacklist' | 'none'
+
+export type ReadReceiptsValue = 'all' | 'none'
+
+// Payload for PUT /instances/{id}/privacy: at least one field must be
+// present. Mirrors updatePrivacyRequest in internal/httpapi/profile.go.
+export interface UpdatePrivacyInput {
+  last_seen?: PrivacyFieldValue
+  profile_photo?: PrivacyFieldValue
+  status?: PrivacyFieldValue
+  read_receipts?: ReadReceiptsValue
+  groups_add?: PrivacyFieldValue
+}
+
+// Payload for POST /instances/{id}/pair-phone. Requires an open pairing
+// channel from a prior Connect; without one the server answers 409.
+// Mirrors pairPhoneRequest in internal/httpapi/pair_phone.go.
+export interface PairPhoneInput {
+  phone: string
 }
 
 // Own profile and privacy.
@@ -324,6 +431,42 @@ export interface ChatwootConfig {
 
 export interface ChatwootImportResult {
   imported: number
+}
+
+// Payload for PUT /instances/{id}/chatwoot. Booleans are values (absent
+// means false). Mirrors chatwootSetRequest in internal/httpapi/chatwoot.go.
+// The token travels write-only: GET responses always mask it.
+export interface ChatwootSetInput {
+  enabled: boolean
+  url: string
+  account_id: string
+  token: string
+  name_inbox?: string
+  sign_msg?: boolean
+  sign_delimiter?: string
+  reopen_conversation?: boolean
+  conversation_pending?: boolean
+  merge_brazil_contacts?: boolean
+  import_contacts?: boolean
+  import_messages?: boolean
+  days_limit?: number
+  auto_create?: boolean
+  organization?: string
+  logo?: string
+  ignore_jids?: string[]
+}
+
+// Payload for POST /instances/{id}/chatwoot/command (status,
+// init[:number], clearcache, disconnect). Mirrors chatwootCommandRequest
+// in internal/httpapi/chatwoot.go.
+export interface ChatwootCommandInput {
+  command: string
+  conversation_id: number
+}
+
+// 200 answer of the Chatwoot command route.
+export interface ChatwootCommandResult {
+  ok: boolean
 }
 
 // Rich send inputs for POST /messages plus lifecycle inputs.
@@ -377,9 +520,24 @@ export interface PresenceInput {
   state: 'composing' | 'paused' | 'available' | 'unavailable'
 }
 
+// 200 answer of POST /instances/{id}/presence: one call publishes one
+// signal, there is no continuous mode. Mirrors presenceResponse in
+// internal/httpapi/presence.go.
+export interface PresenceResult {
+  sent: boolean
+}
+
 export interface RevokeInput {
   chat: string
   message_id: string
+}
+
+// 200 answer of POST /instances/{id}/messages/revoke. Revoked is always
+// true here: the protocol revoke is fire-and-forget, failures surface as
+// 409/422 instead. Mirrors revokeResponse in internal/httpapi/lifecycle.go.
+export interface RevokeResult {
+  revoked: boolean
+  reason?: string
 }
 
 export interface MarkReadInput {
@@ -388,7 +546,20 @@ export interface MarkReadInput {
   message_id: string
 }
 
+// 200 answer of POST /instances/{id}/chats/mark-read. Mirrors
+// markReadResponse in internal/httpapi/lifecycle.go.
+export interface MarkReadResult {
+  marked_read: boolean
+}
+
 export interface RejectCallInput {
   call_id: string
   from: string
+}
+
+// 200 answer of POST /instances/{id}/calls/reject. An upstream that cannot
+// reject answers 501 not_supported. Mirrors rejectCallResponse in
+// internal/httpapi/calls.go.
+export interface RejectCallResult {
+  rejected: boolean
 }

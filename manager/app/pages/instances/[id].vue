@@ -48,26 +48,19 @@ const messagesRefresh = ref(0)
 const section = ref('overview')
 const chatwootEnabled = ref<boolean | null>(false)
 
-// UNavigationMenu emits the selected item (object) on some versions instead
-// of the item value string, which silently broke every section branch into
-// the v-else settings fallback. Normalize any payload back to a section
-// value string so the nav can never wedge the page on settings again.
-const SECTION_VALUES = ['overview', 'messages', 'groups', 'channels', 'profile', 'integrations', 'settings'] as const
-type SectionValue = (typeof SECTION_VALUES)[number]
-
-function onSectionUpdate(value: unknown): void {
-  const next = typeof value === 'string' ? value : (value as { value?: unknown } | null)?.value
-  section.value = typeof next === 'string' && (SECTION_VALUES as readonly string[]).includes(next) ? (next as SectionValue) : 'overview'
-}
-
+// Section switching rides on each item's onSelect: UNavigationMenu does not
+// reliably emit update:modelValue for these items (observed: the active pill
+// moves but v-model never receives the item value string, wedging every
+// section branch into the v-else settings fallback). Setting the string
+// directly keeps section inside the union the template branches on.
 const sections = computed(() => [
-  { label: t('instances.sections.overview'), value: 'overview' },
-  { label: t('instances.sections.messages'), value: 'messages' },
-  { label: t('instances.sections.groups'), value: 'groups' },
-  { label: t('instances.sections.channels'), value: 'channels' },
-  { label: t('instances.sections.profile'), value: 'profile' },
-  { label: t('instances.sections.integrations'), value: 'integrations' },
-  { label: t('instances.sections.settings'), value: 'settings' }
+  { label: t('instances.sections.overview'), value: 'overview', onSelect: () => { section.value = 'overview' } },
+  { label: t('instances.sections.messages'), value: 'messages', onSelect: () => { section.value = 'messages' } },
+  { label: t('instances.sections.groups'), value: 'groups', onSelect: () => { section.value = 'groups' } },
+  { label: t('instances.sections.channels'), value: 'channels', onSelect: () => { section.value = 'channels' } },
+  { label: t('instances.sections.profile'), value: 'profile', onSelect: () => { section.value = 'profile' } },
+  { label: t('instances.sections.integrations'), value: 'integrations', onSelect: () => { section.value = 'integrations' } },
+  { label: t('instances.sections.settings'), value: 'settings', onSelect: () => { section.value = 'settings' } }
 ])
 
 // Message history split (template inbox pattern): at lg+ it renders as a
@@ -316,7 +309,6 @@ await load()
               highlight
               class="-mx-1 flex-1 min-w-0 overflow-x-auto"
               :items="sections"
-              @update:model-value="onSectionUpdate"
             />
           </UDashboardToolbar>
           <InstanceHeaderStats :instance="instance" :chatwoot-enabled="chatwootEnabled" />

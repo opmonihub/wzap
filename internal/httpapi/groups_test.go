@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -74,6 +75,41 @@ func TestGroupCreate(t *testing.T) {
 		}
 		if len(svc.createGroupCalls) != 1 {
 			t.Fatalf("CreateGroup calls = %d, want 1", len(svc.createGroupCalls))
+		}
+	})
+
+	t.Run("invite failure still answers created with the group and empty invite", func(t *testing.T) {
+		id := uuid.New()
+		svc := &fakeInstanceService{
+			createGroupFn: func(_ context.Context, _ uuid.UUID, input instance.CreateGroupInput) (instance.Group, error) {
+				return instance.Group{JID: testChatGroup, Name: input.Name}, nil
+			},
+			getGroupInviteFn: func(context.Context, uuid.UUID, string) (string, error) {
+				return "", errors.New("invite lookup failed")
+			},
+		}
+		rec := serveJSON(t, instancesServer(t, svc), http.MethodPost,
+			"/instances/"+id.String()+"/groups",
+			`{"name":"Time do churrasco"}`)
+
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusCreated, rec.Body.String())
+		}
+		var payload struct {
+			Data groupResponse `json:"data"`
+		}
+		decodeJSON(t, rec.Body.Bytes(), &payload)
+		if payload.Data.JID != testChatGroup {
+			t.Errorf("data.jid = %q, want %q", payload.Data.JID, testChatGroup)
+		}
+		if payload.Data.InviteCode != "" {
+			t.Errorf("data.invite_code = %q, want empty on partial create", payload.Data.InviteCode)
+		}
+		if len(svc.createGroupCalls) != 1 {
+			t.Errorf("CreateGroup calls = %d, want 1 (no client retry needed)", len(svc.createGroupCalls))
+		}
+		if !strings.Contains(rec.Body.String(), testChatGroup) {
+			t.Errorf("body %q does not carry the group JID for invite reconciliation", rec.Body.String())
 		}
 	})
 

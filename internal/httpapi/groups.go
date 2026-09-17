@@ -147,6 +147,12 @@ func cleanJIDs(raw []string) ([]string, bool) {
 // before reading the body or touching the session; an offline session answers
 // 409 and an invalid payload 422.
 //
+// When the post-create invite lookup fails the group already exists
+// upstream, so the handler still answers 201 with the group payload and an
+// empty invite_code (omitted JSON field); the client must reconcile the code
+// via GET .../invite instead of retrying the create, which would duplicate
+// the group.
+//
 // @Summary Create a group
 // @Tags groups
 // @Accept json
@@ -156,7 +162,7 @@ func cleanJIDs(raw []string) ([]string, bool) {
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body createGroupRequest true "Group payload"
-// @Success 201 {object} groupResponse "Created, wrapped in the data envelope"
+// @Success 201 {object} groupResponse "Created, wrapped in the data envelope (invite_code empty when the post-create invite lookup fails; reconcile via GET .../invite, do not retry the create)"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -211,12 +217,13 @@ func handleCreateGroup(instances InstanceService, log zerolog.Logger) http.Handl
 			return
 		}
 		invite, err := instances.GetGroupInvite(r.Context(), id, group.JID)
+		response := newGroupResponse(group)
 		if err != nil {
 			log.Warn().Str("instance_id", id.String()).Str("op", "group-create").Err(err).Msg("create group invite failed")
-			writeInstanceError(w, r, err)
+			log.Debug().Str("instance_id", id.String()).Str("op", "group-create").Msg("create group result (partial, no invite)")
+			JSON(w, r, http.StatusCreated, response)
 			return
 		}
-		response := newGroupResponse(group)
 		response.InviteCode = invite
 		log.Debug().Str("instance_id", id.String()).Str("op", "group-create").Msg("create group result")
 		JSON(w, r, http.StatusCreated, response)

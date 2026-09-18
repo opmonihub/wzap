@@ -395,9 +395,9 @@ func (s *Service) Connect(ctx context.Context, id uuid.UUID) (ConnectResult, err
 	}
 	if qr == "" {
 		// The instance has stored credentials: connecting it online needs no
-		// pairing, and the event sink persists the connected status.
-		// TEMP-DEBUG: inclui o estado vivo do socket, pois este ramo
-		// retornava connected sem verificar o websocket.
+		// pairing, and the event sink persists the connected status. O
+		// estado vivo do socket vai junto porque este ramo retornava
+		// connected sem verificar o websocket.
 		s.log.Debug().Str("instance_id", id.String()).Str("op", "connect").
 			Str("branch", "stored-credentials").Str("status", string(session.StatusConnected)).
 			Str("live_status", string(sess.Status())).Bool("socket_connected", sess.IsConnected()).
@@ -466,9 +466,8 @@ func (s *Service) QR(ctx context.Context, id uuid.UUID) (ConnectResult, error) {
 	}
 	if qr == "" {
 		// Stored credentials mean the instance is paired already; there is no
-		// QR to hand out.
-		// TEMP-DEBUG: inclui o estado vivo do socket (efeito colateral de
-		// reviver o websocket mesmo no 409).
+		// QR to hand out. O estado vivo do socket vai junto (efeito
+		// colateral de reviver o websocket mesmo no 409).
 		s.log.Debug().Str("instance_id", id.String()).Str("op", "qr").
 			Str("branch", "stored-credentials").Str("status", string(session.StatusConnected)).
 			Str("live_status", string(sess.Status())).Bool("socket_connected", sess.IsConnected()).

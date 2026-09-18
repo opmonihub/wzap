@@ -548,6 +548,103 @@ func TestRestoreTerminalStaysInError(t *testing.T) {
 	}
 }
 
+// newDialedSession returns a paired session that never completed a login but
+// holds a pending dial, i.e. ConnectContext opened the socket and the server
+// has not answered with Connected yet.
+func newDialedSession(t *testing.T, sink session.EventSink, sleep sleepFunc, reconnect func(context.Context) error) *instanceSession {
+	t.Helper()
+	jid := types.NewJID("5511999999999", types.DefaultUserServer)
+	sess, err := newSession(uuid.New(), &store.Device{ID: &jid}, zerolog.Nop(), sink, testMediaLimit)
+	if err != nil {
+		t.Fatalf("newSession: %v", err)
+	}
+	sess.sleep = sleep
+	sess.backoff = testBackoff()
+	sess.reconnectFn = reconnect
+	sess.markDialed()
+	return sess
+}
+
+// TestImmediatePostConnectDropIsTerminal verifies the rejected-session
+// symptom: the socket opened (dial pending) but WhatsApp dropped it before
+// any Connected arrived. The session parks in error with an actionable
+// reason (surfaced as last_error in GET /status) instead of retrying the
+// same stale/duplicate device forever, and a following bare drop keeps the
+// terminal error instead of reviving a retry.
+func TestImmediatePostConnectDropIsTerminal(t *testing.T) {
+	sink := &recordingSink{}
+	sleeps := &sleepRecorder{}
+	var reconnects atomic.Int64
+	sess := newDialedSession(t, sink, sleeps.sleep, func(context.Context) error {
+		reconnects.Add(1)
+		return nil
+	})
+
+	sess.dispatch(&events.Disconnected{})
+
+	if got := sess.Status(); got != session.StatusError {
+		t.Fatalf("status = %q, want %q", got, session.StatusError)
+	}
+	event := sink.last(t)
+	if event.status != session.StatusError || !strings.Contains(event.reason, "pair again") {
+		t.Fatalf("sink event = %+v, want an error guiding a re-pairing", event)
+	}
+	if reconnectRunning(sess) {
+		t.Error("rejected session scheduled a reconnect")
+	}
+	if got := sleeps.calls(); got != 0 {
+		t.Errorf("rejected session slept %d times, want none", got)
+	}
+	if got := reconnects.Load(); got != 0 {
+		t.Errorf("rejected session attempted %d reconnects, want none", got)
+	}
+
+	sess.dispatch(&events.Disconnected{})
+
+	if got := sess.Status(); got != session.StatusError {
+		t.Errorf("status after a second drop = %q, want the terminal %q", got, session.StatusError)
+	}
+	if reconnectRunning(sess) {
+		t.Error("a drop after the terminal error scheduled a reconnect")
+	}
+	if got := reconnects.Load(); got != 0 {
+		t.Errorf("reconnect attempts after the terminal error = %d, want none", got)
+	}
+}
+
+// TestDropAfterCompletedLoginStillRetries verifies the other side: once the
+// login completes (Connected clears the pending dial), a later bare drop is
+// still a transient network blip and schedules the backoff retry.
+func TestDropAfterCompletedLoginStillRetries(t *testing.T) {
+	sink := &recordingSink{}
+	sleeps := &sleepRecorder{}
+	var reconnects atomic.Int64
+	sess := newDialedSession(t, sink, sleeps.sleep, func(context.Context) error {
+		reconnects.Add(1)
+		return nil
+	})
+
+	sess.dispatch(&events.Connected{})
+
+	if got := sess.Status(); got != session.StatusConnected {
+		t.Fatalf("status = %q, want %q after the login", got, session.StatusConnected)
+	}
+
+	sess.dispatch(&events.Disconnected{})
+
+	if got := sess.Status(); got != session.StatusDisconnected {
+		t.Fatalf("status = %q, want %q while retrying", got, session.StatusDisconnected)
+	}
+	if event := sink.last(t); event.status != session.StatusDisconnected {
+		t.Fatalf("sink event = %+v, want a transient disconnected event", event)
+	}
+	if !reconnectRunning(sess) {
+		t.Error("a drop after a completed login did not schedule a reconnect")
+	}
+	sess.cancelReconnect()
+	waitForNoReconnect(t, sess)
+}
+
 func TestNewSessionDisablesLibraryAutoReconnect(t *testing.T) {
 	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
 	if err != nil {

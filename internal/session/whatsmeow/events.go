@@ -128,9 +128,10 @@ func (s *instanceSession) dispatch(evt any) {
 		if !ok {
 			return
 		}
-		// TEMP-DEBUG websocket-investigacao: evento bruto do websocket antes
-		// do setStatus (visivel em info; o dispatch roda concorrente).
-		s.log.Info().Str("instance_id", s.instanceID.String()).Str("wa_event", fmt.Sprintf("%T", evt)).Str("to", string(status)).Str("reason", reason).Bool("socket_connected", s.client.IsConnected()).Msg("TEMP-DEBUG websocket event")
+		// A rejeição imediata pós-dial (socket abriu mas o login nunca
+		// completou) vira erro terminal dentro do setStatus, com motivo
+		// acionável registrado no last_error; aqui o evento segue intacto.
+		s.log.Debug().Str("instance_id", s.instanceID.String()).Str("wa_event", fmt.Sprintf("%T", evt)).Str("to", string(status)).Str("reason", reason).Bool("socket_connected", s.client.IsConnected()).Msg("websocket event received")
 		jid := ""
 		if status == session.StatusConnected {
 			jid = s.client.Store.GetJID().String()

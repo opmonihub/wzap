@@ -155,10 +155,6 @@ func (m *Manager) Remove(ctx context.Context, instanceID uuid.UUID) error {
 // RestoreAll reconnects every persisted session, at most restoreConcurrency at
 // a time and with jitter. Failures are reported per instance through the event
 // sink; only listing the instances can fail the call.
-//
-// TEMP-DEBUG websocket-investigacao (instancia 485b74b0): logs Info por
-// instancia com o desfecho do restore + socket_connected, pois o nivel padrao
-// (info) escondia o sucesso silencioso e so mostrava Warn nas falhas.
 func (m *Manager) RestoreAll(ctx context.Context) error {
 	if m.instances == nil {
 		return errors.New("restore sessions: instance repository not configured")
@@ -168,16 +164,16 @@ func (m *Manager) RestoreAll(ctx context.Context) error {
 		return err
 	}
 
-	m.log.Info().Int("total", len(instances)).Msg("TEMP-DEBUG restore sessions started")
+	m.log.Info().Int("total", len(instances)).Msg("restore sessions started")
 	sem := make(chan struct{}, restoreConcurrency)
 	var wg sync.WaitGroup
 	for _, instance := range instances {
 		if instance.WhatsAppJID == "" {
-			m.log.Info().Str("instance_id", instance.ID.String()).Str("reason", "no-jid").Msg("TEMP-DEBUG restore skipped")
+			m.log.Debug().Str("instance_id", instance.ID.String()).Str("reason", "no-jid").Msg("restore skipped")
 			continue
 		}
 		if _, ok := m.Get(instance.ID); ok {
-			m.log.Info().Str("instance_id", instance.ID.String()).Str("reason", "already-registered").Msg("TEMP-DEBUG restore skipped")
+			m.log.Debug().Str("instance_id", instance.ID.String()).Str("reason", "already-registered").Msg("restore skipped")
 			continue
 		}
 		wg.Add(1)
@@ -205,9 +201,9 @@ func (m *Manager) RestoreAll(ctx context.Context) error {
 			} else if sess, ok := m.Get(instance.ID); ok && sess != nil {
 				m.log.Info().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).
 					Str("live_status", string(sess.Status())).Bool("socket_connected", sess.IsConnected()).
-					Msg("TEMP-DEBUG restore session outcome")
+					Msg("restore session dialed")
 			} else {
-				m.log.Warn().Str("instance_id", instance.ID.String()).Msg("TEMP-DEBUG restore session missing after success")
+				m.log.Warn().Str("instance_id", instance.ID.String()).Msg("restore session missing after success")
 			}
 		}(instance)
 	}
@@ -224,23 +220,22 @@ func (m *Manager) restoreAborted(instance model.Instance, err error) {
 }
 
 // restore attaches the persisted device of instance and brings it online.
-// TEMP-DEBUG: registra o desfecho do load do device por instancia.
 func (m *Manager) restore(ctx context.Context, instance model.Instance) error {
 	jid, err := types.ParseJID(instance.WhatsAppJID)
 	if err != nil {
-		m.log.Warn().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).Err(err).Msg("TEMP-DEBUG restore parse jid failed")
+		m.log.Warn().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).Err(err).Msg("restore parse jid failed")
 		return fmt.Errorf("parse jid %q: %w", instance.WhatsAppJID, err)
 	}
 	device, err := m.devices.GetDevice(ctx, jid)
 	if err != nil {
-		m.log.Warn().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).Err(err).Msg("TEMP-DEBUG restore load device failed")
+		m.log.Warn().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).Err(err).Msg("restore load device failed")
 		return fmt.Errorf("load device %s: %w", jid, err)
 	}
 	if device == nil {
-		m.log.Warn().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).Msg("TEMP-DEBUG restore device missing")
+		m.log.Warn().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).Msg("restore device missing")
 		return fmt.Errorf("device %s: %w", jid, session.ErrNoDevice)
 	}
-	m.log.Debug().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).Bool("deleted", device.ID == nil).Msg("TEMP-DEBUG restore device loaded")
+	m.log.Debug().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).Bool("deleted", device.ID == nil).Msg("restore device loaded")
 	return m.attachAndConnect(ctx, instance.ID, device)
 }
 
@@ -251,11 +246,11 @@ func (m *Manager) restore(ctx context.Context, instance model.Instance) error {
 func (m *Manager) attachAndConnect(ctx context.Context, instanceID uuid.UUID, device *store.Device) error {
 	sess, err := newSession(instanceID, device, m.log, m.sink, m.maxMediaBytes)
 	if err != nil {
-		m.log.Warn().Str("instance_id", instanceID.String()).Err(err).Msg("TEMP-DEBUG attach new session failed")
+		m.log.Warn().Str("instance_id", instanceID.String()).Err(err).Msg("attach new session failed")
 		return err
 	}
 	if !m.registerRestored(instanceID, sess) {
-		m.log.Info().Str("instance_id", instanceID.String()).Msg("TEMP-DEBUG attach skipped: already registered")
+		m.log.Debug().Str("instance_id", instanceID.String()).Msg("attach skipped: already registered")
 		return nil
 	}
 	connect := m.restoreConnect
@@ -271,16 +266,16 @@ func (m *Manager) attachAndConnect(ctx context.Context, instanceID uuid.UUID, de
 	if err := connect(ctx, sess); err != nil {
 		m.log.Warn().Str("instance_id", instanceID.String()).Err(err).
 			Str("live_status", string(sess.Status())).Bool("socket_connected", sess.IsConnected()).
-			Msg("TEMP-DEBUG attach connectExisting failed")
+			Msg("attach connectExisting failed")
 		if retryableRestore(err) {
 			sess.scheduleRestoreRetry(err)
 			return nil
 		}
 		return err
 	}
-	m.log.Info().Str("instance_id", instanceID.String()).
+	m.log.Debug().Str("instance_id", instanceID.String()).
 		Str("live_status", string(sess.Status())).Bool("socket_connected", sess.IsConnected()).
-		Msg("TEMP-DEBUG attach connectExisting ok")
+		Msg("attach connectExisting dialed")
 	return nil
 }
 
@@ -415,11 +410,16 @@ type instanceSession struct {
 	disappearingMu sync.RWMutex
 	disappearing   map[string]time.Duration
 
-	mu           sync.RWMutex
-	status       session.Status
-	jid          string
-	paired       bool
-	terminal     bool
+	mu       sync.RWMutex
+	status   session.Status
+	jid      string
+	paired   bool
+	terminal bool
+	// dialed reports that a connect attempt opened the socket without the
+	// login completing yet: ConnectContext returned nil but no Connected
+	// event arrived since. A drop in this window means WhatsApp rejected
+	// the session (stale/duplicate device), not a transient network blip.
+	dialed       bool
 	qrCode       string
 	qrExpiresAt  time.Time
 	firstQR      chan qrResult
@@ -497,17 +497,35 @@ func (s *instanceSession) IsConnected() bool {
 	return s.client.IsConnected()
 }
 
+// errSessionRejected is the actionable reason recorded when WhatsApp drops
+// the connection immediately after it was opened, before any Connected event
+// arrives. The socket handshake succeeded but the session was rejected, so
+// retrying the same device cannot recover it: the device is stale (the phone
+// logged out this device) or another client took over the session, and the
+// instance needs a fresh pairing. It surfaces as last_error in GET /status.
+const errSessionRejected = "connection dropped by WhatsApp before login completed (socket opened but the session was rejected): the device is stale (the phone logged out this device) or another client took over the session; pair again with POST /instances/{id}/connect"
+
 // setStatus updates the lifecycle state, reports it to the sink when it
 // changed and applies the reconnect policy of the transition. A paired JID
 // marks the session as reconnectable, so a connected event after a pairing
 // turns later drops into retries. Terminal states (error and every
 // disconnected transition carrying a reason) stick: the socket close that
 // follows a restriction or a logout must not turn it into a retry.
+//
+// An immediate post-connect drop (a bare Disconnected while a dial is
+// pending, i.e. the socket opened but no Connected ever arrived) is the
+// rejected-session symptom, not a transient blip: it becomes a terminal
+// error with an actionable reason instead of an infinite retry (or a silent
+// no-op when the session never left disconnected).
 func (s *instanceSession) setStatus(status session.Status, jid, reason string) {
 	s.mu.Lock()
 	if status == session.StatusDisconnected && reason == "" && s.terminal {
 		s.mu.Unlock()
 		return
+	}
+	if status == session.StatusDisconnected && reason == "" && s.dialed {
+		status = session.StatusError
+		reason = errSessionRejected
 	}
 	if s.status == status && s.lastReason == reason {
 		s.mu.Unlock()
@@ -517,6 +535,9 @@ func (s *instanceSession) setStatus(status session.Status, jid, reason string) {
 	s.status = status
 	s.lastReason = reason
 	s.terminal = status == session.StatusError || (status == session.StatusDisconnected && reason != "")
+	if status == session.StatusConnected || s.terminal {
+		s.dialed = false
+	}
 	if jid != "" {
 		s.jid = jid
 		s.paired = true
@@ -527,17 +548,25 @@ func (s *instanceSession) setStatus(status session.Status, jid, reason string) {
 	s.log.Debug().Str("instance_id", s.instanceID.String()).Str("from", string(from)).Str("to", string(status)).Bool("jid_present", currentJID != "").Str("reason", reason).Bool("socket_connected", s.client.IsConnected()).Msg("session status changed")
 	if status == session.StatusError {
 		s.log.Warn().Str("instance_id", s.instanceID.String()).Str("from", string(from)).Str("reason", reason).Msg("session entered error status")
-	}
-	// TEMP-DEBUG websocket-investigacao: transicoes de socket em Info para
-	// aparecer com WZAP_LOG_LEVEL=info (o Debug acima fica invisivel no padrao).
-	if status == session.StatusConnected || (status == session.StatusDisconnected && from == session.StatusConnected) || status == session.StatusError {
-		s.log.Info().Str("instance_id", s.instanceID.String()).Str("from", string(from)).Str("to", string(status)).Str("reason", reason).Bool("socket_connected", s.client.IsConnected()).Msg("TEMP-DEBUG websocket transition")
+	} else if status == session.StatusDisconnected && from == session.StatusConnected {
+		s.log.Info().Str("instance_id", s.instanceID.String()).Str("from", string(from)).Str("to", string(status)).Bool("socket_connected", s.client.IsConnected()).Msg("websocket disconnected, retrying with backoff")
 	}
 
 	if s.sink != nil {
 		s.sink.OnConnection(context.Background(), s.instanceID, status, currentJID, reason)
 	}
 	s.applyConnectionPolicy(status, reason)
+}
+
+// markDialed records that a connect attempt opened the socket and the login
+// is now pending: the next bare Disconnected means the session was rejected.
+// It is set on every path where ConnectContext succeeds for an already
+// paired device (connectExisting and the stored-credentials branch of
+// Connect), and cleared by the Connected event or by any terminal state.
+func (s *instanceSession) markDialed() {
+	s.mu.Lock()
+	s.dialed = true
+	s.mu.Unlock()
 }
 
 // Send delivers an outbound message through the whatsmeow client.
@@ -570,8 +599,10 @@ func (s *instanceSession) Send(ctx context.Context, msg session.OutboundMessage)
 // IsOnWhatsApp resolves a phone number to its canonical JID.
 func (s *instanceSession) IsOnWhatsApp(ctx context.Context, phone string) (string, bool, error) {
 	if !s.client.IsConnected() {
-		// TEMP-DEBUG: prova o sintoma (Status x socket) no momento da falha.
-		s.log.Warn().Str("instance_id", s.instanceID.String()).Str("live_status", string(s.Status())).Bool("socket_connected", false).Msg("TEMP-DEBUG isOnWhatsApp blocked: socket down")
+		// O Status pode dizer "connected" com o socket já morto (o banco só
+		// vê o drop quando o evento chega): registra ambos no momento da
+		// falha para expor a divergência.
+		s.log.Warn().Str("instance_id", s.instanceID.String()).Str("live_status", string(s.Status())).Bool("socket_connected", false).Msg("isOnWhatsApp blocked: socket down")
 		return "", false, fmt.Errorf("%w: is on whatsapp", session.ErrNotConnected)
 	}
 	responses, err := s.client.IsOnWhatsApp(ctx, []string{phone})
@@ -745,26 +776,27 @@ func (s *instanceSession) logoutTolerantly(ctx context.Context) {
 	s.log.Warn().Str("instance_id", s.instanceID.String()).Err(err).Msg("logout from whatsapp failed")
 }
 
-// connectExisting brings an already paired device online.
-// TEMP-DEBUG: envolve o ConnectContext com o estado do socket antes/depois,
-// para provar se o handshake foi chamado e se o socket caiu logo em seguida.
+// connectExisting brings an already paired device online. A nil return only
+// means the socket opened: the login still has to complete with a Connected
+// event, so the dial is marked pending for the post-connect drop detection.
 func (s *instanceSession) connectExisting(ctx context.Context) error {
-	s.log.Info().Str("instance_id", s.instanceID.String()).
-		Bool("socket_before", s.client.IsConnected()).Str("status_before", string(s.Status())).
-		Msg("TEMP-DEBUG connectExisting start")
+	s.log.Debug().Str("instance_id", s.instanceID.String()).
+		Bool("socket_connected", s.client.IsConnected()).Str("status", string(s.Status())).
+		Msg("connecting existing session")
 	if err := s.client.ConnectContext(ctx); err != nil {
 		if errors.Is(err, whatsmeow.ErrAlreadyConnected) {
-			s.log.Info().Str("instance_id", s.instanceID.String()).Bool("socket_connected", s.client.IsConnected()).Msg("TEMP-DEBUG connectExisting already-connected")
+			s.log.Debug().Str("instance_id", s.instanceID.String()).Msg("session already connected")
 			return nil
 		}
 		s.log.Warn().Str("instance_id", s.instanceID.String()).Err(err).
 			Bool("socket_connected", s.client.IsConnected()).Str("live_status", string(s.Status())).
-			Msg("TEMP-DEBUG connectExisting failed")
+			Msg("connect existing session failed")
 		return classifySessionError(err)
 	}
-	s.log.Info().Str("instance_id", s.instanceID.String()).
+	s.markDialed()
+	s.log.Debug().Str("instance_id", s.instanceID.String()).
 		Bool("socket_connected", s.client.IsConnected()).Str("live_status", string(s.Status())).
-		Msg("TEMP-DEBUG connectExisting returned nil")
+		Msg("connect existing session dialed, waiting for login")
 	return nil
 }
 

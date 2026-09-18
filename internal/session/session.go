@@ -342,6 +342,60 @@ type Privacy struct {
 	GroupsAdd    string
 }
 
+// ContactCheckResult is the on-WhatsApp lookup of one phone number: JID and
+// IsOnWhatsApp report the registration, LastSeen is nil when unknown.
+type ContactCheckResult struct {
+	Phone        string
+	JID          string
+	IsOnWhatsApp bool
+	LastSeen     *time.Time
+}
+
+// ProfilePictureInfo is the picture URL of a contact with its version token,
+// empty when the contact carries no picture.
+type ProfilePictureInfo struct {
+	URL     string
+	Version string
+}
+
+// BusinessProfile is the business profile of a contact: the display name, the
+// description and the verified name (empty when not verified).
+type BusinessProfile struct {
+	Name         string
+	Description  string
+	VerifiedName string
+}
+
+// NewsletterMessage is one channel message: ServerID is the upstream id,
+// Content the text snapshot and Timestamp the publish moment.
+type NewsletterMessage struct {
+	ServerID  string
+	Content   string
+	Timestamp time.Time
+}
+
+// StatusPrivacy is the own status privacy: Mode travels as the upstream
+// literal (contacts, contact_blacklist or none) with JIDs the allow/deny
+// list.
+type StatusPrivacy struct {
+	Mode string
+	JIDs []string
+}
+
+// Disappearing timer presets carried by the chat-settings methods: Off
+// disables the timer, the others set the matching duration.
+// DisappearingOff disables disappearing messages.
+const DisappearingOff time.Duration = 0
+
+// Disappearing24h expires messages after 24 hours.
+const Disappearing24h time.Duration = 24 * time.Hour
+
+// Disappearing7d expires messages after 7 days.
+const Disappearing7d time.Duration = 7 * 24 * time.Hour
+
+// Disappearing90d expires messages after 90 days.
+const Disappearing90d time.Duration = 90 * 24 * time.Hour
+
 // EventSink consumes session events. Implementations must be safe for
 // concurrent use and should not block the session for long.
 type EventSink interface {
@@ -461,6 +515,86 @@ type Session interface {
 	// SetPrivacy applies the non-empty fields of input to the upstream
 	// privacy settings and returns the resulting settings.
 	SetPrivacy(ctx context.Context, input Privacy) (Privacy, error)
+	// EditMessage replaces the text of messageID in chatJID. An unknown
+	// message is ErrNotFound; editing without permission is ErrForbidden.
+	EditMessage(ctx context.Context, chatJID, messageID, text string) (newMessageID string, err error)
+	// GetJoinedGroups returns the live metadata of every group the instance
+	// is a member of.
+	GetJoinedGroups(ctx context.Context) ([]GroupInfo, error)
+	// GetGroupInfoFromLink resolves inviteCode to the group metadata without
+	// joining. An unknown code is ErrNotFound.
+	GetGroupInfoFromLink(ctx context.Context, inviteCode string) (GroupInfo, error)
+	// GetGroupRequestParticipants lists the pending join requests of
+	// groupJID. An unknown group is ErrNotFound.
+	GetGroupRequestParticipants(ctx context.Context, groupJID string) ([]GroupParticipant, error)
+	// UpdateGroupRequestParticipants approves or rejects participantJIDs of
+	// groupJID. An unknown action is ErrInvalidRecipient; acting without
+	// group permission is ErrForbidden.
+	UpdateGroupRequestParticipants(ctx context.Context, groupJID, action string, participantJIDs []string) error
+	// SetGroupAnnounce toggles the announce-only mode of groupJID. Acting
+	// without group permission is ErrForbidden.
+	SetGroupAnnounce(ctx context.Context, groupJID string, announce bool) error
+	// SetGroupLocked toggles the locked (info-edit restricted) mode of
+	// groupJID. Acting without group permission is ErrForbidden.
+	SetGroupLocked(ctx context.Context, groupJID string, locked bool) error
+	// SetGroupJoinApprovalMode sets the join-approval mode of groupJID. An
+	// unknown mode is ErrInvalidRecipient.
+	SetGroupJoinApprovalMode(ctx context.Context, groupJID, mode string) error
+	// SetGroupMemberAddMode sets the member-add mode of groupJID. An unknown
+	// mode is ErrInvalidRecipient.
+	SetGroupMemberAddMode(ctx context.Context, groupJID, mode string) error
+	// CheckContacts looks up phones on WhatsApp, one result per input in
+	// order. Malformed numbers report IsOnWhatsApp false, never an error.
+	CheckContacts(ctx context.Context, phones []string) ([]ContactCheckResult, error)
+	// GetContactDevices lists the companion device JIDs of jid. A malformed
+	// jid is ErrInvalidRecipient.
+	GetContactDevices(ctx context.Context, jid string) ([]string, error)
+	// GetProfilePictureInfo returns the picture URL of jid. A contact
+	// without picture returns an empty URL without failing.
+	GetProfilePictureInfo(ctx context.Context, jid string) (ProfilePictureInfo, error)
+	// GetBusinessProfile returns the business profile of jid. A contact
+	// without business profile is ErrNotFound.
+	GetBusinessProfile(ctx context.Context, jid string) (BusinessProfile, error)
+	// GetContactQRLink returns the own contact QR link, revoking it first
+	// when revoke is true.
+	GetContactQRLink(ctx context.Context, revoke bool) (link string, err error)
+	// GetBlocklist returns the JIDs the instance has blocked.
+	GetBlocklist(ctx context.Context) ([]string, error)
+	// UpdateBlocklist applies action (block or unblock) to jid. An unknown
+	// action is ErrInvalidRecipient.
+	UpdateBlocklist(ctx context.Context, jid, action string) error
+	// CreateNewsletter creates a channel with title and description and
+	// returns its metadata. A duplicate title is ErrForbidden.
+	CreateNewsletter(ctx context.Context, title, description string) (NewsletterInfo, error)
+	// NewsletterToggleMute mutes or unmutes channelJID. An unknown channel
+	// is ErrNotFound.
+	NewsletterToggleMute(ctx context.Context, channelJID string, muted bool) error
+	// NewsletterMarkViewed marks serverIDs of channelJID as viewed. An
+	// unknown channel is ErrNotFound.
+	NewsletterMarkViewed(ctx context.Context, channelJID string, serverIDs []string) error
+	// NewsletterSendReaction sends reaction to serverID of channelJID. An
+	// unknown message is ErrNotFound.
+	NewsletterSendReaction(ctx context.Context, channelJID, serverID, reaction string) error
+	// GetNewsletterMessages pages the messages of channelJID from cursor
+	// with limit entries. An unknown channel is ErrNotFound.
+	GetNewsletterMessages(ctx context.Context, channelJID, cursor string, limit int) ([]NewsletterMessage, string, error)
+	// GetNewsletterMessageUpdates returns the pending message updates of
+	// channelJID. An unknown channel is ErrNotFound.
+	GetNewsletterMessageUpdates(ctx context.Context, channelJID string) ([]NewsletterMessage, error)
+	// SetDisappearingTimer sets the disappearing timer of chatJID. An
+	// unsupported duration is ErrInvalidRecipient.
+	SetDisappearingTimer(ctx context.Context, chatJID string, duration time.Duration) error
+	// SetDefaultDisappearingTimer sets the default disappearing timer for
+	// new chats. An unsupported duration is ErrInvalidRecipient.
+	SetDefaultDisappearingTimer(ctx context.Context, duration time.Duration) error
+	// GetDisappearingTimer returns the disappearing timer of chatJID, with
+	// found false when the chat carries no timer.
+	GetDisappearingTimer(ctx context.Context, chatJID string) (duration time.Duration, found bool, err error)
+	// GetStatusPrivacy returns the own status privacy settings.
+	GetStatusPrivacy(ctx context.Context) (StatusPrivacy, error)
+	// SubscribePresence subscribes to the presence of jid. A malformed jid
+	// is ErrInvalidRecipient.
+	SubscribePresence(ctx context.Context, jid string) error
 	// HistorySyncSnapshot returns the accumulated history-sync feed of the
 	// instance (progress, conversation batches, contacts). The Import plan
 	// consumes it after pairing; each session accumulates only its own feed.

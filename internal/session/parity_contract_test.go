@@ -15,6 +15,6 @@ func TestParityConstants(t *testing.T) {
 	if Disappearing90d != 90*24*time.Hour {
 		t.Fatalf("Disappearing90d = %v, want 2160h", Disappearing90d)
 	}
-	var _ NewsletterMessage = NewsletterMessage{ServerID: "1"}
-	var _ ContactCheckResult = ContactCheckResult{Phone: "5511999999999"}
+	var _ = NewsletterMessage{ServerID: "1"}
+	var _ = ContactCheckResult{Phone: "5511999999999"}
 }

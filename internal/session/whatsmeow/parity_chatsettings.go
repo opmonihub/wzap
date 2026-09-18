@@ -76,20 +76,22 @@ func (s *instanceSession) GetDisappearingTimer(ctx context.Context, chatJID stri
 	if !s.client.IsConnected() {
 		return 0, false, fmt.Errorf("%w: get disappearing timer", session.ErrNotConnected)
 	}
-	s.disappearingMu.Lock()
+	s.disappearingMu.RLock()
 	duration, ok := s.disappearing[chatJID]
-	s.disappearingMu.Unlock()
+	s.disappearingMu.RUnlock()
 	if !ok {
 		return 0, false, nil
 	}
 	return duration, true, nil
 }
 
-// GetStatusPrivacy returns the own status privacy settings. The upstream
-// literals are contacts, blacklist and whitelist; they map to the session
-// modes contacts, contact_blacklist and none, with JIDs carrying the
-// allow/deny list. An empty upstream answers the contacts default, like the
-// fake does.
+// GetStatusPrivacy returns the own status privacy settings. Upstream knows
+// contacts, blacklist and whitelist (types.StatusPrivacyType*); the session
+// contract only allows contacts, contact_blacklist and none, so whitelist
+// maps to none. The JIDs are preserved best-effort for caller visibility
+// even in the none case: upstream none (whitelist) still carries its member
+// list, and dropping it would hide who the setting applies to. An empty
+// upstream answers the contacts default, like the fake does.
 func (s *instanceSession) GetStatusPrivacy(ctx context.Context) (session.StatusPrivacy, error) {
 	if !s.client.IsConnected() {
 		return session.StatusPrivacy{}, fmt.Errorf("%w: status privacy", session.ErrNotConnected)
@@ -108,6 +110,8 @@ func statusPrivacyFromTypes(list []types.StatusPrivacy) session.StatusPrivacy {
 		return session.StatusPrivacy{Mode: "contacts"}
 	}
 	first := list[0]
+	// Default none covers whitelist (no session mode for it, see
+	// GetStatusPrivacy) and any future upstream type.
 	mode := "none"
 	switch first.Type {
 	case types.StatusPrivacyTypeContacts:
@@ -133,7 +137,7 @@ func (s *instanceSession) SubscribePresence(ctx context.Context, jid string) err
 		return fmt.Errorf("%w: subscribe presence", session.ErrNotConnected)
 	}
 	if err := s.client.SubscribePresence(ctx, parsed); err != nil {
-		return classifySessionError(err)
+		return classifyRemoteError(err)
 	}
 	return nil
 }

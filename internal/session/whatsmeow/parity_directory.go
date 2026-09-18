@@ -49,7 +49,7 @@ func (s *instanceSession) CheckContacts(ctx context.Context, phones []string) ([
 	}
 	responses, err := s.client.IsOnWhatsApp(ctx, queries)
 	if err != nil {
-		return nil, classifySessionError(err)
+		return nil, classifyRemoteError(err)
 	}
 	if len(responses) != len(queries) {
 		return nil, fmt.Errorf("%w: contact check returned %d results for %d queries", session.ErrTransient, len(responses), len(queries))
@@ -96,6 +96,9 @@ func (s *instanceSession) GetProfilePictureInfo(ctx context.Context, jid string)
 		return session.ProfilePictureInfo{}, fmt.Errorf("%w: contact picture", session.ErrNotConnected)
 	}
 	info, err := s.client.GetProfilePictureInfo(ctx, parsed, nil)
+	// A nil params is the default image query, not a panic: the pinned
+	// GetProfilePictureInfo replaces nil with &GetProfilePictureParams{}
+	// (user.go) and the Session signature stays unchanged.
 	if err != nil {
 		return session.ProfilePictureInfo{}, classifyRemoteError(err)
 	}
@@ -122,15 +125,23 @@ func (s *instanceSession) GetBusinessProfile(ctx context.Context, jid string) (s
 	if err != nil {
 		// A contact without business profile answers without the profile
 		// node instead of an IQ error, so it needs its own mapping.
+		// Sentinel only: the upstream error may carry IQ XML/JID bytes.
 		var missing *whatsmeow.ElementMissingError
 		if errors.As(err, &missing) {
-			return session.BusinessProfile{}, fmt.Errorf("%w: %v", session.ErrNotFound, err)
+			return session.BusinessProfile{}, fmt.Errorf("%w: business profile", session.ErrNotFound)
 		}
 		return session.BusinessProfile{}, classifyRemoteError(err)
 	}
+	// "description" is a child tag of the upstream <profile_options> node,
+	// whose children the pinned parser copies verbatim into
+	// BusinessProfile.ProfileOptions keyed by tag (user.go); a missing key
+	// reads "".
 	out := session.BusinessProfile{Description: profile.ProfileOptions["description"]}
 	if infos, uerr := s.client.GetUserInfo(ctx, []types.JID{parsed}); uerr == nil {
-		if info, ok := infos[parsed]; ok && info.VerifiedName != nil {
+		// The Details getter is nil-safe on the pinned protobufs (returns
+		// "" on a nil receiver), so the explicit Details check below is
+		// belt-and-braces, not load-bearing.
+		if info, ok := infos[parsed]; ok && info.VerifiedName != nil && info.VerifiedName.Details != nil {
 			out.Name = info.VerifiedName.Details.GetVerifiedName()
 			out.VerifiedName = out.Name
 		}
@@ -146,15 +157,17 @@ func (s *instanceSession) GetContactQRLink(ctx context.Context, revoke bool) (st
 	}
 	link, err := s.client.GetContactQRLink(ctx, revoke)
 	if err != nil {
-		return "", classifySessionError(err)
+		return "", classifyRemoteError(err)
 	}
 	return link, nil
 }
 
 // normalizeContactPhone keeps only the digits of raw, ignoring the server of
 // a JID. It mirrors message.NormalizePhone without importing the domain
-// layer, preserving the transport to session direction of the dependency
-// boundary.
+// layer: internal/message already depends on internal/session, so importing
+// it from the session adapter would invert the domain→session boundary the
+// packages are split on. The Brazilian 9th-digit rule is not duplicated
+// (single-attempt lookup).
 func normalizeContactPhone(raw string) string {
 	if user, _, found := strings.Cut(raw, "@"); found {
 		raw = user

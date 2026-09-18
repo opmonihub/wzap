@@ -10,6 +10,14 @@ import (
 	"wzap/internal/session"
 )
 
+// blocklistChangeActionUnblock is the unblock literal. go doc
+// go.mau.fi/whatsmeow/types/events.BlocklistChangeAction on the pinned
+// version (v0.0.0-20260915211301-f376da267f95) exposes only
+// BlocklistChangeActionBlock ("block") as a named constant, so the validated
+// "unblock" string converts explicitly instead of inventing a constant in
+// the events package.
+const blocklistChangeActionUnblock = events.BlocklistChangeAction("unblock")
+
 // GetBlocklist returns the JIDs the instance has blocked. An offline client
 // is ErrNotConnected.
 func (s *instanceSession) GetBlocklist(ctx context.Context) ([]string, error) {
@@ -38,7 +46,7 @@ func (s *instanceSession) UpdateBlocklist(ctx context.Context, jid, action strin
 	case "block":
 		change = events.BlocklistChangeActionBlock
 	case "unblock":
-		change = events.BlocklistChangeAction("unblock")
+		change = blocklistChangeActionUnblock
 	default:
 		return fmt.Errorf("%w: unknown blocklist action %q", session.ErrInvalidRecipient, action)
 	}

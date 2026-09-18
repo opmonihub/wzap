@@ -375,7 +375,7 @@ type instanceSession struct {
 	// disappearingMu guards disappearing, the process-local record of the
 	// timers set through this session. The pinned library exposes no fetch,
 	// so GetDisappearingTimer only knows what this session set.
-	disappearingMu sync.Mutex
+	disappearingMu sync.RWMutex
 	disappearing   map[string]time.Duration
 
 	mu           sync.RWMutex

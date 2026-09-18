@@ -102,8 +102,12 @@ func (s *instanceSession) NewsletterSendReaction(ctx context.Context, channelJID
 // GetNewsletterMessages pages the messages of channelJID from cursor with
 // limit entries. An empty limit defaults to 50 and caps at 100; cursor is
 // the opaque server id of the page edge, empty for the first page.
-// nextCursor is the server id of the last entry, empty on the final page.
-// An unknown channel is ErrNotFound.
+// Upstream (GetNewsletterMessagesParams{Count, Before} on the pinned
+// version) only pages backward: Before fetches messages older than the id
+// and Before 0 omits the attribute for the latest page, so there is no
+// After direction to use. nextCursor is the server id of the last entry,
+// empty on the final page so callers stop without an extra fetch. An
+// unknown channel is ErrNotFound.
 func (s *instanceSession) GetNewsletterMessages(ctx context.Context, channelJID, cursor string, limit int) ([]session.NewsletterMessage, string, error) {
 	channel, err := parseChannelJID(channelJID)
 	if err != nil {

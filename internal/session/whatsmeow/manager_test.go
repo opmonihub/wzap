@@ -616,6 +616,42 @@ func TestRestoreAllSkipsInstancesWithoutCredentials(t *testing.T) {
 	}
 }
 
+// TestRestoreAllSkipsAlreadyRegistered verifica o lote 1 do auto-reconnect: o
+// restore no startup só reconecta via Connect as instâncias com JID
+// persistido (whatsmeow_device) que ainda não têm sessão registrada. Uma
+// instância sem JID (nunca pareada) e uma já registrada são ignoradas sem
+// nenhum handshake.
+func TestRestoreAllSkipsAlreadyRegistered(t *testing.T) {
+	registeredID := uuid.New()
+	unpairedID := uuid.New()
+	manager := &Manager{
+		instances: &fakeInstanceRepo{instances: []model.Instance{
+			{ID: registeredID, Status: "connected", WhatsAppJID: "5511999999999@s.whatsapp.net"},
+			{ID: unpairedID, Status: "disconnected"},
+		}},
+		log:      zerolog.Nop(),
+		sessions: map[uuid.UUID]*instanceSession{registeredID: {instanceID: registeredID}},
+	}
+	calls := 0
+	manager.restoreConnect = func(context.Context, *instanceSession) error {
+		calls++
+		return nil
+	}
+
+	if err := manager.RestoreAll(context.Background()); err != nil {
+		t.Fatalf("RestoreAll: %v", err)
+	}
+	if calls != 0 {
+		t.Errorf("restoreConnect calls = %d, want 0 (só instâncias com JID e sem sessão reconectam)", calls)
+	}
+	if _, ok := manager.Get(registeredID); !ok {
+		t.Error("sessão registrada foi perdida no restore")
+	}
+	if _, ok := manager.Get(unpairedID); ok {
+		t.Error("instância sem JID ganhou sessão no restore")
+	}
+}
+
 func TestRestoreAllReflectsFailure(t *testing.T) {
 	manager := newTestManager(t)
 	jid := saveTestDevice(t, manager.devices, "5511999999999")

@@ -68,6 +68,36 @@ type InstanceService interface {
 	SetProfilePhoto(ctx context.Context, id uuid.UUID, image []byte) error
 	GetPrivacy(ctx context.Context, id uuid.UUID) (session.Privacy, error)
 	SetPrivacy(ctx context.Context, id uuid.UUID, input session.Privacy) (session.Privacy, error)
+	// Fase 1 parity reads and edit (whatsmeow-parity-routes): the service
+	// signatures mirror internal/instance parity_edits.go and parity_reads.go
+	// so the handlers below stay thin transport adapters.
+	EditMessage(ctx context.Context, id uuid.UUID, chatJID, messageID, text string) (string, error)
+	GetJoinedGroups(ctx context.Context, id uuid.UUID, limit int, cursor string) ([]instance.Group, string, error)
+	GetGroupInvitePreview(ctx context.Context, id uuid.UUID, inviteCode string) (instance.Group, error)
+	CheckContacts(ctx context.Context, id uuid.UUID, phones []string) ([]session.ContactCheckResult, error)
+	GetContactDevices(ctx context.Context, id uuid.UUID, jid string) ([]string, error)
+	GetContactPhoto(ctx context.Context, id uuid.UUID, jid string) (session.ProfilePictureInfo, error)
+	GetContactBusiness(ctx context.Context, id uuid.UUID, jid string) (session.BusinessProfile, error)
+	GetBlocklist(ctx context.Context, id uuid.UUID) ([]string, error)
+	GetStatusPrivacy(ctx context.Context, id uuid.UUID) (session.StatusPrivacy, error)
+	GetDisappearingTimer(ctx context.Context, id uuid.UUID, chatJID string) (time.Duration, bool, error)
+	GetNewsletterMessages(ctx context.Context, id uuid.UUID, channel, cursor string, limit int) ([]session.NewsletterMessage, string, error)
+	GetNewsletterUpdates(ctx context.Context, id uuid.UUID, channel string) ([]session.NewsletterMessage, error)
+	// Fase 2-3 parity moderation and writes (whatsmeow-parity-routes): the
+	// service signatures mirror internal/instance parity_moderation.go and
+	// parity_writes.go so the handlers stay thin transport adapters.
+	GetGroupRequests(ctx context.Context, id uuid.UUID, groupJID string) ([]instance.GroupParticipant, error)
+	UpdateGroupRequests(ctx context.Context, id uuid.UUID, groupJID, action string, participants []string) error
+	UpdateGroupSettings(ctx context.Context, id uuid.UUID, groupJID string, announce, locked *bool, joinApproval, memberAddMode *string) (instance.Group, error)
+	UpdateBlocklist(ctx context.Context, id uuid.UUID, jid, action string) error
+	SetDisappearingTimer(ctx context.Context, id uuid.UUID, chatJID string, duration time.Duration) error
+	SetDefaultDisappearingTimer(ctx context.Context, id uuid.UUID, duration time.Duration) error
+	SubscribePresence(ctx context.Context, id uuid.UUID, jid string) error
+	GetContactQRLink(ctx context.Context, id uuid.UUID, revoke bool) (string, error)
+	CreateNewsletter(ctx context.Context, id uuid.UUID, title, description string) (instance.Newsletter, error)
+	MuteNewsletter(ctx context.Context, id uuid.UUID, channel string, muted bool) error
+	MarkNewsletterViewed(ctx context.Context, id uuid.UUID, channel string, serverIDs []string) error
+	ReactNewsletter(ctx context.Context, id uuid.UUID, channel, serverID, reaction string) error
 }
 
 // The service satisfies the handler contract; the assertion catches signature
@@ -676,6 +706,12 @@ func writeInstanceError(w http.ResponseWriter, r *http.Request, err error) {
 		Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "invalid operation input")
 	case errors.Is(err, instance.ErrGroupNotFound):
 		Error(w, r, http.StatusNotFound, "not_found", "group not found")
+	// ErrContactNotFound stays distinct from ErrGroupNotFound so a missing
+	// contact never surfaces with a misleading group message. The transversal
+	// wiring in Task 9 keeps this mapping; it lives here already so the
+	// Fase-1 directory reads answer 404 before the routes land.
+	case errors.Is(err, instance.ErrContactNotFound):
+		Error(w, r, http.StatusNotFound, "not_found", "contact not found")
 	case errors.Is(err, instance.ErrNewsletterNotFound):
 		Error(w, r, http.StatusNotFound, "not_found", "newsletter not found")
 	case errors.Is(err, instance.ErrStatusNotFound):

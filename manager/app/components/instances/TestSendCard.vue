@@ -451,7 +451,7 @@ onUnmounted(() => {
             type="submit"
             color="neutral"
             variant="soft"
-            icon="i-lucide-phone-search"
+            icon="i-lucide-phone-call"
             :loading="checking"
             :label="checking ? t('instances.send.checking') : t('instances.send.check')"
           />

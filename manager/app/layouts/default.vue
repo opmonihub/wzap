@@ -60,8 +60,9 @@ watch(() => route.fullPath, () => {
           :items="[{
             label: t('common.docs'),
             icon: 'i-lucide-book-open',
-            to: '/swagger/',
-            target: '_blank'
+            href: '/swagger/',
+            target: '_blank',
+            external: true
           }]"
           orientation="vertical"
           tooltip

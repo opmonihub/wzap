@@ -56,7 +56,11 @@ export default defineNuxtConfig({
         '/auth': devProxyTarget,
         '/instances': devProxyTarget,
         '/users': devProxyTarget,
-        '/media': devProxyTarget
+        '/media': devProxyTarget,
+        // Backend-owned Swagger UI: without this the standalone dev origin
+        // (manager-dev on :3000, host-run dev on :3001) would answer
+        // /swagger/ with the Nuxt 404 page instead of the Go docs.
+        '/swagger': devProxyTarget
       }
     }
   },

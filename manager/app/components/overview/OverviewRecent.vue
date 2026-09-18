@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 import type { Instance } from '~/types/api'
+import InstanceStatusBadge from '~/components/instances/InstanceStatusBadge.vue'
 
 // The 5 most recent instances (useOverview.recent) next to the chart,
 // mirroring the template's HomeSales mini UTable: no sorting, filtering or

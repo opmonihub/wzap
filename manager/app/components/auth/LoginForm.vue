@@ -47,9 +47,27 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   failure.value = null
   try {
     await login(event.data.email.trim(), event.data.password)
-    await navigateTo('/')
   } catch (error) {
-    failure.value = error instanceof ApiError ? error.message : t('auth.loginFailed')
+    // A plain Error (not ApiError) means the request never reached the Go
+    // backend: offline service or network failure. Showing the credential
+    // hint here misdirects the user into retrying a correct password.
+    if (!(error instanceof ApiError)) {
+      failure.value = t('auth.serviceUnavailable')
+      pending.value = false
+      return
+    }
+    failure.value = error.message || t('auth.loginFailed')
+    pending.value = false
+    return
+  }
+  try {
+    await navigateTo('/')
+  } catch {
+    // Post-login navigation failures (e.g. a route chunk that fails to load)
+    // are not credential problems: the session already exists, so route home
+    // with a full reload instead of stranding an authenticated user on the
+    // form, which invites a duplicate login and a second session.
+    await navigateTo('/', { external: true })
   } finally {
     pending.value = false
   }

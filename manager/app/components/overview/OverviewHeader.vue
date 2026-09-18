@@ -3,14 +3,15 @@ import type { OverviewPeriod } from '~/components/overview/OverviewChart.client.
 
 // Home overview shell: dashboard navbar (sidebar collapse, notifications
 // slideover shortcut, create shortcut to /instances), the chart period
-// toolbar, and the welcome line. Owns the UDashboardPanel slots so the page
-// stays orchestration-only; the snapshot body (PageState + stats/chart/
+// toolbar and the vision-scope line. Owns the UDashboardPanel slots so the
+// page stays orchestration-only; the snapshot body (PageState + stats/chart/
 // recent) renders through the default slot. Notifications state lives here
 // via useDashboard (no prop drilling); the create button navigates to
-// /instances directly (no emit).
+// /instances directly (no emit). The scope line is the only global-vs-account
+// vision indicator on the home screen — users without it cannot tell a scoped
+// listing from missing instances.
 defineProps<{
-  userEmail: string
-  scope: string
+  scope: string | null
   periodItems: { label: string, value: OverviewPeriod }[]
 }>()
 
@@ -68,8 +69,7 @@ const { isNotificationsSlideoverOpen } = useDashboard()
     </template>
 
     <template #body>
-      <p class="text-sm text-muted">
-        {{ t('overview.welcome', { email: userEmail }) }}
+      <p v-if="scope" class="text-sm text-muted">
         {{ scope === 'global' ? t('overview.scopeGlobal') : t('overview.scopeInstance') }}
       </p>
 

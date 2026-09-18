@@ -66,7 +66,16 @@ async function onSave() {
   }
 }
 
-watch(() => props.instanceId, () => void load(), { immediate: true })
+// GET /privacy answers 409 while disconnected; skip the load so section
+// visits stay quiet until the session can answer.
+watch(() => [props.instanceId, props.status] as const, () => {
+  if (props.status !== 'connected') {
+    privacy.value = null
+    failure.value = null
+    return
+  }
+  void load()
+}, { immediate: true })
 </script>
 
 <template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MessageStatusBadge from '~/components/instances/MessageStatusBadge.vue'
 import type { OutboundMessage } from '~/types/api'
 
 const props = defineProps<{

@@ -6,6 +6,9 @@ name: wzap-dev
 # Go edits rebuild via Air (~1-2s, no docker rebuild). Console edits need
 # `pnpm --dir manager build` (or `pnpm dev` via --profile ui on :3000) then
 # refresh — WZAP_MANAGER_DIR serves .output/public live from disk.
+# Host-run manager dev (e.g. :3001) must set NUXT_DEV_PROXY_TARGET to the dev
+# backend below — the nuxt.config proxy default (127.0.0.1:8081) is the prod
+# address, not this dev backend.
 
 services:
   postgres:
@@ -71,6 +74,10 @@ services:
     image: node:24-slim
     working_dir: /src/manager
     command: ["sh", "-c", "corepack enable && pnpm install --frozen-lockfile && pnpm dev --port 3000 --host 0.0.0.0"]
+    environment:
+      # Same compose network as the Go service: the Vite dev proxy must hit
+      # wzap:8080, not the nuxt.config host default (127.0.0.1:8081).
+      NUXT_DEV_PROXY_TARGET: http://wzap:8080
     ports:
       - "127.0.0.1:3000:3000"
     volumes:

@@ -7,6 +7,8 @@ import InstancesTableJidCell from '~/components/instances/InstancesTableJidCell.
 import InstancesTableNameCell from '~/components/instances/InstancesTableNameCell.vue'
 import InstancesTableOwnerCell from '~/components/instances/InstancesTableOwnerCell.vue'
 import InstancesTableStatusCell from '~/components/instances/InstancesTableStatusCell.vue'
+import DataTableFooter from '~/components/shared/DataTableFooter.vue'
+import DataTableToolbar from '~/components/shared/DataTableToolbar.vue'
 import type { Instance, InstanceStatus } from '~/types/api'
 
 const props = defineProps<{

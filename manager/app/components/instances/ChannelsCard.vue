@@ -125,8 +125,17 @@ async function onDeleteStatus(id: string) {
   }
 }
 
-watch(() => props.instanceId, () => {
+// Session-backed lists answer 409 while disconnected, which the browser
+// logs as a failed request on every section visit — skip the fetch and
+// clear stale rows until the session is connected.
+watch(() => [props.instanceId, props.status] as const, () => {
   lookedUp.value = null
+  if (props.status !== 'connected') {
+    followed.value = []
+    statuses.value = []
+    failure.value = null
+    return
+  }
   void refresh()
 }, { immediate: true })
 </script>

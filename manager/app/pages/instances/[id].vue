@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ApiError } from '~/composables/useApi'
+import PageState from '~/components/shared/PageState.vue'
 import DeleteInstanceModal from '~/components/instances/DeleteInstanceModal.vue'
-import InstanceHeaderStats from '~/components/instances/InstanceHeaderStats.vue'
 import InstanceChannelsSection from '~/components/instances/detail/InstanceChannelsSection.vue'
 import InstanceGroupsSection from '~/components/instances/detail/InstanceGroupsSection.vue'
 import InstanceIntegrationsSection from '~/components/instances/detail/InstanceIntegrationsSection.vue'
@@ -29,16 +29,6 @@ const failure = ref<string | null>(null)
 const deleteOpen = ref(false)
 
 const section = ref('overview')
-
-// Chatwoot state for the header stats strip: ChatwootCard (inside the
-// integrations section) reports its loaded config via chatwoot-loaded, so the
-// page never fetches it twice. False until the integrations tab is visited;
-// null means the backend answered 400 chatwoot_disabled (global off).
-const chatwootState = ref<boolean | null>(false)
-
-function onChatwootLoaded(value: boolean | null) {
-  chatwootState.value = value
-}
 
 useSeoMeta({
   title: 'Instance details'
@@ -86,14 +76,6 @@ await load()
           <InstanceStatusBadge :status="instance.status" />
         </template>
       </UDashboardNavbar>
-
-      <InstanceHeaderStats
-        v-if="instance && !pending && !notFound && !failure"
-        :instance="instance"
-        :webhook-enabled="instance.webhook_enabled"
-        :webhook-count="instance.webhook_events.length"
-        :chatwoot-state="chatwootState"
-      />
 
       <InstanceSectionNav
         v-if="instance && !pending && !notFound && !failure"
@@ -161,7 +143,6 @@ await load()
               v-else-if="section === 'integrations'"
               :instance="instance"
               @webhook-updated="(value: Instance) => { instance = value }"
-              @chatwoot-loaded="onChatwootLoaded"
             />
 
             <InstanceSettingsSection

@@ -131,6 +131,8 @@ function tooltip(point: BucketPoint): string {
       />
 
       <VisCrosshair
+        :x="x"
+        :y="y"
         color="var(--ui-primary)"
         :template="tooltip"
       />

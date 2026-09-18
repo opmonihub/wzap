@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import { sub } from 'date-fns'
+import PageState from '~/components/shared/PageState.vue'
 import type { OverviewPeriod, OverviewRange } from '~/components/overview/OverviewChart.client.vue'
 
 // Home overview orchestration only: scoped stat cards from GET
 // /instances/stats (local fallback over the accumulated listing), a
 // created_at histogram regrouped client-side by period, and the 5 most
-// recent instances. Shell (navbar + period toolbar + welcome) lives in
+// recent instances. Shell (navbar + period toolbar + scope line) lives in
 // OverviewHeader; snapshot rendering lives in OverviewStats/OverviewChart/
 // OverviewRecent behind PageState. No invented data: when both attempts fail
 // the page shows the error with retry; when stats fall back to the local
 // count a discrete notice says so.
 const { t } = useI18n()
-const { user, scope } = useAuth()
+const { scope } = useAuth()
 const { stats, recent, items, pending, failure, fallback, listingFailed, refresh } = useOverview()
 
 const range = shallowRef<OverviewRange>({
@@ -37,8 +38,7 @@ await refresh()
   <OverviewHeader
     v-model:period="period"
     :period-items="periodItems"
-    :user-email="user?.email ?? ''"
-    :scope="scope ?? ''"
+    :scope="scope ?? null"
   >
     <!-- Initial load renders skeletons; after the first fetch the snapshot
       stays on screen across retries (useOverview never clears stats/items

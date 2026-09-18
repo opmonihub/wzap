@@ -142,6 +142,14 @@ watch(() => props.instance, (next) => {
         </div>
         <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
           <dt class="shrink-0 text-muted">
+            {{ t('instances.fields.lastConnectedAt') }}
+          </dt>
+          <dd class="min-w-0 break-all text-highlighted sm:text-right">
+            {{ formatDateTime(instance.last_connected_at) }}
+          </dd>
+        </div>
+        <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+          <dt class="shrink-0 text-muted">
             {{ t('instances.fields.createdAt') }}
           </dt>
           <dd class="min-w-0 break-all text-highlighted sm:text-right">

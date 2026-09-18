@@ -4,6 +4,8 @@ import { useAccountsTable } from '~/composables/useAccountsTable'
 import AccountsTableActionsCell from '~/components/accounts/AccountsTableActionsCell.vue'
 import AccountsTableQuotaCell from '~/components/accounts/AccountsTableQuotaCell.vue'
 import AccountsTableRoleCell from '~/components/accounts/AccountsTableRoleCell.vue'
+import DataTableFooter from '~/components/shared/DataTableFooter.vue'
+import DataTableToolbar from '~/components/shared/DataTableToolbar.vue'
 import type { AccountRole, AccountUser } from '~/types/api'
 
 const props = defineProps<{

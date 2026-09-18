@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ApiError } from '~/composables/useApi'
-import type { ChatwootConfig, ChatwootSetInput, InstanceStatus } from '~/types/api'
+import type { ChatwootConfig, ChatwootSetInput } from '~/types/api'
 
 // Chatwoot connector card: config get/put, history import, operator command
 // and the server-computed webhook URL. The token is write-only — GET answers
@@ -10,11 +10,6 @@ import type { ChatwootConfig, ChatwootSetInput, InstanceStatus } from '~/types/a
 // chatwoot_disabled disables every form.
 const props = defineProps<{
   instanceId: string
-  status: InstanceStatus
-}>()
-
-const emit = defineEmits<{
-  loaded: [enabled: boolean | null]
 }>()
 
 const { t } = useI18n()
@@ -48,11 +43,9 @@ async function load() {
     accountId.value = config.value.account_id
     nameInbox.value = config.value.name_inbox
     daysLimit.value = String(config.value.days_limit)
-    emit('loaded', config.value.enabled)
   } catch (error) {
     if (isChatwootDisabled(error)) {
       disabled.value = true
-      emit('loaded', null)
     } else {
       failure.value = error instanceof ApiError ? error.message : t('instances.chatwoot.loadFailed')
     }
@@ -89,12 +82,10 @@ async function onSave() {
     config.value = await setChatwoot(props.instanceId, body)
     tokenInput.value = ''
     enabled.value = config.value.enabled
-    emit('loaded', config.value.enabled)
     toast.add({ title: t('instances.chatwoot.saved'), icon: 'i-lucide-check', color: 'success' })
   } catch (error) {
     if (isChatwootDisabled(error)) {
       disabled.value = true
-      emit('loaded', null)
     } else {
       failure.value = error instanceof ApiError ? error.message : t('instances.chatwoot.saveFailed')
     }
@@ -115,7 +106,6 @@ async function onImport() {
   } catch (error) {
     if (isChatwootDisabled(error)) {
       disabled.value = true
-      emit('loaded', null)
     } else {
       // A partial import answers imported:N alongside the error; the last
       // known count stays visible so progress is never hidden.
@@ -138,7 +128,6 @@ async function onCommand() {
   } catch (error) {
     if (isChatwootDisabled(error)) {
       disabled.value = true
-      emit('loaded', null)
     } else {
       failure.value = error instanceof ApiError ? error.message : t('instances.chatwoot.commandFailed')
     }
@@ -147,11 +136,28 @@ async function onCommand() {
   }
 }
 
+// The 400 chatwoot_disabled gate is service-wide and sticky: once known,
+// skip refetches on section revisits so the console stays quiet (the info
+// banner already explains the state). Switching instances still resets every
+// per-instance field first: resetting only the token leaks the previous
+// instance's config, imported count and failure into the new instance when
+// its load() fails or is skipped.
 watch(() => props.instanceId, () => {
+  config.value = null
+  enabled.value = false
+  url.value = ''
+  accountId.value = ''
+  nameInbox.value = ''
+  daysLimit.value = '7'
   tokenInput.value = ''
-  void load()
+  command.value = ''
+  conversationId.value = ''
+  failure.value = null
+  imported.value = null
+  if (!disabled.value) {
+    void load()
+  }
 }, { immediate: true })
-void props.status
 </script>
 
 <template>

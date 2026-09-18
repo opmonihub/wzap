@@ -20,6 +20,7 @@
     "submit": "Sign in",
     "signingIn": "Signing in...",
     "loginFailed": "Sign in failed. Check your email and password.",
+    "serviceUnavailable": "Could not reach the service. Check your connection and try again.",
     "sessionExpired": "Your session expired. Sign in again."
   },
   "userMenu": {
@@ -33,9 +34,8 @@
   },
   "overview": {
     "title": "Overview",
-    "welcome": "Signed in as {email}.",
-    "scopeGlobal": "Operator vision: every instance and account is visible to this admin.",
-    "scopeInstance": "Client vision: only this account's own instances are visible.",
+    "scopeGlobal": "Admin view: every instance and account is visible.",
+    "scopeInstance": "Account view: only this account's own instances are visible.",
     "stats": {
       "total": "Total instances",
       "connected": "Connected",
@@ -168,6 +168,7 @@
       "externalRefHint": "Optional unique reference used by your systems.",
       "owner": "Owner",
       "jid": "WhatsApp JID",
+      "lastConnectedAt": "Last connected",
       "lastError": "Last error",
       "createdAt": "Created",
       "updatedAt": "Updated"
@@ -351,17 +352,6 @@
       "profile": "Profile",
       "integrations": "Integrations",
       "settings": "Settings"
-    },
-    "stats": {
-      "connection": "Connection",
-      "identity": "Identity",
-      "webhook": "Webhook",
-      "chatwoot": "Chatwoot",
-      "lastConnected": "Last connected",
-      "enabled": "Enabled",
-      "disabled": "Disabled",
-      "subscribed": "{count} subscribed",
-      "globalOff": "Chatwoot is disabled on this service."
     },
     "pairPhone": {
       "cardTitle": "Pair by phone code",

@@ -700,6 +700,11 @@ func writeInstanceError(w http.ResponseWriter, r *http.Request, err error) {
 		Error(w, r, http.StatusConflict, "conflict", "instance already connected")
 	case errors.Is(err, instance.ErrNotConnected):
 		Error(w, r, http.StatusConflict, "conflict", "instance not connected")
+	// Um socket morto pode vazar como session.ErrNotConnected sem passar
+	// pelo mapSessionError do serviço (os caminhos Connect/QR embrulham o
+	// erro da sessão direto): ele também é 409, nunca 500.
+	case errors.Is(err, session.ErrNotConnected):
+		Error(w, r, http.StatusConflict, "conflict", "instance not connected")
 	case errors.Is(err, instance.ErrNoPairingChannel):
 		Error(w, r, http.StatusConflict, "conflict", "no open pairing channel")
 	case errors.Is(err, instance.ErrInvalidInput):

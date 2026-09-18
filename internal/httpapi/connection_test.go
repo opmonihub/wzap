@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -77,6 +78,25 @@ func TestInstancesConnectAlreadyConnected(t *testing.T) {
 	}
 	if payload.Data.QRExpiresAt != nil {
 		t.Errorf("data.qr_expires_at = %v, want null", payload.Data.QRExpiresAt)
+	}
+}
+
+// TestInstancesConnectDeadSocketAnswersConflict verifica o lote 4: um socket
+// morto que vaza como session.ErrNotConnected (os caminhos Connect/QR
+// embrulham o erro da sessão direto, sem o mapSessionError do serviço)
+// responde 409, nunca 500.
+func TestInstancesConnectDeadSocketAnswersConflict(t *testing.T) {
+	svc := &fakeInstanceService{connectFn: func(context.Context, uuid.UUID) (instance.ConnectResult, error) {
+		return instance.ConnectResult{}, fmt.Errorf("connect instance: %w", session.ErrNotConnected)
+	}}
+
+	rec := serveJSON(t, instancesServer(t, svc), http.MethodPost, "/instances/"+uuid.NewString()+"/connect", "")
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	if code := errorCode(t, rec.Body.Bytes()); code != "conflict" {
+		t.Errorf("error code = %q, want %q", code, "conflict")
 	}
 }
 

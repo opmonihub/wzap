@@ -449,6 +449,17 @@ func (s *instanceSession) JID() string {
 	return s.jid
 }
 
+// IsConnected reports whether the WhatsApp websocket is currently live. It
+// is the live-socket side of the health check: Status (and the DB-persisted
+// instances.status fed by the connection events) can say "connected" while
+// the socket is already dead, so callers must consult both.
+func (s *instanceSession) IsConnected() bool {
+	if s == nil || s.client == nil {
+		return false
+	}
+	return s.client.IsConnected()
+}
+
 // setStatus updates the lifecycle state, reports it to the sink when it
 // changed and applies the reconnect policy of the transition. A paired JID
 // marks the session as reconnectable, so a connected event after a pairing

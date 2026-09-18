@@ -395,6 +395,35 @@ func TestParsePresence(t *testing.T) {
 	}
 }
 
+// TestSessionIsConnectedDistinguishesLiveSocket verifica o lote 2 do
+// auto-reconnect: o health check do websocket (IsConnected, socket vivo) é
+// distinto do lifecycle Status (espelho do instances.status no banco). Uma
+// sessão marcada como conectada com o socket morto reporta Status connected
+// e IsConnected false — o sintoma clássico do drop que o banco ainda não
+// viu.
+func TestSessionIsConnectedDistinguishesLiveSocket(t *testing.T) {
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
+	if err != nil {
+		t.Fatalf("newSession: %v", err)
+	}
+	if sess.IsConnected() {
+		t.Fatal("IsConnected = true num socket que nunca conectou")
+	}
+
+	sess.setStatus(session.StatusConnected, "5511999999999@s.whatsapp.net", "")
+	if got := sess.Status(); got != session.StatusConnected {
+		t.Fatalf("Status = %q, want %q", got, session.StatusConnected)
+	}
+	if sess.IsConnected() {
+		t.Fatal("IsConnected = true com o socket morto; o status diz connected mas o socket caiu")
+	}
+
+	var nilSess *instanceSession
+	if nilSess.IsConnected() {
+		t.Fatal("IsConnected = true numa sessão nil, want false")
+	}
+}
+
 func TestNewSessionRejectsNilDevice(t *testing.T) {
 	if _, err := newSession(uuid.New(), nil, zerolog.Nop(), nil, testMediaLimit); err == nil {
 		t.Fatal("newSession accepted a nil device")

@@ -74,6 +74,19 @@ type PairPhoneResult struct {
 	ExpiresAt time.Time
 }
 
+// HealthResult is the websocket health check of an instance: the DB-persisted
+// status (instances.status, atualizado pelos eventos de conexão) ao lado do
+// estado vivo do socket. DBStatus "connected" com SocketConnected false é o
+// sintoma clássico do socket morto: o banco ainda não viu o drop. HasSession
+// false significa que não há sessão em memória (nunca pareada ou removida),
+// então LiveStatus é disconnected e SocketConnected é false.
+type HealthResult struct {
+	DBStatus        string
+	LiveStatus      session.Status
+	SocketConnected bool
+	HasSession      bool
+}
+
 // MediaRemover deletes the media files and rows of an instance. It is declared
 // here, at the consumer, and will be satisfied by the media package (Task 16).
 type MediaRemover interface {
@@ -258,6 +271,23 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (*model.Instance, error
 		return nil, mapError("get instance", err)
 	}
 	return instance, nil
+}
+
+// Health returns the DB-persisted status of the instance alongside the live
+// socket state, without creating a session: a read-only peek through
+// sessions.Get. An unknown instance is ErrNotFound.
+func (s *Service) Health(ctx context.Context, id uuid.UUID) (HealthResult, error) {
+	stored, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return HealthResult{}, mapError("health instance", err)
+	}
+	result := HealthResult{DBStatus: stored.Status, LiveStatus: session.StatusDisconnected}
+	if sess, ok := s.sessions.Get(id); ok && sess != nil {
+		result.HasSession = true
+		result.LiveStatus = sess.Status()
+		result.SocketConnected = sess.IsConnected()
+	}
+	return result, nil
 }
 
 // List returns a page of instances and the cursor of the next page, empty on

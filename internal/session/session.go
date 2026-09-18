@@ -610,6 +610,11 @@ type Session interface {
 	Status() Status
 	// JID returns the public WhatsApp JID, empty while pairing.
 	JID() string
+	// IsConnected reports whether the underlying websocket is currently
+	// live. It is distinct from Status (and from the DB-persisted status):
+	// the stored status can say "connected" while the socket is already
+	// dead, and vice-versa while a reconnect is in flight.
+	IsConnected() bool
 }
 
 // Manager owns the session of every instance.

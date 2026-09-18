@@ -274,6 +274,10 @@ type FakeSession struct {
 	jid         string
 	qr          string
 	qrExpiresAt time.Time
+	// connected is the fake live-websocket state, independent from status
+	// on purpose so tests can reproduce a DB status that diverged from the
+	// socket (connected no banco com o socket morto e vice-versa).
+	connected bool
 
 	// Forced errors, when set, are returned by the matching method.
 	ConnectErr       error
@@ -1550,6 +1554,7 @@ func (s *FakeSession) Disconnect(context.Context) error {
 		return s.DisconnectErr
 	}
 	s.status = session.StatusDisconnected
+	s.connected = false
 	s.qr = ""
 	s.qrExpiresAt = time.Time{}
 	return nil
@@ -1581,6 +1586,21 @@ func (s *FakeSession) JID() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.jid
+}
+
+// SetConnected overrides the live-websocket state so tests can reproduce a
+// socket that diverged from the lifecycle status.
+func (s *FakeSession) SetConnected(connected bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.connected = connected
+}
+
+// IsConnected reports whether the fake websocket is currently live.
+func (s *FakeSession) IsConnected() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.connected
 }
 
 // ConnectCalls returns how many times Connect was called.

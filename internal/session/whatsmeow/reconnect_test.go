@@ -3,6 +3,7 @@ package whatsmeow
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -13,6 +14,7 @@ import (
 	"github.com/rs/zerolog"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store"
+	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 
 	"wzap/internal/session"
@@ -474,6 +476,75 @@ func TestTerminalTransitionCancelsPendingReconnect(t *testing.T) {
 	waitForNoReconnect(t, sess)
 	if got := sess.Status(); got != session.StatusDisconnected {
 		t.Errorf("status = %q, want %q", got, session.StatusDisconnected)
+	}
+}
+
+// TestRestoreTransientArmsReconnectWithBackoff verifica o lote 3 do
+// auto-reconnect: uma falha transiente de handshake no restore do startup
+// não estaciona a instância em erro para sempre. A sessão já está registrada
+// com as credenciais, então o drop vira disconnected sem motivo (semântica
+// de queda transiente, nunca terminal) e o loop de backoff é armado.
+func TestRestoreTransientArmsReconnectWithBackoff(t *testing.T) {
+	sink := &recordingSink{}
+	manager := &Manager{log: zerolog.Nop(), sink: sink, sessions: make(map[uuid.UUID]*instanceSession)}
+	manager.restoreConnect = func(context.Context, *instanceSession) error {
+		return fmt.Errorf("handshake: %w", session.ErrTransient)
+	}
+
+	id := uuid.New()
+	jid := types.NewJID("5511999999999", types.DefaultUserServer)
+	device := &store.Device{ID: &jid}
+
+	if err := manager.attachAndConnect(context.Background(), id, device); err != nil {
+		t.Fatalf("attachAndConnect com falha transiente = %v, want nil (retry armado)", err)
+	}
+	raw, ok := manager.Get(id)
+	if !ok {
+		t.Fatal("sessão restaurada não ficou registrada após a falha transiente")
+	}
+	sess := raw.(*instanceSession)
+	if !reconnectRunning(sess) {
+		t.Error("falha transiente no restore não armou o reconnect com backoff")
+	}
+	event := sink.last(t)
+	if event.status != session.StatusDisconnected || event.reason != "" {
+		t.Errorf("evento do restore = %+v, want disconnected sem motivo (tentando de novo)", event)
+	}
+	if event.jid != jid.String() {
+		t.Errorf("evento JID = %q, want %q", event.jid, jid.String())
+	}
+	sess.cancelReconnect()
+	waitForNoReconnect(t, sess)
+}
+
+// TestRestoreTerminalStaysInError verifica o outro lado do lote 3: uma
+// falha terminal no restore (dispositivo removido, ban, logout) não arma
+// retry — o erro volta para o RestoreAll refletir em status error, e a
+// instância precisa de novo pareamento em vez de retries inúteis.
+func TestRestoreTerminalStaysInError(t *testing.T) {
+	sink := &recordingSink{}
+	manager := &Manager{log: zerolog.Nop(), sink: sink, sessions: make(map[uuid.UUID]*instanceSession)}
+	manager.restoreConnect = func(context.Context, *instanceSession) error {
+		return fmt.Errorf("device gone: %w", session.ErrNoDevice)
+	}
+
+	id := uuid.New()
+	jid := types.NewJID("5511999999999", types.DefaultUserServer)
+	device := &store.Device{ID: &jid}
+
+	err := manager.attachAndConnect(context.Background(), id, device)
+	if !errors.Is(err, session.ErrNoDevice) {
+		t.Fatalf("attachAndConnect com falha terminal = %v, want ErrNoDevice", err)
+	}
+	raw, ok := manager.Get(id)
+	if !ok {
+		t.Fatal("sessão restaurada não ficou registrada após a falha terminal")
+	}
+	if reconnectRunning(raw.(*instanceSession)) {
+		t.Error("falha terminal no restore armou reconnect; instância sem device não tem o que retentar")
+	}
+	if got := sink.count(); got != 0 {
+		t.Errorf("eventos emitidos = %d, want 0 (o RestoreAll reflete o erro)", got)
 	}
 }
 

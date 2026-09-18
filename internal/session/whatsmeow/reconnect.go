@@ -2,6 +2,7 @@ package whatsmeow
 
 import (
 	"context"
+	"errors"
 	"math/rand/v2"
 	"time"
 
@@ -121,4 +122,28 @@ func (s *instanceSession) applyConnectionPolicy(status session.Status, reason st
 		return
 	}
 	s.cancelReconnect()
+}
+
+// retryableRestore reports whether a restore failure deserves the
+// auto-reconnect loop instead of parking the instance in error: transient
+// handshake failures and not-connected failures retry with backoff. A gone
+// device (pair again), a ban, a logout or a programming error stays in
+// error.
+func retryableRestore(err error) bool {
+	return errors.Is(err, session.ErrTransient) || errors.Is(err, session.ErrNotConnected)
+}
+
+// scheduleRestoreRetry arms the auto-reconnect loop after a transient restore
+// failure at startup. A fresh session starts disconnected with an empty
+// reason, which setStatus would dedupe into a no-op without ever scheduling,
+// so the retry is armed explicitly: a disconnected event with an empty
+// reason (transient-drop semantics, never terminal) is emitted for the DB
+// status, then the backoff loop is scheduled. Ineligible sessions (unpaired
+// or terminal) only get the event.
+func (s *instanceSession) scheduleRestoreRetry(err error) {
+	s.log.Warn().Str("instance_id", s.instanceID.String()).Err(err).Msg("restore failed transiently, retrying with backoff")
+	if s.sink != nil {
+		s.sink.OnConnection(context.Background(), s.instanceID, session.StatusDisconnected, s.JID(), "")
+	}
+	s.scheduleReconnect()
 }

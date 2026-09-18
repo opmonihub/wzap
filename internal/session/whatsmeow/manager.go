@@ -244,7 +244,18 @@ func (m *Manager) attachAndConnect(ctx context.Context, instanceID uuid.UUID, de
 			return sess.connectExisting(ctx)
 		}
 	}
-	return connect(ctx, sess)
+	// A transient handshake failure at startup must not park the instance
+	// in error forever: the session is already registered with its
+	// credentials, so arm the backoff loop and report disconnected
+	// (retrying) instead of an error that needs attention.
+	if err := connect(ctx, sess); err != nil {
+		if retryableRestore(err) {
+			sess.scheduleRestoreRetry(err)
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 // registerRestored stores sess for instanceID unless another goroutine already

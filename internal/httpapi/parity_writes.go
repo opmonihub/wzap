@@ -441,7 +441,7 @@ func handleMuteNewsletter(instances InstanceService, log zerolog.Logger) http.Ha
 			writeInstanceError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusOK, muteNewsletterResponse{Muted: request.Muted})
+		JSON(w, r, http.StatusOK, muteNewsletterResponse(request))
 	}
 }
 

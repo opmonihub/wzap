@@ -83,6 +83,21 @@ type InstanceService interface {
 	GetDisappearingTimer(ctx context.Context, id uuid.UUID, chatJID string) (time.Duration, bool, error)
 	GetNewsletterMessages(ctx context.Context, id uuid.UUID, channel, cursor string, limit int) ([]session.NewsletterMessage, string, error)
 	GetNewsletterUpdates(ctx context.Context, id uuid.UUID, channel string) ([]session.NewsletterMessage, error)
+	// Fase 2-3 parity moderation and writes (whatsmeow-parity-routes): the
+	// service signatures mirror internal/instance parity_moderation.go and
+	// parity_writes.go so the handlers stay thin transport adapters.
+	GetGroupRequests(ctx context.Context, id uuid.UUID, groupJID string) ([]instance.GroupParticipant, error)
+	UpdateGroupRequests(ctx context.Context, id uuid.UUID, groupJID, action string, participants []string) error
+	UpdateGroupSettings(ctx context.Context, id uuid.UUID, groupJID string, announce, locked *bool, joinApproval, memberAddMode *string) (instance.Group, error)
+	UpdateBlocklist(ctx context.Context, id uuid.UUID, jid, action string) error
+	SetDisappearingTimer(ctx context.Context, id uuid.UUID, chatJID string, duration time.Duration) error
+	SetDefaultDisappearingTimer(ctx context.Context, id uuid.UUID, duration time.Duration) error
+	SubscribePresence(ctx context.Context, id uuid.UUID, jid string) error
+	GetContactQRLink(ctx context.Context, id uuid.UUID, revoke bool) (string, error)
+	CreateNewsletter(ctx context.Context, id uuid.UUID, title, description string) (instance.Newsletter, error)
+	MuteNewsletter(ctx context.Context, id uuid.UUID, channel string, muted bool) error
+	MarkNewsletterViewed(ctx context.Context, id uuid.UUID, channel string, serverIDs []string) error
+	ReactNewsletter(ctx context.Context, id uuid.UUID, channel, serverID, reaction string) error
 }
 
 // The service satisfies the handler contract; the assertion catches signature

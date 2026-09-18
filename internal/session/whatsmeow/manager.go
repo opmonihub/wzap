@@ -372,6 +372,11 @@ type instanceSession struct {
 	// replica, so no shared store is needed.
 	statusMu sync.Mutex
 	statuses []session.StatusInfo
+	// disappearingMu guards disappearing, the process-local record of the
+	// timers set through this session. The pinned library exposes no fetch,
+	// so GetDisappearingTimer only knows what this session set.
+	disappearingMu sync.Mutex
+	disappearing   map[string]time.Duration
 
 	mu           sync.RWMutex
 	status       session.Status

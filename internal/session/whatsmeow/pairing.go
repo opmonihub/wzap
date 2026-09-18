@@ -35,12 +35,19 @@ func (s *instanceSession) Connect(ctx context.Context) (string, time.Time, error
 		// isso, um Connect com o socket vivo mas o Status ainda
 		// disconnected (pós-restore, evento Connected ainda a caminho)
 		// voltava como falha transitória em vez de connected.
+		// TEMP-DEBUG websocket-investigacao: registra o ConnectContext do
+		// ramo stored-credentials (POST /connect com qr vazio) com o
+		// estado do socket antes/depois.
+		s.log.Info().Str("instance_id", s.instanceID.String()).Bool("socket_before", s.client.IsConnected()).Str("status_before", string(s.Status())).Msg("TEMP-DEBUG connectPairing stored-credentials start")
 		if err := s.client.ConnectContext(ctx); err != nil {
 			if errors.Is(err, whatsmeow.ErrAlreadyConnected) {
+				s.log.Info().Str("instance_id", s.instanceID.String()).Bool("socket_connected", s.client.IsConnected()).Msg("TEMP-DEBUG connectPairing already-connected")
 				return "", time.Time{}, nil
 			}
+			s.log.Warn().Str("instance_id", s.instanceID.String()).Err(err).Bool("socket_connected", s.client.IsConnected()).Str("live_status", string(s.Status())).Msg("TEMP-DEBUG connectPairing stored-credentials failed")
 			return "", time.Time{}, classifySessionError(err)
 		}
+		s.log.Info().Str("instance_id", s.instanceID.String()).Bool("socket_connected", s.client.IsConnected()).Str("live_status", string(s.Status())).Msg("TEMP-DEBUG connectPairing stored-credentials ok")
 		return "", time.Time{}, nil
 	}
 	if s.client.IsConnected() {

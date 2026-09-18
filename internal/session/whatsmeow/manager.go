@@ -155,6 +155,10 @@ func (m *Manager) Remove(ctx context.Context, instanceID uuid.UUID) error {
 // RestoreAll reconnects every persisted session, at most restoreConcurrency at
 // a time and with jitter. Failures are reported per instance through the event
 // sink; only listing the instances can fail the call.
+//
+// TEMP-DEBUG websocket-investigacao (instancia 485b74b0): logs Info por
+// instancia com o desfecho do restore + socket_connected, pois o nivel padrao
+// (info) escondia o sucesso silencioso e so mostrava Warn nas falhas.
 func (m *Manager) RestoreAll(ctx context.Context) error {
 	if m.instances == nil {
 		return errors.New("restore sessions: instance repository not configured")
@@ -164,13 +168,16 @@ func (m *Manager) RestoreAll(ctx context.Context) error {
 		return err
 	}
 
+	m.log.Info().Int("total", len(instances)).Msg("TEMP-DEBUG restore sessions started")
 	sem := make(chan struct{}, restoreConcurrency)
 	var wg sync.WaitGroup
 	for _, instance := range instances {
 		if instance.WhatsAppJID == "" {
+			m.log.Info().Str("instance_id", instance.ID.String()).Str("reason", "no-jid").Msg("TEMP-DEBUG restore skipped")
 			continue
 		}
 		if _, ok := m.Get(instance.ID); ok {
+			m.log.Info().Str("instance_id", instance.ID.String()).Str("reason", "already-registered").Msg("TEMP-DEBUG restore skipped")
 			continue
 		}
 		wg.Add(1)
@@ -195,6 +202,12 @@ func (m *Manager) RestoreAll(ctx context.Context) error {
 			if err := m.restore(ctx, instance); err != nil {
 				m.log.Warn().Str("instance_id", instance.ID.String()).Err(err).Msg("restore session failed")
 				m.emitConnection(instance.ID, session.StatusError, instance.WhatsAppJID, err.Error())
+			} else if sess, ok := m.Get(instance.ID); ok && sess != nil {
+				m.log.Info().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).
+					Str("live_status", string(sess.Status())).Bool("socket_connected", sess.IsConnected()).
+					Msg("TEMP-DEBUG restore session outcome")
+			} else {
+				m.log.Warn().Str("instance_id", instance.ID.String()).Msg("TEMP-DEBUG restore session missing after success")
 			}
 		}(instance)
 	}
@@ -211,18 +224,23 @@ func (m *Manager) restoreAborted(instance model.Instance, err error) {
 }
 
 // restore attaches the persisted device of instance and brings it online.
+// TEMP-DEBUG: registra o desfecho do load do device por instancia.
 func (m *Manager) restore(ctx context.Context, instance model.Instance) error {
 	jid, err := types.ParseJID(instance.WhatsAppJID)
 	if err != nil {
+		m.log.Warn().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).Err(err).Msg("TEMP-DEBUG restore parse jid failed")
 		return fmt.Errorf("parse jid %q: %w", instance.WhatsAppJID, err)
 	}
 	device, err := m.devices.GetDevice(ctx, jid)
 	if err != nil {
+		m.log.Warn().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).Err(err).Msg("TEMP-DEBUG restore load device failed")
 		return fmt.Errorf("load device %s: %w", jid, err)
 	}
 	if device == nil {
+		m.log.Warn().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).Msg("TEMP-DEBUG restore device missing")
 		return fmt.Errorf("device %s: %w", jid, session.ErrNoDevice)
 	}
+	m.log.Debug().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).Bool("deleted", device.ID == nil).Msg("TEMP-DEBUG restore device loaded")
 	return m.attachAndConnect(ctx, instance.ID, device)
 }
 
@@ -233,9 +251,11 @@ func (m *Manager) restore(ctx context.Context, instance model.Instance) error {
 func (m *Manager) attachAndConnect(ctx context.Context, instanceID uuid.UUID, device *store.Device) error {
 	sess, err := newSession(instanceID, device, m.log, m.sink, m.maxMediaBytes)
 	if err != nil {
+		m.log.Warn().Str("instance_id", instanceID.String()).Err(err).Msg("TEMP-DEBUG attach new session failed")
 		return err
 	}
 	if !m.registerRestored(instanceID, sess) {
+		m.log.Info().Str("instance_id", instanceID.String()).Msg("TEMP-DEBUG attach skipped: already registered")
 		return nil
 	}
 	connect := m.restoreConnect
@@ -249,12 +269,18 @@ func (m *Manager) attachAndConnect(ctx context.Context, instanceID uuid.UUID, de
 	// credentials, so arm the backoff loop and report disconnected
 	// (retrying) instead of an error that needs attention.
 	if err := connect(ctx, sess); err != nil {
+		m.log.Warn().Str("instance_id", instanceID.String()).Err(err).
+			Str("live_status", string(sess.Status())).Bool("socket_connected", sess.IsConnected()).
+			Msg("TEMP-DEBUG attach connectExisting failed")
 		if retryableRestore(err) {
 			sess.scheduleRestoreRetry(err)
 			return nil
 		}
 		return err
 	}
+	m.log.Info().Str("instance_id", instanceID.String()).
+		Str("live_status", string(sess.Status())).Bool("socket_connected", sess.IsConnected()).
+		Msg("TEMP-DEBUG attach connectExisting ok")
 	return nil
 }
 
@@ -498,9 +524,14 @@ func (s *instanceSession) setStatus(status session.Status, jid, reason string) {
 	currentJID := s.jid
 	s.mu.Unlock()
 
-	s.log.Debug().Str("instance_id", s.instanceID.String()).Str("from", string(from)).Str("to", string(status)).Bool("jid_present", currentJID != "").Str("reason", reason).Msg("session status changed")
+	s.log.Debug().Str("instance_id", s.instanceID.String()).Str("from", string(from)).Str("to", string(status)).Bool("jid_present", currentJID != "").Str("reason", reason).Bool("socket_connected", s.client.IsConnected()).Msg("session status changed")
 	if status == session.StatusError {
 		s.log.Warn().Str("instance_id", s.instanceID.String()).Str("from", string(from)).Str("reason", reason).Msg("session entered error status")
+	}
+	// TEMP-DEBUG websocket-investigacao: transicoes de socket em Info para
+	// aparecer com WZAP_LOG_LEVEL=info (o Debug acima fica invisivel no padrao).
+	if status == session.StatusConnected || (status == session.StatusDisconnected && from == session.StatusConnected) || status == session.StatusError {
+		s.log.Info().Str("instance_id", s.instanceID.String()).Str("from", string(from)).Str("to", string(status)).Str("reason", reason).Bool("socket_connected", s.client.IsConnected()).Msg("TEMP-DEBUG websocket transition")
 	}
 
 	if s.sink != nil {
@@ -539,6 +570,8 @@ func (s *instanceSession) Send(ctx context.Context, msg session.OutboundMessage)
 // IsOnWhatsApp resolves a phone number to its canonical JID.
 func (s *instanceSession) IsOnWhatsApp(ctx context.Context, phone string) (string, bool, error) {
 	if !s.client.IsConnected() {
+		// TEMP-DEBUG: prova o sintoma (Status x socket) no momento da falha.
+		s.log.Warn().Str("instance_id", s.instanceID.String()).Str("live_status", string(s.Status())).Bool("socket_connected", false).Msg("TEMP-DEBUG isOnWhatsApp blocked: socket down")
 		return "", false, fmt.Errorf("%w: is on whatsapp", session.ErrNotConnected)
 	}
 	responses, err := s.client.IsOnWhatsApp(ctx, []string{phone})
@@ -713,13 +746,25 @@ func (s *instanceSession) logoutTolerantly(ctx context.Context) {
 }
 
 // connectExisting brings an already paired device online.
+// TEMP-DEBUG: envolve o ConnectContext com o estado do socket antes/depois,
+// para provar se o handshake foi chamado e se o socket caiu logo em seguida.
 func (s *instanceSession) connectExisting(ctx context.Context) error {
+	s.log.Info().Str("instance_id", s.instanceID.String()).
+		Bool("socket_before", s.client.IsConnected()).Str("status_before", string(s.Status())).
+		Msg("TEMP-DEBUG connectExisting start")
 	if err := s.client.ConnectContext(ctx); err != nil {
 		if errors.Is(err, whatsmeow.ErrAlreadyConnected) {
+			s.log.Info().Str("instance_id", s.instanceID.String()).Bool("socket_connected", s.client.IsConnected()).Msg("TEMP-DEBUG connectExisting already-connected")
 			return nil
 		}
+		s.log.Warn().Str("instance_id", s.instanceID.String()).Err(err).
+			Bool("socket_connected", s.client.IsConnected()).Str("live_status", string(s.Status())).
+			Msg("TEMP-DEBUG connectExisting failed")
 		return classifySessionError(err)
 	}
+	s.log.Info().Str("instance_id", s.instanceID.String()).
+		Bool("socket_connected", s.client.IsConnected()).Str("live_status", string(s.Status())).
+		Msg("TEMP-DEBUG connectExisting returned nil")
 	return nil
 }
 

@@ -55,6 +55,46 @@ func TestSwaggerDocJSONServesRoutesAndSecurityDefinition(t *testing.T) {
 	}
 }
 
+func TestSwaggerDocJSONServesParityPaths(t *testing.T) {
+	rec := serve(t, newTestServer(t), http.MethodGet, "/swagger/doc.json", "")
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	var doc struct {
+		Paths map[string]json.RawMessage `json:"paths"`
+	}
+	decodeJSON(t, rec.Body.Bytes(), &doc)
+
+	for _, path := range []string{
+		"/instances/{id}/messages/edit",
+		"/instances/{id}/groups",
+		"/instances/{id}/groups/invite-preview",
+		"/instances/{id}/groups/{group_id}/requests",
+		"/instances/{id}/groups/{group_id}/settings",
+		"/instances/{id}/contacts/check",
+		"/instances/{id}/contacts/{jid}/devices",
+		"/instances/{id}/contacts/{jid}/photo",
+		"/instances/{id}/contacts/{jid}/business",
+		"/instances/{id}/contacts/{jid}/subscribe",
+		"/instances/{id}/contact-link",
+		"/instances/{id}/blocklist",
+		"/instances/{id}/newsletters/{channel}/messages",
+		"/instances/{id}/newsletters/{channel}/updates",
+		"/instances/{id}/newsletters",
+		"/instances/{id}/newsletters/{channel}/mute",
+		"/instances/{id}/newsletters/{channel}/viewed",
+		"/instances/{id}/newsletters/{channel}/reactions",
+		"/instances/{id}/status/privacy",
+		"/instances/{id}/chats/{chat}/disappearing",
+		"/instances/{id}/chats/default-disappearing",
+	} {
+		if _, ok := doc.Paths[path]; !ok {
+			t.Errorf("doc.json is missing parity path %q", path)
+		}
+	}
+}
+
 func TestSwaggerMountKeepsGuardedRoutesAuthenticated(t *testing.T) {
 	rec := serve(t, newTestServer(t), http.MethodGet, "/instances", "")
 

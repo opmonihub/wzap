@@ -1,5 +1,31 @@
 basePath: /
 definitions:
+  httpapi.blocklistResponse:
+    properties:
+      items:
+        items:
+          type: string
+        type: array
+    type: object
+  httpapi.blocklistUpdateResponse:
+    properties:
+      updated:
+        type: boolean
+    type: object
+  httpapi.checkContactsRequest:
+    properties:
+      phones:
+        items:
+          type: string
+        type: array
+    type: object
+  httpapi.checkContactsResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/httpapi.contactCheckItem'
+        type: array
+    type: object
   httpapi.connectResponse:
     properties:
       qr_code:
@@ -7,6 +33,51 @@ definitions:
       qr_expires_at:
         type: string
       status:
+        type: string
+    type: object
+  httpapi.contactBusinessResponse:
+    properties:
+      description:
+        type: string
+      jid:
+        type: string
+      name:
+        type: string
+      verified_name:
+        type: string
+    type: object
+  httpapi.contactCheckItem:
+    properties:
+      is_on_whatsapp:
+        type: boolean
+      jid:
+        type: string
+      last_seen:
+        type: string
+      phone:
+        type: string
+    type: object
+  httpapi.contactDevicesResponse:
+    properties:
+      devices:
+        items:
+          type: string
+        type: array
+      jid:
+        type: string
+    type: object
+  httpapi.contactLinkResponse:
+    properties:
+      link:
+        type: string
+    type: object
+  httpapi.contactPhotoResponse:
+    properties:
+      jid:
+        type: string
+      url:
+        type: string
+      version:
         type: string
     type: object
   httpapi.createGroupRequest:
@@ -68,7 +139,42 @@ definitions:
       whatsapp_jid:
         type: string
     type: object
+  httpapi.createNewsletterRequest:
+    properties:
+      description:
+        type: string
+      title:
+        type: string
+    type: object
   httpapi.createUserRequest:
+    type: object
+  httpapi.disappearingRequest:
+    properties:
+      duration:
+        type: string
+    type: object
+  httpapi.disappearingResponse:
+    properties:
+      chat:
+        type: string
+      duration_seconds:
+        type: integer
+      found:
+        type: boolean
+    type: object
+  httpapi.editMessageRequest:
+    properties:
+      chat:
+        type: string
+      message_id:
+        type: string
+      text:
+        type: string
+    type: object
+  httpapi.editMessageResponse:
+    properties:
+      message_id:
+        type: string
     type: object
   httpapi.errorBody:
     properties:
@@ -110,6 +216,13 @@ definitions:
         type: boolean
       jid:
         type: string
+    type: object
+  httpapi.groupRequestsResponse:
+    properties:
+      participants:
+        items:
+          $ref: '#/definitions/httpapi.groupParticipantResponse'
+        type: array
     type: object
   httpapi.groupResponse:
     properties:
@@ -198,6 +311,15 @@ definitions:
       invite_code:
         type: string
     type: object
+  httpapi.joinedGroupsResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/httpapi.groupResponse'
+        type: array
+      next_cursor:
+        type: string
+    type: object
   httpapi.loginRequest:
     properties:
       email:
@@ -209,6 +331,13 @@ definitions:
     properties:
       status:
         type: string
+    type: object
+  httpapi.markNewsletterViewedRequest:
+    properties:
+      server_ids:
+        items:
+          type: string
+        type: array
     type: object
   httpapi.markReadRequest:
     properties:
@@ -267,6 +396,16 @@ definitions:
       whatsapp_message_id:
         type: string
     type: object
+  httpapi.muteNewsletterRequest:
+    properties:
+      muted:
+        type: boolean
+    type: object
+  httpapi.muteNewsletterResponse:
+    properties:
+      muted:
+        type: boolean
+    type: object
   httpapi.newsletterFollowResponse:
     properties:
       followed:
@@ -281,6 +420,29 @@ definitions:
       next_cursor:
         type: string
     type: object
+  httpapi.newsletterMessageResponse:
+    properties:
+      content:
+        type: string
+      server_id:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  httpapi.newsletterMessagesResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/httpapi.newsletterMessageResponse'
+        type: array
+      next_cursor:
+        type: string
+    type: object
+  httpapi.newsletterReactResponse:
+    properties:
+      reacted:
+        type: boolean
+    type: object
   httpapi.newsletterResponse:
     properties:
       channel:
@@ -293,6 +455,18 @@ definitions:
         type: string
       updated_at:
         type: string
+    type: object
+  httpapi.newsletterUpdatesResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/httpapi.newsletterMessageResponse'
+        type: array
+    type: object
+  httpapi.newsletterViewedResponse:
+    properties:
+      viewed:
+        type: boolean
     type: object
   httpapi.numberCheckRequest:
     properties:
@@ -379,6 +553,13 @@ definitions:
       text:
         type: string
       type:
+        type: string
+    type: object
+  httpapi.reactNewsletterRequest:
+    properties:
+      reaction:
+        type: string
+      server_id:
         type: string
     type: object
   httpapi.readiness:
@@ -522,6 +703,15 @@ definitions:
           $ref: '#/definitions/httpapi.ownStatusResponse'
         type: array
     type: object
+  httpapi.statusPrivacyResponse:
+    properties:
+      jids:
+        items:
+          type: string
+        type: array
+      mode:
+        type: string
+    type: object
   httpapi.statusPublishResponse:
     properties:
       message_id:
@@ -540,11 +730,43 @@ definitions:
       whatsapp_jid:
         type: string
     type: object
+  httpapi.subscribePresenceResponse:
+    properties:
+      subscribed:
+        type: boolean
+    type: object
+  httpapi.updateBlocklistRequest:
+    properties:
+      action:
+        type: string
+      jid:
+        type: string
+    type: object
   httpapi.updateGroupRequest:
     properties:
       description:
         type: string
       name:
+        type: string
+    type: object
+  httpapi.updateGroupRequestsRequest:
+    properties:
+      action:
+        type: string
+      participants:
+        items:
+          type: string
+        type: array
+    type: object
+  httpapi.updateGroupSettingsRequest:
+    properties:
+      announce:
+        type: boolean
+      join_approval:
+        type: string
+      locked:
+        type: boolean
+      member_add_mode:
         type: string
     type: object
   httpapi.updateInstanceRequest:
@@ -1064,6 +1286,123 @@ paths:
       summary: Rotate an instance API key
       tags:
       - apikeys
+  /instances/{id}/blocklist:
+    get:
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Blocked JIDs, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.blocklistResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Get the blocklist
+      tags:
+      - blocklist
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Blocklist payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.updateBlocklistRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Applied, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.blocklistUpdateResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Unknown action or invalid JID
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Block or unblock a JID
+      tags:
+      - blocklist
   /instances/{id}/calls/reject:
     post:
       consumes:
@@ -1137,6 +1476,206 @@ paths:
       summary: Reject the active call
       tags:
       - calls
+  /instances/{id}/chats/{chat}/disappearing:
+    get:
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Chat JID
+        in: path
+        name: chat
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Timer, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.disappearingResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Invalid chat
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Get the disappearing timer of a chat
+      tags:
+      - chats
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Chat JID
+        in: path
+        name: chat
+        required: true
+        type: string
+      - description: Timer payload, one of 0, 24h, 168h, 2160h
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.disappearingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Applied timer, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.disappearingResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Invalid chat or duration outside the allowlist
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Set the disappearing timer of a chat
+      tags:
+      - chats
+  /instances/{id}/chats/default-disappearing:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Timer payload, one of 0, 24h, 168h, 2160h
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.disappearingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Applied duration, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.disappearingResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Duration outside the allowlist
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Set the default disappearing timer
+      tags:
+      - chats
   /instances/{id}/chats/mark-read:
     post:
       consumes:
@@ -1255,6 +1794,360 @@ paths:
       summary: Connect an instance
       tags:
       - connection
+  /instances/{id}/contact-link:
+    get:
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Revoke the previous link
+        in: query
+        name: revoke
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Link, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.contactLinkResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Get the own contact link
+      tags:
+      - contacts
+  /instances/{id}/contacts/{jid}/business:
+    get:
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Contact JID
+        in: path
+        name: jid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Business profile, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.contactBusinessResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance or contact not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Malformed JID
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Get a contact business profile
+      tags:
+      - contacts
+  /instances/{id}/contacts/{jid}/devices:
+    get:
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Contact JID
+        in: path
+        name: jid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Devices, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.contactDevicesResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance or contact not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Malformed JID
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: List contact devices
+      tags:
+      - contacts
+  /instances/{id}/contacts/{jid}/photo:
+    get:
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Contact JID
+        in: path
+        name: jid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Photo, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.contactPhotoResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance or contact not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Malformed JID
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Get a contact photo
+      tags:
+      - contacts
+  /instances/{id}/contacts/{jid}/subscribe:
+    post:
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Contact JID
+        in: path
+        name: jid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Subscribed, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.subscribePresenceResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance or contact not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Malformed JID
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Subscribe to a contact presence (single signal, no heartbeat)
+      tags:
+      - contacts
+  /instances/{id}/contacts/check:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Phones batch, 1..50 numbers
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.checkContactsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Results in input order, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.checkContactsResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Empty batch or above the 50 cap
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Check contacts on WhatsApp
+      tags:
+      - contacts
   /instances/{id}/disconnect:
     post:
       parameters:
@@ -1299,6 +2192,62 @@ paths:
       tags:
       - connection
   /instances/{id}/groups:
+    get:
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Page size, default 50, max 100
+        in: query
+        name: limit
+        type: integer
+      - description: Opaque pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: One page, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.joinedGroupsResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: List joined groups
+      tags:
+      - groups
     post:
       consumes:
       - application/json
@@ -1796,6 +2745,269 @@ paths:
       summary: Update a group picture
       tags:
       - groups
+  /instances/{id}/groups/{group_id}/requests:
+    get:
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Group JID
+        in: path
+        name: group_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Pending requests, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.groupRequestsResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner, or no group permission
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance or group not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: List group join requests
+      tags:
+      - groups
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Idempotency key, 24h replay per instance
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Group JID
+        in: path
+        name: group_id
+        required: true
+        type: string
+      - description: Requests payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.updateGroupRequestsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Applied, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.groupUpdatedResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner, or no group permission
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance or group not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected, or key already in flight
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Unknown action or invalid participants
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Approve or decline group join requests
+      tags:
+      - groups
+  /instances/{id}/groups/{group_id}/settings:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Group JID
+        in: path
+        name: group_id
+        required: true
+        type: string
+      - description: Settings payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.updateGroupSettingsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated group, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.groupResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner, or no group permission
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance or group not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: No fields or value outside the allowlist
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Update group settings
+      tags:
+      - groups
+  /instances/{id}/groups/invite-preview:
+    get:
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Invite code or link
+        in: query
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Preview, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.groupResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Invalid or expired invite
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Preview a group invite
+      tags:
+      - groups
   /instances/{id}/groups/join:
     post:
       consumes:
@@ -2124,6 +3336,79 @@ paths:
       security:
       - apikey: []
       summary: Send a contact message
+      tags:
+      - messages
+  /instances/{id}/messages/edit:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Idempotency key, 24h replay per instance
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Edit payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.editMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Edited, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.editMessageResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance or message not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected, or key already in flight
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Invalid text, target, or reused key
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Edit a sent text message
       tags:
       - messages
   /instances/{id}/messages/location:
@@ -2501,6 +3786,74 @@ paths:
       summary: List newsletter channels
       tags:
       - newsletters
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Channel payload, title 1..100, description 0..500
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.createNewsletterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created channel, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.newsletterResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Invalid title or description
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Create a newsletter channel
+      tags:
+      - newsletters
   /instances/{id}/newsletters/{channel}:
     get:
       parameters:
@@ -2553,6 +3906,352 @@ paths:
       security:
       - apikey: []
       summary: Get a newsletter channel
+      tags:
+      - newsletters
+  /instances/{id}/newsletters/{channel}/messages:
+    get:
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Channel JID
+        in: path
+        name: channel
+        required: true
+        type: string
+      - description: Page size, default 50, max 100
+        in: query
+        name: limit
+        type: integer
+      - description: Opaque pagination cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: One page, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.newsletterMessagesResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found, or unknown channel
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Invalid channel
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: List newsletter messages
+      tags:
+      - newsletters
+  /instances/{id}/newsletters/{channel}/mute:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Channel JID
+        in: path
+        name: channel
+        required: true
+        type: string
+      - description: Mute payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.muteNewsletterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Applied mute, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.muteNewsletterResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found, or unknown channel
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Invalid channel
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Mute or unmute a newsletter channel
+      tags:
+      - newsletters
+  /instances/{id}/newsletters/{channel}/reactions:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Channel JID
+        in: path
+        name: channel
+        required: true
+        type: string
+      - description: Reaction payload, empty reaction removes it
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.reactNewsletterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Reacted, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.newsletterReactResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found, or unknown message
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Missing server id
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: React to a newsletter message
+      tags:
+      - newsletters
+  /instances/{id}/newsletters/{channel}/updates:
+    get:
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Channel JID
+        in: path
+        name: channel
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updates, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.newsletterUpdatesResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found, or unknown channel
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Invalid channel
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: List newsletter updates
+      tags:
+      - newsletters
+  /instances/{id}/newsletters/{channel}/viewed:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Channel JID
+        in: path
+        name: channel
+        required: true
+        type: string
+      - description: Viewed payload, 1..100 server ids
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.markNewsletterViewedRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Viewed, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.newsletterViewedResponse'
+        "400":
+          description: Malformed body
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found, or unknown channel
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "413":
+          description: Body exceeds the 1 MiB limit
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "422":
+          description: Empty batch or above the 100 cap
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Mark newsletter messages as viewed
       tags:
       - newsletters
   /instances/{id}/newsletters/follow:
@@ -3294,6 +4993,55 @@ paths:
       summary: Get connection status
       tags:
       - connection
+  /instances/{id}/status/privacy:
+    get:
+      parameters:
+      - description: Global, owning user, or own instance key
+        in: header
+        name: apikey
+        required: true
+        type: string
+      - description: Correlation id, echoed back
+        in: header
+        name: X-Request-Id
+        type: string
+      - description: Instance ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Audience, wrapped in the data envelope
+          schema:
+            $ref: '#/definitions/httpapi.statusPrivacyResponse'
+        "401":
+          description: Missing or invalid credential
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "403":
+          description: Not the owner
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "404":
+          description: Instance not found
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "409":
+          description: Instance not connected
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httpapi.errorEnvelope'
+      security:
+      - apikey: []
+      summary: Get the status privacy
+      tags:
+      - status
   /instances/{id}/status/updates:
     get:
       parameters:

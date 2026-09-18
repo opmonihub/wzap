@@ -359,13 +359,18 @@ func (s *Service) Connect(ctx context.Context, id uuid.UUID) (ConnectResult, err
 		return ConnectResult{}, fmt.Errorf("connect instance: create session: %w", err)
 	}
 
-	switch sess.Status() {
-	case session.StatusConnected:
+	// O Status sozinho pode dizer "connected" com o socket já morto (o
+	// banco só vê o drop quando o evento chega): só é no-op quando o
+	// websocket está vivo. Com o socket morto cai para o connectPairing
+	// abaixo, que reabre o websocket em vez de responder connected com o
+	// socket morto (que quebraria a resolução de números e os envios).
+	if sess.Status() == session.StatusConnected && sess.IsConnected() {
 		s.log.Debug().Str("instance_id", id.String()).Str("op", "connect").
 			Str("branch", "already-connected").Str("status", string(session.StatusConnected)).
 			Msg(msgConnectBranch)
 		return ConnectResult{Status: session.StatusConnected}, nil
-	case session.StatusPairing:
+	}
+	if sess.Status() == session.StatusPairing {
 		result, err := pairingResult(ctx, sess)
 		if err != nil {
 			s.log.Warn().Str("instance_id", id.String()).Str("op", "connect").
@@ -423,13 +428,17 @@ func (s *Service) QR(ctx context.Context, id uuid.UUID) (ConnectResult, error) {
 		return ConnectResult{}, fmt.Errorf("get qr: create session: %w", err)
 	}
 
-	switch sess.Status() {
-	case session.StatusConnected:
+	// Como no Connect: só é 409 sem tocar no socket quando o websocket
+	// está vivo. Com o socket morto cai para o connectPairing abaixo, que
+	// reabre o websocket; como o dispositivo já tem credenciais o retorno
+	// continua 409, mas com o socket revivido como efeito colateral.
+	if sess.Status() == session.StatusConnected && sess.IsConnected() {
 		s.log.Debug().Str("instance_id", id.String()).Str("op", "qr").
 			Str("branch", "already-connected").Str("status", string(session.StatusConnected)).
 			Msg(msgQRBranch)
 		return ConnectResult{}, fmt.Errorf("get qr: %w", ErrAlreadyConnected)
-	case session.StatusPairing:
+	}
+	if sess.Status() == session.StatusPairing {
 		result, err := pairingResult(ctx, sess)
 		if err != nil {
 			s.log.Warn().Str("instance_id", id.String()).Str("op", "qr").

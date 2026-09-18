@@ -574,6 +574,7 @@ func TestServiceConnectAlreadyConnectedSkipsQR(t *testing.T) {
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sess.SetStatus(session.StatusConnected)
+	sess.SetConnected(true)
 	sess.SetJID("5511999999999@s.whatsapp.net")
 	sessions.Put(id, sess)
 	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, zerolog.Nop())
@@ -597,6 +598,53 @@ func TestServiceConnectAlreadyConnectedSkipsQR(t *testing.T) {
 	}
 	if len(repo.updateCalls) != 0 {
 		t.Errorf("repo Update calls = %+v, want none", repo.updateCalls)
+	}
+}
+
+// TestServiceConnectDeadSocketReconnects cobre o socket morto: Status
+// connected com o websocket caído não é no-op — o Connect reabre o
+// websocket em vez de responder connected com o socket morto (que quebraria
+// a resolução de números com "number resolution unavailable").
+func TestServiceConnectDeadSocketReconnects(t *testing.T) {
+	id := uuid.New()
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: string(session.StatusConnected)})
+	sessions := sessiontest.New(nil)
+	sess := sessiontest.NewSession(id, nil)
+	sess.SetStatus(session.StatusConnected)
+	sess.SetConnected(false)
+	sess.SetJID("5511999999999@s.whatsapp.net")
+	sessions.Put(id, sess)
+	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, zerolog.Nop())
+
+	result, err := svc.Connect(context.Background(), id)
+	if err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+	if got := sess.ConnectCalls(); got == 0 {
+		t.Fatal("session Connect calls = 0, want a reconnect on a dead socket")
+	}
+	// O fake sempre pareia com QR; o ponto é que houve tentativa de
+	// reconexão em vez do no-op connected.
+	if result.Status != session.StatusPairing {
+		t.Errorf("Status = %q, want %q (reconnect attempted)", result.Status, session.StatusPairing)
+	}
+}
+
+// TestServiceQRDeadSocketReconnects cobre o mesmo sintoma no QR: com o
+// socket morto o QR não é 409 imediato — tenta reabrir o websocket.
+func TestServiceQRDeadSocketReconnects(t *testing.T) {
+	id := uuid.New()
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: string(session.StatusConnected)})
+	sessions := sessiontest.New(nil)
+	sess := sessiontest.NewSession(id, nil)
+	sess.SetStatus(session.StatusConnected)
+	sess.SetConnected(false)
+	sessions.Put(id, sess)
+	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, zerolog.Nop())
+
+	_, _ = svc.QR(context.Background(), id)
+	if got := sess.ConnectCalls(); got == 0 {
+		t.Fatal("session Connect calls = 0, want a reconnect on a dead socket")
 	}
 }
 
@@ -730,6 +778,7 @@ func TestServiceQRAlreadyConnected(t *testing.T) {
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sess.SetStatus(session.StatusConnected)
+	sess.SetConnected(true)
 	sessions.Put(id, sess)
 	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, zerolog.Nop())
 

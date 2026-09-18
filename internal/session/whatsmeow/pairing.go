@@ -30,7 +30,15 @@ func (s *instanceSession) Connect(ctx context.Context) (string, time.Time, error
 		return "", time.Time{}, errors.New("session already connected")
 	}
 	if s.client.Store.ID != nil {
+		// Um dispositivo já pareado só precisa do websocket aberto: como
+		// no connectExisting, um socket já vivo é sucesso, não erro. Sem
+		// isso, um Connect com o socket vivo mas o Status ainda
+		// disconnected (pós-restore, evento Connected ainda a caminho)
+		// voltava como falha transitória em vez de connected.
 		if err := s.client.ConnectContext(ctx); err != nil {
+			if errors.Is(err, whatsmeow.ErrAlreadyConnected) {
+				return "", time.Time{}, nil
+			}
 			return "", time.Time{}, classifySessionError(err)
 		}
 		return "", time.Time{}, nil

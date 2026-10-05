@@ -79,7 +79,7 @@ func TestInstanceRepositoryBackfillOwnerUnknownOwner(t *testing.T) {
 func mustInstanceID(t *testing.T, ctx context.Context, repo *InstanceRepository) uuid.UUID {
 	t.Helper()
 
-	instances, _, err := repo.List(ctx, 1, "")
+	instances, err := repo.List(ctx)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}

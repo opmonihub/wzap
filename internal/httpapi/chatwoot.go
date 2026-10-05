@@ -113,8 +113,6 @@ type chatwootConfigResponse struct {
 // @Tags chatwoot
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Accept json
 // @Param request body chatwootSetRequest true "Connector configuration; token is accepted only on write"
@@ -244,8 +242,6 @@ func ensureChatwootInbox(ctx context.Context, clientFor ChatwootClientFor, cfg m
 // @Tags chatwoot
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Success 200 {object} envelope{data=chatwootConfigResponse} "Connector config; token is always empty"
 // @Failure 400 {object} errorEnvelope "Connector disabled, malformed request or invalid instance ID"
@@ -301,7 +297,6 @@ func handleChatwootGet(instances InstanceService, configs ChatwootConfigStore, g
 // @Tags chatwoot
 // @Accept json
 // @Produce json
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body inbound.Payload true "Chatwoot event subset; unknown fields are ignored"
 // @Success 200 {object} object{content=string} "Raw acknowledgement with empty content"
@@ -422,8 +417,6 @@ func newChatwootConfigResponse(cfg *model.ChatwootConfig, webhookURL string) cha
 // @Tags chatwoot
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Success 202 {object} envelope{data=object{imported=int}} "Number of messages already imported"
 // @Failure 400 {object} errorEnvelope "Connector disabled, malformed request or invalid instance ID"
@@ -495,8 +488,6 @@ type chatwootCommandRequest struct {
 // @Tags chatwoot
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Accept json
 // @Param request body chatwootCommandRequest true "Operational command and Chatwoot conversation ID"

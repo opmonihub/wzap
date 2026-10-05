@@ -15,15 +15,12 @@ const props = defineProps<{
   items: Instance[]
   ownerEmails: Record<string, string>
   isAdmin: boolean
-  loadingMore: boolean
-  hasMore: boolean
 }>()
 
 const emit = defineEmits<{
   'connect': [instance: Instance]
   'edit': [instance: Instance]
   'remove': [instance: Instance]
-  'load-more': []
   // Empty-state create button (the navbar create button stays in the page, so
   // this is the only create entry owned here).
   'create': []
@@ -220,8 +217,8 @@ function onUpdatePage(page: number) {
 }
 
 // The table owns ordering, so filter/sort changes restart at the first page;
-// a shrunken result only clamps an out-of-range page. Cursor accumulation
-// (loadMore/onCreated) never resets the page the user is on.
+// a shrunken result only clamps an out-of-range page. Adding a created
+// instance never resets the page the user is on.
 watch([globalFilter, columnFilters, sorting], () => {
   pagination.value.pageIndex = 0
 })
@@ -440,15 +437,5 @@ function onRowSelect(event: Event, row: { original: Instance }) {
       :page-count="pageCount"
       @update:page="onUpdatePage"
     />
-
-    <div v-if="hasMore" class="flex justify-center pt-2">
-      <UButton
-        color="neutral"
-        variant="soft"
-        :loading="loadingMore"
-        :label="t('common.loadMore')"
-        @click="emit('load-more')"
-      />
-    </div>
   </div>
 </template>

@@ -53,11 +53,9 @@ export interface Instance {
   updated_at: string
 }
 
-// One page of GET /instances with the opaque cursor of the next page, empty
-// on the last page.
-export interface InstanceListPage {
+// Complete collection of instances authorized for GET /instances.
+export interface InstanceList {
   items: Instance[]
-  next_cursor: string
 }
 
 // GET /instances/stats answer: the scoped total plus the breakdown by

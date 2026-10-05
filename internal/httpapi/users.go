@@ -79,8 +79,6 @@ type createUserRequest struct {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key; alternatively use an admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param request body createUserRequest true "User payload"
 // @Success 201 {object} envelope{data=userQuotaResponse} "Created user, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
@@ -162,8 +160,6 @@ func handleCreateUser(users storage.UserRepository, defaultQuota int) http.Handl
 // @Tags users
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key; alternatively use an admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Success 200 {object} envelope{data=[]userQuotaResponse} "Users, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Requires global or admin scope"
@@ -203,8 +199,6 @@ func handleListUsers(users storage.UserRepository) http.HandlerFunc {
 // @Tags users
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key; alternatively use an admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "User ID (UUID)"
 // @Success 200 {object} envelope{data=userQuotaResponse} "User, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
@@ -255,8 +249,6 @@ func handleGetUser(users storage.UserRepository) http.HandlerFunc {
 // @Tags users
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key; alternatively use an admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "User ID (UUID)"
 // @Success 204 "Deleted, no body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
@@ -335,8 +327,6 @@ type patchQuotaRequest struct {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key; alternatively use an admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "User ID (UUID)"
 // @Param request body patchQuotaRequest true "Quota payload"
 // @Success 200 {object} envelope{data=userQuotaResponse} "Updated user, wrapped in the data envelope"

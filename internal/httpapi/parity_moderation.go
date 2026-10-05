@@ -46,8 +46,6 @@ func validGroupRequestAction(action string) bool {
 // @Tags groups
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param group_id path string true "Group JID"
 // @Success 200 {object} envelope{data=groupRequestsResponse} "Pending requests, wrapped in the data envelope"
@@ -92,8 +90,6 @@ func handleGroupRequests(instances InstanceService, log zerolog.Logger) http.Han
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
 // @Param id path string true "Instance ID (UUID)"
 // @Param group_id path string true "Group JID"
@@ -151,8 +147,6 @@ func handleUpdateGroupRequests(instances InstanceService, log zerolog.Logger) ht
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param group_id path string true "Group JID"
 // @Param request body updateGroupSettingsRequest true "Settings payload"

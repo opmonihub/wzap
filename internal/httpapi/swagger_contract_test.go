@@ -37,8 +37,13 @@ type swaggerOperation struct {
 }
 
 type swaggerDocument struct {
-	Paths       map[string]map[string]swaggerOperation `json:"paths"`
-	Definitions map[string]swaggerSchema               `json:"definitions"`
+	Paths               map[string]map[string]swaggerOperation `json:"paths"`
+	Definitions         map[string]swaggerSchema               `json:"definitions"`
+	SecurityDefinitions map[string]struct {
+		Type string `json:"type"`
+		In   string `json:"in"`
+		Name string `json:"name"`
+	} `json:"securityDefinitions"`
 }
 
 func servedSwagger(t *testing.T) swaggerDocument {
@@ -291,6 +296,10 @@ func TestSwaggerTypedPayloadsAndExceptions(t *testing.T) {
 // Public operations must stay usable without an API key; cookies suffice for dual auth.
 func TestSwaggerCredentialAndRequestContracts(t *testing.T) {
 	doc := servedSwagger(t)
+	credential := doc.SecurityDefinitions["apikey"]
+	if credential.Type != "apiKey" || credential.In != "header" || credential.Name != "apikey" {
+		t.Error("Authorize must use the apikey header security definition")
+	}
 	for path, methods := range doc.Paths {
 		for method, op := range methods {
 			public := path == "/healthz" || path == "/readyz" || strings.HasPrefix(path, "/manager") || strings.HasPrefix(path, "/auth/") || path == "/chatwoot/webhook/{id}"
@@ -309,8 +318,13 @@ func TestSwaggerCredentialAndRequestContracts(t *testing.T) {
 				}
 			}
 			for _, parameter := range op.Parameters {
-				if parameter.In == "header" && parameter.Name == "apikey" && parameter.Required {
-					t.Errorf("%s %s apikey header must be optional for session-cookie callers", method, path)
+				if parameter.In == "header" && (strings.EqualFold(parameter.Name, "apikey") || strings.EqualFold(parameter.Name, "X-Request-Id")) {
+					t.Errorf("%s %s must not expose manual %s header input", method, path, parameter.Name)
+				}
+			}
+			for status, response := range op.Responses {
+				if response.Headers["X-Request-Id"].Type != "string" {
+					t.Errorf("%s %s %s missing response X-Request-Id header", method, path, status)
 				}
 			}
 		}
@@ -330,6 +344,67 @@ func TestSwaggerCredentialAndRequestContracts(t *testing.T) {
 		if doc.Paths[path]["post"].Responses["200"].Headers["Set-Cookie"].Type != "string" {
 			t.Errorf("%s missing Set-Cookie header", path)
 		}
+	}
+}
+
+// Instance listing exposes the complete collection without pagination controls.
+func TestSwaggerInstanceListingWithoutPagination(t *testing.T) {
+	doc := servedSwagger(t)
+	op, ok := doc.Paths["/instances"]["get"]
+	if !ok {
+		t.Fatal("missing GET /instances operation")
+	}
+	for _, parameter := range op.Parameters {
+		if parameter.In == "query" && (parameter.Name == "limit" || parameter.Name == "cursor") {
+			t.Errorf("GET /instances must not expose pagination input %s", parameter.Name)
+		}
+	}
+	response := op.Responses["200"]
+	if response.Schema == nil {
+		t.Fatal("missing instance list response schema")
+	}
+	envelope := resolveSwaggerSchema(t, doc, *response.Schema)
+	payload := resolveSwaggerSchema(t, doc, envelope.Properties["data"])
+	if _, ok := payload.Properties["next_cursor"]; ok {
+		t.Error("GET /instances data must not include next_cursor")
+	}
+	items := resolveSwaggerSchema(t, doc, payload.Properties["items"])
+	if items.Type != "array" || items.Items == nil {
+		t.Fatal("GET /instances data.items must be a typed array")
+	}
+	item := resolveSwaggerSchema(t, doc, *items.Items)
+	if item.Properties["id"].Type != "string" {
+		t.Error("GET /instances data.items must retain the instance schema")
+	}
+}
+
+// Removing instance pagination must preserve the other collections' page contracts.
+func TestSwaggerOtherCollectionPagination(t *testing.T) {
+	doc := servedSwagger(t)
+	for _, path := range []string{"/instances/{id}/messages", "/instances/{id}/groups", "/instances/{id}/newsletters"} {
+		t.Run(path, func(t *testing.T) {
+			op := doc.Paths[path]["get"]
+			for _, name := range []string{"limit", "cursor"} {
+				found := false
+				for _, parameter := range op.Parameters {
+					if parameter.In == "query" && parameter.Name == name {
+						found = true
+					}
+				}
+				if !found {
+					t.Errorf("missing pagination query %s", name)
+				}
+			}
+			response := op.Responses["200"]
+			if response.Schema == nil {
+				t.Fatal("missing collection response schema")
+			}
+			envelope := resolveSwaggerSchema(t, doc, *response.Schema)
+			payload := resolveSwaggerSchema(t, doc, envelope.Properties["data"])
+			if payload.Properties["next_cursor"].Type != "string" {
+				t.Error("data.next_cursor must remain a string")
+			}
+		})
 	}
 }
 

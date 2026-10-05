@@ -174,8 +174,6 @@ func newNewsletterMessageResponse(msg session.NewsletterMessage) newsletterMessa
 // @Tags groups
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param limit query int false "Page size, default 50, max 100"
 // @Param cursor query string false "Opaque pagination cursor"
@@ -218,8 +216,6 @@ func handleListJoinedGroups(instances InstanceService, log zerolog.Logger) http.
 // @Tags groups
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param code query string true "Invite code or link"
 // @Success 200 {object} envelope{data=groupResponse} "Preview, wrapped in the data envelope"
@@ -266,8 +262,6 @@ func handleInvitePreview(instances InstanceService, log zerolog.Logger) http.Han
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body checkContactsRequest true "Phones batch, 1..50 numbers"
 // @Success 200 {object} envelope{data=checkContactsResponse} "Results in input order, wrapped in the data envelope"
@@ -333,8 +327,6 @@ func handleCheckContacts(instances InstanceService, log zerolog.Logger) http.Han
 // @Tags contacts
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param jid path string true "Contact JID"
 // @Success 200 {object} envelope{data=contactDevicesResponse} "Devices, wrapped in the data envelope"
@@ -378,8 +370,6 @@ func handleContactDevices(instances InstanceService, log zerolog.Logger) http.Ha
 // @Tags contacts
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param jid path string true "Contact JID"
 // @Success 200 {object} envelope{data=contactPhotoResponse} "Photo, wrapped in the data envelope"
@@ -420,8 +410,6 @@ func handleContactPhoto(instances InstanceService, log zerolog.Logger) http.Hand
 // @Tags contacts
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param jid path string true "Contact JID"
 // @Success 200 {object} envelope{data=contactBusinessResponse} "Business profile, wrapped in the data envelope"
@@ -466,8 +454,6 @@ func handleContactBusiness(instances InstanceService, log zerolog.Logger) http.H
 // @Tags blocklist
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Success 200 {object} envelope{data=blocklistResponse} "Blocked JIDs, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
@@ -504,8 +490,6 @@ func handleGetBlocklist(instances InstanceService, log zerolog.Logger) http.Hand
 // @Tags status
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Success 200 {object} envelope{data=statusPrivacyResponse} "Audience, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
@@ -544,8 +528,6 @@ func handleGetStatusPrivacy(instances InstanceService, log zerolog.Logger) http.
 // @Tags chats
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param chat path string true "Chat JID"
 // @Success 200 {object} envelope{data=disappearingResponse} "Timer, wrapped in the data envelope"
@@ -591,8 +573,6 @@ func handleGetDisappearing(instances InstanceService, log zerolog.Logger) http.H
 // @Tags newsletters
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param channel path string true "Channel JID"
 // @Param limit query int false "Page size, default 50, max 100"
@@ -641,8 +621,6 @@ func handleGetNewsletterMessages(instances InstanceService, log zerolog.Logger) 
 // @Tags newsletters
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param channel path string true "Channel JID"
 // @Success 200 {object} envelope{data=newsletterUpdatesResponse} "Updates, wrapped in the data envelope"

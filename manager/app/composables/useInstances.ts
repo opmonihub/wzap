@@ -5,7 +5,7 @@ import type {
   CreatedInstance,
   CreateInstanceInput,
   Instance,
-  InstanceListPage,
+  InstanceList,
   RotatedInstanceKey,
   UpdateInstanceInput,
   UpdateWebhookInput
@@ -50,9 +50,8 @@ export function forgetInstanceKeySeen(id: string): void {
 export function useInstances() {
   const { api, raw } = useApi()
 
-  async function listInstances(cursor?: string): Promise<InstanceListPage> {
-    const query = cursor ? { cursor } : {}
-    return await api<InstanceListPage>('/instances', { query })
+  async function listInstances(): Promise<InstanceList> {
+    return await api<InstanceList>('/instances')
   }
 
   async function getInstance(id: string): Promise<Instance> {

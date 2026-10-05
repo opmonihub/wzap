@@ -158,8 +158,6 @@ func cleanJIDs(raw []string) ([]string, bool) {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body createGroupRequest true "Group payload"
 // @Success 201 {object} envelope{data=groupResponse} "Created, wrapped in the data envelope (invite_code empty when the post-create invite lookup fails; reconcile via GET .../invite, do not retry the create)"
@@ -238,8 +236,6 @@ func handleCreateGroup(instances InstanceService, log zerolog.Logger) http.Handl
 // @Tags groups
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param group_id path string true "Group JID"
 // @Success 200 {object} envelope{data=groupResponse} "Group, wrapped in the data envelope"
@@ -275,8 +271,6 @@ func handleGetGroup(instances InstanceService, log zerolog.Logger) http.HandlerF
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param group_id path string true "Group JID"
 // @Param request body updateGroupRequest true "Group patch"
@@ -335,8 +329,6 @@ func handleUpdateGroup(instances InstanceService, log zerolog.Logger) http.Handl
 // @Accept image/*
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param group_id path string true "Group JID"
 // @Param image body string true "Raw image bytes with an image/* Content-Type (for example JPEG, PNG or WebP)"
@@ -396,8 +388,6 @@ func handleSetGroupPhoto(instances InstanceService, log zerolog.Logger, maxBytes
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param group_id path string true "Group JID"
 // @Param request body updateParticipantsRequest true "Participants payload"
@@ -450,8 +440,6 @@ func handleUpdateGroupParticipants(instances InstanceService, log zerolog.Logger
 // @Tags groups
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param group_id path string true "Group JID"
 // @Success 200 {object} envelope{data=groupInviteResponse} "Invite, wrapped in the data envelope"
@@ -486,8 +474,6 @@ func handleGetGroupInvite(instances InstanceService, log zerolog.Logger) http.Ha
 // @Tags groups
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param group_id path string true "Group JID"
 // @Success 200 {object} envelope{data=groupInviteResponse} "Fresh invite, wrapped in the data envelope"
@@ -523,8 +509,6 @@ func handleResetGroupInvite(instances InstanceService, log zerolog.Logger) http.
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body joinGroupRequest true "Join payload"
 // @Success 200 {object} envelope{data=groupJoinResponse} "Joined group, wrapped in the data envelope"
@@ -586,8 +570,6 @@ func handleJoinGroup(instances InstanceService, log zerolog.Logger) http.Handler
 // @Tags groups
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param group_id path string true "Group JID"
 // @Success 200 {object} envelope{data=groupLeaveResponse} "Left, wrapped in the data envelope"

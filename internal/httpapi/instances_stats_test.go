@@ -34,8 +34,8 @@ func TestInstanceStatsGlobalCountsAllStatuses(t *testing.T) {
 		{ID: uuid.New(), Name: "c", Status: "pairing", OwnerUserID: &owner},
 		{ID: uuid.New(), Name: "d", Status: "error"},
 	}
-	svc := &fakeInstanceService{listFn: func(context.Context, int, string) ([]model.Instance, string, error) {
-		return rows, "", nil
+	svc := &fakeInstanceService{listFn: func(context.Context) ([]model.Instance, error) {
+		return rows, nil
 	}}
 
 	rec := serveJSON(t, instancesServer(t, svc), http.MethodGet, "/instances/stats", "")
@@ -113,8 +113,8 @@ func TestInstanceStatsInstanceKeyForbidden(t *testing.T) {
 
 func TestInstanceStatsUnknownStatusFoldsIntoDisconnected(t *testing.T) {
 	rows := []model.Instance{{ID: uuid.New(), Name: "a", Status: "mysterious"}}
-	svc := &fakeInstanceService{listFn: func(context.Context, int, string) ([]model.Instance, string, error) {
-		return rows, "", nil
+	svc := &fakeInstanceService{listFn: func(context.Context) ([]model.Instance, error) {
+		return rows, nil
 	}}
 
 	rec := serveJSON(t, instancesServer(t, svc), http.MethodGet, "/instances/stats", "")
@@ -133,8 +133,8 @@ func TestInstanceStatsUnknownStatusFoldsIntoDisconnected(t *testing.T) {
 }
 
 func TestInstanceStatsServiceErrorIsInternal(t *testing.T) {
-	svc := &fakeInstanceService{listFn: func(context.Context, int, string) ([]model.Instance, string, error) {
-		return nil, "", errors.New("boom")
+	svc := &fakeInstanceService{listFn: func(context.Context) ([]model.Instance, error) {
+		return nil, errors.New("boom")
 	}}
 
 	rec := serveJSON(t, instancesServer(t, svc), http.MethodGet, "/instances/stats", "")
@@ -150,26 +150,14 @@ func TestInstanceStatsServiceErrorIsInternal(t *testing.T) {
 	}
 }
 
-func TestInstanceStatsAccumulatesPages(t *testing.T) {
-	first := []model.Instance{
-		{ID: uuid.New(), Name: "a", Status: "connected"},
-		{ID: uuid.New(), Name: "b", Status: "disconnected"},
+func TestInstanceStatsCountsCompleteCollection(t *testing.T) {
+	rows := make([]model.Instance, 0, 127)
+	for range 125 {
+		rows = append(rows, model.Instance{ID: uuid.New(), Status: "connected"})
 	}
-	second := []model.Instance{
-		{ID: uuid.New(), Name: "c", Status: "pairing"},
-	}
-	var limits []int
-	var cursors []string
-	svc := &fakeInstanceService{listFn: func(_ context.Context, limit int, cursor string) ([]model.Instance, string, error) {
-		limits = append(limits, limit)
-		cursors = append(cursors, cursor)
-		if cursor == "" {
-			return first, "cursor-1", nil
-		}
-		if cursor == "cursor-1" {
-			return second, "", nil
-		}
-		return nil, "", errors.New("unexpected cursor " + cursor)
+	rows = append(rows, model.Instance{ID: uuid.New(), Status: "pairing"}, model.Instance{ID: uuid.New(), Status: "unknown"})
+	svc := &fakeInstanceService{listFn: func(context.Context) ([]model.Instance, error) {
+		return rows, nil
 	}}
 
 	rec := serveJSON(t, instancesServer(t, svc), http.MethodGet, "/instances/stats", "")
@@ -178,18 +166,14 @@ func TestInstanceStatsAccumulatesPages(t *testing.T) {
 		t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 	}
 	total, byStatus := statsTotals(t, rec.Body.Bytes())
-	if total != 3 {
-		t.Errorf("data.total = %d, want 3 across both pages", total)
+	if total != 127 {
+		t.Errorf("data.total = %d, want 127", total)
 	}
-	want := map[string]int{"connected": 1, "disconnected": 1, "pairing": 1, "error": 0}
+	want := map[string]int{"connected": 125, "disconnected": 1, "pairing": 1, "error": 0}
 	if !reflect.DeepEqual(byStatus, want) {
 		t.Errorf("data.by_status = %v, want %v", byStatus, want)
 	}
-	// The handler pages at the max page size (100, maxInstancesLimit).
-	if !reflect.DeepEqual(limits, []int{100, 100}) {
-		t.Errorf("List limits = %v, want [100 100]", limits)
-	}
-	if !reflect.DeepEqual(cursors, []string{"", "cursor-1"}) {
-		t.Errorf("List cursors = %q, want [\"\" \"cursor-1\"]", cursors)
+	if svc.listCalls != 1 {
+		t.Errorf("List calls = %d, want 1", svc.listCalls)
 	}
 }

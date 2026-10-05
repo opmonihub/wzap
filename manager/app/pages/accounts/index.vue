@@ -57,21 +57,17 @@ async function load() {
 }
 
 // Usage comes from the instance list (no usage field on GET /users):
-// accumulate every cursor page best-effort and count owners. A failed usage
+// fetch the complete collection best-effort and count owners. A failed usage
 // load never fails the accounts list; cells fall back to 0 used.
 async function loadUsage() {
   const counts: Record<string, number> = {}
   try {
-    let cursor: string | undefined
-    do {
-      const page = await listInstances(cursor)
-      for (const instance of page.items) {
-        if (instance.owner_user_id) {
-          counts[instance.owner_user_id] = (counts[instance.owner_user_id] ?? 0) + 1
-        }
+    const listing = await listInstances()
+    for (const instance of listing.items) {
+      if (instance.owner_user_id) {
+        counts[instance.owner_user_id] = (counts[instance.owner_user_id] ?? 0) + 1
       }
-      cursor = page.next_cursor === '' ? undefined : page.next_cursor
-    } while (cursor !== undefined)
+    }
     usageByOwner.value = counts
   } catch {
     usageByOwner.value = counts

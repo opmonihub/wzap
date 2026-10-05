@@ -5,7 +5,7 @@ import DeleteInstanceModal from '~/components/instances/DeleteInstanceModal.vue'
 import EditInstanceModal from '~/components/instances/EditInstanceModal.vue'
 import type { CreatedInstance, Instance } from '~/types/api'
 
-// Instance list orchestration only: fetch/cursor state, the cards/table view
+// Instance list orchestration only: fetch state, the cards/table view
 // preference, create/connect/edit/delete flows and modal targets. Table
 // state, toolbar, columns, selection and viewport rules live in
 // InstancesTable; the card grid lives in InstancesCards; cell rendering lives
@@ -16,9 +16,7 @@ const { isAdmin } = useAuth()
 const { listInstances, listAccounts, connectInstance } = useInstances()
 
 const items = ref<Instance[]>([])
-const nextCursor = ref('')
 const pending = ref(true)
-const loadingMore = ref(false)
 const failure = ref<string | null>(null)
 const createOpen = ref(false)
 const ownerEmails = ref<Record<string, string>>({})
@@ -62,34 +60,13 @@ async function loadFirst() {
   pending.value = true
   failure.value = null
   try {
-    const page = await listInstances()
-    items.value = page.items
-    nextCursor.value = page.next_cursor
+    const listing = await listInstances()
+    items.value = listing.items
     await loadOwners()
   } catch (error) {
     failure.value = error instanceof ApiError ? error.message : t('instances.loadFailed')
   } finally {
     pending.value = false
-  }
-}
-
-async function loadMore() {
-  if (loadingMore.value || nextCursor.value === '') {
-    return
-  }
-  loadingMore.value = true
-  try {
-    const page = await listInstances(nextCursor.value)
-    items.value = [...items.value, ...page.items]
-    nextCursor.value = page.next_cursor
-  } catch (error) {
-    toast.add({
-      title: error instanceof ApiError ? error.message : t('instances.loadFailed'),
-      icon: 'i-lucide-triangle-alert',
-      color: 'error'
-    })
-  } finally {
-    loadingMore.value = false
   }
 }
 
@@ -201,7 +178,7 @@ await loadFirst()
       </p>
 
       <!-- Initial load renders per-view skeletons; both views mount only after
-      load, so no :loading prop (loadMore owns its button spinner). -->
+      load. -->
       <div v-if="pending && view === 'table'" class="flex flex-col gap-2">
         <USkeleton class="h-12 w-full" />
         <USkeleton class="h-12 w-full" />
@@ -237,12 +214,9 @@ await loadFirst()
             :items="items"
             :owner-emails="ownerEmails"
             :is-admin="isAdmin"
-            :loading-more="loadingMore"
-            :has-more="nextCursor !== ''"
             @connect="onConnect"
             @edit="openEdit"
             @remove="openDelete"
-            @load-more="loadMore"
             @create="createOpen = true"
           />
           <InstancesCards
@@ -257,16 +231,6 @@ await loadFirst()
             @create="createOpen = true"
           />
         </KeepAlive>
-
-        <div v-if="view === 'cards' && nextCursor !== ''" class="flex justify-center pt-2">
-          <UButton
-            color="neutral"
-            variant="soft"
-            :loading="loadingMore"
-            :label="t('common.loadMore')"
-            @click="loadMore"
-          />
-        </div>
       </div>
     </template>
   </UDashboardPanel>

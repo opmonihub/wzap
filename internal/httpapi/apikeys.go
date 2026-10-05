@@ -29,8 +29,6 @@ type rotateAPIKeyResponse struct {
 // @Tags apikeys
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key; alternatively use an admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Success 200 {object} envelope{data=rotateAPIKeyResponse} "Fresh key, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
@@ -87,8 +85,6 @@ func handleRotateAPIKey(instances InstanceService, keys storage.APIKeyRepository
 // @Tags apikeys
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key; alternatively use an admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Success 204 "Revoked, no body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"

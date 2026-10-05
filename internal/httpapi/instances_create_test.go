@@ -257,8 +257,8 @@ func TestInstancesCreateKeyShownOnce(t *testing.T) {
 		getFn: func(_ context.Context, id uuid.UUID) (*model.Instance, error) {
 			return owned(id), nil
 		},
-		listFn: func(context.Context, int, string) ([]model.Instance, string, error) {
-			return []model.Instance{*owned(uuid.New())}, "", nil
+		listFn: func(context.Context) ([]model.Instance, error) {
+			return []model.Instance{*owned(uuid.New())}, nil
 		},
 		updateFn: func(_ context.Context, id uuid.UUID, _ instance.UpdateInput) (*model.Instance, error) {
 			return owned(id), nil

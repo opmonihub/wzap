@@ -30,12 +30,6 @@ const docTemplate = `{
                 "summary": "Log in to the manager session",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
                         "description": "Credentials",
                         "name": "request",
                         "in": "body",
@@ -147,14 +141,6 @@ const docTemplate = `{
                     "auth"
                 ],
                 "summary": "Log out of the manager session",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "Status, wrapped in the data envelope",
@@ -197,14 +183,6 @@ const docTemplate = `{
                     "auth"
                 ],
                 "summary": "Show the current manager session",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "Identity, wrapped in the data envelope",
@@ -271,12 +249,6 @@ const docTemplate = `{
                 ],
                 "summary": "Receive a Chatwoot webhook",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -373,14 +345,6 @@ const docTemplate = `{
                     "health"
                 ],
                 "summary": "Liveness probe",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "Liveness status",
@@ -428,35 +392,9 @@ const docTemplate = `{
                     "instances"
                 ],
                 "summary": "List instances",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key; alternatively use a user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Page size, default 50, max 100",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Opaque pagination cursor",
-                        "name": "cursor",
-                        "in": "query"
-                    }
-                ],
                 "responses": {
                     "200": {
-                        "description": "One page, wrapped in the data envelope",
+                        "description": "All authorized instances, wrapped in the data envelope",
                         "schema": {
                             "allOf": [
                                 {
@@ -471,18 +409,6 @@ const docTemplate = `{
                                     }
                                 }
                             ]
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid cursor",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -546,18 +472,6 @@ const docTemplate = `{
                 ],
                 "summary": "Create an instance",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key; alternatively use a user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "description": "Instance payload",
                         "name": "request",
@@ -694,20 +608,6 @@ const docTemplate = `{
                     "instances"
                 ],
                 "summary": "Instance stats",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key; alternatively use a user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "Totals in scope, wrapped in the data envelope",
@@ -787,18 +687,6 @@ const docTemplate = `{
                 ],
                 "summary": "Get an instance",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -898,18 +786,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -993,18 +869,6 @@ const docTemplate = `{
                 ],
                 "summary": "Update an instance",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -1163,18 +1027,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key; alternatively use an admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -1257,18 +1109,6 @@ const docTemplate = `{
                 ],
                 "summary": "Rotate an instance API key",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key; alternatively use an admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -1368,18 +1208,6 @@ const docTemplate = `{
                 ],
                 "summary": "Get the blocklist",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -1492,18 +1320,6 @@ const docTemplate = `{
                 ],
                 "summary": "Block or unblock a JID",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -1663,18 +1479,6 @@ const docTemplate = `{
                 ],
                 "summary": "Reject the active call",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -1848,18 +1652,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -2019,18 +1811,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -2187,18 +1967,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -2328,18 +2096,6 @@ const docTemplate = `{
                 ],
                 "summary": "Set the disappearing timer of a chat",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -2506,18 +2262,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -2629,18 +2373,6 @@ const docTemplate = `{
                 ],
                 "summary": "Configure the Chatwoot connector",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -2791,18 +2523,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -2941,18 +2661,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -3069,18 +2777,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -3190,18 +2886,6 @@ const docTemplate = `{
                 ],
                 "summary": "Get the own contact link",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -3322,18 +3006,6 @@ const docTemplate = `{
                 ],
                 "summary": "Check contacts on WhatsApp",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -3492,18 +3164,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -3632,18 +3292,6 @@ const docTemplate = `{
                 ],
                 "summary": "List contact devices",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -3776,18 +3424,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -3916,18 +3552,6 @@ const docTemplate = `{
                 ],
                 "summary": "Subscribe to a contact presence (single signal, no heartbeat)",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -4060,18 +3684,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -4154,18 +3766,6 @@ const docTemplate = `{
                 ],
                 "summary": "List joined groups",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -4290,18 +3890,6 @@ const docTemplate = `{
                 ],
                 "summary": "Create a group",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -4460,18 +4048,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -4603,18 +4179,6 @@ const docTemplate = `{
                 ],
                 "summary": "Join a group by invite",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -4773,18 +4337,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -4902,18 +4454,6 @@ const docTemplate = `{
                 ],
                 "summary": "Update a group",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -5079,18 +4619,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -5209,18 +4737,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -5337,18 +4853,6 @@ const docTemplate = `{
                 ],
                 "summary": "Leave a group",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -5470,18 +4974,6 @@ const docTemplate = `{
                 ],
                 "summary": "Manage group participants",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -5650,18 +5142,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -5813,18 +5293,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -5942,18 +5410,6 @@ const docTemplate = `{
                 ],
                 "summary": "Approve or decline group join requests",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Idempotency key, 24h replay per instance",
@@ -6128,18 +5584,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -6303,18 +5747,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -6437,18 +5869,6 @@ const docTemplate = `{
                 ],
                 "summary": "Send a rich message",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Idempotency key, 24h replay per instance",
@@ -6628,18 +6048,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Idempotency key, 24h replay per instance",
                         "name": "Idempotency-Key",
                         "in": "header"
@@ -6817,18 +6225,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Idempotency key, 24h replay per instance",
                         "name": "Idempotency-Key",
                         "in": "header"
@@ -6992,18 +6388,6 @@ const docTemplate = `{
                 ],
                 "summary": "Send a location message",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Idempotency key, 24h replay per instance",
@@ -7181,18 +6565,6 @@ const docTemplate = `{
                 ],
                 "summary": "Send a media message",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Idempotency key, 24h replay per instance",
@@ -7390,18 +6762,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -7559,18 +6919,6 @@ const docTemplate = `{
                 ],
                 "summary": "Send a text message",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Idempotency key, 24h replay per instance",
@@ -7747,18 +7095,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -7863,18 +7199,6 @@ const docTemplate = `{
                 ],
                 "summary": "List newsletter channels",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -7999,18 +7323,6 @@ const docTemplate = `{
                 ],
                 "summary": "Create a newsletter channel",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -8172,18 +7484,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -8343,18 +7643,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -8511,18 +7799,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -8639,18 +7915,6 @@ const docTemplate = `{
                 ],
                 "summary": "List newsletter messages",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -8796,18 +8060,6 @@ const docTemplate = `{
                 ],
                 "summary": "Mute or unmute a newsletter channel",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -8976,18 +8228,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -9151,18 +8391,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -9294,18 +8522,6 @@ const docTemplate = `{
                 ],
                 "summary": "Mark newsletter messages as viewed",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -9474,18 +8690,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -9631,18 +8835,6 @@ const docTemplate = `{
                 ],
                 "summary": "Pair by phone code",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -9804,18 +8996,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -9972,18 +9152,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -10095,18 +9263,6 @@ const docTemplate = `{
                 ],
                 "summary": "Update the own privacy settings",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -10265,18 +9421,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -10387,18 +9531,6 @@ const docTemplate = `{
                 ],
                 "summary": "Update the own profile",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -10572,18 +9704,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -10740,18 +9860,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -10863,18 +9971,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -10972,18 +10068,6 @@ const docTemplate = `{
                 ],
                 "summary": "Get the status privacy",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -11097,18 +10181,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Instance ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -11220,18 +10292,6 @@ const docTemplate = `{
                 ],
                 "summary": "Publish a text status",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Idempotency key, 24h replay per instance",
@@ -11400,18 +10460,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Idempotency key, 24h replay per instance",
                         "name": "Idempotency-Key",
                         "in": "header"
@@ -11571,18 +10619,6 @@ const docTemplate = `{
                 ],
                 "summary": "Delete an own status",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "Instance ID (UUID)",
@@ -11786,18 +10822,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or owning instance key; alternatively use the owning user/admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "Media ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -11894,14 +10918,6 @@ const docTemplate = `{
                     "health"
                 ],
                 "summary": "Readiness probe",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "Readiness, wrapped in the data envelope",
@@ -11968,20 +10984,6 @@ const docTemplate = `{
                     "users"
                 ],
                 "summary": "List users",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key; alternatively use an admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "Users, wrapped in the data envelope",
@@ -12065,18 +11067,6 @@ const docTemplate = `{
                 ],
                 "summary": "Create a user",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key; alternatively use an admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "description": "User payload",
                         "name": "request",
@@ -12216,18 +11206,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key; alternatively use an admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "User ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -12325,18 +11303,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key; alternatively use an admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
                         "description": "User ID (UUID)",
                         "name": "id",
                         "in": "path",
@@ -12432,18 +11398,6 @@ const docTemplate = `{
                 ],
                 "summary": "Update a user quota",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Global key; alternatively use an admin session cookie",
-                        "name": "apikey",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Correlation id, echoed back",
-                        "name": "X-Request-Id",
-                        "in": "header"
-                    },
                     {
                         "type": "string",
                         "description": "User ID (UUID)",
@@ -13141,9 +12095,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/httpapi.instanceResponse"
                     }
-                },
-                "next_cursor": {
-                    "type": "string"
                 }
             }
         },

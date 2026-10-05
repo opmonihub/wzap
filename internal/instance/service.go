@@ -290,14 +290,13 @@ func (s *Service) Health(ctx context.Context, id uuid.UUID) (HealthResult, error
 	return result, nil
 }
 
-// List returns a page of instances and the cursor of the next page, empty on
-// the last page.
-func (s *Service) List(ctx context.Context, limit int, cursor string) ([]model.Instance, string, error) {
-	instances, next, err := s.repo.List(ctx, limit, cursor)
+// List returns every instance ordered by created_at descending, then id descending.
+func (s *Service) List(ctx context.Context) ([]model.Instance, error) {
+	instances, err := s.repo.List(ctx)
 	if err != nil {
-		return nil, "", mapError("list instances", err)
+		return nil, mapError("list instances", err)
 	}
-	return instances, next, nil
+	return instances, nil
 }
 
 // Update applies the fields present in input to the stored instance and

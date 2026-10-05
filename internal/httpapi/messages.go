@@ -149,8 +149,6 @@ type sendMessageRequest struct {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body sendMessageRequest true "Rich payload: type poll|reaction|list|buttons plus its fields"
@@ -275,8 +273,6 @@ func richEnqueueInput(request sendMessageRequest) (message.EnqueueInput, bool) {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body sendTextRequest true "Text payload"
@@ -341,8 +337,6 @@ func handleSendText(instances InstanceService, messages MessageService) http.Han
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body sendLocationRequest true "Location payload"
@@ -412,8 +406,6 @@ func handleSendLocation(instances InstanceService, messages MessageService) http
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body sendContactRequest true "Contact payload"
@@ -481,8 +473,6 @@ func handleSendContact(instances InstanceService, messages MessageService) http.
 // @Accept multipart/form-data
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
 // @Param id path string true "Instance ID (UUID)"
 // @Param to formData string true "Recipient phone"
@@ -695,8 +685,6 @@ func writeMediaUploadError(w http.ResponseWriter, r *http.Request, err error) {
 // @Tags messages
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param message_id path string true "Message ID (UUID)"
 // @Success 200 {object} envelope{data=messageResponse} "Message, wrapped in the data envelope"
@@ -748,8 +736,6 @@ func handleGetMessage(instances InstanceService, messages MessageService) http.H
 // @Tags messages
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param limit query int false "Page size, default 50, max 100"
 // @Param cursor query string false "Opaque pagination cursor"

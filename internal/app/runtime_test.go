@@ -66,8 +66,8 @@ func (r *runtimeRepo) GetByExternalRef(context.Context, string) (*model.Instance
 	return nil, errors.New("runtimeRepo.GetByExternalRef: unexpected call")
 }
 
-func (r *runtimeRepo) List(context.Context, int, string) ([]model.Instance, string, error) {
-	return nil, "", errors.New("runtimeRepo.List: unexpected call")
+func (r *runtimeRepo) List(context.Context) ([]model.Instance, error) {
+	return nil, errors.New("runtimeRepo.List: unexpected call")
 }
 
 func (r *runtimeRepo) Update(context.Context, model.Instance) (*model.Instance, error) {

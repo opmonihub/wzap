@@ -135,7 +135,7 @@ sem as vars, nenhuma conta é criada.
 | Método e rota | Corpo/Resposta |
 | --- | --- |
 | `POST /instances` | `{"name","external_ref"?,"owner_user_id"?,"webhook_*"?}` → `201` com a instância, o dono e `instance_api_key` em claro **uma única vez**; `external_ref` duplicada → `409`; acima da cota → `403 quota_exceeded`. O dono é a sessão criadora, ou o admin mais antigo (sobrescrevível por `owner_user_id` só global/admin) na criação por key global. |
-| `GET /instances?limit&cursor` | `200` com `{"items":[...],"next_cursor"}`; `limit` padrão `50`, máximo `100`; cursor inválido → `400`. Contas `user` recebem só as próprias; instance key → `403`. |
+| `GET /instances` | `200` com `{"data":{"items":[...]}}`, contendo todas as instâncias autorizadas, ordenadas por criação e id decrescentes. Contas `user` recebem só as próprias; instance key → `403`. |
 | `GET /instances/{id}` | `200` com a instância (dono + webhook, nunca a key); `404` se não existir (id malformado também é `404`); instância de outro dono → `403`. |
 | `PATCH /instances/{id}` | `{"name"?,"external_ref"?,"webhook_url"?,"webhook_enabled"?,"webhook_events"?}` → `200`; `external_ref` vazia limpa a referência; webhook inválido → `422`. |
 | `DELETE /instances/{id}` | `204`; encerra a sessão e apaga mensagens e mídias; operações seguintes → `404`. |
@@ -146,6 +146,12 @@ sem as vars, nenhuma conta é criada.
 | `POST /instances/{id}/disconnect` | `204`; encerra a sessão, remove as credenciais e não reconecta. |
 | `GET /instances/{id}/status` | `200` com `{status, whatsapp_jid, last_error, last_connected_at}`. |
 | `POST /instances/{id}/numbers/check` | `{"phone"}` → `200` com `{exists, jid, normalized}`; número malformado/ausente do WhatsApp vem `exists:false`; sessão sem resolução confiável → `503`. |
+
+**BREAKING:** `GET /instances` não usa paginação e remove `next_cursor` da
+resposta. Clientes devem consumir `data.items` em uma única chamada; queries
+antigas `limit` e `cursor` são ignoradas, inclusive valores inválidos. Uma
+coleção grande produz uma resposta maior, sem limite oculto. Mensagens, grupos
+e newsletters mantêm seus contratos de paginação.
 
 Estados de instância: `disconnected`, `pairing`, `connected`, `error`. Restrição
 de conta vira `error` com motivo e **não** reconecta automaticamente; queda
@@ -188,8 +194,11 @@ seguintes. A entrega é at-least-once: deduplique pelo `event_id` estável.
   teste e mensagens). Build Nuxt estático embutido no binário.
 - Documentação interativa em `/swagger/*` (Swagger 2.0), cobrindo cada
   método/rota explícito, incluindo Chatwoot e as entradas públicas do Manager.
-  Use `Authorize` com uma key global/de instância no header `apikey:` para
-  chamadas de máquina. Rotas de autenticação dupla também aceitam o cookie
+  Informe uma key global/de instância em `Authorize` uma única vez: o Swagger
+  envia o header `apikey:` automaticamente nas chamadas de máquina. As
+  operações não pedem a key nem `X-Request-Id` em campos manuais; o serviço
+  gera o identificador automaticamente e o retorna no header de resposta
+  `X-Request-Id`. Rotas de autenticação dupla também aceitam o cookie
   `wzap_session`; o Swagger 2.0 não modela segurança por cookie.
 - Respostas REST JSON normais usam `{"data": ...}` e erros padronizados
   usam `{"error": {"code", "message"}}`. As exceções estão nos schemas:

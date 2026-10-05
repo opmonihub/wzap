@@ -104,8 +104,6 @@ func parseDisappearingDuration(raw string) (time.Duration, bool) {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body updateBlocklistRequest true "Blocklist payload"
 // @Success 200 {object} envelope{data=blocklistUpdateResponse} "Applied, wrapped in the data envelope"
@@ -160,8 +158,6 @@ func handleUpdateBlocklist(instances InstanceService, log zerolog.Logger) http.H
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param chat path string true "Chat JID"
 // @Param request body disappearingRequest true "Timer payload, one of 0, 24h, 168h, 2160h"
@@ -221,8 +217,6 @@ func handleSetDisappearing(instances InstanceService, log zerolog.Logger) http.H
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body disappearingRequest true "Timer payload, one of 0, 24h, 168h, 2160h"
 // @Success 200 {object} envelope{data=disappearingResponse} "Applied duration, wrapped in the data envelope"
@@ -275,8 +269,6 @@ func handleSetDefaultDisappearing(instances InstanceService, log zerolog.Logger)
 // @Tags contacts
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param jid path string true "Contact JID"
 // @Success 200 {object} envelope{data=subscribePresenceResponse} "Subscribed, wrapped in the data envelope"
@@ -315,8 +307,6 @@ func handleSubscribePresence(instances InstanceService, log zerolog.Logger) http
 // @Tags contacts
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param revoke query bool false "Revoke the previous link"
 // @Success 200 {object} envelope{data=contactLinkResponse} "Link, wrapped in the data envelope"
@@ -354,8 +344,6 @@ func handleContactLink(instances InstanceService, log zerolog.Logger) http.Handl
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body createNewsletterRequest true "Channel payload, title 1..100, description 0..500"
 // @Success 201 {object} envelope{data=newsletterResponse} "Created channel, wrapped in the data envelope"
@@ -410,8 +398,6 @@ func handleCreateNewsletter(instances InstanceService, log zerolog.Logger) http.
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param channel path string true "Channel JID"
 // @Param request body muteNewsletterRequest true "Mute payload"
@@ -461,8 +447,6 @@ func handleMuteNewsletter(instances InstanceService, log zerolog.Logger) http.Ha
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param channel path string true "Channel JID"
 // @Param request body markNewsletterViewedRequest true "Viewed payload, 1..100 server ids"
@@ -525,8 +509,6 @@ func handleMarkNewsletterViewed(instances InstanceService, log zerolog.Logger) h
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param channel path string true "Channel JID"
 // @Param request body reactNewsletterRequest true "Reaction payload, empty reaction removes it"

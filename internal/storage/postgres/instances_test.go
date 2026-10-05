@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -263,68 +264,45 @@ func TestInstanceRepositoryGetByExternalRef(t *testing.T) {
 	}
 }
 
-func TestInstanceRepositoryList(t *testing.T) {
+func TestInstanceRepositoryListCompleteAndDeterministic(t *testing.T) {
 	ctx := context.Background()
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
-
-	empty, cursor, err := repo.List(ctx, 10, "")
+	empty, err := repo.List(ctx)
 	if err != nil {
 		t.Fatalf("List(empty): %v", err)
 	}
-	if len(empty) != 0 {
-		t.Errorf("List(empty) returned %d instances, want 0", len(empty))
+	if empty == nil || len(empty) != 0 {
+		t.Errorf("List(empty) = %+v, want a non-nil empty slice", empty)
 	}
-	if cursor != "" {
-		t.Errorf("List(empty) cursor = %q, want empty", cursor)
+	ids := make([]uuid.UUID, 124)
+	oldest := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for i := 1; i <= 123; i++ {
+		ids[i] = uuid.MustParse(fmt.Sprintf("00000000-0000-0000-0000-%012d", i))
+		createdAt := oldest
+		if i <= 3 {
+			createdAt = oldest.Add(time.Hour)
+		}
+		if _, err := pool.Exec(ctx, `INSERT INTO instances (id, name, created_at) VALUES ($1, $2, $3)`,
+			ids[i], fmt.Sprintf("instance-%d", i), createdAt); err != nil {
+			t.Fatalf("insert instance %d: %v", i, err)
+		}
 	}
-
-	zero, cursor, err := repo.List(ctx, 0, "")
+	items, err := repo.List(ctx)
 	if err != nil {
-		t.Fatalf("List(limit 0): %v", err)
+		t.Fatalf("List: %v", err)
 	}
-	if len(zero) != 0 || cursor != "" {
-		t.Errorf("List(limit 0) = %d items, cursor %q; want 0 items and empty cursor", len(zero), cursor)
+	if len(items) != 123 {
+		t.Fatalf("List returned %d instances, want all 123", len(items))
 	}
-
-	first := createTestInstance(t, repo, "first", "")
-	second := createTestInstance(t, repo, "second", "")
-	third := createTestInstance(t, repo, "third", "")
-
-	page1, cursor, err := repo.List(ctx, 2, "")
-	if err != nil {
-		t.Fatalf("List page 1: %v", err)
+	want := []uuid.UUID{ids[3], ids[2], ids[1]}
+	for i := 123; i >= 4; i-- {
+		want = append(want, ids[i])
 	}
-	if len(page1) != 2 {
-		t.Fatalf("List page 1 returned %d instances, want 2", len(page1))
-	}
-	if page1[0].ID != third.ID || page1[1].ID != second.ID {
-		t.Errorf("List page 1 order = [%s %s], want [%s %s]", page1[0].ID, page1[1].ID, third.ID, second.ID)
-	}
-	if cursor != second.ID.String() {
-		t.Errorf("List page 1 cursor = %q, want %q", cursor, second.ID)
-	}
-
-	page2, cursor, err := repo.List(ctx, 2, cursor)
-	if err != nil {
-		t.Fatalf("List page 2: %v", err)
-	}
-	if len(page2) != 1 || page2[0].ID != first.ID {
-		t.Errorf("List page 2 = %+v, want only %s", page2, first.ID)
-	}
-	if cursor != "" {
-		t.Errorf("List page 2 cursor = %q, want empty", cursor)
-	}
-}
-
-func TestInstanceRepositoryListInvalidCursor(t *testing.T) {
-	ctx := context.Background()
-	pool := newTestPool(t)
-	repo := NewInstanceRepository(pool)
-
-	_, _, err := repo.List(ctx, 10, "not-a-uuid")
-	if !errors.Is(err, storage.ErrInvalidCursor) {
-		t.Errorf("List(invalid cursor) error = %v, want ErrInvalidCursor", err)
+	for i := range want {
+		if items[i].ID != want[i] {
+			t.Errorf("item %d = %s, want %s (created_at DESC, id DESC)", i, items[i].ID, want[i])
+		}
 	}
 }
 

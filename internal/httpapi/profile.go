@@ -152,8 +152,6 @@ func profileTarget(w http.ResponseWriter, r *http.Request, instances InstanceSer
 // @Tags profile
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Success 200 {object} envelope{data=profileResponse} "Own profile, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
@@ -191,8 +189,6 @@ func handleGetProfile(instances InstanceService, log zerolog.Logger) http.Handle
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body updateProfileRequest true "Profile patch"
 // @Success 200 {object} envelope{data=profileResponse} "Refreshed profile, wrapped in the data envelope"
@@ -275,8 +271,6 @@ func handleUpdateProfile(instances InstanceService, log zerolog.Logger) http.Han
 // @Accept image/*
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param image body string true "Raw image bytes with an image/* Content-Type (for example JPEG, PNG or WebP)"
 // @Success 200 {object} envelope{data=profilePhotoResponse} "Updated, wrapped in the data envelope"
@@ -335,8 +329,6 @@ func handleSetProfilePhoto(instances InstanceService, log zerolog.Logger, maxByt
 // @Tags privacy
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Success 200 {object} envelope{data=privacyResponse} "Own privacy, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
@@ -375,8 +367,6 @@ func handleGetPrivacy(instances InstanceService, log zerolog.Logger) http.Handle
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body updatePrivacyRequest true "Privacy patch"
 // @Success 200 {object} envelope{data=privacyResponse} "Applied settings, wrapped in the data envelope"

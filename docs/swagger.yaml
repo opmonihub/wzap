@@ -368,8 +368,6 @@ definitions:
         items:
           $ref: '#/definitions/httpapi.instanceResponse'
         type: array
-      next_cursor:
-        type: string
     type: object
   httpapi.instanceResponse:
     properties:
@@ -1043,10 +1041,6 @@ paths:
       description: Verifies the email/password credentials and mints the wzap_session
         cookie. Unknown email and wrong password share one 401 response.
       parameters:
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Credentials
         in: body
         name: request
@@ -1119,11 +1113,6 @@ paths:
   /auth/logout:
     post:
       description: Clears the wzap_session cookie. There are no server-side sessions.
-      parameters:
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       produces:
       - application/json
       responses:
@@ -1150,11 +1139,6 @@ paths:
     get:
       description: Answers the identity of the wzap_session cookie holder, 401 without
         a valid session.
-      parameters:
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       produces:
       - application/json
       responses:
@@ -1200,10 +1184,6 @@ paths:
         commands are discarded here and must use the authenticated /instances/{id}/chatwoot/command
         route.'
       parameters:
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -1268,11 +1248,6 @@ paths:
     get:
       description: Reports liveness without authentication. The process is alive whenever
         it replies.
-      parameters:
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       produces:
       - application/json
       responses:
@@ -1297,28 +1272,11 @@ paths:
       - health
   /instances:
     get:
-      parameters:
-      - description: Global key; alternatively use a user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
-      - description: Page size, default 50, max 100
-        in: query
-        name: limit
-        type: integer
-      - description: Opaque pagination cursor
-        in: query
-        name: cursor
-        type: string
       produces:
       - application/json
       responses:
         "200":
-          description: One page, wrapped in the data envelope
+          description: All authorized instances, wrapped in the data envelope
           headers:
             X-Request-Id:
               description: Correlation id, generated when absent
@@ -1330,14 +1288,6 @@ paths:
                 data:
                   $ref: '#/definitions/httpapi.instanceListResponse'
               type: object
-        "400":
-          description: Invalid cursor
-          headers:
-            X-Request-Id:
-              description: Correlation id, generated when absent
-              type: string
-          schema:
-            $ref: '#/definitions/httpapi.errorEnvelope'
         "401":
           description: Missing or invalid credential
           headers:
@@ -1371,14 +1321,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key; alternatively use a user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance payload
         in: body
         name: request
@@ -1465,15 +1407,6 @@ paths:
   /instances/{id}:
     delete:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -1527,15 +1460,6 @@ paths:
       - instances
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -1598,15 +1522,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -1706,14 +1621,6 @@ paths:
   /instances/{id}/apikey:
     delete:
       parameters:
-      - description: Global key; alternatively use an admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -1768,14 +1675,6 @@ paths:
   /instances/{id}/apikey/rotate:
     post:
       parameters:
-      - description: Global key; alternatively use an admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -1837,15 +1736,6 @@ paths:
   /instances/{id}/blocklist:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -1916,15 +1806,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -2026,15 +1907,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -2142,15 +2014,6 @@ paths:
   /instances/{id}/chats/{chat}/disappearing:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -2234,15 +2097,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -2349,15 +2203,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -2459,15 +2304,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -2572,15 +2408,6 @@ paths:
         empty fields. Token is write-only and the response token is always an empty
         string.
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -2656,15 +2483,6 @@ paths:
         as an empty string. Enabled configuration is validated before persistence;
         auto_create attempts inbox provisioning.'
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -2763,15 +2581,6 @@ paths:
         the supplied conversation_id. Operational commands are authenticated here;
         the open webhook never executes them.
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -2863,15 +2672,6 @@ paths:
         data.imported value counts messages already imported; it is not a background
         job identifier. No request body is required.
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -2944,15 +2744,6 @@ paths:
   /instances/{id}/connect:
     post:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -3022,15 +2813,6 @@ paths:
   /instances/{id}/contact-link:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -3104,15 +2886,6 @@ paths:
   /instances/{id}/contacts/{jid}/business:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -3195,15 +2968,6 @@ paths:
   /instances/{id}/contacts/{jid}/devices:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -3286,15 +3050,6 @@ paths:
   /instances/{id}/contacts/{jid}/photo:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -3377,15 +3132,6 @@ paths:
   /instances/{id}/contacts/{jid}/subscribe:
     post:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -3470,15 +3216,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -3578,15 +3315,6 @@ paths:
   /instances/{id}/disconnect:
     post:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -3641,15 +3369,6 @@ paths:
   /instances/{id}/groups:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -3728,15 +3447,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -3838,15 +3548,6 @@ paths:
   /instances/{id}/groups/{group_id}:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -3922,15 +3623,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -4035,15 +3727,6 @@ paths:
   /instances/{id}/groups/{group_id}/invite:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -4118,15 +3801,6 @@ paths:
   /instances/{id}/groups/{group_id}/invite/reset:
     post:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -4201,15 +3875,6 @@ paths:
   /instances/{id}/groups/{group_id}/leave:
     post:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -4286,15 +3951,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -4401,15 +4057,6 @@ paths:
       consumes:
       - image/*
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -4507,15 +4154,6 @@ paths:
   /instances/{id}/groups/{group_id}/requests:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -4591,15 +4229,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Idempotency key, 24h replay per instance
         in: header
         name: Idempotency-Key
@@ -4710,15 +4339,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -4823,15 +4443,6 @@ paths:
   /instances/{id}/groups/invite-preview:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -4916,15 +4527,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -5024,15 +4626,6 @@ paths:
   /instances/{id}/messages:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -5111,15 +4704,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Idempotency key, 24h replay per instance
         in: header
         name: Idempotency-Key
@@ -5232,15 +4816,6 @@ paths:
   /instances/{id}/messages/{message_id}:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -5309,15 +4884,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Idempotency key, 24h replay per instance
         in: header
         name: Idempotency-Key
@@ -5431,15 +4997,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Idempotency key, 24h replay per instance
         in: header
         name: Idempotency-Key
@@ -5545,15 +5102,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Idempotency key, 24h replay per instance
         in: header
         name: Idempotency-Key
@@ -5667,15 +5215,6 @@ paths:
       consumes:
       - multipart/form-data
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Idempotency key, 24h replay per instance
         in: header
         name: Idempotency-Key
@@ -5803,15 +5342,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -5913,15 +5443,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Idempotency key, 24h replay per instance
         in: header
         name: Idempotency-Key
@@ -6033,15 +5554,6 @@ paths:
   /instances/{id}/newsletters:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -6120,15 +5632,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -6228,15 +5731,6 @@ paths:
   /instances/{id}/newsletters/{channel}:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -6311,15 +5805,6 @@ paths:
   /instances/{id}/newsletters/{channel}/messages:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -6412,15 +5897,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -6527,15 +6003,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -6640,15 +6107,6 @@ paths:
   /instances/{id}/newsletters/{channel}/updates:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -6733,15 +6191,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -6848,15 +6297,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -6958,15 +6398,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -7068,15 +6499,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -7170,15 +6592,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -7280,15 +6693,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -7388,15 +6792,6 @@ paths:
   /instances/{id}/privacy:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -7469,15 +6864,6 @@ paths:
       description: All privacy operations are supported upstream (no 501). Fields
         apply sequentially, so a later failure can leave earlier fields applied (non-atomic).
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -7577,15 +6963,6 @@ paths:
   /instances/{id}/profile:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -7656,15 +7033,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -7775,15 +7143,6 @@ paths:
       consumes:
       - image/*
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -7884,15 +7243,6 @@ paths:
   /instances/{id}/qr:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -7962,15 +7312,6 @@ paths:
   /instances/{id}/status:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -8032,15 +7373,6 @@ paths:
   /instances/{id}/status/privacy:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -8110,15 +7442,6 @@ paths:
   /instances/{id}/status/updates:
     get:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -8193,15 +7516,6 @@ paths:
         retry); 202 carries message_id with the same idempotency replay as message
         sends.
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Idempotency key, 24h replay per instance
         in: header
         name: Idempotency-Key
@@ -8305,15 +7619,6 @@ paths:
   /instances/{id}/status/updates/{status_id}:
     delete:
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Instance ID (UUID)
         in: path
         name: id
@@ -8394,15 +7699,6 @@ paths:
         retry); 202 carries message_id with the same idempotency replay as message
         sends.
       parameters:
-      - description: Global key or own instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Idempotency key, 24h replay per instance
         in: header
         name: Idempotency-Key
@@ -8505,15 +7801,6 @@ paths:
       - status
   /instances/stats:
     get:
-      parameters:
-      - description: Global key; alternatively use a user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       produces:
       - application/json
       responses:
@@ -8623,15 +7910,6 @@ paths:
   /media/{id}:
     get:
       parameters:
-      - description: Global key or owning instance key; alternatively use the owning
-          user/admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: Media ID (UUID)
         in: path
         name: id
@@ -8704,11 +7982,6 @@ paths:
       description: 'Reports readiness without authentication: 200 while every dependency
         is ready, 503 otherwise. The response names each dependency but never echoes
         probe errors.'
-      parameters:
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       produces:
       - application/json
       responses:
@@ -8743,15 +8016,6 @@ paths:
       - health
   /users:
     get:
-      parameters:
-      - description: Global key; alternatively use an admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       produces:
       - application/json
       responses:
@@ -8803,14 +8067,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key; alternatively use an admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: User payload
         in: body
         name: request
@@ -8897,14 +8153,6 @@ paths:
   /users/{id}:
     delete:
       parameters:
-      - description: Global key; alternatively use an admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: User ID (UUID)
         in: path
         name: id
@@ -8966,14 +8214,6 @@ paths:
       - users
     get:
       parameters:
-      - description: Global key; alternatively use an admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: User ID (UUID)
         in: path
         name: id
@@ -9036,14 +8276,6 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Global key; alternatively use an admin session cookie
-        in: header
-        name: apikey
-        type: string
-      - description: Correlation id, echoed back
-        in: header
-        name: X-Request-Id
-        type: string
       - description: User ID (UUID)
         in: path
         name: id

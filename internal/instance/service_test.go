@@ -40,10 +40,9 @@ type fakeRepo struct {
 	deleteErr        error
 	listErr          error
 
-	listResult []model.Instance
-	nextCursor string
-	listLimit  int
-	listCursor string
+	listResult  []model.Instance
+	listContext context.Context
+	listCalls   int
 
 	createCalls        []model.Instance
 	updateCalls        []model.Instance
@@ -101,15 +100,14 @@ func (r *fakeRepo) GetByExternalRef(_ context.Context, externalRef string) (*mod
 	return nil, fmt.Errorf("get instance by external ref: %w", storage.ErrNotFound)
 }
 
-// List returns the configured page and records the pagination arguments, or the
-// forced error when set.
-func (r *fakeRepo) List(_ context.Context, limit int, cursor string) ([]model.Instance, string, error) {
-	r.listLimit = limit
-	r.listCursor = cursor
+// List returns the configured collection or the forced error when set.
+func (r *fakeRepo) List(ctx context.Context) ([]model.Instance, error) {
+	r.listCalls++
+	r.listContext = ctx
 	if r.listErr != nil {
-		return nil, "", r.listErr
+		return nil, r.listErr
 	}
-	return r.listResult, r.nextCursor, nil
+	return r.listResult, nil
 }
 
 // Update stores instance and returns it, or the forced error when set.
@@ -334,33 +332,33 @@ func TestServiceGetNotFound(t *testing.T) {
 
 func TestServiceList(t *testing.T) {
 	repo := newFakeRepo()
-	repo.listResult = []model.Instance{{ID: uuid.New(), Name: "a"}}
-	repo.nextCursor = "cursor-1"
+	for range 123 {
+		repo.listResult = append(repo.listResult, model.Instance{ID: uuid.New(), Name: "a"})
+	}
 	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, zerolog.Nop())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	items, next, err := svc.List(context.Background(), 25, "cursor-0")
+	items, err := svc.List(ctx)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if len(items) != 1 || items[0].Name != "a" {
-		t.Errorf("List items = %+v, want the configured page", items)
+	if !reflect.DeepEqual(items, repo.listResult) {
+		t.Errorf("List items = %+v, want the entire configured collection in order", items)
 	}
-	if next != "cursor-1" {
-		t.Errorf("next cursor = %q, want %q", next, "cursor-1")
-	}
-	if repo.listLimit != 25 || repo.listCursor != "cursor-0" {
-		t.Errorf("repo List(%d, %q), want (25, cursor-0)", repo.listLimit, repo.listCursor)
+	if repo.listCalls != 1 || repo.listContext != ctx {
+		t.Errorf("repo List calls = %d, context = %v; want one call with the request context", repo.listCalls, repo.listContext)
 	}
 }
 
-func TestServiceListInvalidCursor(t *testing.T) {
+func TestServiceListError(t *testing.T) {
 	repo := newFakeRepo()
-	repo.listErr = fmt.Errorf("list instances: %w", storage.ErrInvalidCursor)
+	repo.listErr = context.Canceled
 	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, zerolog.Nop())
 
-	_, _, err := svc.List(context.Background(), 10, "not-a-uuid")
-	if !errors.Is(err, ErrInvalidCursor) {
-		t.Fatalf("List error = %v, want ErrInvalidCursor", err)
+	_, err := svc.List(context.Background())
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("List error = %v, want wrapped context.Canceled", err)
 	}
 }
 

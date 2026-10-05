@@ -20,10 +20,6 @@ import (
 )
 
 const (
-	// defaultInstancesLimit is the page size used when the request omits limit.
-	defaultInstancesLimit = 50
-	// maxInstancesLimit caps the page size a client can request.
-	maxInstancesLimit = 100
 	// maxJSONBodyBytes caps the JSON request bodies every handler decodes.
 	maxJSONBodyBytes = 1 << 20
 )
@@ -35,7 +31,7 @@ type InstanceService interface {
 	// or an admin session without an explicit owner.
 	OldestAdmin(ctx context.Context) (uuid.UUID, error)
 	Get(ctx context.Context, id uuid.UUID) (*model.Instance, error)
-	List(ctx context.Context, limit int, cursor string) ([]model.Instance, string, error)
+	List(ctx context.Context) ([]model.Instance, error)
 	Update(ctx context.Context, id uuid.UUID, input instance.UpdateInput) (*model.Instance, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	Disconnect(ctx context.Context, id uuid.UUID) error
@@ -131,10 +127,9 @@ type createInstanceResponse struct {
 	InstanceAPIKey string `json:"instance_api_key"`
 }
 
-// instanceListResponse is the JSON representation of an instance page.
+// instanceListResponse is the JSON representation of the complete instance collection.
 type instanceListResponse struct {
-	Items      []instanceResponse `json:"items"`
-	NextCursor string             `json:"next_cursor"`
+	Items []instanceResponse `json:"items"`
 }
 
 // createInstanceRequest is the POST /instances payload. OwnerUserID is a
@@ -185,8 +180,6 @@ type updateInstanceRequest struct {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key; alternatively use a user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param request body createInstanceRequest true "Instance payload"
 // @Success 201 {object} envelope{data=createInstanceResponse} "Created, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
@@ -348,7 +341,7 @@ type instanceStatsResponse struct {
 	ByStatus map[string]int `json:"by_status"`
 }
 
-// handleListInstances answers one page of instances with its next cursor. An
+// handleListInstances answers every authorized instance. An
 // instance key owns no collection view and answers 403; a user session sees
 // exactly its own rows while the global scope and admin sessions see all.
 //
@@ -356,12 +349,7 @@ type instanceStatsResponse struct {
 // @Tags instances
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key; alternatively use a user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
-// @Param limit query int false "Page size, default 50, max 100"
-// @Param cursor query string false "Opaque pagination cursor"
-// @Success 200 {object} envelope{data=instanceListResponse} "One page, wrapped in the data envelope"
-// @Failure 400 {object} errorEnvelope "Invalid cursor"
+// @Success 200 {object} envelope{data=instanceListResponse} "All authorized instances, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Instance keys own no collection view"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -374,8 +362,7 @@ func handleListInstances(instances InstanceService) http.HandlerFunc {
 			return
 		}
 
-		items, next, err := instances.List(r.Context(),
-			parseInstancesLimit(r.URL.Query().Get("limit")), r.URL.Query().Get("cursor"))
+		items, err := instances.List(r.Context())
 		if err != nil {
 			writeInstanceError(w, r, err)
 			return
@@ -387,7 +374,7 @@ func handleListInstances(instances InstanceService) http.HandlerFunc {
 			items = nil
 		}
 
-		response := instanceListResponse{Items: make([]instanceResponse, 0, len(items)), NextCursor: next}
+		response := instanceListResponse{Items: make([]instanceResponse, 0, len(items))}
 		for i := range items {
 			response.Items = append(response.Items, newInstanceResponse(&items[i]))
 		}
@@ -399,15 +386,12 @@ func handleListInstances(instances InstanceService) http.HandlerFunc {
 // Home: the total plus the breakdown by connection status. An instance key
 // owns no collection view and answers 403 like the list; a user session
 // counts exactly its own rows while the global scope and admin sessions count
-// all. Pages accumulate through instances.List at max page size, so no
-// repository change is needed; a service failure answers 500.
+// all. A service failure answers 500.
 //
 // @Summary Instance stats
 // @Tags instances
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key; alternatively use a user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Success 200 {object} envelope{data=instanceStatsResponse} "Totals in scope, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Instance keys own no collection view"
@@ -432,27 +416,20 @@ func handleInstanceStats(instances InstanceService) http.HandlerFunc {
 			"pairing":      0,
 			"error":        0,
 		}
-		total := 0
-		for cursor := ""; ; {
-			items, next, err := instances.List(r.Context(), maxInstancesLimit, cursor)
-			if err != nil {
-				writeInstanceError(w, r, err)
-				return
-			}
-			for _, item := range filterInstancesByOwner(scope, items) {
-				total++
-				if _, known := byStatus[item.Status]; known {
-					byStatus[item.Status]++
-				} else {
-					byStatus["disconnected"]++
-				}
-			}
-			if next == "" {
-				break
-			}
-			cursor = next
+		items, err := instances.List(r.Context())
+		if err != nil {
+			writeInstanceError(w, r, err)
+			return
 		}
-		JSON(w, r, http.StatusOK, instanceStatsResponse{Total: total, ByStatus: byStatus})
+		items = filterInstancesByOwner(scope, items)
+		for _, item := range items {
+			if _, known := byStatus[item.Status]; known {
+				byStatus[item.Status]++
+			} else {
+				byStatus["disconnected"]++
+			}
+		}
+		JSON(w, r, http.StatusOK, instanceStatsResponse{Total: len(items), ByStatus: byStatus})
 	}
 }
 
@@ -463,8 +440,6 @@ func handleInstanceStats(instances InstanceService) http.HandlerFunc {
 // @Tags instances
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Success 200 {object} envelope{data=instanceResponse} "Instance, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
@@ -505,8 +480,6 @@ func handleGetInstance(instances InstanceService) http.HandlerFunc {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body updateInstanceRequest true "Partial update payload"
 // @Success 200 {object} envelope{data=instanceResponse} "Updated instance, wrapped in the data envelope"
@@ -568,8 +541,6 @@ func handleUpdateInstance(instances InstanceService) http.HandlerFunc {
 // @Tags instances
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Success 204 "Deleted, no body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
@@ -616,12 +587,6 @@ func instanceID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
 		return uuid.Nil, false
 	}
 	return id, true
-}
-
-// parseInstancesLimit reads the limit query parameter with the instance
-// defaults.
-func parseInstancesLimit(raw string) int {
-	return parseLimit(raw, defaultInstancesLimit, maxInstancesLimit)
 }
 
 // parseLimit reads a limit query parameter, falling back to fallback when it is

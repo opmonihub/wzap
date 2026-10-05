@@ -33,8 +33,6 @@ type pairPhoneResponse struct {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body pairPhoneRequest true "Phone payload"
 // @Success 200 {object} envelope{data=pairPhoneResponse} "Pairing code, wrapped in the data envelope"

@@ -23,13 +23,11 @@ const (
 	// newer than this is re-imported, covering messages the live mirror
 	// missed.
 	DefaultLostWindow = 6 * time.Hour
-	// schedulerPageLimit bounds each instance listing page of a sync cycle.
-	schedulerPageLimit = 100
 )
 
-// InstanceLister pages the service instances for a sync cycle.
+// InstanceLister reads all service instances for a sync cycle.
 type InstanceLister interface {
-	List(ctx context.Context, limit int, cursor string) ([]model.Instance, string, error)
+	List(ctx context.Context) ([]model.Instance, error)
 }
 
 // ConfigStore reads one instance connector config.
@@ -130,23 +128,16 @@ func (s *Scheduler) RunOnce(ctx context.Context) (int, error) {
 	}
 	since := time.Now().UTC().Add(-s.window)
 	total := 0
-	cursor := ""
-	for {
-		page, next, err := s.instances.List(ctx, schedulerPageLimit, cursor)
-		if err != nil {
-			return total, fmt.Errorf("chatimport: sync lost messages: list instances: %w", err)
+	instances, err := s.instances.List(ctx)
+	if err != nil {
+		return total, fmt.Errorf("chatimport: sync lost messages: list instances: %w", err)
+	}
+	for _, inst := range instances {
+		n, ok := s.syncInstance(ctx, inst.ID, since)
+		if !ok {
+			continue
 		}
-		for _, inst := range page {
-			n, ok := s.syncInstance(ctx, inst.ID, since)
-			if !ok {
-				continue
-			}
-			total += n
-		}
-		if next == "" {
-			break
-		}
-		cursor = next
+		total += n
 	}
 	return total, nil
 }

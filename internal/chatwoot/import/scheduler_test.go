@@ -14,13 +14,13 @@ import (
 	"wzap/internal/storage"
 )
 
-// fakeSchedulerInstances pages one fixed instance list.
+// fakeSchedulerInstances returns one fixed instance list.
 type fakeSchedulerInstances struct {
 	instances []model.Instance
 }
 
-func (f *fakeSchedulerInstances) List(_ context.Context, _ int, _ string) ([]model.Instance, string, error) {
-	return f.instances, "", nil
+func (f *fakeSchedulerInstances) List(context.Context) ([]model.Instance, error) {
+	return f.instances, nil
 }
 
 // fakeSchedulerConfigs replays per-instance connector configs.

@@ -112,8 +112,8 @@ func (f *rbacFixture) rbacInstances() *fakeInstanceService {
 			}
 			return nil, instance.ErrNotFound
 		},
-		listFn: func(context.Context, int, string) ([]model.Instance, string, error) {
-			return []model.Instance{*f.instA, *f.instB, *f.legacy}, "", nil
+		listFn: func(context.Context) ([]model.Instance, error) {
+			return []model.Instance{*f.instA, *f.instB, *f.legacy}, nil
 		},
 	}
 }
@@ -292,8 +292,8 @@ func TestRBACInstanceKeyForeignProbeSkipsDBLoad(t *testing.T) {
 					loads++
 					return nil, instance.ErrNotFound
 				},
-				listFn: func(context.Context, int, string) ([]model.Instance, string, error) {
-					return nil, "", nil
+				listFn: func(context.Context) ([]model.Instance, error) {
+					return nil, nil
 				},
 			},
 			Messages:    f.rbacMessages(),
@@ -354,8 +354,8 @@ func TestRBACRandomUUIDIsNotFound(t *testing.T) {
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances: &fakeInstanceService{
 				getFn: func(context.Context, uuid.UUID) (*model.Instance, error) { return nil, instance.ErrNotFound },
-				listFn: func(context.Context, int, string) ([]model.Instance, string, error) {
-					return nil, "", nil
+				listFn: func(context.Context) ([]model.Instance, error) {
+					return nil, nil
 				},
 			},
 			Messages:    f.rbacMessages(),

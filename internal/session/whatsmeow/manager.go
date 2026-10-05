@@ -35,8 +35,6 @@ const (
 	// restoreJitter spreads reconnections so they do not hit the server
 	// together.
 	restoreJitter = 500 * time.Millisecond
-	// instancePageSize is the page size used to walk the instances table.
-	instancePageSize = 100
 )
 
 // Manager owns the whatsmeow client of every instance and persists the
@@ -291,21 +289,13 @@ func (m *Manager) registerRestored(instanceID uuid.UUID, sess *instanceSession) 
 	return true
 }
 
-// listInstances walks the instances table page by page.
+// listInstances reads the complete persisted instance collection.
 func (m *Manager) listInstances(ctx context.Context) ([]model.Instance, error) {
-	var all []model.Instance
-	cursor := ""
-	for {
-		page, next, err := m.instances.List(ctx, instancePageSize, cursor)
-		if err != nil {
-			return nil, fmt.Errorf("list instances: %w", err)
-		}
-		all = append(all, page...)
-		if next == "" {
-			return all, nil
-		}
-		cursor = next
+	instances, err := m.instances.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list instances: %w", err)
 	}
+	return instances, nil
 }
 
 // deviceFor returns the device store of instance, creating a fresh one when

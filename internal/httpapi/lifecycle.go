@@ -47,8 +47,6 @@ type markReadResponse struct {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body revokeRequest true "Revoke payload"
 // @Success 200 {object} envelope{data=revokeResponse} "Revoked, wrapped in the data envelope"
@@ -118,8 +116,6 @@ func handleRevokeMessage(instances InstanceService, log zerolog.Logger) http.Han
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body markReadRequest true "Mark-read payload"
 // @Success 200 {object} envelope{data=markReadResponse} "Receipt sent, wrapped in the data envelope"

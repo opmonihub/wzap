@@ -21,11 +21,7 @@ const instanceColumns = `id, name, COALESCE(external_ref, '') AS external_ref, s
 	`owner_user_id, webhook_url, webhook_enabled, webhook_events, ` +
 	`created_at, updated_at`
 
-const listInstancesQuery = `SELECT ` + instanceColumns + ` FROM instances ORDER BY created_at DESC, id DESC LIMIT $1`
-
-const listInstancesAfterQuery = `SELECT ` + instanceColumns + ` FROM instances ` +
-	`WHERE (created_at, id) < (SELECT created_at, id FROM instances WHERE id = $2) ` +
-	`ORDER BY created_at DESC, id DESC LIMIT $1`
+const listInstancesQuery = `SELECT ` + instanceColumns + ` FROM instances ORDER BY created_at DESC, id DESC`
 
 // InstanceRepository is the pgx-backed storage.InstanceRepository.
 type InstanceRepository struct {
@@ -84,27 +80,11 @@ func (r *InstanceRepository) GetByExternalRef(ctx context.Context, externalRef s
 	return instance, nil
 }
 
-// List returns up to limit instances ordered by created_at descending and the
-// cursor to fetch the next page.
-func (r *InstanceRepository) List(ctx context.Context, limit int, cursor string) ([]model.Instance, string, error) {
-	if limit <= 0 {
-		return []model.Instance{}, "", nil
-	}
-
-	query := listInstancesQuery
-	args := []any{limit + 1}
-	if cursor != "" {
-		cursorID, err := uuid.Parse(cursor)
-		if err != nil {
-			return nil, "", fmt.Errorf("list instances: %w", storage.ErrInvalidCursor)
-		}
-		query = listInstancesAfterQuery
-		args = append(args, cursorID)
-	}
-
-	rows, err := r.pool.Query(ctx, query, args...)
+// List returns every instance ordered by created_at descending, then id descending.
+func (r *InstanceRepository) List(ctx context.Context) ([]model.Instance, error) {
+	rows, err := r.pool.Query(ctx, listInstancesQuery)
 	if err != nil {
-		return nil, "", fmt.Errorf("list instances: %w", err)
+		return nil, fmt.Errorf("list instances: %w", err)
 	}
 	defer rows.Close()
 
@@ -112,20 +92,14 @@ func (r *InstanceRepository) List(ctx context.Context, limit int, cursor string)
 	for rows.Next() {
 		var instance model.Instance
 		if err := scanInstanceRow(rows, &instance); err != nil {
-			return nil, "", fmt.Errorf("list instances: %w", err)
+			return nil, fmt.Errorf("list instances: %w", err)
 		}
 		instances = append(instances, instance)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, "", fmt.Errorf("list instances: %w", err)
+		return nil, fmt.Errorf("list instances: %w", err)
 	}
-
-	nextCursor := ""
-	if len(instances) > limit {
-		instances = instances[:limit]
-		nextCursor = instances[limit-1].ID.String()
-	}
-	return instances, nextCursor, nil
+	return instances, nil
 }
 
 // Update persists the mutable fields of instance, including its webhook

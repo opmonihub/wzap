@@ -605,8 +605,8 @@ func (r *fakeInstanceRepo) GetByExternalRef(context.Context, string) (*model.Ins
 	return nil, errors.New("fakeInstanceRepo.GetByExternalRef: unexpected call")
 }
 
-func (r *fakeInstanceRepo) List(context.Context, int, string) ([]model.Instance, string, error) {
-	return r.instances, "", nil
+func (r *fakeInstanceRepo) List(context.Context) ([]model.Instance, error) {
+	return r.instances, nil
 }
 
 func (r *fakeInstanceRepo) Update(context.Context, model.Instance) (*model.Instance, error) {

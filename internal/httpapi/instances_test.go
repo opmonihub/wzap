@@ -25,7 +25,7 @@ type fakeInstanceService struct {
 	createFn                 func(ctx context.Context, input instance.CreateInput) (*model.Instance, string, error)
 	oldestAdminFn            func(ctx context.Context) (uuid.UUID, error)
 	getFn                    func(ctx context.Context, id uuid.UUID) (*model.Instance, error)
-	listFn                   func(ctx context.Context, limit int, cursor string) ([]model.Instance, string, error)
+	listFn                   func(ctx context.Context) ([]model.Instance, error)
 	updateFn                 func(ctx context.Context, id uuid.UUID, input instance.UpdateInput) (*model.Instance, error)
 	deleteFn                 func(ctx context.Context, id uuid.UUID) error
 	disconnectFn             func(ctx context.Context, id uuid.UUID) error
@@ -139,8 +139,7 @@ type fakeInstanceService struct {
 	muteNewsletterCalls         []muteNewsletterCall
 	markNewsletterViewedCalls   []markNewsletterViewedCall
 	reactNewsletterCalls        []reactNewsletterCall
-	listLimit                   int
-	listCursor                  string
+	listCalls                   int
 }
 
 // revokeCall records one RevokeMessage call received by the fake.
@@ -409,15 +408,13 @@ func (f *fakeInstanceService) Get(ctx context.Context, id uuid.UUID) (*model.Ins
 	return &model.Instance{ID: id, Name: "loja", Status: "disconnected"}, nil
 }
 
-// List records the pagination and returns the configured page, defaulting to an
-// empty one.
-func (f *fakeInstanceService) List(ctx context.Context, limit int, cursor string) ([]model.Instance, string, error) {
-	f.listLimit = limit
-	f.listCursor = cursor
+// List returns the configured collection, defaulting to an empty one.
+func (f *fakeInstanceService) List(ctx context.Context) ([]model.Instance, error) {
+	f.listCalls++
 	if f.listFn != nil {
-		return f.listFn(ctx, limit, cursor)
+		return f.listFn(ctx)
 	}
-	return nil, "", nil
+	return nil, nil
 }
 
 // Update records the input and returns the configured instance.
@@ -1057,8 +1054,8 @@ func TestInstancesList(t *testing.T) {
 		ID: uuid.New(), Name: "b", ExternalRef: "ref-b", Status: "connected",
 		WhatsAppJID: "5522@wa", CreatedAt: time.Now().UTC().Truncate(time.Second),
 	}
-	svc := &fakeInstanceService{listFn: func(context.Context, int, string) ([]model.Instance, string, error) {
-		return []model.Instance{first, second}, "cursor-1", nil
+	svc := &fakeInstanceService{listFn: func(context.Context) ([]model.Instance, error) {
+		return []model.Instance{first, second}, nil
 	}}
 
 	rec := serveJSON(t, instancesServer(t, svc), http.MethodGet, "/instances", "")
@@ -1079,78 +1076,23 @@ func TestInstancesList(t *testing.T) {
 	if payload.Data.Items[1].WhatsAppJID != second.WhatsAppJID {
 		t.Errorf("data.items[1].whatsapp_jid = %q, want %q", payload.Data.Items[1].WhatsAppJID, second.WhatsAppJID)
 	}
-	if payload.Data.NextCursor != "cursor-1" {
-		t.Errorf("data.next_cursor = %q, want %q", payload.Data.NextCursor, "cursor-1")
-	}
-	if svc.listLimit != defaultInstancesLimit {
-		t.Errorf("List limit = %d, want the default %d", svc.listLimit, defaultInstancesLimit)
-	}
-	if svc.listCursor != "" {
-		t.Errorf("List cursor = %q, want empty", svc.listCursor)
+	if svc.listCalls != 1 {
+		t.Errorf("List calls = %d, want 1", svc.listCalls)
 	}
 }
 
-func TestInstancesListPassesPagination(t *testing.T) {
-	svc := &fakeInstanceService{}
-
-	rec := serveJSON(t, instancesServer(t, svc), http.MethodGet, "/instances?limit=7&cursor=abc", "")
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
-	var payload struct {
-		Data instanceListResponse `json:"data"`
-	}
-	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if payload.Data.Items == nil {
-		t.Error("data.items = null, want an empty array")
-	}
-	if svc.listLimit != 7 || svc.listCursor != "abc" {
-		t.Errorf("List(%d, %q), want (7, abc)", svc.listLimit, svc.listCursor)
-	}
-}
-
-func TestInstancesListLimit(t *testing.T) {
-	tests := []struct {
-		name  string
-		query string
-		want  int
-	}{
-		{name: "default", query: "", want: defaultInstancesLimit},
-		{name: "explicit", query: "?limit=7", want: 7},
-		{name: "capped", query: "?limit=1000", want: maxInstancesLimit},
-		{name: "malformed falls back to default", query: "?limit=abc", want: defaultInstancesLimit},
-		{name: "non positive falls back to default", query: "?limit=0", want: defaultInstancesLimit},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc := &fakeInstanceService{}
-
-			rec := serveJSON(t, instancesServer(t, svc), http.MethodGet, "/instances"+tt.query, "")
-
-			if rec.Code != http.StatusOK {
-				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
-			}
-			if svc.listLimit != tt.want {
-				t.Errorf("List limit = %d, want %d", svc.listLimit, tt.want)
-			}
-		})
-	}
-}
-
-func TestInstancesListRejectsInvalidCursor(t *testing.T) {
-	svc := &fakeInstanceService{listFn: func(context.Context, int, string) ([]model.Instance, string, error) {
-		return nil, "", instance.ErrInvalidCursor
+func TestInstancesListServiceError(t *testing.T) {
+	svc := &fakeInstanceService{listFn: func(context.Context) ([]model.Instance, error) {
+		return nil, context.Canceled
 	}}
 
-	rec := serveJSON(t, instancesServer(t, svc), http.MethodGet, "/instances?cursor=not-a-uuid", "")
+	rec := serveJSON(t, instancesServer(t, svc), http.MethodGet, "/instances", "")
 
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
 	}
-	if code := errorCode(t, rec.Body.Bytes()); code != "invalid_request" {
-		t.Errorf("error code = %q, want %q", code, "invalid_request")
+	if code := errorCode(t, rec.Body.Bytes()); code != "internal_error" {
+		t.Errorf("error code = %q, want %q", code, "internal_error")
 	}
 }
 

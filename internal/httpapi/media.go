@@ -35,8 +35,6 @@ type MediaStore interface {
 // @Tags media
 // @Produce octet-stream,json
 // @Security apikey
-// @Param apikey header string false "Global key or owning instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Media ID (UUID)"
 // @Success 200 {file} binary "Raw media bytes with the stored media Content-Type, outside the JSON envelope"
 // @Header 200 {string} Content-Type "Stored media MIME type"

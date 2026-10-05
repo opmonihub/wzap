@@ -46,7 +46,6 @@ const dummyPasswordHash = "$2a$10$Q2IcRv3W7hJBMOYy5JOOU.3qrWu7zjQhOp9LqZzrTVLIZv
 // @Tags auth
 // @Accept json
 // @Produce json
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param request body loginRequest true "Credentials"
 // @Success 200 {object} envelope{data=identityResponse} "Identity, wrapped in the data envelope; the wzap_session cookie is set"
 // @Header 200 {string} Set-Cookie "Sets the httpOnly wzap_session cookie"
@@ -100,7 +99,6 @@ func handleLogin(users storage.UserRepository, jwtSecret string, secure bool) ht
 // @Description Clears the wzap_session cookie. There are no server-side sessions.
 // @Tags auth
 // @Produce json
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Success 200 {object} envelope{data=logoutResponse} "Status, wrapped in the data envelope"
 // @Header 200 {string} Set-Cookie "Clears the wzap_session cookie"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
@@ -119,7 +117,6 @@ func handleLogout(secure bool) http.HandlerFunc {
 // @Description Answers the identity of the wzap_session cookie holder, 401 without a valid session.
 // @Tags auth
 // @Produce json
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Success 200 {object} envelope{data=identityResponse} "Identity, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid session"
 // @Failure 500 {object} errorEnvelope "Internal error"

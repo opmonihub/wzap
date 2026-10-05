@@ -143,7 +143,6 @@ type detailedReadyChecker interface {
 // @Description Reports liveness without authentication. The process is alive whenever it replies.
 // @Tags health
 // @Produce json
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Success 200 {object} envelope{data=object{status=string}} "Liveness status"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /healthz [get]
@@ -159,7 +158,6 @@ func handleHealthz(w http.ResponseWriter, r *http.Request) {
 // @Description Reports readiness without authentication: 200 while every dependency is ready, 503 otherwise. The response names each dependency but never echoes probe errors.
 // @Tags health
 // @Produce json
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Success 200 {object} envelope{data=readiness} "Readiness, wrapped in the data envelope"
 // @Failure 503 {object} envelope{data=readiness} "Unready state, wrapped in the data envelope"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"

@@ -1,13 +1,6 @@
-import type { Instance, InstanceListPage, InstanceStats } from '~/types/api'
+import type { Instance, InstanceStats } from '~/types/api'
 
-// Page cap for the cursor accumulation backing recent and the local fallback
-// count. The list pages at the server default (50), so 20 pages cover 1000
-// instances; beyond that the overview truncates (the stats endpoint stays
-// exact server-side, so truncation only affects the fallback path and the
-// recent/chart inputs).
-const maxOverviewPages = 20
-
-// How many of the accumulated instances the overview surfaces as recent.
+// How many instances the overview surfaces as recent.
 const recentLimit = 5
 
 // Statuses the API reports, mirroring the by_status buckets accumulated in
@@ -34,7 +27,7 @@ function normalizeStats(raw: InstanceStats): InstanceStats {
   return normalized
 }
 
-// Local count over accumulated instances with the server's folding rule
+// Local count over all authorized instances with the server's folding rule
 // (unknown status counts as disconnected). Buckets are written through the
 // nullish default so indexed access stays safe under noUncheckedIndexedAccess.
 function countLocally(items: Instance[]): InstanceStats {
@@ -62,7 +55,7 @@ function byNewestFirst(a: Instance, b: Instance): number {
 
 // Overview data for the Home screen: scoped totals from GET /instances/stats
 // (via useApi, the session cookie travels automatically) with a local count
-// over the cursor-accumulated listing (listInstances from useInstances) when
+// over the complete listing (listInstances from useInstances) when
 // the endpoint fails. Both attempts failing surfaces failure for the
 // UAlert+retry; a stats-only failure sets fallback so the page shows its
 // discrete notice and still renders. A listing-only failure sets
@@ -83,26 +76,9 @@ export function useOverview() {
   const fallback = ref(false)
   const listingFailed = ref(false)
 
-  // The 5 most recent instances by created_at desc of the accumulated
+  // The 5 most recent instances by created_at desc of the complete
   // listing, empty until the listing resolves.
   const recent = computed<Instance[]>(() => [...items.value].sort(byNewestFirst).slice(0, recentLimit))
-
-  // Accumulates list pages up to maxOverviewPages; rejects on the first page
-  // error so refresh can attribute the failure. The loop is bounded and stops
-  // early when the cursor empties.
-  async function accumulateListing(): Promise<Instance[]> {
-    const collected: Instance[] = []
-    let cursor: string | undefined
-    for (let page = 0; page < maxOverviewPages; page++) {
-      const listing: InstanceListPage = await listInstances(cursor)
-      collected.push(...listing.items)
-      if (listing.next_cursor === '') {
-        break
-      }
-      cursor = listing.next_cursor
-    }
-    return collected
-  }
 
   function messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error)
@@ -121,17 +97,17 @@ export function useOverview() {
     listingFailed.value = false
     const [statsResult, listResult] = await Promise.allSettled([
       api<InstanceStats>('/instances/stats'),
-      accumulateListing()
+      listInstances()
     ])
     if (listResult.status === 'fulfilled') {
-      items.value = listResult.value
+      items.value = listResult.value.items
     } else {
       listingFailed.value = true
     }
     if (statsResult.status === 'fulfilled') {
       stats.value = normalizeStats(statsResult.value)
     } else if (listResult.status === 'fulfilled') {
-      stats.value = countLocally(listResult.value)
+      stats.value = countLocally(listResult.value.items)
       fallback.value = true
     } else {
       failure.value = messageOf(statsResult.reason ?? listResult.reason)

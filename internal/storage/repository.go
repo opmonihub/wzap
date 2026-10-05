@@ -30,14 +30,13 @@ var (
 	ErrInProgress = errors.New("idempotency key in progress")
 )
 
-// InstanceRepository persists WhatsApp instances. List pages backwards by
-// created_at and returns the cursor of the next page, empty when the page is
-// the last one.
+// InstanceRepository persists WhatsApp instances. List returns every instance
+// ordered by created_at descending, then id descending.
 type InstanceRepository interface {
 	Create(ctx context.Context, instance model.Instance) (*model.Instance, error)
 	Get(ctx context.Context, id uuid.UUID) (*model.Instance, error)
 	GetByExternalRef(ctx context.Context, externalRef string) (*model.Instance, error)
-	List(ctx context.Context, limit int, cursor string) ([]model.Instance, string, error)
+	List(ctx context.Context) ([]model.Instance, error)
 	Update(ctx context.Context, instance model.Instance) (*model.Instance, error)
 	// SetConnection updates the status and whatsapp_jid of an instance in
 	// place, clearing the JID when whatsappJID is empty. Unlike Update it never

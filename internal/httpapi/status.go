@@ -83,8 +83,6 @@ func statusTextValid(text string) bool {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body publishStatusRequest true "Status payload: type text plus its text"
@@ -162,8 +160,6 @@ func handlePublishStatus(instances InstanceService, log zerolog.Logger) http.Han
 // @Accept multipart/form-data
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
 // @Param id path string true "Instance ID (UUID)"
 // @Param type formData string true "Media kind: image or video"
@@ -287,8 +283,6 @@ func handlePublishStatusMedia(instances InstanceService, log zerolog.Logger, max
 // @Tags status
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Success 200 {object} envelope{data=statusListResponse} "Own statuses published since boot, entries older than 24h are dropped, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
@@ -342,8 +336,6 @@ func handleListStatuses(instances InstanceService, log zerolog.Logger) http.Hand
 // @Tags status
 // @Produce json
 // @Security apikey
-// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
-// @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param status_id path string true "Status ID"
 // @Success 200 {object} envelope{data=statusDeleteResponse} "Deleted, only statuses published since boot are tracked and the ~24h protocol expiry applies, wrapped in the data envelope"

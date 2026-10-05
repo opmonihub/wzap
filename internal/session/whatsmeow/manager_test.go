@@ -601,6 +601,10 @@ func (r *fakeInstanceRepo) Get(context.Context, uuid.UUID) (*model.Instance, err
 	return nil, errors.New("fakeInstanceRepo.Get: unexpected call")
 }
 
+func (r *fakeInstanceRepo) GetByName(context.Context, string) (*model.Instance, error) {
+	return nil, errors.New("fakeInstanceRepo.GetByName: unexpected call")
+}
+
 func (r *fakeInstanceRepo) GetByExternalRef(context.Context, string) (*model.Instance, error) {
 	return nil, errors.New("fakeInstanceRepo.GetByExternalRef: unexpected call")
 }

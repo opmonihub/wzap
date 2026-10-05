@@ -41,7 +41,15 @@ func NewInstanceRepository(pool *pgxpool.Pool) *InstanceRepository {
 // stores NULL (unset) and nil WebhookEvents fall back to the canonical
 // default, matching the migration defaults.
 func (r *InstanceRepository) Create(ctx context.Context, instance model.Instance) (*model.Instance, error) {
-	row := r.pool.QueryRow(ctx, `
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return nil, mapInstanceError("create instance", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := claimInstanceName(ctx, tx, instance.Name, nil); err != nil {
+		return nil, mapInstanceError("create instance", err)
+	}
+	row := tx.QueryRow(ctx, `
 		INSERT INTO instances (id, name, external_ref, status, whatsapp_jid, last_connected_at, last_error, owner_user_id,
 			webhook_url, webhook_enabled, webhook_events)
 		VALUES ($1, $2, NULLIF($3, ''), COALESCE(NULLIF($4, ''), 'disconnected'), NULLIF($5, ''), $6, NULLIF($7, ''), $8,
@@ -57,6 +65,9 @@ func (r *InstanceRepository) Create(ctx context.Context, instance model.Instance
 	if err != nil {
 		return nil, mapInstanceError("create instance", err)
 	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, mapInstanceError("create instance", err)
+	}
 	return created, nil
 }
 
@@ -67,6 +78,33 @@ func (r *InstanceRepository) Get(ctx context.Context, id uuid.UUID) (*model.Inst
 		return nil, mapInstanceError("get instance", err)
 	}
 	return instance, nil
+}
+
+// GetByName returns the unique exact match, rejecting ambiguous legacy rows.
+func (r *InstanceRepository) GetByName(ctx context.Context, name string) (*model.Instance, error) {
+	rows, err := r.pool.Query(ctx, `SELECT `+instanceColumns+` FROM instances WHERE name = $1 LIMIT 2`, name)
+	if err != nil {
+		return nil, fmt.Errorf("get instance by name: %w", err)
+	}
+	defer rows.Close()
+	var found *model.Instance
+	for rows.Next() {
+		instance, err := scanInstance(rows)
+		if err != nil {
+			return nil, fmt.Errorf("get instance by name: %w", err)
+		}
+		if found != nil {
+			return nil, fmt.Errorf("get instance by name: %w", storage.ErrInstanceNameAmbiguous)
+		}
+		found = instance
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("get instance by name: %w", err)
+	}
+	if found == nil {
+		return nil, fmt.Errorf("get instance by name: %w", storage.ErrNotFound)
+	}
+	return found, nil
 }
 
 // GetByExternalRef returns the instance with the given external_ref or
@@ -105,7 +143,26 @@ func (r *InstanceRepository) List(ctx context.Context) ([]model.Instance, error)
 // Update persists the mutable fields of instance, including its webhook
 // configuration, and returns the stored row.
 func (r *InstanceRepository) Update(ctx context.Context, instance model.Instance) (*model.Instance, error) {
-	row := r.pool.QueryRow(ctx, `
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return nil, mapInstanceError("update instance", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	// Read the current database name under a row lock: a stale caller must not
+	// bypass the claim after another update has renamed this same instance.
+	var currentName string
+	if err := tx.QueryRow(ctx, `SELECT name FROM instances WHERE id = $1 FOR UPDATE`, instance.ID).Scan(&currentName); err != nil {
+		return nil, mapInstanceError("update instance", err)
+	}
+	if instance.Name != currentName {
+		if !model.IsValidInstanceName(instance.Name) {
+			return nil, mapInstanceError("update instance", storage.ErrInvalidInstanceName)
+		}
+		if err := claimInstanceName(ctx, tx, instance.Name, &instance.ID); err != nil {
+			return nil, mapInstanceError("update instance", err)
+		}
+	}
+	row := tx.QueryRow(ctx, `
 		UPDATE instances
 		SET name = $2, external_ref = NULLIF($3, ''), status = COALESCE(NULLIF($4, ''), status),
 		    whatsapp_jid = NULLIF($5, ''), last_connected_at = $6, last_error = NULLIF($7, ''),
@@ -122,7 +179,28 @@ func (r *InstanceRepository) Update(ctx context.Context, instance model.Instance
 	if err != nil {
 		return nil, mapInstanceError("update instance", err)
 	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, mapInstanceError("update instance", err)
+	}
 	return updated, nil
+}
+
+// claimInstanceName serializes participating writers by schema and exact name.
+// The occupancy query must be a separate statement after the lock: under READ
+// COMMITTED it sees the winning writer's commit even when lock acquisition waits.
+// Direct SQL and older writers do not participate in this protocol.
+func claimInstanceName(ctx context.Context, tx pgx.Tx, name string, excludeID *uuid.UUID) error {
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended(current_schema() || ':' || $1, 0))`, name); err != nil {
+		return err
+	}
+	var occupied bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM instances WHERE name = $1 AND ($2::uuid IS NULL OR id <> $2))`, name, excludeID).Scan(&occupied); err != nil {
+		return err
+	}
+	if occupied {
+		return storage.ErrInstanceNameTaken
+	}
+	return nil
 }
 
 // SetConnection updates the connection columns of an instance and clears the

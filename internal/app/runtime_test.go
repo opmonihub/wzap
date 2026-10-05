@@ -62,6 +62,10 @@ func (r *runtimeRepo) Get(_ context.Context, id uuid.UUID) (*model.Instance, err
 	return &stored, nil
 }
 
+func (r *runtimeRepo) GetByName(context.Context, string) (*model.Instance, error) {
+	return nil, errors.New("runtimeRepo.GetByName: unexpected call")
+}
+
 func (r *runtimeRepo) GetByExternalRef(context.Context, string) (*model.Instance, error) {
 	return nil, errors.New("runtimeRepo.GetByExternalRef: unexpected call")
 }

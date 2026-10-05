@@ -22,6 +22,12 @@ import (
 // Errors reported by the service and mapped to HTTP status codes by the
 // handler layer.
 var (
+	// ErrInstanceNameTaken reports a globally occupied exact instance name.
+	ErrInstanceNameTaken = errors.New("instance name already taken")
+	// ErrInstanceNameAmbiguous reports multiple legacy rows with an exact name.
+	ErrInstanceNameAmbiguous = errors.New("instance name ambiguous")
+	// ErrInvalidInstanceName reports an unsafe or reserved name.
+	ErrInvalidInstanceName = errors.New("invalid instance name")
 	// ErrNotFound reports that the requested instance does not exist.
 	ErrNotFound = errors.New("instance not found")
 	// ErrExternalRefTaken reports that an instance external_ref is already in use.
@@ -179,6 +185,9 @@ func NewService(repo storage.InstanceRepository, sessions session.Manager, media
 // persist fails after the row was inserted, the row is deleted again so a
 // client retry starts clean instead of colliding with the orphaned row.
 func (s *Service) Create(ctx context.Context, input CreateInput) (*model.Instance, string, error) {
+	if err := ValidateInstanceName(input.Name); err != nil {
+		return nil, "", fmt.Errorf("create instance: %w", err)
+	}
 	if input.OwnerUserID == nil {
 		return nil, "", fmt.Errorf("create instance: %w", ErrOwnerRequired)
 	}
@@ -273,6 +282,15 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (*model.Instance, error
 	return instance, nil
 }
 
+// GetByName returns the unique instance with this exact name.
+func (s *Service) GetByName(ctx context.Context, name string) (*model.Instance, error) {
+	instance, err := s.repo.GetByName(ctx, name)
+	if err != nil {
+		return nil, mapError("get instance by name", err)
+	}
+	return instance, nil
+}
+
 // Health returns the DB-persisted status of the instance alongside the live
 // socket state, without creating a session: a read-only peek through
 // sessions.Get. An unknown instance is ErrNotFound.
@@ -307,7 +325,10 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 		return nil, mapError("update instance", err)
 	}
 
-	if input.Name != nil {
+	if input.Name != nil && *input.Name != instance.Name {
+		if err := ValidateInstanceName(*input.Name); err != nil {
+			return nil, fmt.Errorf("update instance: %w", err)
+		}
 		instance.Name = *input.Name
 	}
 	if input.ExternalRef != nil {
@@ -741,6 +762,12 @@ func mapError(op string, err error) error {
 	switch {
 	case errors.Is(err, storage.ErrNotFound):
 		return fmt.Errorf("%s: %w", op, ErrNotFound)
+	case errors.Is(err, storage.ErrInvalidInstanceName):
+		return fmt.Errorf("%s: %w", op, ErrInvalidInstanceName)
+	case errors.Is(err, storage.ErrInstanceNameTaken):
+		return fmt.Errorf("%s: %w", op, ErrInstanceNameTaken)
+	case errors.Is(err, storage.ErrInstanceNameAmbiguous):
+		return fmt.Errorf("%s: %w", op, ErrInstanceNameAmbiguous)
 	case errors.Is(err, storage.ErrExternalRefTaken):
 		return fmt.Errorf("%s: %w", op, ErrExternalRefTaken)
 	case errors.Is(err, storage.ErrInvalidCursor):

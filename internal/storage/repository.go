@@ -13,6 +13,12 @@ import (
 )
 
 var (
+	// ErrInvalidInstanceName reports an actual rename to an unsafe or reserved name.
+	ErrInvalidInstanceName = errors.New("invalid instance name")
+	// ErrInstanceNameTaken reports a globally occupied exact instance name.
+	ErrInstanceNameTaken = errors.New("instance name already taken")
+	// ErrInstanceNameAmbiguous reports multiple legacy rows with an exact name.
+	ErrInstanceNameAmbiguous = errors.New("instance name ambiguous")
 	// ErrNotFound reports that the requested record does not exist.
 	ErrNotFound = errors.New("record not found")
 	// ErrExternalRefTaken reports that an instance external_ref is already in use.
@@ -35,6 +41,7 @@ var (
 type InstanceRepository interface {
 	Create(ctx context.Context, instance model.Instance) (*model.Instance, error)
 	Get(ctx context.Context, id uuid.UUID) (*model.Instance, error)
+	GetByName(ctx context.Context, name string) (*model.Instance, error)
 	GetByExternalRef(ctx context.Context, externalRef string) (*model.Instance, error)
 	List(ctx context.Context) ([]model.Instance, error)
 	Update(ctx context.Context, instance model.Instance) (*model.Instance, error)

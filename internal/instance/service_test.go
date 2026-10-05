@@ -88,6 +88,23 @@ func (r *fakeRepo) Get(_ context.Context, id uuid.UUID) (*model.Instance, error)
 	return &stored, nil
 }
 
+func (r *fakeRepo) GetByName(_ context.Context, name string) (*model.Instance, error) {
+	var found *model.Instance
+	for _, instance := range r.instances {
+		if instance.Name == name {
+			if found != nil {
+				return nil, storage.ErrInstanceNameAmbiguous
+			}
+			stored := instance
+			found = &stored
+		}
+	}
+	if found == nil {
+		return nil, storage.ErrNotFound
+	}
+	return found, nil
+}
+
 // GetByExternalRef returns the stored instance with externalRef or
 // storage.ErrNotFound.
 func (r *fakeRepo) GetByExternalRef(_ context.Context, externalRef string) (*model.Instance, error) {

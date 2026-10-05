@@ -40,7 +40,19 @@ Task review independently approved both specification compliance and code qualit
 
 Guarded delivery to `/home/obsidian/dev/wzap` completed: all 30 destination files matched the initial snapshot before applying the task-only patch, and the resulting bytes matched the reviewed worktree. Only the new task-owned OpenSpec directory was copied. Existing user changes were preserved.
 
-After delivery, `go test ./internal/httpapi -run TestSwagger -count=1 -v` passed in the original workspace (`ok wzap/internal/httpapi 0.268s`, 88 registered operations inspected). The pinned generator ran there again with all three output files byte-identical to the reviewed hashes. `git diff --check` passed for the task source/generated paths. The isolated worktree and branch remain preserved; no commit, push, merge or service restart was performed.
+After initial delivery, `go test ./internal/httpapi -run TestSwagger -count=1 -v` passed in the original workspace (`ok wzap/internal/httpapi 0.268s`, 88 registered operations inspected). The pinned generator ran there again with all three output files byte-identical to the reviewed hashes. `git diff --check` passed for the task source/generated paths. At that stage the isolated worktree and branch were preserved; no commit, push, merge or service restart had been performed.
+
+## Local integration — 2026-10-05
+
+The user explicitly selected local merge into `main` through `finishing-a-development-branch`. A clean integration worktree was prepared on `codex/document-all-http-routes` at base `5727573`, containing only 30 task source/docs files and eight change artifacts. An independent scope review confirmed no unrelated user edits, identical handwritten source, matching generated documents, and no dependency on the dirty snapshot.
+
+Fresh checks on this clean tree passed: `gofmt -l .`, `go vet ./...`, golangci-lint v2.13.2 (0 issues), `go test ./... -count=1` and `go build ./...`. The default suite's HTTP package passed in 17.896s. Strict OpenSpec validation also passed before the commit.
+
+Commit `5dd4dfb7dfbbe4b635e951fb23c34ba46c895e24` (`docs(api): documenta todas as rotas no Swagger`) was merged locally into `main` by fast-forward after `git pull --ff-only` reported the base already current. After merging, the complete default suite passed again (`internal/httpapi` 9.325s), `go build ./...` passed, and pinned generation reproduced all three artifact hashes above without differences. External integration variables remained unset.
+
+All 48 pre-existing modified/untracked/deleted paths were checked against their saved content hashes and remained unchanged. Before cleanup, 86 edited/untracked paths in the old snapshot worktree were confirmed to have identical copies in `main`. The complete old worktree content, including ignored agent reports, was backed up under `.superpowers/sdd/finished-document-all-http-routes-x8bmjgzd/` together with test/review evidence. Only duplicated task-owned worktree content was then cleared for ordinary removal; no forced removal was used.
+
+Both `.worktrees/document-all-http-routes` and `.worktrees/document-all-http-routes-merge` were removed, followed by deletion of the fully merged branch. The Kilo-managed worktree was preserved. The OpenSpec change remains complete and active, awaiting the separate archive step.
 
 ## Limits
 

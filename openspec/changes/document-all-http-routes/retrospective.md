@@ -6,7 +6,7 @@ Inventory by method/path exposed six missing operations despite existing tests c
 
 One implementation batch kept annotation conventions consistent across routes. An isolated worktree and a baseline snapshot separated task changes from substantial existing local edits. Independent task and broad final reviews approved the result; the full default Go gates passed.
 
-Delivery checked destination bytes against the original snapshot, applied only the reviewed delta and verified the resulting bytes. The original workspace then passed the focused served-Swagger checks and reproduced the generated artifacts exactly. The worktree remains available for later integration decisions.
+Initial delivery checked destination bytes against the original snapshot, applied only the reviewed delta and verified the resulting bytes. The original workspace then passed the focused served-Swagger checks and reproduced the generated artifacts exactly. The worktree was preserved until the user chose the integration path.
 
 ## Adjustments and lessons
 
@@ -19,3 +19,9 @@ The README regeneration example uses portable `go run`; this machine's PATH over
 ## Remaining boundaries
 
 External integrations and live-service rollout are outside this documentation change. Baseline functional issues identified during earlier analysis remain separate work. New routes using registration helpers or another file must extend the coverage inventory accordingly.
+
+## Local integration chosen by the user
+
+The user selected merge into `main`; a PR was an alternative, not a required next step. The clean commit scope was independently reviewed and tested without copying unrelated local edits into history. Generated artifacts were identical on the clean base, confirming that the change could be committed independently.
+
+Commit `5dd4dfb` was merged by fast-forward. Fresh tests, build and generation passed on the merged main tree. All 48 existing user paths were preserved. Backing up ignored reports and verifying duplicate content allowed normal cleanup of both task worktrees and the merged branch without forced removal or loss of the user's working files.

@@ -70,7 +70,7 @@ export function useInstances() {
   async function updateInstance(id: string, input: UpdateInstanceInput): Promise<Instance> {
     return await api<Instance>(`/instances/${id}`, {
       method: 'PATCH',
-      body: { name: input.name, external_ref: input.external_ref }
+      body: input
     })
   }
 

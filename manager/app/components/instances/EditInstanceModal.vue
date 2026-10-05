@@ -2,6 +2,7 @@
 import * as z from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
 import { ApiError } from '~/composables/useApi'
+import { instanceNameErrorKey, instanceNameUpdate, isValidInstanceName } from '~/utils/instanceName'
 import type { Instance } from '~/types/api'
 
 // Inline edit dialog for the instances table: renames the instance or edits
@@ -21,7 +22,7 @@ const { updateInstance } = useInstances()
 const open = defineModel<boolean>('open', { default: false })
 
 const schema = z.object({
-  name: z.string().min(1, t('instances.create.nameRequired')).max(255),
+  name: z.string().refine(name => isValidInstanceName(name, props.target?.name), t('instances.fields.nameHint')),
   external_ref: z.string().max(255)
 })
 type Schema = z.output<typeof schema>
@@ -42,16 +43,16 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   if (!props.target || saving.value) {
     return
   }
-  const trimmedName = (event.data.name ?? '').trim()
-  if (trimmedName === '') {
-    failure.value = t('instances.create.nameRequired')
+  const name = event.data.name
+  if (!isValidInstanceName(name, props.target.name)) {
+    failure.value = t('instances.fields.nameHint')
     return
   }
   saving.value = true
   failure.value = null
   try {
     const updated = await updateInstance(props.target.id, {
-      name: trimmedName,
+      ...instanceNameUpdate(name, props.target.name),
       external_ref: (event.data.external_ref ?? '').trim()
     })
     open.value = false
@@ -64,7 +65,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 }
 
 function friendlySaveError(error: ApiError): string {
-  if (error.status === 409) {
+  const nameError = instanceNameErrorKey(error)
+  if (nameError) {
+    return t(nameError)
+  }
+  if (error.status === 409 && error.code === 'conflict') {
     return t('instances.detail.externalRefTaken')
   }
   return error.message
@@ -88,10 +93,14 @@ function friendlySaveError(error: ApiError): string {
           :title="failure"
         />
 
-        <UFormField :label="t('instances.fields.name')" name="name" required>
+        <UFormField
+          :label="t('instances.fields.name')"
+          :description="`${t('instances.fields.nameHint')} ${t('instances.fields.nameLegacyHint')}`"
+          name="name"
+          required
+        >
           <UInput
             v-model="state.name"
-            maxlength="255"
             class="w-full"
           />
         </UFormField>

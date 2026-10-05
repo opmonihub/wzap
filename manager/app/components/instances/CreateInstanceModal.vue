@@ -2,6 +2,7 @@
 import * as z from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
 import { ApiError } from '~/composables/useApi'
+import { instanceNameErrorKey, isValidInstanceName } from '~/utils/instanceName'
 import OneTimeKeyDisplay from '~/components/instances/OneTimeKeyDisplay.vue'
 import type { CreatedInstance } from '~/types/api'
 
@@ -17,7 +18,7 @@ const { createInstance } = useInstances()
 const open = defineModel<boolean>('open', { default: false })
 
 const schema = z.object({
-  name: z.string().min(1, t('instances.create.nameRequired')).max(255),
+  name: z.string().refine(name => isValidInstanceName(name), t('instances.fields.nameHint')),
   external_ref: z.string().max(255)
 })
 type Schema = z.output<typeof schema>
@@ -44,15 +45,15 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   if (pending.value) {
     return
   }
-  const trimmedName = (event.data.name ?? '').trim()
-  if (trimmedName === '') {
-    failure.value = t('instances.create.nameRequired')
+  const name = event.data.name
+  if (!isValidInstanceName(name)) {
+    failure.value = t('instances.fields.nameHint')
     return
   }
   pending.value = true
   failure.value = null
   try {
-    created.value = await createInstance({ name: trimmedName, external_ref: event.data.external_ref ?? '' })
+    created.value = await createInstance({ name, external_ref: event.data.external_ref ?? '' })
     markInstanceKeySeen(created.value.id)
     emit('created', created.value)
   } catch (error) {
@@ -63,10 +64,14 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 }
 
 function friendlyCreateError(error: ApiError): string {
+  const nameError = instanceNameErrorKey(error)
+  if (nameError) {
+    return t(nameError)
+  }
   if (error.status === 403 && error.code === 'quota_exceeded') {
     return t('instances.create.quotaExceeded')
   }
-  if (error.status === 409) {
+  if (error.status === 409 && error.code === 'conflict') {
     return t('instances.create.externalRefTaken')
   }
   return error.message
@@ -91,10 +96,14 @@ function friendlyCreateError(error: ApiError): string {
           :title="failure"
         />
 
-        <UFormField :label="t('instances.fields.name')" name="name" required>
+        <UFormField
+          :label="t('instances.fields.name')"
+          :description="t('instances.fields.nameHint')"
+          name="name"
+          required
+        >
           <UInput
             v-model="state.name"
-            maxlength="255"
             class="w-full"
           />
         </UFormField>

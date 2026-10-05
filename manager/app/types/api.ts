@@ -111,10 +111,10 @@ export interface CreateInstanceInput {
   external_ref?: string
 }
 
-// Payload sent to PATCH /instances/{id}. An explicit empty external_ref
-// clears the stored reference.
+// Payload sent to PATCH /instances/{id}. Omitted names keep the stored value,
+// including legacy names. An explicit empty external_ref clears the reference.
 export interface UpdateInstanceInput {
-  name: string
+  name?: string
   external_ref: string
 }
 

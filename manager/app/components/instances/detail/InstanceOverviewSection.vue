@@ -2,6 +2,7 @@
 import * as z from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
 import { ApiError } from '~/composables/useApi'
+import { instanceNameErrorKey, instanceNameUpdate, isValidInstanceName } from '~/utils/instanceName'
 import { useConfirmDelete } from '~/components/instances/ConfirmDelete'
 import PairingCard from '~/components/instances/PairingCard.vue'
 import PairPhoneCard from '~/components/instances/PairPhoneCard.vue'
@@ -23,7 +24,7 @@ const { updateInstance, disconnectInstance } = useInstances()
 const { confirmDelete } = useConfirmDelete()
 
 const schema = z.object({
-  name: z.string().min(1, t('instances.create.nameRequired')).max(255),
+  name: z.string().refine(name => isValidInstanceName(name, props.instance.name), t('instances.fields.nameHint')),
   external_ref: z.string().max(255)
 })
 type Schema = z.output<typeof schema>
@@ -37,16 +38,16 @@ async function onSave(event: FormSubmitEvent<Schema>) {
   if (saving.value) {
     return
   }
-  const trimmedName = (event.data.name ?? '').trim()
-  if (trimmedName === '') {
-    saveFailure.value = t('instances.create.nameRequired')
+  const name = event.data.name
+  if (!isValidInstanceName(name, props.instance.name)) {
+    saveFailure.value = t('instances.fields.nameHint')
     return
   }
   saving.value = true
   saveFailure.value = null
   try {
     const updated = await updateInstance(props.instance.id, {
-      name: trimmedName,
+      ...instanceNameUpdate(name, props.instance.name),
       external_ref: (event.data.external_ref ?? '').trim()
     })
     emit('updated', updated)
@@ -60,7 +61,11 @@ async function onSave(event: FormSubmitEvent<Schema>) {
 
 function friendlySaveError(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.status === 409) {
+    const nameError = instanceNameErrorKey(error)
+    if (nameError) {
+      return t(nameError)
+    }
+    if (error.status === 409 && error.code === 'conflict') {
       return t('instances.detail.externalRefTaken')
     }
     return error.message
@@ -201,10 +206,14 @@ watch(() => props.instance, (next) => {
           :title="saveFailure"
         />
 
-        <UFormField :label="t('instances.fields.name')" name="name" required>
+        <UFormField
+          :label="t('instances.fields.name')"
+          :description="`${t('instances.fields.nameHint')} ${t('instances.fields.nameLegacyHint')}`"
+          name="name"
+          required
+        >
           <UInput
             v-model="state.name"
-            maxlength="255"
             class="w-full"
           />
         </UFormField>

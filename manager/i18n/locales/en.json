@@ -164,6 +164,10 @@
     },
     "fields": {
       "name": "Name",
+      "nameHint": "Use 1–64 ASCII letters or digits, with hyphens or underscores inside. Start and end with a letter or digit. Names are case-sensitive; stats and UUIDs are reserved.",
+      "nameLegacyHint": "You can keep an existing name unchanged.",
+      "nameTaken": "This instance name is already in use. Choose another name.",
+      "nameAmbiguous": "This name matches multiple instances. Open the instance by its ID and choose a unique name.",
       "externalRef": "External reference",
       "externalRefHint": "Optional unique reference used by your systems.",
       "owner": "Owner",

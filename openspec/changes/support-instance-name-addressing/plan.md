@@ -24,7 +24,7 @@ Write scope: `internal/instance/` name/service implementation and tests; `intern
 
 ## Task 2.1 — Transport/docs
 
-Write scope: `internal/httpapi/` including annotations/tests; generated `docs/swagger/`; `README.md`. Start after Task 1 review makes domain interfaces stable.
+Write scope: `internal/httpapi/` including annotations/tests; generated `docs/docs.go`, `docs/swagger.json`, `docs/swagger.yaml`; `README.md`. Start after Task 1 review makes domain interfaces stable.
 
 1. Add failing actual-router tests for UUID/name reads, status, mutation, public Chatwoot; typed conflicts/missing names and reserved paths.
 2. Add GetByName to HTTP InstanceService and fakes. Implement instance-only registration adapter and open webhook resolver. UUID interpretation takes precedence. For instance-key names compare its own UUID row's current name, refusing foreign names without foreign lookup.
@@ -32,7 +32,7 @@ Write scope: `internal/httpapi/` including annotations/tests; generated `docs/sw
 4. Add tests for UUID↔name replay, foreign ownership/key and changed ownership, rename replay, no extra operation, route/path safety.
 5. Add optional stats query, collection-first authorization and single-target aggregation tests; no query retains existing totals.
 6. Update every instance-reference annotation (including open webhook), create/update name rules and errors, Swagger contracts and README BREAKING note; keep other IDs unchanged.
-7. Focused HTTP tests, `go generate ./docs/swagger`, Swagger contract/freshness checks; commit owned paths only.
+7. Focused HTTP tests, `/usr/local/go/bin/go run github.com/swaggo/swag/cmd/swag@v1.16.6 init --parseInternal -g internal/httpapi/swagger.go -o docs`, Swagger contract/freshness checks; commit owned paths only.
 
 ## Task 3.1 — Manager
 

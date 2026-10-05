@@ -84,7 +84,7 @@ func statusTextValid(text string) bool {
 // @Produce json
 // @Security apikey
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body publishStatusRequest true "Status payload: type text plus its text"
 // @Header 202 {string} X-Idempotent-Replay "true when replayed from a previous call"
 // @Success 202 {object} envelope{data=statusPublishResponse} "Accepted, wrapped in the data envelope"
@@ -92,7 +92,7 @@ func statusTextValid(text string) bool {
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight"
+// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid type or text, or reused key"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -161,7 +161,7 @@ func handlePublishStatus(instances InstanceService, log zerolog.Logger) http.Han
 // @Produce json
 // @Security apikey
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param type formData string true "Media kind: image or video"
 // @Param caption formData string false "Caption, max 700 characters"
 // @Param file formData file true "Media file"
@@ -171,7 +171,7 @@ func handlePublishStatus(instances InstanceService, log zerolog.Logger) http.Han
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight"
+// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 422 {object} errorEnvelope "Invalid file, mismatched type, or reused key"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
@@ -283,12 +283,12 @@ func handlePublishStatusMedia(instances InstanceService, log zerolog.Logger, max
 // @Tags status
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Success 200 {object} envelope{data=statusListResponse} "Own statuses published since boot, entries older than 24h are dropped, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/status/updates [get]
@@ -336,13 +336,13 @@ func handleListStatuses(instances InstanceService, log zerolog.Logger) http.Hand
 // @Tags status
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param status_id path string true "Status ID"
 // @Success 200 {object} envelope{data=statusDeleteResponse} "Deleted, only statuses published since boot are tracked and the ~24h protocol expiry applies, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance or status not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/status/updates/{status_id} [delete]

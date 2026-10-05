@@ -34,7 +34,7 @@ type editMessageResponse struct {
 // @Produce json
 // @Security apikey
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body editMessageRequest true "Edit payload"
 // @Header 200 {string} X-Idempotent-Replay "true when replayed from a previous call"
 // @Success 200 {object} envelope{data=editMessageResponse} "Edited, wrapped in the data envelope"
@@ -42,7 +42,7 @@ type editMessageResponse struct {
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance or message not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight"
+// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid text, target, or reused key"
 // @Failure 500 {object} errorEnvelope "Internal error"

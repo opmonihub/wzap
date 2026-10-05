@@ -40,14 +40,14 @@ func validPresenceState(state string) bool {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body presenceRequest true "Presence payload"
 // @Success 200 {object} envelope{data=presenceResponse} "Published, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid chat or unknown state"
 // @Failure 500 {object} errorEnvelope "Internal error"

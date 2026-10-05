@@ -24,6 +24,8 @@ import (
 type fakeInstanceService struct {
 	createFn                 func(ctx context.Context, input instance.CreateInput) (*model.Instance, string, error)
 	oldestAdminFn            func(ctx context.Context) (uuid.UUID, error)
+	getByNameFn              func(ctx context.Context, name string) (*model.Instance, error)
+	getNames                 []string
 	getFn                    func(ctx context.Context, id uuid.UUID) (*model.Instance, error)
 	listFn                   func(ctx context.Context) ([]model.Instance, error)
 	updateFn                 func(ctx context.Context, id uuid.UUID, input instance.UpdateInput) (*model.Instance, error)
@@ -406,6 +408,14 @@ func (f *fakeInstanceService) Get(ctx context.Context, id uuid.UUID) (*model.Ins
 		return f.getFn(ctx, id)
 	}
 	return &model.Instance{ID: id, Name: "loja", Status: "disconnected"}, nil
+}
+
+func (f *fakeInstanceService) GetByName(ctx context.Context, name string) (*model.Instance, error) {
+	f.getNames = append(f.getNames, name)
+	if f.getByNameFn != nil {
+		return f.getByNameFn(ctx, name)
+	}
+	return nil, instance.ErrNotFound
 }
 
 // List returns the configured collection, defaulting to an empty one.
@@ -1137,7 +1147,7 @@ func TestInstancesGetNotFound(t *testing.T) {
 func TestInstancesGetRejectsMalformedID(t *testing.T) {
 	svc := &fakeInstanceService{}
 
-	rec := serveJSON(t, instancesServer(t, svc), http.MethodGet, "/instances/not-a-uuid", "")
+	rec := serveJSON(t, instancesServer(t, svc), http.MethodGet, "/instances/bad.name", "")
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)

@@ -204,7 +204,7 @@ func TestNumbersCheckRejectsMalformedInstanceID(t *testing.T) {
 	resolver := &fakeNumberResolver{}
 
 	rec := serveJSON(t, numbersServer(t, existingInstanceService(), resolver), http.MethodPost,
-		"/instances/not-a-uuid/numbers/check", `{"phone":"5547988359190"}`)
+		"/instances/bad.name/numbers/check", `{"phone":"5547988359190"}`)
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)

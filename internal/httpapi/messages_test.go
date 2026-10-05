@@ -270,7 +270,7 @@ func TestSendRejectsMalformedInstanceID(t *testing.T) {
 	svc := &fakeMessageService{}
 
 	rec := serveMessages(t, messagesServer(t, svc, nil), http.MethodPost,
-		"/instances/not-a-uuid/messages/text", `{"to":"5547","text":"olá"}`, nil)
+		"/instances/bad.name/messages/text", `{"to":"5547","text":"olá"}`, nil)
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)

@@ -31,6 +31,7 @@ type InstanceService interface {
 	// or an admin session without an explicit owner.
 	OldestAdmin(ctx context.Context) (uuid.UUID, error)
 	Get(ctx context.Context, id uuid.UUID) (*model.Instance, error)
+	GetByName(ctx context.Context, name string) (*model.Instance, error)
 	List(ctx context.Context) ([]model.Instance, error)
 	Update(ctx context.Context, id uuid.UUID, input instance.UpdateInput) (*model.Instance, error)
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -138,6 +139,7 @@ type instanceListResponse struct {
 // same absent-versus-explicit rule: omitted events default to every type,
 // while an omitted URL stays unset.
 type createInstanceRequest struct {
+	// Globally unique, exact ASCII name: 1-64 letters/digits/hyphens/underscores, alphanumeric ends; stats and every UUID-parseable string are reserved.
 	Name           string    `json:"name"`
 	ExternalRef    string    `json:"external_ref"`
 	OwnerUserID    *string   `json:"owner_user_id"`
@@ -151,6 +153,7 @@ type createInstanceRequest struct {
 // behave the same: omitted keeps the stored configuration, an explicit empty
 // URL unsets it, and an explicit empty events list clears the subscription.
 type updateInstanceRequest struct {
+	// Actual renames follow the create name grammar and uniqueness rule; an exactly unchanged legacy name is accepted.
 	Name           *string   `json:"name"`
 	ExternalRef    *string   `json:"external_ref"`
 	WebhookURL     *string   `json:"webhook_url"`
@@ -185,9 +188,9 @@ type updateInstanceRequest struct {
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Forbidden or quota exceeded"
-// @Failure 409 {object} errorEnvelope "External ref already taken"
+// @Failure 409 {object} errorEnvelope "instance_name_taken: name already taken, or external ref already taken"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
-// @Failure 422 {object} errorEnvelope "Unknown owner or invalid webhook config"
+// @Failure 422 {object} errorEnvelope "invalid_instance_name: invalid/reserved name; unknown owner or invalid webhook config"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances [post]
@@ -392,9 +395,12 @@ func handleListInstances(instances InstanceService) http.HandlerFunc {
 // @Tags instances
 // @Produce json
 // @Security apikey
+// @Param instance query string false "Optional instance UUID or name (exact, case-sensitive); omitted counts the authorized collection"
 // @Success 200 {object} envelope{data=instanceStatsResponse} "Totals in scope, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
-// @Failure 403 {object} errorEnvelope "Instance keys own no collection view"
+// @Failure 403 {object} errorEnvelope "Instance keys own no collection view, or target not owned"
+// @Failure 404 {object} errorEnvelope "Target instance not found"
+// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/stats [get]
@@ -416,12 +422,27 @@ func handleInstanceStats(instances InstanceService) http.HandlerFunc {
 			"pairing":      0,
 			"error":        0,
 		}
-		items, err := instances.List(r.Context())
-		if err != nil {
-			writeInstanceError(w, r, err)
-			return
+		var items []model.Instance
+		if reference := r.URL.Query().Get("instance"); reference != "" {
+			target, err := resolveInstanceReference(r, instances, reference, true)
+			if err != nil {
+				writeInstanceError(w, r, err)
+				return
+			}
+			if err := authorizeInstance(r, target); err != nil {
+				writeForbidden(w, r)
+				return
+			}
+			items = []model.Instance{*target}
+		} else {
+			var err error
+			items, err = instances.List(r.Context())
+			if err != nil {
+				writeInstanceError(w, r, err)
+				return
+			}
+			items = filterInstancesByOwner(scope, items)
 		}
-		items = filterInstancesByOwner(scope, items)
 		for _, item := range items {
 			if _, known := byStatus[item.Status]; known {
 				byStatus[item.Status]++
@@ -440,12 +461,13 @@ func handleInstanceStats(instances InstanceService) http.HandlerFunc {
 // @Tags instances
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Success 200 {object} envelope{data=instanceResponse} "Instance, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id} [get]
 func handleGetInstance(instances InstanceService) http.HandlerFunc {
@@ -480,16 +502,16 @@ func handleGetInstance(instances InstanceService) http.HandlerFunc {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body updateInstanceRequest true "Partial update payload"
 // @Success 200 {object} envelope{data=instanceResponse} "Updated instance, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body or invalid cursor"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "External ref already taken"
+// @Failure 409 {object} errorEnvelope "instance_name_taken: name already taken, or external ref already taken; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
-// @Failure 422 {object} errorEnvelope "Invalid webhook config"
+// @Failure 422 {object} errorEnvelope "invalid_instance_name: invalid/reserved changed name, or invalid webhook config"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id} [patch]
@@ -541,12 +563,13 @@ func handleUpdateInstance(instances InstanceService) http.HandlerFunc {
 // @Tags instances
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Success 204 "Deleted, no body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id} [delete]
 func handleDeleteInstance(instances InstanceService) http.HandlerFunc {
@@ -578,8 +601,8 @@ func handleDeleteInstance(instances InstanceService) http.HandlerFunc {
 	}
 }
 
-// instanceID parses the {id} path value. A malformed id answers 404: a value
-// that is not a UUID names no instance.
+// instanceID parses the canonical UUID path value supplied by the resolver.
+// A malformed value answers 404 for handlers used outside the registered mux.
 func instanceID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
@@ -663,6 +686,12 @@ func writeInstanceError(w http.ResponseWriter, r *http.Request, err error) {
 		Error(w, r, http.StatusForbidden, "forbidden", "forbidden")
 	case errors.Is(err, instance.ErrNotFound):
 		Error(w, r, http.StatusNotFound, "not_found", "instance not found")
+	case errors.Is(err, instance.ErrInvalidInstanceName):
+		Error(w, r, http.StatusUnprocessableEntity, "invalid_instance_name", "invalid instance name")
+	case errors.Is(err, instance.ErrInstanceNameTaken):
+		Error(w, r, http.StatusConflict, "instance_name_taken", "instance name already taken")
+	case errors.Is(err, instance.ErrInstanceNameAmbiguous):
+		Error(w, r, http.StatusConflict, "instance_name_ambiguous", "instance name matches multiple instances")
 	case errors.Is(err, instance.ErrExternalRefTaken):
 		Error(w, r, http.StatusConflict, "conflict", "external ref already taken")
 	case errors.Is(err, instance.ErrInvalidCursor):

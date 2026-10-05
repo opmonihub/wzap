@@ -221,10 +221,10 @@ func TestInstancesConnectionRejectsMalformedID(t *testing.T) {
 		method string
 		path   string
 	}{
-		{name: "connect", method: http.MethodPost, path: "/instances/not-a-uuid/connect"},
-		{name: "qr", method: http.MethodGet, path: "/instances/not-a-uuid/qr"},
-		{name: "status", method: http.MethodGet, path: "/instances/not-a-uuid/status"},
-		{name: "disconnect", method: http.MethodPost, path: "/instances/not-a-uuid/disconnect"},
+		{name: "connect", method: http.MethodPost, path: "/instances/bad.name/connect"},
+		{name: "qr", method: http.MethodGet, path: "/instances/bad.name/qr"},
+		{name: "status", method: http.MethodGet, path: "/instances/bad.name/status"},
+		{name: "disconnect", method: http.MethodPost, path: "/instances/bad.name/disconnect"},
 	}
 
 	for _, tt := range tests {

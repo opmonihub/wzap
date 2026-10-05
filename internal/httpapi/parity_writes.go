@@ -104,14 +104,14 @@ func parseDisappearingDuration(raw string) (time.Duration, bool) {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body updateBlocklistRequest true "Blocklist payload"
 // @Success 200 {object} envelope{data=blocklistUpdateResponse} "Applied, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Unknown action or invalid JID"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -158,7 +158,7 @@ func handleUpdateBlocklist(instances InstanceService, log zerolog.Logger) http.H
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param chat path string true "Chat JID"
 // @Param request body disappearingRequest true "Timer payload, one of 0, 24h, 168h, 2160h"
 // @Success 200 {object} envelope{data=disappearingResponse} "Applied timer, wrapped in the data envelope"
@@ -166,7 +166,7 @@ func handleUpdateBlocklist(instances InstanceService, log zerolog.Logger) http.H
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid chat or duration outside the allowlist"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -217,14 +217,14 @@ func handleSetDisappearing(instances InstanceService, log zerolog.Logger) http.H
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body disappearingRequest true "Timer payload, one of 0, 24h, 168h, 2160h"
 // @Success 200 {object} envelope{data=disappearingResponse} "Applied duration, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Duration outside the allowlist"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -269,13 +269,13 @@ func handleSetDefaultDisappearing(instances InstanceService, log zerolog.Logger)
 // @Tags contacts
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param jid path string true "Contact JID"
 // @Success 200 {object} envelope{data=subscribePresenceResponse} "Subscribed, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance or contact not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 422 {object} errorEnvelope "Malformed JID"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
@@ -307,13 +307,13 @@ func handleSubscribePresence(instances InstanceService, log zerolog.Logger) http
 // @Tags contacts
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param revoke query bool false "Revoke the previous link"
 // @Success 200 {object} envelope{data=contactLinkResponse} "Link, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/contact-link [get]
@@ -344,14 +344,14 @@ func handleContactLink(instances InstanceService, log zerolog.Logger) http.Handl
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body createNewsletterRequest true "Channel payload, title 1..100, description 0..500"
 // @Success 201 {object} envelope{data=newsletterResponse} "Created channel, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid title or description"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -398,7 +398,7 @@ func handleCreateNewsletter(instances InstanceService, log zerolog.Logger) http.
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param channel path string true "Channel JID"
 // @Param request body muteNewsletterRequest true "Mute payload"
 // @Success 200 {object} envelope{data=muteNewsletterResponse} "Applied mute, wrapped in the data envelope"
@@ -406,7 +406,7 @@ func handleCreateNewsletter(instances InstanceService, log zerolog.Logger) http.
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found, or unknown channel"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid channel"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -447,7 +447,7 @@ func handleMuteNewsletter(instances InstanceService, log zerolog.Logger) http.Ha
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param channel path string true "Channel JID"
 // @Param request body markNewsletterViewedRequest true "Viewed payload, 1..100 server ids"
 // @Success 200 {object} envelope{data=newsletterViewedResponse} "Viewed, wrapped in the data envelope"
@@ -455,7 +455,7 @@ func handleMuteNewsletter(instances InstanceService, log zerolog.Logger) http.Ha
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found, or unknown channel"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Empty batch or above the 100 cap"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -509,7 +509,7 @@ func handleMarkNewsletterViewed(instances InstanceService, log zerolog.Logger) h
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param channel path string true "Channel JID"
 // @Param request body reactNewsletterRequest true "Reaction payload, empty reaction removes it"
 // @Success 200 {object} envelope{data=newsletterReactResponse} "Reacted, wrapped in the data envelope"
@@ -517,7 +517,7 @@ func handleMarkNewsletterViewed(instances InstanceService, log zerolog.Logger) h
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found, or unknown message"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Missing server id"
 // @Failure 500 {object} errorEnvelope "Internal error"

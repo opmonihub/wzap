@@ -150,7 +150,7 @@ type sendMessageRequest struct {
 // @Produce json
 // @Security apikey
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body sendMessageRequest true "Rich payload: type poll|reaction|list|buttons plus its fields"
 // @Header 202 {string} X-Idempotent-Replay "true when replayed from a previous call"
 // @Success 202 {object} envelope{data=messageAcceptedResponse} "Accepted, wrapped in the data envelope"
@@ -158,7 +158,7 @@ type sendMessageRequest struct {
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight"
+// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid content, unknown number, unsupported type, or reused key"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -274,7 +274,7 @@ func richEnqueueInput(request sendMessageRequest) (message.EnqueueInput, bool) {
 // @Produce json
 // @Security apikey
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body sendTextRequest true "Text payload"
 // @Header 202 {string} X-Idempotent-Replay "true when replayed from a previous call"
 // @Success 202 {object} envelope{data=messageAcceptedResponse} "Accepted, wrapped in the data envelope"
@@ -282,7 +282,7 @@ func richEnqueueInput(request sendMessageRequest) (message.EnqueueInput, bool) {
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight"
+// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid content, unknown number, or reused key"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -338,7 +338,7 @@ func handleSendText(instances InstanceService, messages MessageService) http.Han
 // @Produce json
 // @Security apikey
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body sendLocationRequest true "Location payload"
 // @Header 202 {string} X-Idempotent-Replay "true when replayed from a previous call"
 // @Success 202 {object} envelope{data=messageAcceptedResponse} "Accepted, wrapped in the data envelope"
@@ -346,7 +346,7 @@ func handleSendText(instances InstanceService, messages MessageService) http.Han
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight"
+// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid content, unknown number, or reused key"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -407,7 +407,7 @@ func handleSendLocation(instances InstanceService, messages MessageService) http
 // @Produce json
 // @Security apikey
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body sendContactRequest true "Contact payload"
 // @Header 202 {string} X-Idempotent-Replay "true when replayed from a previous call"
 // @Success 202 {object} envelope{data=messageAcceptedResponse} "Accepted, wrapped in the data envelope"
@@ -415,7 +415,7 @@ func handleSendLocation(instances InstanceService, messages MessageService) http
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight"
+// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid content, unknown number, or reused key"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -474,7 +474,7 @@ func handleSendContact(instances InstanceService, messages MessageService) http.
 // @Produce json
 // @Security apikey
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param to formData string true "Recipient phone"
 // @Param type formData string true "Media kind: image, video, audio, document or sticker (webp only, stored apart from media)"
 // @Param caption formData string false "Caption"
@@ -487,7 +487,7 @@ func handleSendContact(instances InstanceService, messages MessageService) http.
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight"
+// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 422 {object} errorEnvelope "Invalid file, mismatched type, or reused key"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Failure 503 {object} errorEnvelope "Number resolution unavailable"
@@ -685,13 +685,14 @@ func writeMediaUploadError(w http.ResponseWriter, r *http.Request, err error) {
 // @Tags messages
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param message_id path string true "Message ID (UUID)"
 // @Success 200 {object} envelope{data=messageResponse} "Message, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance or message not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/messages/{message_id} [get]
 func handleGetMessage(instances InstanceService, messages MessageService) http.HandlerFunc {
@@ -736,7 +737,7 @@ func handleGetMessage(instances InstanceService, messages MessageService) http.H
 // @Tags messages
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param limit query int false "Page size, default 50, max 100"
 // @Param cursor query string false "Opaque pagination cursor"
 // @Success 200 {object} envelope{data=messageListResponse} "One page, wrapped in the data envelope"
@@ -745,6 +746,7 @@ func handleGetMessage(instances InstanceService, messages MessageService) http.H
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/messages [get]
 func handleListMessages(instances InstanceService, messages MessageService) http.HandlerFunc {

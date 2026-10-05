@@ -43,7 +43,7 @@ type numberCheckResponse struct {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body numberCheckRequest true "Phone payload"
 // @Success 200 {object} envelope{data=numberCheckResponse} "Resolution, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body or missing phone"
@@ -53,6 +53,7 @@ type numberCheckResponse struct {
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Failure 503 {object} errorEnvelope "Number resolution unavailable"
+// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/numbers/check [post]
 func handleCheckNumber(instances InstanceService, numbers NumberResolver) http.HandlerFunc {

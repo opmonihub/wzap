@@ -113,7 +113,7 @@ type chatwootConfigResponse struct {
 // @Tags chatwoot
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Accept json
 // @Param request body chatwootSetRequest true "Connector configuration; token is accepted only on write"
 // @Success 200 {object} envelope{data=chatwootConfigResponse} "Saved connector config; token is always empty"
@@ -124,6 +124,7 @@ type chatwootConfigResponse struct {
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid configuration or field type"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/chatwoot [put]
 func handleChatwootSet(instances InstanceService, configs ChatwootConfigStore, global cfgpkg.Chatwoot, publicURL string, clientFor ChatwootClientFor, log zerolog.Logger) http.HandlerFunc {
@@ -242,13 +243,14 @@ func ensureChatwootInbox(ctx context.Context, clientFor ChatwootClientFor, cfg m
 // @Tags chatwoot
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Success 200 {object} envelope{data=chatwootConfigResponse} "Connector config; token is always empty"
 // @Failure 400 {object} errorEnvelope "Connector disabled, malformed request or invalid instance ID"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/chatwoot [get]
 func handleChatwootGet(instances InstanceService, configs ChatwootConfigStore, global cfgpkg.Chatwoot, publicURL string) http.HandlerFunc {
@@ -297,13 +299,14 @@ func handleChatwootGet(instances InstanceService, configs ChatwootConfigStore, g
 // @Tags chatwoot
 // @Accept json
 // @Produce json
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body inbound.Payload true "Chatwoot event subset; unknown fields are ignored"
 // @Success 200 {object} object{content=string} "Raw acknowledgement with empty content"
 // @Failure 400 {object} errorEnvelope "Connector disabled or invalid body (including oversized body)"
 // @Failure 404 {object} errorEnvelope "Invalid or missing instance"
 // @Failure 429 {object} errorEnvelope "Per-instance webhook rate limit exceeded"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /chatwoot/webhook/{id} [post]
 func handleChatwootWebhook(instances InstanceService, inb ChatwootInbound, global cfgpkg.Chatwoot, limiter *ChatwootRateLimiter) http.HandlerFunc {
@@ -417,13 +420,14 @@ func newChatwootConfigResponse(cfg *model.ChatwootConfig, webhookURL string) cha
 // @Tags chatwoot
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Success 202 {object} envelope{data=object{imported=int}} "Number of messages already imported"
 // @Failure 400 {object} errorEnvelope "Connector disabled, malformed request or invalid instance ID"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance or required connector config not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/chatwoot/import [post]
 func handleChatwootImport(instances InstanceService, configs ChatwootConfigStore, global cfgpkg.Chatwoot, importer ChatwootImporter) http.HandlerFunc {
@@ -488,7 +492,7 @@ type chatwootCommandRequest struct {
 // @Tags chatwoot
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Accept json
 // @Param request body chatwootCommandRequest true "Operational command and Chatwoot conversation ID"
 // @Success 200 {object} envelope{data=object{ok=bool}} "Command processed"
@@ -498,6 +502,7 @@ type chatwootCommandRequest struct {
 // @Failure 404 {object} errorEnvelope "Instance or required connector config not found"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/chatwoot/command [post]
 func handleChatwootCommand(instances InstanceService, configs ChatwootConfigStore, global cfgpkg.Chatwoot, inb ChatwootInbound) http.HandlerFunc {

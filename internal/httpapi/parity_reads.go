@@ -174,14 +174,14 @@ func newNewsletterMessageResponse(msg session.NewsletterMessage) newsletterMessa
 // @Tags groups
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param limit query int false "Page size, default 50, max 100"
 // @Param cursor query string false "Opaque pagination cursor"
 // @Success 200 {object} envelope{data=joinedGroupsResponse} "One page, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/groups [get]
@@ -216,13 +216,13 @@ func handleListJoinedGroups(instances InstanceService, log zerolog.Logger) http.
 // @Tags groups
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param code query string true "Invite code or link"
 // @Success 200 {object} envelope{data=groupResponse} "Preview, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 422 {object} errorEnvelope "Invalid or expired invite"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
@@ -262,14 +262,14 @@ func handleInvitePreview(instances InstanceService, log zerolog.Logger) http.Han
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body checkContactsRequest true "Phones batch, 1..50 numbers"
 // @Success 200 {object} envelope{data=checkContactsResponse} "Results in input order, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Empty batch or above the 50 cap"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -327,13 +327,13 @@ func handleCheckContacts(instances InstanceService, log zerolog.Logger) http.Han
 // @Tags contacts
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param jid path string true "Contact JID"
 // @Success 200 {object} envelope{data=contactDevicesResponse} "Devices, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance or contact not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 422 {object} errorEnvelope "Malformed JID"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
@@ -370,13 +370,13 @@ func handleContactDevices(instances InstanceService, log zerolog.Logger) http.Ha
 // @Tags contacts
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param jid path string true "Contact JID"
 // @Success 200 {object} envelope{data=contactPhotoResponse} "Photo, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance or contact not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 422 {object} errorEnvelope "Malformed JID"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
@@ -410,13 +410,13 @@ func handleContactPhoto(instances InstanceService, log zerolog.Logger) http.Hand
 // @Tags contacts
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param jid path string true "Contact JID"
 // @Success 200 {object} envelope{data=contactBusinessResponse} "Business profile, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance or contact not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 422 {object} errorEnvelope "Malformed JID"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
@@ -454,12 +454,12 @@ func handleContactBusiness(instances InstanceService, log zerolog.Logger) http.H
 // @Tags blocklist
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Success 200 {object} envelope{data=blocklistResponse} "Blocked JIDs, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/blocklist [get]
@@ -490,12 +490,12 @@ func handleGetBlocklist(instances InstanceService, log zerolog.Logger) http.Hand
 // @Tags status
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Success 200 {object} envelope{data=statusPrivacyResponse} "Audience, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/status/privacy [get]
@@ -528,13 +528,13 @@ func handleGetStatusPrivacy(instances InstanceService, log zerolog.Logger) http.
 // @Tags chats
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param chat path string true "Chat JID"
 // @Success 200 {object} envelope{data=disappearingResponse} "Timer, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 422 {object} errorEnvelope "Invalid chat"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
@@ -573,7 +573,7 @@ func handleGetDisappearing(instances InstanceService, log zerolog.Logger) http.H
 // @Tags newsletters
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param channel path string true "Channel JID"
 // @Param limit query int false "Page size, default 50, max 100"
 // @Param cursor query string false "Opaque pagination cursor"
@@ -581,7 +581,7 @@ func handleGetDisappearing(instances InstanceService, log zerolog.Logger) http.H
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found, or unknown channel"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 422 {object} errorEnvelope "Invalid channel"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
@@ -621,13 +621,13 @@ func handleGetNewsletterMessages(instances InstanceService, log zerolog.Logger) 
 // @Tags newsletters
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param channel path string true "Channel JID"
 // @Success 200 {object} envelope{data=newsletterUpdatesResponse} "Updates, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found, or unknown channel"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 422 {object} errorEnvelope "Invalid channel"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"

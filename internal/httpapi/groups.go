@@ -158,14 +158,14 @@ func cleanJIDs(raw []string) ([]string, bool) {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body createGroupRequest true "Group payload"
 // @Success 201 {object} envelope{data=groupResponse} "Created, wrapped in the data envelope (invite_code empty when the post-create invite lookup fails; reconcile via GET .../invite, do not retry the create)"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid name or participants"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -236,13 +236,13 @@ func handleCreateGroup(instances InstanceService, log zerolog.Logger) http.Handl
 // @Tags groups
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param group_id path string true "Group JID"
 // @Success 200 {object} envelope{data=groupResponse} "Group, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance or group not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/groups/{group_id} [get]
@@ -271,7 +271,7 @@ func handleGetGroup(instances InstanceService, log zerolog.Logger) http.HandlerF
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param group_id path string true "Group JID"
 // @Param request body updateGroupRequest true "Group patch"
 // @Success 200 {object} envelope{data=groupResponse} "Updated group, wrapped in the data envelope"
@@ -279,7 +279,7 @@ func handleGetGroup(instances InstanceService, log zerolog.Logger) http.HandlerF
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner, or no group permission"
 // @Failure 404 {object} errorEnvelope "Instance or group not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Empty patch or invalid values"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -329,14 +329,14 @@ func handleUpdateGroup(instances InstanceService, log zerolog.Logger) http.Handl
 // @Accept image/*
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param group_id path string true "Group JID"
 // @Param image body string true "Raw image bytes with an image/* Content-Type (for example JPEG, PNG or WebP)"
 // @Success 200 {object} envelope{data=groupUpdatedResponse} "Updated, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner, or no group permission"
 // @Failure 404 {object} errorEnvelope "Instance or group not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Image exceeds the cap"
 // @Failure 422 {object} errorEnvelope "Missing or non image body"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -388,7 +388,7 @@ func handleSetGroupPhoto(instances InstanceService, log zerolog.Logger, maxBytes
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param group_id path string true "Group JID"
 // @Param request body updateParticipantsRequest true "Participants payload"
 // @Success 200 {object} envelope{data=groupUpdatedResponse} "Applied, wrapped in the data envelope"
@@ -396,7 +396,7 @@ func handleSetGroupPhoto(instances InstanceService, log zerolog.Logger, maxBytes
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner, or no group permission"
 // @Failure 404 {object} errorEnvelope "Instance or group not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Unknown action or invalid participants"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -440,13 +440,13 @@ func handleUpdateGroupParticipants(instances InstanceService, log zerolog.Logger
 // @Tags groups
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param group_id path string true "Group JID"
 // @Success 200 {object} envelope{data=groupInviteResponse} "Invite, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner, or no group permission"
 // @Failure 404 {object} errorEnvelope "Instance or group not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/groups/{group_id}/invite [get]
@@ -474,13 +474,13 @@ func handleGetGroupInvite(instances InstanceService, log zerolog.Logger) http.Ha
 // @Tags groups
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param group_id path string true "Group JID"
 // @Success 200 {object} envelope{data=groupInviteResponse} "Fresh invite, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner, or no group permission"
 // @Failure 404 {object} errorEnvelope "Instance or group not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/groups/{group_id}/invite/reset [post]
@@ -509,14 +509,14 @@ func handleResetGroupInvite(instances InstanceService, log zerolog.Logger) http.
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body joinGroupRequest true "Join payload"
 // @Success 200 {object} envelope{data=groupJoinResponse} "Joined group, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found, or unknown invite"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid invite code"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -570,13 +570,13 @@ func handleJoinGroup(instances InstanceService, log zerolog.Logger) http.Handler
 // @Tags groups
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param group_id path string true "Group JID"
 // @Success 200 {object} envelope{data=groupLeaveResponse} "Left, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance or group not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/groups/{group_id}/leave [post]

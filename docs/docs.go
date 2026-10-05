@@ -251,7 +251,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -298,6 +298,18 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Invalid or missing instance",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -544,7 +556,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "External ref already taken",
+                        "description": "instance_name_taken: name already taken, or external ref already taken",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -568,7 +580,7 @@ const docTemplate = `{
                         }
                     },
                     "422": {
-                        "description": "Unknown owner or invalid webhook config",
+                        "description": "invalid_instance_name: invalid/reserved name; unknown owner or invalid webhook config",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -608,6 +620,14 @@ const docTemplate = `{
                     "instances"
                 ],
                 "summary": "Instance stats",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional instance UUID or name (exact, case-sensitive); omitted counts the authorized collection",
+                        "name": "instance",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Totals in scope, wrapped in the data envelope",
@@ -646,7 +666,31 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Instance keys own no collection view",
+                        "description": "Instance keys own no collection view, or target not owned",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Target instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -689,7 +733,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -756,6 +800,18 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "409": {
+                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
                     "500": {
                         "description": "Internal error",
                         "schema": {
@@ -786,7 +842,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -838,6 +894,18 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "409": {
+                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
                     "500": {
                         "description": "Internal error",
                         "schema": {
@@ -871,7 +939,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -960,7 +1028,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "External ref already taken",
+                        "description": "instance_name_taken: name already taken, or external ref already taken; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -984,7 +1052,7 @@ const docTemplate = `{
                         }
                     },
                     "422": {
-                        "description": "Invalid webhook config",
+                        "description": "invalid_instance_name: invalid/reserved changed name, or invalid webhook config",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -1027,7 +1095,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1079,6 +1147,18 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "409": {
+                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
                     "500": {
                         "description": "Internal error",
                         "schema": {
@@ -1111,7 +1191,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1178,6 +1258,18 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "409": {
+                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
                     "500": {
                         "description": "Internal error",
                         "schema": {
@@ -1210,7 +1302,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1278,7 +1370,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -1322,7 +1414,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1411,7 +1503,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -1481,7 +1573,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1570,7 +1662,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -1652,7 +1744,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1741,7 +1833,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -1811,7 +1903,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1900,7 +1992,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -1967,7 +2059,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -2042,7 +2134,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -2098,7 +2190,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -2194,7 +2286,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -2262,7 +2354,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -2341,6 +2433,18 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "409": {
+                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
                     "500": {
                         "description": "Internal error",
                         "schema": {
@@ -2375,7 +2479,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -2463,6 +2567,18 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "409": {
+                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
@@ -2523,7 +2639,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -2616,6 +2732,18 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "409": {
+                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
@@ -2661,7 +2789,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -2745,6 +2873,18 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "409": {
+                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
                     "500": {
                         "description": "Internal error",
                         "schema": {
@@ -2777,7 +2917,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -2845,7 +2985,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance already connected",
+                        "description": "Instance already connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -2888,7 +3028,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -2962,7 +3102,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -3008,7 +3148,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -3097,7 +3237,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -3164,7 +3304,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -3239,7 +3379,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -3294,7 +3434,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -3369,7 +3509,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -3424,7 +3564,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -3499,7 +3639,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -3554,7 +3694,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -3629,7 +3769,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -3684,7 +3824,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -3736,6 +3876,18 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "409": {
+                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
                     "500": {
                         "description": "Internal error",
                         "schema": {
@@ -3768,7 +3920,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -3848,7 +4000,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -3892,7 +4044,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -3981,7 +4133,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -4048,7 +4200,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -4123,7 +4275,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -4181,7 +4333,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -4270,7 +4422,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -4337,7 +4489,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -4412,7 +4564,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -4456,7 +4608,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -4552,7 +4704,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -4619,7 +4771,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -4694,7 +4846,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -4737,7 +4889,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -4812,7 +4964,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -4855,7 +5007,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -4930,7 +5082,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -4976,7 +5128,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -5072,7 +5224,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -5142,7 +5294,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -5226,7 +5378,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -5293,7 +5445,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -5368,7 +5520,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -5418,7 +5570,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -5514,7 +5666,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected, or key already in flight",
+                        "description": "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -5584,7 +5736,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -5680,7 +5832,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -5747,7 +5899,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -5838,6 +5990,18 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "409": {
+                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
                     "500": {
                         "description": "Internal error",
                         "schema": {
@@ -5877,7 +6041,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -5966,7 +6130,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected, or key already in flight",
+                        "description": "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -6054,7 +6218,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -6143,7 +6307,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected, or key already in flight",
+                        "description": "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -6231,7 +6395,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -6320,7 +6484,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected, or key already in flight",
+                        "description": "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -6396,7 +6560,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -6485,7 +6649,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected, or key already in flight",
+                        "description": "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -6573,7 +6737,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -6692,7 +6856,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected, or key already in flight",
+                        "description": "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -6762,7 +6926,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -6851,7 +7015,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -6927,7 +7091,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -7016,7 +7180,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected, or key already in flight",
+                        "description": "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -7095,7 +7259,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -7169,6 +7333,18 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "409": {
+                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
                     "500": {
                         "description": "Internal error",
                         "schema": {
@@ -7201,7 +7377,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -7281,7 +7457,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -7325,7 +7501,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -7414,7 +7590,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -7484,7 +7660,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -7573,7 +7749,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -7643,7 +7819,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -7732,7 +7908,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -7799,7 +7975,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -7874,7 +8050,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -7917,7 +8093,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -8004,7 +8180,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -8062,7 +8238,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -8158,7 +8334,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -8228,7 +8404,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -8324,7 +8500,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -8391,7 +8567,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -8466,7 +8642,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -8524,7 +8700,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -8620,7 +8796,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -8690,7 +8866,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -8778,6 +8954,18 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "409": {
+                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
@@ -8837,7 +9025,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -8926,7 +9114,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "No open pairing channel, or already connected",
+                        "description": "No open pairing channel, or already connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -8996,7 +9184,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -9085,7 +9273,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -9152,7 +9340,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -9220,7 +9408,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -9265,7 +9453,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -9354,7 +9542,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -9421,7 +9609,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -9489,7 +9677,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -9533,7 +9721,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -9622,7 +9810,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -9704,7 +9892,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -9781,7 +9969,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -9860,7 +10048,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -9928,7 +10116,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance already connected",
+                        "description": "Instance already connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -9971,7 +10159,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -10038,6 +10226,18 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "409": {
+                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
                     "500": {
                         "description": "Internal error",
                         "schema": {
@@ -10070,7 +10270,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -10138,7 +10338,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -10181,7 +10381,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -10249,7 +10449,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -10300,7 +10500,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -10389,7 +10589,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected, or key already in flight",
+                        "description": "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -10466,7 +10666,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -10566,7 +10766,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected, or key already in flight",
+                        "description": "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -10621,7 +10821,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance ID (UUID)",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -10696,7 +10896,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected",
+                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -11812,6 +12012,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "description": "Globally unique, exact ASCII name: 1-64 letters/digits/hyphens/underscores, alphanumeric ends; stats and every UUID-parseable string are reserved.",
                     "type": "string"
                 },
                 "owner_user_id": {
@@ -12894,6 +13095,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "description": "Actual renames follow the create name grammar and uniqueness rule; an exactly unchanged legacy name is accepted.",
                     "type": "string"
                 },
                 "webhook_enabled": {

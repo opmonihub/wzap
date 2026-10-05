@@ -29,12 +29,13 @@ type rotateAPIKeyResponse struct {
 // @Tags apikeys
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Success 200 {object} envelope{data=rotateAPIKeyResponse} "Fresh key, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Requires global or admin scope"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/apikey/rotate [post]
 func handleRotateAPIKey(instances InstanceService, keys storage.APIKeyRepository) http.HandlerFunc {
@@ -85,12 +86,13 @@ func handleRotateAPIKey(instances InstanceService, keys storage.APIKeyRepository
 // @Tags apikeys
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Success 204 "Revoked, no body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Requires global or admin scope"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/apikey [delete]
 func handleRevokeAPIKey(instances InstanceService, keys storage.APIKeyRepository) http.HandlerFunc {

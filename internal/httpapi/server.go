@@ -72,7 +72,7 @@ func New(cfg config.Config, log zerolog.Logger, deps Deps) *http.Server {
 		Error(w, r, http.StatusNotFound, "not_found", "route not found")
 	}))
 
-	api := http.NewServeMux()
+	api := &instanceMux{ServeMux: http.NewServeMux(), instances: deps.Instances}
 	api.HandleFunc("POST /instances", handleCreateInstance(deps.Instances, deps.Users, deps.Keys, cfg.MaxInstances))
 	api.HandleFunc("GET /instances/stats", handleInstanceStats(deps.Instances))
 	api.HandleFunc("GET /instances", handleListInstances(deps.Instances))
@@ -163,7 +163,7 @@ func New(cfg config.Config, log zerolog.Logger, deps Deps) *http.Server {
 	// the api mux sees the request: an unknown path without credential
 	// answers 401 here, while the same path with a valid credential falls
 	// through to the enveloped 404 of envelopeFallback.
-	mux.Handle("/", Authenticate(cfg.APIKey, deps.Keys, deps.JWTSecret)(envelopeFallback(api)))
+	mux.Handle("/", Authenticate(cfg.APIKey, deps.Keys, deps.JWTSecret)(envelopeFallback(api.ServeMux)))
 
 	// The Chatwoot webhook is open by design (the secret is v2), so it
 	// mounts on the outer mux outside the Authenticate guard at its exact
@@ -173,7 +173,7 @@ func New(cfg config.Config, log zerolog.Logger, deps Deps) *http.Server {
 	if limiter == nil {
 		limiter = NewChatwootRateLimiter(120, 0)
 	}
-	mux.HandleFunc("POST /chatwoot/webhook/{id}", handleChatwootWebhook(deps.Instances, deps.ChatwootInbound, deps.Chatwoot, limiter))
+	mux.Handle("POST /chatwoot/webhook/{id}", resolveInstancePath(deps.Instances, handleChatwootWebhook(deps.Instances, deps.ChatwootInbound, deps.Chatwoot, limiter), false, false))
 
 	// The session endpoints authenticate with the cookie, never with the
 	// apikey header, so they mount on the outer mux outside the Authenticate

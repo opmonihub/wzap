@@ -46,13 +46,13 @@ func validGroupRequestAction(action string) bool {
 // @Tags groups
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param group_id path string true "Group JID"
 // @Success 200 {object} envelope{data=groupRequestsResponse} "Pending requests, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner, or no group permission"
 // @Failure 404 {object} errorEnvelope "Instance or group not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/groups/{group_id}/requests [get]
@@ -91,7 +91,7 @@ func handleGroupRequests(instances InstanceService, log zerolog.Logger) http.Han
 // @Produce json
 // @Security apikey
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param group_id path string true "Group JID"
 // @Param request body updateGroupRequestsRequest true "Requests payload"
 // @Success 200 {object} envelope{data=groupUpdatedResponse} "Applied, wrapped in the data envelope"
@@ -99,7 +99,7 @@ func handleGroupRequests(instances InstanceService, log zerolog.Logger) http.Han
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner, or no group permission"
 // @Failure 404 {object} errorEnvelope "Instance or group not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight"
+// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Unknown action or invalid participants"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -147,7 +147,7 @@ func handleUpdateGroupRequests(instances InstanceService, log zerolog.Logger) ht
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param id path string true "Instance ID (UUID)"
+// @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param group_id path string true "Group JID"
 // @Param request body updateGroupSettingsRequest true "Settings payload"
 // @Success 200 {object} envelope{data=groupResponse} "Updated group, wrapped in the data envelope"
@@ -155,7 +155,7 @@ func handleUpdateGroupRequests(instances InstanceService, log zerolog.Logger) ht
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner, or no group permission"
 // @Failure 404 {object} errorEnvelope "Instance or group not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected"
+// @Failure 409 {object} errorEnvelope "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "No fields or value outside the allowlist"
 // @Failure 500 {object} errorEnvelope "Internal error"

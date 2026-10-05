@@ -132,10 +132,46 @@ sem as vars, nenhuma conta é criada.
 
 ### Instâncias
 
+Todos os caminhos de instância aceitam `{id}` como UUID ou nome exato,
+incluindo `POST /chatwoot/webhook/{id}`. Nomes diferenciam maiúsculas de
+minúsculas; UUIDs têm precedência e continuam sendo a identidade de sessões,
+keys, mensagens, eventos e idempotência. Nome inexistente ou referência
+inválida → `404`; nome legado válido duplicado → `409 instance_name_ambiguous`.
+Uma renomeação muda o alias imediatamente e preserva o acesso pelo UUID.
+
+**BREAKING:** novos nomes e renomeações devem ser globalmente únicos e ter
+1–64 caracteres ASCII: letras, dígitos, hífen ou underscore, começando e
+terminando com letra ou dígito. O nome exato `stats` e qualquer valor aceito
+como UUID (inclusive compacto) são reservados. Nome inválido →
+`422 invalid_instance_name`; nome ocupado → `409 instance_name_taken`.
+Nomes legados não são reescritos: seguem acessíveis pelo UUID e podem ficar
+exatamente iguais em atualizações de outros campos, ou ser renomeados para
+um nome válido disponível.
+
+Exemplos para uma instância chamada `Loja_SP-1`:
+
+```sh
+curl -H 'apikey: dev-wzap-token' http://127.0.0.1:8081/instances/Loja_SP-1
+curl -H 'apikey: dev-wzap-token' http://127.0.0.1:8081/instances/Loja_SP-1/status
+curl -H 'apikey: dev-wzap-token' 'http://127.0.0.1:8081/instances/stats?instance=Loja_SP-1'
+```
+
+`GET /instances/stats?instance=<uuid-ou-nome>` conta somente o alvo autorizado,
+com a mesma resposta `total` e `by_status` (quatro estados, total 1).
+Sem query, conta a coleção autorizada. Instance keys continuam recebendo
+`403` em stats; usuários não administradores recebem `403` para alvo de
+outro dono, e alvos ausentes recebem `404`.
+
+Repetir uma operação com o mesmo `Idempotency-Key`, corpo e rota usando UUID
+ou nome reproduz a resposta do mesmo UUID sem repetir o envio. A autorização
+atual é verificada antes do replay, inclusive após mudança de dono; após
+renomear, o nome antigo retorna `404` e o novo compartilha o replay existente.
+
 | Método e rota | Corpo/Resposta |
 | --- | --- |
 | `POST /instances` | `{"name","external_ref"?,"owner_user_id"?,"webhook_*"?}` → `201` com a instância, o dono e `instance_api_key` em claro **uma única vez**; `external_ref` duplicada → `409`; acima da cota → `403 quota_exceeded`. O dono é a sessão criadora, ou o admin mais antigo (sobrescrevível por `owner_user_id` só global/admin) na criação por key global. |
 | `GET /instances` | `200` com `{"data":{"items":[...]}}`, contendo todas as instâncias autorizadas, ordenadas por criação e id decrescentes. Contas `user` recebem só as próprias; instance key → `403`. |
+| `GET /instances/stats` | `200` com `{total, by_status}`; query opcional `instance` aceita UUID ou nome. Instance key → `403`. |
 | `GET /instances/{id}` | `200` com a instância (dono + webhook, nunca a key); `404` se não existir (id malformado também é `404`); instância de outro dono → `403`. |
 | `PATCH /instances/{id}` | `{"name"?,"external_ref"?,"webhook_url"?,"webhook_enabled"?,"webhook_events"?}` → `200`; `external_ref` vazia limpa a referência; webhook inválido → `422`. |
 | `DELETE /instances/{id}` | `204`; encerra a sessão e apaga mensagens e mídias; operações seguintes → `404`. |

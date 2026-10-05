@@ -20,10 +20,11 @@ type swaggerSchema struct {
 
 type swaggerOperation struct {
 	Parameters []struct {
-		Name     string         `json:"name"`
-		In       string         `json:"in"`
-		Required bool           `json:"required"`
-		Schema   *swaggerSchema `json:"schema"`
+		Name        string         `json:"name"`
+		Description string         `json:"description"`
+		In          string         `json:"in"`
+		Required    bool           `json:"required"`
+		Schema      *swaggerSchema `json:"schema"`
 	} `json:"parameters"`
 	Responses map[string]struct {
 		Schema  *swaggerSchema `json:"schema"`
@@ -428,5 +429,48 @@ func TestSwaggerQuotaRequestSchemas(t *testing.T) {
 			}
 			t.Fatal("missing body parameter")
 		})
+	}
+}
+
+func TestSwaggerInstanceReferenceContract(t *testing.T) {
+	doc := servedSwagger(t)
+	for path, methods := range doc.Paths {
+		if !strings.Contains(path, "/instances/{id}") && path != "/chatwoot/webhook/{id}" {
+			continue
+		}
+		for method, operation := range methods {
+			found := false
+			for _, param := range operation.Parameters {
+				if param.Name == "id" && param.In == "path" {
+					found = true
+					if !strings.Contains(param.Description, "UUID or name") {
+						t.Errorf("%s %s reference description=%q", method, path, param.Description)
+					}
+				}
+			}
+			if !found {
+				t.Errorf("%s %s lacks instance reference", method, path)
+			}
+			if _, ok := operation.Responses["409"]; !ok {
+				t.Errorf("%s %s lacks ambiguous-name response", method, path)
+			}
+		}
+	}
+	stats := doc.Paths["/instances/stats"]["get"]
+	found := false
+	for _, param := range stats.Parameters {
+		if param.Name == "instance" && param.In == "query" && !param.Required && strings.Contains(param.Description, "UUID or name") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("stats lacks optional UUID or name target")
+	}
+	for _, op := range []swaggerOperation{doc.Paths["/instances"]["post"], doc.Paths["/instances/{id}"]["patch"]} {
+		for _, code := range []string{"422", "409"} {
+			if _, ok := op.Responses[code]; !ok {
+				t.Errorf("name write lacks %s response", code)
+			}
+		}
 	}
 }

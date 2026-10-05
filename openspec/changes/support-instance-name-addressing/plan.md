@@ -13,13 +13,13 @@
 
 ## Task 1.1 — Naming/domain/storage
 
-Write scope: `internal/instance/` name/service implementation and tests; `internal/storage/repository.go`; `internal/storage/postgres/instances.go` and name tests; interface-only fake adapters in `internal/app/runtime_test.go`, `internal/session/whatsmeow/manager_test.go`.
+Write scope: `internal/instance/` name/service implementation and tests; shared validator leaf `internal/model/instance_name.go` if storage needs under-lock validation; `internal/storage/repository.go`; `internal/storage/postgres/instances.go` and name tests; interface-only fake adapters in `internal/app/runtime_test.go`, `internal/session/whatsmeow/manager_test.go`.
 
 1. Add failing domain grammar/rename tests, including no persistence/key issuance on invalid names and unchanged legacy names.
 2. Add storage sentinels `ErrInstanceNameTaken` and `ErrInstanceNameAmbiguous`, domain equivalents and `ErrInvalidInstanceName`, plus `GetByName` interfaces and exact fake adapters.
 3. Implement name validator exported for HTTP, create validation and changed-name-only update validation; map storage errors consistently.
 4. Add actual PostgreSQL tests for exact case, missing/ambiguous name and raw-SQL legacy rows; concurrent create/create, rename/rename, create/rename and same-row updates.
-5. Implement transactions: schema+name advisory lock, separate post-lock occupancy query; Update reads current name under row lock before deciding whether to claim a new name. Preserve other error maps.
+5. Implement transactions: schema+name advisory lock, separate post-lock occupancy query; Update reads current name under row lock before deciding whether to claim a new name, and validates every actual stored-name change under that lock. Preserve other error maps.
 6. Run `/usr/local/go/bin/go test ./internal/instance ./internal/storage/postgres ./internal/app ./internal/session/whatsmeow -count=1`; run focused new PostgreSQL tests with `WZAP_TEST_DATABASE_URL=postgres://wzap:secret@127.0.0.1:5435/wzap_test?sslmode=disable`; format and commit only owned paths.
 
 ## Task 2.1 — Transport/docs

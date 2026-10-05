@@ -27,3 +27,7 @@ Escritores antigos/SQL direto estão fora do protocolo de unicidade; lookup nunc
 ## 6. Próximos cuidados do fluxo
 
 Revisão final, imagem limpa Go1.26, integração local preservando alterações do usuário, gates da main e browser Authorize/Execute por nome/UUID. Remover somente worktree/branch desta tarefa após sucesso. Sincronização e arquivo OpenSpec ficam na etapa própria, sem push/PR.
+
+## Registro posterior — revisão final e imagem
+
+Revisão final independente APPROVED em 0cd8e4e, sem findings; checagem de fontes, contrato das 73 operações e hashes gerados. Imagem wzap:instance-name-20261005 construída com sucesso, Go1.26 e Manager, mantendo a fonte revisada. Merge/visual ainda não executados neste registro.

@@ -13,4 +13,4 @@
 ## 4. Integration
 
 - [x] 4.1 Complete independent task and branch reviews, full Go quality gates and Swagger freshness checks, and record all seven verification checks plus retrospective before local integration.
-- [ ] 4.2 Merge locally to main preserving unrelated dirty work, verify integrated interfaces and live Swagger UUID/name status and stats, then remove the manual worktree.
+- [x] 4.2 Merge locally to main preserving unrelated dirty work, verify integrated interfaces and live Swagger UUID/name status and stats, then remove the manual worktree.

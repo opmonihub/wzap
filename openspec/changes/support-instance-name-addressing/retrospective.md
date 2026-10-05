@@ -31,3 +31,7 @@ Revisão final, imagem limpa Go1.26, integração local preservando alterações
 ## Registro posterior — revisão final e imagem
 
 Revisão final independente APPROVED em 0cd8e4e, sem findings; checagem de fontes, contrato das 73 operações e hashes gerados. Imagem wzap:instance-name-20261005 construída com sucesso, Go1.26 e Manager, mantendo a fonte revisada. Merge/visual ainda não executados neste registro.
+
+## Registro posterior — main e Swagger
+
+Merge493f644 na main, restauração das 48 alterações locais, conflito PostgreSQL e adapter privado revisados/APPROVED. Provas:40 originais idênticos, seis merges automáticos exatos, adapter invertível byte a byte e resolução manual preservando todos os campos/métodos do usuário. Gates Go completos, typecheck/helper7/testes locais Manager PASS; PostgreSQL nomes/compatibilidade5.924s real e Swagger sem diff. Somente app atualizado, DB/NATS IDs iguais, health/ready200; seis consultas por UUID/nome equivalentes e três Execute no browser por FELIPE200 com uma autorização global, stats total1. Artefatos/proteção em /home/obsidian/dev/wzap/.superpowers/sdd/finished-support-instance-name-addressing-6x4o0s_p. Nenhum dado de instância alterado para o teste; imagem contém apenas fonte revisada.

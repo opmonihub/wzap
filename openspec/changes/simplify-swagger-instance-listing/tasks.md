@@ -13,4 +13,4 @@
 ## 4. Revisão e integração
 
 - [x] 4.1 Revisar a alteração e executar gofmt, vet, lint, suíte Go completa e build, registrando verify.md e retrospective.md com evidências.
-- [ ] 4.2 Integrar a alteração na main preservando as mudanças locais e atualizar o serviço local, verificando no navegador Authorize uma vez e GET /instances sem os quatro campos removidos.
+- [x] 4.2 Integrar a alteração na main preservando as mudanças locais e atualizar o serviço local, verificando no navegador Authorize uma vez e GET /instances sem os quatro campos removidos.

@@ -29,14 +29,15 @@ type rotateAPIKeyResponse struct {
 // @Tags apikeys
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global key or admin session scope"
+// @Param apikey header string false "Global key; alternatively use an admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
-// @Success 200 {object} rotateAPIKeyResponse "Fresh key, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=rotateAPIKeyResponse} "Fresh key, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Requires global or admin scope"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/apikey/rotate [post]
 func handleRotateAPIKey(instances InstanceService, keys storage.APIKeyRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -86,7 +87,7 @@ func handleRotateAPIKey(instances InstanceService, keys storage.APIKeyRepository
 // @Tags apikeys
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global key or admin session scope"
+// @Param apikey header string false "Global key; alternatively use an admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Success 204 "Revoked, no body"
@@ -94,6 +95,7 @@ func handleRotateAPIKey(instances InstanceService, keys storage.APIKeyRepository
 // @Failure 403 {object} errorEnvelope "Requires global or admin scope"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/apikey [delete]
 func handleRevokeAPIKey(instances InstanceService, keys storage.APIKeyRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

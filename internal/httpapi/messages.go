@@ -149,13 +149,13 @@ type sendMessageRequest struct {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body sendMessageRequest true "Rich payload: type poll|reaction|list|buttons plus its fields"
 // @Header 202 {string} X-Idempotent-Replay "true when replayed from a previous call"
-// @Success 202 {object} messageAcceptedResponse "Accepted, wrapped in the data envelope"
+// @Success 202 {object} envelope{data=messageAcceptedResponse} "Accepted, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -165,6 +165,7 @@ type sendMessageRequest struct {
 // @Failure 422 {object} errorEnvelope "Invalid content, unknown number, unsupported type, or reused key"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Failure 503 {object} errorEnvelope "Number resolution unavailable"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/messages [post]
 func handleSendMessage(instances InstanceService, messages MessageService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -274,13 +275,13 @@ func richEnqueueInput(request sendMessageRequest) (message.EnqueueInput, bool) {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body sendTextRequest true "Text payload"
 // @Header 202 {string} X-Idempotent-Replay "true when replayed from a previous call"
-// @Success 202 {object} messageAcceptedResponse "Accepted, wrapped in the data envelope"
+// @Success 202 {object} envelope{data=messageAcceptedResponse} "Accepted, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -290,6 +291,7 @@ func richEnqueueInput(request sendMessageRequest) (message.EnqueueInput, bool) {
 // @Failure 422 {object} errorEnvelope "Invalid content, unknown number, or reused key"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Failure 503 {object} errorEnvelope "Number resolution unavailable"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/messages/text [post]
 func handleSendText(instances InstanceService, messages MessageService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -339,13 +341,13 @@ func handleSendText(instances InstanceService, messages MessageService) http.Han
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body sendLocationRequest true "Location payload"
 // @Header 202 {string} X-Idempotent-Replay "true when replayed from a previous call"
-// @Success 202 {object} messageAcceptedResponse "Accepted, wrapped in the data envelope"
+// @Success 202 {object} envelope{data=messageAcceptedResponse} "Accepted, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -355,6 +357,7 @@ func handleSendText(instances InstanceService, messages MessageService) http.Han
 // @Failure 422 {object} errorEnvelope "Invalid content, unknown number, or reused key"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Failure 503 {object} errorEnvelope "Number resolution unavailable"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/messages/location [post]
 func handleSendLocation(instances InstanceService, messages MessageService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -409,13 +412,13 @@ func handleSendLocation(instances InstanceService, messages MessageService) http
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body sendContactRequest true "Contact payload"
 // @Header 202 {string} X-Idempotent-Replay "true when replayed from a previous call"
-// @Success 202 {object} messageAcceptedResponse "Accepted, wrapped in the data envelope"
+// @Success 202 {object} envelope{data=messageAcceptedResponse} "Accepted, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -425,6 +428,7 @@ func handleSendLocation(instances InstanceService, messages MessageService) http
 // @Failure 422 {object} errorEnvelope "Invalid content, unknown number, or reused key"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Failure 503 {object} errorEnvelope "Number resolution unavailable"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/messages/contact [post]
 func handleSendContact(instances InstanceService, messages MessageService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -477,7 +481,7 @@ func handleSendContact(instances InstanceService, messages MessageService) http.
 // @Accept multipart/form-data
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
 // @Param id path string true "Instance ID (UUID)"
@@ -488,7 +492,7 @@ func handleSendContact(instances InstanceService, messages MessageService) http.
 // @Param ptt formData string false "Push-to-talk flag for audio"
 // @Param file formData file true "Media file"
 // @Header 202 {string} X-Idempotent-Replay "true when replayed from a previous call"
-// @Success 202 {object} messageAcceptedResponse "Accepted, wrapped in the data envelope"
+// @Success 202 {object} envelope{data=messageAcceptedResponse} "Accepted, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Invalid multipart body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -497,6 +501,7 @@ func handleSendContact(instances InstanceService, messages MessageService) http.
 // @Failure 422 {object} errorEnvelope "Invalid file, mismatched type, or reused key"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Failure 503 {object} errorEnvelope "Number resolution unavailable"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/messages/media [post]
 func handleSendMedia(instances InstanceService, messages MessageService, mediaStore MediaStore, maxBytes int64) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -690,15 +695,16 @@ func writeMediaUploadError(w http.ResponseWriter, r *http.Request, err error) {
 // @Tags messages
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param message_id path string true "Message ID (UUID)"
-// @Success 200 {object} messageResponse "Message, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=messageResponse} "Message, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance or message not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/messages/{message_id} [get]
 func handleGetMessage(instances InstanceService, messages MessageService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -742,17 +748,18 @@ func handleGetMessage(instances InstanceService, messages MessageService) http.H
 // @Tags messages
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param limit query int false "Page size, default 50, max 100"
 // @Param cursor query string false "Opaque pagination cursor"
-// @Success 200 {object} messageListResponse "One page, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=messageListResponse} "One page, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Invalid cursor"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/messages [get]
 func handleListMessages(instances InstanceService, messages MessageService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

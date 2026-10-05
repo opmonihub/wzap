@@ -5,12 +5,12 @@ import (
 	"net/http"
 )
 
-// envelope is the success response shape shared by every endpoint.
+// envelope is the success response shape for standard REST JSON responses.
 type envelope struct {
 	Data any `json:"data"`
 }
 
-// errorEnvelope is the failure response shape shared by every endpoint.
+// errorEnvelope is the failure response shape for standard REST JSON errors.
 type errorEnvelope struct {
 	Error errorBody `json:"error"`
 }

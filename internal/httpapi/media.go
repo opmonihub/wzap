@@ -33,16 +33,21 @@ type MediaStore interface {
 //
 // @Summary Download media
 // @Tags media
-// @Produce octet-stream
+// @Produce octet-stream,json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or owning instance key"
+// @Param apikey header string false "Global key or owning instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Media ID (UUID)"
-// @Success 200 {file} binary "Raw media bytes, outside the JSON envelope"
+// @Success 200 {file} binary "Raw media bytes with the stored media Content-Type, outside the JSON envelope"
+// @Header 200 {string} Content-Type "Stored media MIME type"
+// @Header 200 {integer} Content-Length "Stored media size in bytes"
+// @Header 200 {string} Content-Disposition "Attachment filename"
+// @Header 200 {string} X-Content-Type-Options "nosniff"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Media not found or expired"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /media/{id} [get]
 func handleGetMedia(instances InstanceService, store MediaStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

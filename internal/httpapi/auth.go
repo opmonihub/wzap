@@ -48,10 +48,14 @@ const dummyPasswordHash = "$2a$10$Q2IcRv3W7hJBMOYy5JOOU.3qrWu7zjQhOp9LqZzrTVLIZv
 // @Produce json
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param request body loginRequest true "Credentials"
-// @Success 200 {object} identityResponse "Identity, wrapped in the data envelope; the wzap_session cookie is set"
+// @Success 200 {object} envelope{data=identityResponse} "Identity, wrapped in the data envelope; the wzap_session cookie is set"
+// @Header 200 {string} Set-Cookie "Sets the httpOnly wzap_session cookie"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Invalid credentials"
+// @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
+// @Failure 429 {object} errorEnvelope "Login rate limit exceeded"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /auth/login [post]
 func handleLogin(users storage.UserRepository, jwtSecret string, secure bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -97,7 +101,9 @@ func handleLogin(users storage.UserRepository, jwtSecret string, secure bool) ht
 // @Tags auth
 // @Produce json
 // @Param X-Request-Id header string false "Correlation id, echoed back"
-// @Success 200 {object} logoutResponse "Status, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=logoutResponse} "Status, wrapped in the data envelope"
+// @Header 200 {string} Set-Cookie "Clears the wzap_session cookie"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /auth/logout [post]
 func handleLogout(secure bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -114,9 +120,10 @@ func handleLogout(secure bool) http.HandlerFunc {
 // @Tags auth
 // @Produce json
 // @Param X-Request-Id header string false "Correlation id, echoed back"
-// @Success 200 {object} identityResponse "Identity, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=identityResponse} "Identity, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid session"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /auth/me [get]
 func handleMe(users storage.UserRepository, jwtSecret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

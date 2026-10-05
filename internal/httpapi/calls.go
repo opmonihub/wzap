@@ -32,11 +32,11 @@ type rejectCallResponse struct {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body rejectCallRequest true "Reject payload"
-// @Success 200 {object} rejectCallResponse "Rejected, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=rejectCallResponse} "Rejected, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -46,6 +46,7 @@ type rejectCallResponse struct {
 // @Failure 422 {object} errorEnvelope "Missing call id or caller"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Failure 501 {object} errorEnvelope "Upstream cannot reject the call"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/calls/reject [post]
 func handleRejectCall(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

@@ -186,8 +186,22 @@ seguintes. A entrega é at-least-once: deduplique pelo `event_id` estável.
   as próprias instâncias (lista, criação com key exibida uma vez, edição,
   remoção com confirmação digitada, QR com polling, keys, webhook, envio de
   teste e mensagens). Build Nuxt estático embutido no binário.
-- Documentação interativa em `/swagger/*` (Swagger 2.0, esquema
-  `apiKey` no header `apikey:`); o CI falha com docs defasadas.
+- Documentação interativa em `/swagger/*` (Swagger 2.0), cobrindo cada
+  método/rota explícito, incluindo Chatwoot e as entradas públicas do Manager.
+  Use `Authorize` com uma key global/de instância no header `apikey:` para
+  chamadas de máquina. Rotas de autenticação dupla também aceitam o cookie
+  `wzap_session`; o Swagger 2.0 não modela segurança por cookie.
+- Respostas REST JSON normais usam `{"data": ...}` e erros padronizados
+  usam `{"error": {"code", "message"}}`. As exceções estão nos schemas:
+  `204` sem corpo, mídia binária, webhook Chatwoot com `{"content":""}` e
+  Manager com HTML/redirecionamento ou `503` em texto simples. `/readyz`
+  usa `data` tanto em `200` quanto em `503`.
+- Regenere os três artefatos em `docs/` com a versão fixada abaixo; o CI
+  falha com docs defasadas:
+
+  ```sh
+  go run github.com/swaggo/swag/cmd/swag@v1.16.6 init --parseInternal -g internal/httpapi/swagger.go -o docs
+  ```
 
 ### Mensagens
 

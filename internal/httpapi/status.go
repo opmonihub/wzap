@@ -83,13 +83,13 @@ func statusTextValid(text string) bool {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body publishStatusRequest true "Status payload: type text plus its text"
 // @Header 202 {string} X-Idempotent-Replay "true when replayed from a previous call"
-// @Success 202 {object} statusPublishResponse "Accepted, wrapped in the data envelope"
+// @Success 202 {object} envelope{data=statusPublishResponse} "Accepted, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -98,6 +98,7 @@ func statusTextValid(text string) bool {
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid type or text, or reused key"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/status/updates [post]
 func handlePublishStatus(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -161,7 +162,7 @@ func handlePublishStatus(instances InstanceService, log zerolog.Logger) http.Han
 // @Accept multipart/form-data
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
 // @Param id path string true "Instance ID (UUID)"
@@ -169,7 +170,7 @@ func handlePublishStatus(instances InstanceService, log zerolog.Logger) http.Han
 // @Param caption formData string false "Caption, max 700 characters"
 // @Param file formData file true "Media file"
 // @Header 202 {string} X-Idempotent-Replay "true when replayed from a previous call"
-// @Success 202 {object} statusPublishResponse "Accepted, wrapped in the data envelope"
+// @Success 202 {object} envelope{data=statusPublishResponse} "Accepted, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Invalid multipart body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -177,6 +178,7 @@ func handlePublishStatus(instances InstanceService, log zerolog.Logger) http.Han
 // @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight"
 // @Failure 422 {object} errorEnvelope "Invalid file, mismatched type, or reused key"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/status/updates/media [post]
 func handlePublishStatusMedia(instances InstanceService, log zerolog.Logger, maxBytes int64) http.HandlerFunc {
 	if maxBytes <= 0 {
@@ -285,15 +287,16 @@ func handlePublishStatusMedia(instances InstanceService, log zerolog.Logger, max
 // @Tags status
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
-// @Success 200 {object} statusListResponse "Own statuses published since boot, entries older than 24h are dropped, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=statusListResponse} "Own statuses published since boot, entries older than 24h are dropped, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 409 {object} errorEnvelope "Instance not connected"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/status/updates [get]
 func handleListStatuses(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -339,16 +342,17 @@ func handleListStatuses(instances InstanceService, log zerolog.Logger) http.Hand
 // @Tags status
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param status_id path string true "Status ID"
-// @Success 200 {object} statusDeleteResponse "Deleted, only statuses published since boot are tracked and the ~24h protocol expiry applies, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=statusDeleteResponse} "Deleted, only statuses published since boot are tracked and the ~24h protocol expiry applies, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance or status not found"
 // @Failure 409 {object} errorEnvelope "Instance not connected"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/status/updates/{status_id} [delete]
 func handleDeleteStatus(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

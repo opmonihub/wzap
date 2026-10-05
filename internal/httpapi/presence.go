@@ -40,11 +40,11 @@ func validPresenceState(state string) bool {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body presenceRequest true "Presence payload"
-// @Success 200 {object} presenceResponse "Published, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=presenceResponse} "Published, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -53,6 +53,7 @@ func validPresenceState(state string) bool {
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid chat or unknown state"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/presence [post]
 func handleSendPresence(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

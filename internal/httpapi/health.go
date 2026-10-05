@@ -144,7 +144,8 @@ type detailedReadyChecker interface {
 // @Tags health
 // @Produce json
 // @Param X-Request-Id header string false "Correlation id, echoed back"
-// @Success 200 {string} string "Enveloped {\"status\": \"ok\"}"
+// @Success 200 {object} envelope{data=object{status=string}} "Liveness status"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /healthz [get]
 func handleHealthz(w http.ResponseWriter, r *http.Request) {
 	JSON(w, r, http.StatusOK, map[string]string{"status": "ok"})
@@ -159,8 +160,9 @@ func handleHealthz(w http.ResponseWriter, r *http.Request) {
 // @Tags health
 // @Produce json
 // @Param X-Request-Id header string false "Correlation id, echoed back"
-// @Success 200 {object} readiness "Readiness, wrapped in the data envelope"
-// @Failure 503 {object} readiness "Unready state, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=readiness} "Readiness, wrapped in the data envelope"
+// @Failure 503 {object} envelope{data=readiness} "Unready state, wrapped in the data envelope"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /readyz [get]
 func handleReadyz(checker ReadyChecker, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

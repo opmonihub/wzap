@@ -185,10 +185,10 @@ type updateInstanceRequest struct {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global key or user session credential scope"
+// @Param apikey header string false "Global key; alternatively use a user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param request body createInstanceRequest true "Instance payload"
-// @Success 201 {object} createInstanceResponse "Created, wrapped in the data envelope"
+// @Success 201 {object} envelope{data=createInstanceResponse} "Created, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Forbidden or quota exceeded"
@@ -196,6 +196,7 @@ type updateInstanceRequest struct {
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Unknown owner or invalid webhook config"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances [post]
 func handleCreateInstance(instances InstanceService, users storage.UserRepository, keys storage.APIKeyRepository, maxInstances int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -355,15 +356,16 @@ type instanceStatsResponse struct {
 // @Tags instances
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global key or user session credential scope"
+// @Param apikey header string false "Global key; alternatively use a user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param limit query int false "Page size, default 50, max 100"
 // @Param cursor query string false "Opaque pagination cursor"
-// @Success 200 {object} instanceListResponse "One page, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=instanceListResponse} "One page, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Invalid cursor"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Instance keys own no collection view"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances [get]
 func handleListInstances(instances InstanceService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -404,12 +406,13 @@ func handleListInstances(instances InstanceService) http.HandlerFunc {
 // @Tags instances
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global key or user session credential scope"
+// @Param apikey header string false "Global key; alternatively use a user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
-// @Success 200 {object} instanceStatsResponse "Totals in scope, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=instanceStatsResponse} "Totals in scope, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Instance keys own no collection view"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/stats [get]
 func handleInstanceStats(instances InstanceService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -460,14 +463,15 @@ func handleInstanceStats(instances InstanceService) http.HandlerFunc {
 // @Tags instances
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
-// @Success 200 {object} instanceResponse "Instance, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=instanceResponse} "Instance, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id} [get]
 func handleGetInstance(instances InstanceService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -501,11 +505,11 @@ func handleGetInstance(instances InstanceService) http.HandlerFunc {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body updateInstanceRequest true "Partial update payload"
-// @Success 200 {object} instanceResponse "Updated instance, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=instanceResponse} "Updated instance, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body or invalid cursor"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -514,6 +518,7 @@ func handleGetInstance(instances InstanceService) http.HandlerFunc {
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid webhook config"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id} [patch]
 func handleUpdateInstance(instances InstanceService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -563,7 +568,7 @@ func handleUpdateInstance(instances InstanceService) http.HandlerFunc {
 // @Tags instances
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Success 204 "Deleted, no body"
@@ -571,6 +576,7 @@ func handleUpdateInstance(instances InstanceService) http.HandlerFunc {
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id} [delete]
 func handleDeleteInstance(instances InstanceService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

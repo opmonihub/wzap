@@ -49,25 +49,89 @@ const docTemplate = `{
                     "200": {
                         "description": "Identity, wrapped in the data envelope; the wzap_session cookie is set",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.identityResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.identityResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "Set-Cookie": {
+                                "type": "string",
+                                "description": "Sets the httpOnly wzap_session cookie"
+                            },
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Invalid credentials",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Login rate limit exceeded",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -95,7 +159,29 @@ const docTemplate = `{
                     "200": {
                         "description": "Status, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.logoutResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.logoutResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "Set-Cookie": {
+                                "type": "string",
+                                "description": "Clears the wzap_session cookie"
+                            },
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -123,19 +209,155 @@ const docTemplate = `{
                     "200": {
                         "description": "Identity, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.identityResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.identityResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid session",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/chatwoot/webhook/{id}": {
+            "post": {
+                "description": "Public by design: no apikey or session cookie is required. The per-instance limiter can return 429. Success and discarded events return the raw {\"content\":\"\"} acknowledgement, outside the REST data envelope. Operational commands are discarded here and must use the authenticated /instances/{id}/chatwoot/command route.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chatwoot"
+                ],
+                "summary": "Receive a Chatwoot webhook",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Chatwoot event subset; unknown fields are ignored",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/inbound.Payload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Raw acknowledgement with empty content",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "content": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Connector disabled or invalid body (including oversized body)",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Invalid or missing instance",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Per-instance webhook rate limit exceeded",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -161,9 +383,32 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Enveloped {\\\"status\\\": \\\"ok\\\"}",
+                        "description": "Liveness status",
                         "schema": {
-                            "type": "string"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "status": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -186,10 +431,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or user session credential scope",
+                        "description": "Global key; alternatively use a user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -214,31 +458,73 @@ const docTemplate = `{
                     "200": {
                         "description": "One page, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.instanceListResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.instanceListResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Invalid cursor",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Instance keys own no collection view",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -262,10 +548,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or user session credential scope",
+                        "description": "Global key; alternatively use a user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -287,49 +572,109 @@ const docTemplate = `{
                     "201": {
                         "description": "Created, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.createInstanceResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.createInstanceResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Forbidden or quota exceeded",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "External ref already taken",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Unknown owner or invalid webhook config",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -352,10 +697,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or user session credential scope",
+                        "description": "Global key; alternatively use a user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -368,25 +712,61 @@ const docTemplate = `{
                     "200": {
                         "description": "Totals in scope, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.instanceStatsResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.instanceStatsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Instance keys own no collection view",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -409,10 +789,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -432,31 +811,73 @@ const docTemplate = `{
                     "200": {
                         "description": "Instance, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.instanceResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.instanceResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -477,10 +898,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -498,30 +918,60 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "204": {
-                        "description": "Deleted, no body"
+                        "description": "Deleted, no body",
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -545,10 +995,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -577,55 +1026,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Updated instance, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.instanceResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.instanceResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body or invalid cursor",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "External ref already taken",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid webhook config",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -648,10 +1163,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or admin session scope",
+                        "description": "Global key; alternatively use an admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -669,30 +1183,60 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "204": {
-                        "description": "Revoked, no body"
+                        "description": "Revoked, no body",
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Requires global or admin scope",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -715,10 +1259,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or admin session scope",
+                        "description": "Global key; alternatively use an admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -738,31 +1281,73 @@ const docTemplate = `{
                     "200": {
                         "description": "Fresh key, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.rotateAPIKeyResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.rotateAPIKeyResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Requires global or admin scope",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -785,10 +1370,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -808,37 +1392,85 @@ const docTemplate = `{
                     "200": {
                         "description": "Blocked JIDs, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.blocklistResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.blocklistResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -862,10 +1494,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -894,55 +1525,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Applied, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.blocklistUpdateResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.blocklistUpdateResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Unknown action or invalid JID",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -968,10 +1665,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -1000,61 +1696,133 @@ const docTemplate = `{
                     "200": {
                         "description": "Rejected, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.rejectCallResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.rejectCallResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Missing call id or caller",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "501": {
                         "description": "Upstream cannot reject the call",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -1080,10 +1848,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -1112,55 +1879,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Applied duration, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.disappearingResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.disappearingResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Duration outside the allowlist",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -1186,10 +2019,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -1218,55 +2050,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Receipt sent, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.markReadResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.markReadResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid chat, message id, or missing group sender",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -1289,10 +2187,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -1319,43 +2216,97 @@ const docTemplate = `{
                     "200": {
                         "description": "Timer, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.disappearingResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.disappearingResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid chat",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -1379,10 +2330,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -1418,55 +2368,685 @@ const docTemplate = `{
                     "200": {
                         "description": "Applied timer, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.disappearingResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.disappearingResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid chat or duration outside the allowlist",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/chatwoot": {
+            "get": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "description": "Accepts a global key, own instance key or wzap_session cookie; user sessions are limited to owned instances and admin/global scope can access every instance. A never-configured instance returns a disabled config with empty fields. Token is write-only and the response token is always an empty string.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chatwoot"
+                ],
+                "summary": "Get the Chatwoot connector",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
+                        "name": "apikey",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Connector config; token is always empty",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.chatwootConfigResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Connector disabled, malformed request or invalid instance ID",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "description": "Accepts a global key, own instance key or wzap_session cookie; user sessions are limited to owned instances and admin/global scope can access every instance. Token is write-only: GET and PUT responses always carry token as an empty string. Enabled configuration is validated before persistence; auto_create attempts inbox provisioning.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chatwoot"
+                ],
+                "summary": "Configure the Chatwoot connector",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
+                        "name": "apikey",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Connector configuration; token is accepted only on write",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.chatwootSetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Saved connector config; token is always empty",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.chatwootConfigResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Connector disabled, malformed request or invalid instance ID",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid configuration or field type",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/chatwoot/command": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "description": "Accepts a global key, own instance key or wzap_session cookie; user sessions are limited to owned instances and admin/global scope can access every instance. Runs status, init[:number], clearcache or disconnect using the supplied conversation_id. Operational commands are authenticated here; the open webhook never executes them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chatwoot"
+                ],
+                "summary": "Run an authenticated Chatwoot command",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
+                        "name": "apikey",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Operational command and Chatwoot conversation ID",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.chatwootCommandRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Command processed",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "ok": {
+                                                    "type": "boolean"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Connector disabled, malformed request or invalid instance ID",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Instance or required connector config not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/chatwoot/import": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "description": "Accepts a global key, own instance key or wzap_session cookie; user sessions are limited to owned instances and admin/global scope can access every instance. Runs the configured history import before returning. The 202 data.imported value counts messages already imported; it is not a background job identifier. No request body is required.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chatwoot"
+                ],
+                "summary": "Import Chatwoot message history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
+                        "name": "apikey",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlation id, echoed back",
+                        "name": "X-Request-Id",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Number of messages already imported",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "imported": {
+                                                    "type": "integer"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Connector disabled, malformed request or invalid instance ID",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Instance or required connector config not found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -1489,10 +3069,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -1512,37 +3091,85 @@ const docTemplate = `{
                     "200": {
                         "description": "Pairing result, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.connectResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.connectResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance already connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -1565,10 +3192,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -1594,37 +3220,85 @@ const docTemplate = `{
                     "200": {
                         "description": "Link, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.contactLinkResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.contactLinkResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -1650,10 +3324,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -1682,55 +3355,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Results in input order, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.checkContactsResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.checkContactsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Empty batch or above the 50 cap",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -1753,10 +3492,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -1783,43 +3521,97 @@ const docTemplate = `{
                     "200": {
                         "description": "Business profile, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.contactBusinessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.contactBusinessResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance or contact not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Malformed JID",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -1842,10 +3634,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -1872,43 +3663,97 @@ const docTemplate = `{
                     "200": {
                         "description": "Devices, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.contactDevicesResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.contactDevicesResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance or contact not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Malformed JID",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -1931,10 +3776,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -1961,43 +3805,97 @@ const docTemplate = `{
                     "200": {
                         "description": "Photo, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.contactPhotoResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.contactPhotoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance or contact not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Malformed JID",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -2020,10 +3918,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -2050,43 +3947,97 @@ const docTemplate = `{
                     "200": {
                         "description": "Subscribed, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.subscribePresenceResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.subscribePresenceResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance or contact not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Malformed JID",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -2109,10 +4060,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -2130,30 +4080,60 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "204": {
-                        "description": "Disconnected, no body"
+                        "description": "Disconnected, no body",
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -2176,10 +4156,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -2211,37 +4190,85 @@ const docTemplate = `{
                     "200": {
                         "description": "One page, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.joinedGroupsResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.joinedGroupsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -2265,10 +4292,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -2297,55 +4323,121 @@ const docTemplate = `{
                     "201": {
                         "description": "Created, wrapped in the data envelope (invite_code empty when the post-create invite lookup fails; reconcile via GET .../invite, do not retry the create)",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.groupResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.groupResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid name or participants",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -2368,10 +4460,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -2398,43 +4489,97 @@ const docTemplate = `{
                     "200": {
                         "description": "Preview, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.groupResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.groupResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid or expired invite",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -2460,10 +4605,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -2492,55 +4636,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Joined group, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.groupJoinResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.groupJoinResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found, or unknown invite",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid invite code",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -2563,10 +4773,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -2593,37 +4802,85 @@ const docTemplate = `{
                     "200": {
                         "description": "Group, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.groupResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.groupResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -2647,10 +4904,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -2686,55 +4942,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Updated group, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.groupResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.groupResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner, or no group permission",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Empty patch or invalid values",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -2757,10 +5079,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -2787,37 +5108,85 @@ const docTemplate = `{
                     "200": {
                         "description": "Invite, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.groupInviteResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.groupInviteResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner, or no group permission",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -2840,10 +5209,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -2870,37 +5238,85 @@ const docTemplate = `{
                     "200": {
                         "description": "Fresh invite, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.groupInviteResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.groupInviteResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner, or no group permission",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -2923,10 +5339,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -2953,37 +5368,85 @@ const docTemplate = `{
                     "200": {
                         "description": "Left, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.groupLeaveResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.groupLeaveResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -3009,10 +5472,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -3048,55 +5510,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Applied, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.groupUpdatedResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.groupUpdatedResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner, or no group permission",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Unknown action or invalid participants",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -3110,7 +5638,7 @@ const docTemplate = `{
                     }
                 ],
                 "consumes": [
-                    "application/octet-stream"
+                    "image/*"
                 ],
                 "produces": [
                     "application/json"
@@ -3122,10 +5650,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -3146,55 +5673,124 @@ const docTemplate = `{
                         "name": "group_id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Raw image bytes with an image/* Content-Type (for example JPEG, PNG or WebP)",
+                        "name": "image",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Updated, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.groupUpdatedResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.groupUpdatedResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner, or no group permission",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Image exceeds the cap",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Missing or non image body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -3217,10 +5813,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -3247,37 +5842,85 @@ const docTemplate = `{
                     "200": {
                         "description": "Pending requests, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.groupRequestsResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.groupRequestsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner, or no group permission",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -3301,10 +5944,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -3346,55 +5988,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Applied, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.groupUpdatedResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.groupUpdatedResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner, or no group permission",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected, or key already in flight",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Unknown action or invalid participants",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -3420,10 +6128,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -3459,55 +6166,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Updated group, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.groupResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.groupResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner, or no group permission",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "No fields or value outside the allowlist",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -3530,10 +6303,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -3565,37 +6337,85 @@ const docTemplate = `{
                     "200": {
                         "description": "One page, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.messageListResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.messageListResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Invalid cursor",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -3619,10 +6439,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -3657,61 +6476,133 @@ const docTemplate = `{
                     "202": {
                         "description": "Accepted, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.messageAcceptedResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.messageAcceptedResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected, or key already in flight",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid content, unknown number, unsupported type, or reused key",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "503": {
                         "description": "Number resolution unavailable",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -3737,10 +6628,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -3775,61 +6665,133 @@ const docTemplate = `{
                     "202": {
                         "description": "Accepted, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.messageAcceptedResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.messageAcceptedResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected, or key already in flight",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid content, unknown number, or reused key",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "503": {
                         "description": "Number resolution unavailable",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -3855,10 +6817,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -3893,55 +6854,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Edited, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.editMessageResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.editMessageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance or message not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected, or key already in flight",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid text, target, or reused key",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -3967,10 +6994,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -4005,61 +7031,133 @@ const docTemplate = `{
                     "202": {
                         "description": "Accepted, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.messageAcceptedResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.messageAcceptedResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected, or key already in flight",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid content, unknown number, or reused key",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "503": {
                         "description": "Number resolution unavailable",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -4085,10 +7183,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -4153,55 +7250,121 @@ const docTemplate = `{
                     "202": {
                         "description": "Accepted, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.messageAcceptedResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.messageAcceptedResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Invalid multipart body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected, or key already in flight",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid file, mismatched type, or reused key",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "503": {
                         "description": "Number resolution unavailable",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -4227,10 +7390,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -4259,55 +7421,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Revoked, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.revokeResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.revokeResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid chat or message id",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -4333,10 +7561,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -4371,61 +7598,133 @@ const docTemplate = `{
                     "202": {
                         "description": "Accepted, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.messageAcceptedResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.messageAcceptedResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected, or key already in flight",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid content, unknown number, or reused key",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "503": {
                         "description": "Number resolution unavailable",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -4448,10 +7747,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -4478,31 +7776,73 @@ const docTemplate = `{
                     "200": {
                         "description": "Message, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.messageResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance or message not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -4525,10 +7865,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -4560,37 +7899,85 @@ const docTemplate = `{
                     "200": {
                         "description": "One page, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.newsletterListResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.newsletterListResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -4614,10 +8001,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -4646,55 +8032,121 @@ const docTemplate = `{
                     "201": {
                         "description": "Created channel, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.newsletterResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.newsletterResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid title or description",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -4720,10 +8172,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -4752,55 +8203,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Followed, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.newsletterFollowResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.newsletterFollowResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found, or unknown channel",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid channel",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -4826,10 +8343,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -4858,55 +8374,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Unfollowed, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.newsletterFollowResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.newsletterFollowResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found, or unknown channel",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid channel",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -4929,10 +8511,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -4959,37 +8540,85 @@ const docTemplate = `{
                     "200": {
                         "description": "Channel, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.newsletterResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.newsletterResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found, or unknown channel",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -5012,10 +8641,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -5054,43 +8682,97 @@ const docTemplate = `{
                     "200": {
                         "description": "One page, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.newsletterMessagesResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.newsletterMessagesResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found, or unknown channel",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid channel",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -5116,10 +8798,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -5155,55 +8836,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Applied mute, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.muteNewsletterResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.muteNewsletterResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found, or unknown channel",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid channel",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -5229,10 +8976,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -5268,55 +9014,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Reacted, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.newsletterReactResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.newsletterReactResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found, or unknown message",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Missing server id",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -5339,10 +9151,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -5369,43 +9180,97 @@ const docTemplate = `{
                     "200": {
                         "description": "Updates, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.newsletterUpdatesResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.newsletterUpdatesResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found, or unknown channel",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid channel",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -5431,10 +9296,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -5470,55 +9334,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Viewed, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.newsletterViewedResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.newsletterViewedResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found, or unknown channel",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Empty batch or above the 100 cap",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -5544,10 +9474,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -5576,49 +9505,109 @@ const docTemplate = `{
                     "200": {
                         "description": "Resolution, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.numberCheckResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.numberCheckResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body or missing phone",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "503": {
                         "description": "Number resolution unavailable",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -5644,10 +9633,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -5676,55 +9664,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Pairing code, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.pairPhoneResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.pairPhoneResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "No open pairing channel, or already connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid phone number",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -5750,10 +9804,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -5782,55 +9835,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Published, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.presenceResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.presenceResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid chat or unknown state",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -5853,10 +9972,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -5876,37 +9994,85 @@ const docTemplate = `{
                     "200": {
                         "description": "Own privacy, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.privacyResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.privacyResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -5931,10 +10097,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -5963,55 +10128,121 @@ const docTemplate = `{
                     "200": {
                         "description": "Applied settings, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.privacyResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.privacyResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Empty patch or values outside the allowlists",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -6034,10 +10265,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -6057,37 +10287,85 @@ const docTemplate = `{
                     "200": {
                         "description": "Own profile, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.profileResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.profileResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -6111,10 +10389,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -6143,61 +10420,133 @@ const docTemplate = `{
                     "200": {
                         "description": "Refreshed profile, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.profileResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.profileResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Empty patch or values outside the allowlists",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "501": {
                         "description": "Upstream cannot apply the name change; when name is present nothing is applied, including status_text",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -6211,7 +10560,7 @@ const docTemplate = `{
                     }
                 ],
                 "consumes": [
-                    "application/octet-stream"
+                    "image/*"
                 ],
                 "produces": [
                     "application/json"
@@ -6223,10 +10572,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -6240,61 +10588,136 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Raw image bytes with an image/* Content-Type (for example JPEG, PNG or WebP)",
+                        "name": "image",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Updated, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.profilePhotoResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.profilePhotoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Image exceeds the cap",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Missing or non image body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "501": {
                         "description": "Upstream cannot apply the photo",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -6317,10 +10740,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -6340,37 +10762,85 @@ const docTemplate = `{
                     "200": {
                         "description": "Current QR, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.connectResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.connectResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance already connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -6393,10 +10863,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -6416,31 +10885,73 @@ const docTemplate = `{
                     "200": {
                         "description": "Connection status, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.statusResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.statusResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -6463,10 +10974,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -6486,37 +10996,85 @@ const docTemplate = `{
                     "200": {
                         "description": "Audience, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.statusPrivacyResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.statusPrivacyResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -6539,10 +11097,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -6562,37 +11119,85 @@ const docTemplate = `{
                     "200": {
                         "description": "Own statuses published since boot, entries older than 24h are dropped, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.statusListResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.statusListResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -6617,10 +11222,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -6655,55 +11259,121 @@ const docTemplate = `{
                     "202": {
                         "description": "Accepted, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.statusPublishResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.statusPublishResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected, or key already in flight",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid type or text, or reused key",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -6730,10 +11400,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -6779,49 +11448,109 @@ const docTemplate = `{
                     "202": {
                         "description": "Accepted, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.statusPublishResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.statusPublishResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Invalid multipart body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected, or key already in flight",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid file, mismatched type, or reused key",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -6844,10 +11573,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or own instance key",
+                        "description": "Global key or own instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -6874,37 +11602,167 @@ const docTemplate = `{
                     "200": {
                         "description": "Deleted, only statuses published since boot are tracked and the ~24h protocol expiry applies, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.statusDeleteResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.statusDeleteResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Instance or status not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Instance not connected",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/manager": {
+            "get": {
+                "description": "Public entry without an apikey or session requirement to load. With a built bundle, redirects to /manager/ using 301; without a usable bundle, returns plain-text 503. Console data calls authenticate separately. Responses are outside the REST JSON envelopes.",
+                "produces": [
+                    "text/html",
+                    "text/plain"
+                ],
+                "tags": [
+                    "manager"
+                ],
+                "summary": "Open the manager console",
+                "responses": {
+                    "301": {
+                        "description": "Redirect to /manager/",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "headers": {
+                            "Location": {
+                                "type": "string",
+                                "description": "Console URL /manager/"
+                            },
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Manager console is not built",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/manager/": {
+            "get": {
+                "description": "Public static console entry with SPA fallback for extensionless deep links. A built bundle returns HTML; without a usable bundle, returns plain-text 503. Assets and HTML are outside the REST JSON envelopes. Console data calls require their own authentication.",
+                "produces": [
+                    "text/html",
+                    "text/plain"
+                ],
+                "tags": [
+                    "manager"
+                ],
+                "summary": "Load the manager console HTML",
+                "responses": {
+                    "200": {
+                        "description": "Console HTML",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Manager console is not built",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -6918,7 +11776,8 @@ const docTemplate = `{
                     }
                 ],
                 "produces": [
-                    "application/octet-stream"
+                    "application/octet-stream",
+                    "application/json"
                 ],
                 "tags": [
                     "media"
@@ -6927,10 +11786,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global, owning user, or owning instance key",
+                        "description": "Global key or owning instance key; alternatively use the owning user/admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -6948,33 +11806,79 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Raw media bytes, outside the JSON envelope",
+                        "description": "Raw media bytes with the stored media Content-Type, outside the JSON envelope",
                         "schema": {
                             "type": "file"
+                        },
+                        "headers": {
+                            "Content-Disposition": {
+                                "type": "string",
+                                "description": "Attachment filename"
+                            },
+                            "Content-Length": {
+                                "type": "integer",
+                                "description": "Stored media size in bytes"
+                            },
+                            "Content-Type": {
+                                "type": "string",
+                                "description": "Stored media MIME type"
+                            },
+                            "X-Content-Type-Options": {
+                                "type": "string",
+                                "description": "nosniff"
+                            },
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Not the owner",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "Media not found or expired",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -7002,13 +11906,49 @@ const docTemplate = `{
                     "200": {
                         "description": "Readiness, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.readiness"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.readiness"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "503": {
                         "description": "Unready state, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.readiness"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.readiness"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -7031,10 +11971,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or admin session scope",
+                        "description": "Global key; alternatively use an admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -7047,9 +11986,27 @@ const docTemplate = `{
                     "200": {
                         "description": "Users, wrapped in the data envelope",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/httpapi.userQuotaResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/httpapi.userQuotaResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
                             }
                         }
                     },
@@ -7057,18 +12014,36 @@ const docTemplate = `{
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Requires global or admin scope",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -7092,10 +12067,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or admin session scope",
+                        "description": "Global key; alternatively use an admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -7117,49 +12091,109 @@ const docTemplate = `{
                     "201": {
                         "description": "Created user, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.userQuotaResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.userQuotaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Requires global or admin scope",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "Email already taken",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid email, password, role or quota",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -7182,10 +12216,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or admin session scope",
+                        "description": "Global key; alternatively use an admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -7205,31 +12238,73 @@ const docTemplate = `{
                     "200": {
                         "description": "User, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.userQuotaResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.userQuotaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Requires global or admin scope",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "User not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -7250,10 +12325,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or admin session scope",
+                        "description": "Global key; alternatively use an admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -7271,36 +12345,72 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "204": {
-                        "description": "Deleted, no body"
+                        "description": "Deleted, no body",
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Requires global or admin scope",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "User not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "409": {
                         "description": "User still owns instances",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -7324,10 +12434,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Global key or admin session scope",
+                        "description": "Global key; alternatively use an admin session cookie",
                         "name": "apikey",
-                        "in": "header",
-                        "required": true
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -7356,49 +12465,109 @@ const docTemplate = `{
                     "200": {
                         "description": "Updated user, wrapped in the data envelope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.userQuotaResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpapi.userQuotaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "400": {
                         "description": "Malformed body",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "403": {
                         "description": "Requires global or admin scope",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "404": {
                         "description": "User not found",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "422": {
                         "description": "Invalid instance quota",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
                         }
                     }
                 }
@@ -7422,6 +12591,143 @@ const docTemplate = `{
             "properties": {
                 "updated": {
                     "type": "boolean"
+                }
+            }
+        },
+        "httpapi.chatwootCommandRequest": {
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string"
+                },
+                "conversation_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "httpapi.chatwootConfigResponse": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string"
+                },
+                "auto_create": {
+                    "type": "boolean"
+                },
+                "conversation_pending": {
+                    "type": "boolean"
+                },
+                "days_limit": {
+                    "type": "integer"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "ignore_jids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "import_contacts": {
+                    "type": "boolean"
+                },
+                "import_messages": {
+                    "type": "boolean"
+                },
+                "instance_id": {
+                    "type": "string"
+                },
+                "logo": {
+                    "type": "string"
+                },
+                "merge_brazil_contacts": {
+                    "type": "boolean"
+                },
+                "name_inbox": {
+                    "type": "string"
+                },
+                "organization": {
+                    "type": "string"
+                },
+                "reopen_conversation": {
+                    "type": "boolean"
+                },
+                "sign_delimiter": {
+                    "type": "string"
+                },
+                "sign_msg": {
+                    "type": "boolean"
+                },
+                "token": {
+                    "description": "Token is always an empty string; the stored credential is write-only.",
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "webhook_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.chatwootSetRequest": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string"
+                },
+                "auto_create": {
+                    "type": "boolean"
+                },
+                "conversation_pending": {
+                    "type": "boolean"
+                },
+                "days_limit": {
+                    "type": "integer"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "ignore_jids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "import_contacts": {
+                    "type": "boolean"
+                },
+                "import_messages": {
+                    "type": "boolean"
+                },
+                "logo": {
+                    "type": "string"
+                },
+                "merge_brazil_contacts": {
+                    "type": "boolean"
+                },
+                "name_inbox": {
+                    "type": "string"
+                },
+                "organization": {
+                    "type": "string"
+                },
+                "reopen_conversation": {
+                    "type": "boolean"
+                },
+                "sign_delimiter": {
+                    "type": "string"
+                },
+                "sign_msg": {
+                    "type": "boolean"
+                },
+                "token": {
+                    "description": "Token is accepted only on write and never echoed in config responses.",
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
                 }
             }
         },
@@ -7633,7 +12939,22 @@ const docTemplate = `{
             }
         },
         "httpapi.createUserRequest": {
-            "type": "object"
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "instance_quota": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "password": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
         },
         "httpapi.disappearingRequest": {
             "type": "object",
@@ -7677,6 +12998,12 @@ const docTemplate = `{
                 "message_id": {
                     "type": "string"
                 }
+            }
+        },
+        "httpapi.envelope": {
+            "type": "object",
+            "properties": {
+                "data": {}
             }
         },
         "httpapi.errorBody": {
@@ -8196,7 +13523,13 @@ const docTemplate = `{
             }
         },
         "httpapi.patchQuotaRequest": {
-            "type": "object"
+            "type": "object",
+            "properties": {
+                "instance_quota": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
         },
         "httpapi.presenceRequest": {
             "type": "object",
@@ -8687,11 +14020,143 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "inbound.Attachment": {
+            "type": "object",
+            "properties": {
+                "data_url": {
+                    "type": "string"
+                },
+                "file_name": {
+                    "type": "string"
+                },
+                "file_type": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "inbound.ContactInbox": {
+            "type": "object",
+            "properties": {
+                "source_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "inbound.ContactSender": {
+            "type": "object",
+            "properties": {
+                "identifier": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone_number": {
+                    "type": "string"
+                }
+            }
+        },
+        "inbound.Conversation": {
+            "type": "object",
+            "properties": {
+                "contact_inbox": {
+                    "$ref": "#/definitions/inbound.ContactInbox"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "meta": {
+                    "$ref": "#/definitions/inbound.ConversationMeta"
+                }
+            }
+        },
+        "inbound.ConversationMeta": {
+            "type": "object",
+            "properties": {
+                "sender": {
+                    "$ref": "#/definitions/inbound.ContactSender"
+                }
+            }
+        },
+        "inbound.Message": {
+            "type": "object",
+            "properties": {
+                "attachments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/inbound.Attachment"
+                    }
+                },
+                "content": {
+                    "type": "string"
+                },
+                "content_attributes": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "conversation_id": {
+                    "type": "integer"
+                },
+                "deleted": {
+                    "description": "Deleted marks a message_updated carrying a reverse delete.",
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "in_reply_to": {
+                    "type": "integer"
+                },
+                "message_type": {
+                    "type": "string"
+                },
+                "private": {
+                    "type": "boolean"
+                },
+                "sender": {
+                    "$ref": "#/definitions/inbound.Sender"
+                },
+                "source_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "inbound.Payload": {
+            "type": "object",
+            "properties": {
+                "conversation": {
+                    "$ref": "#/definitions/inbound.Conversation"
+                },
+                "event": {
+                    "type": "string"
+                },
+                "message": {
+                    "$ref": "#/definitions/inbound.Message"
+                }
+            }
+        },
+        "inbound.Sender": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
         }
     },
     "securityDefinitions": {
         "apikey": {
-            "description": "Instance or global API key sent in the literal apikey header. Session-cookie holders use /auth/* instead.",
+            "description": "Machine credential in the literal apikey header: a global key grants administrative scope, an instance key grants access only to its own instance. Dual-auth API routes also accept the wzap_session cookie (user ownership/admin scope); cookie security cannot be modeled in Swagger 2.0. /auth/* uses cookies rather than this header.",
             "type": "apiKey",
             "name": "apikey",
             "in": "header"
@@ -8706,7 +14171,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "wzap",
-	Description:      "Standalone multi-instance WhatsApp gateway. Authenticated REST commands plus durable events; every success body is wrapped in a {\"data\": ...} envelope and every failure in a {\"error\": {\"code\", \"message\"}} envelope.",
+	Description:      "Standalone multi-instance WhatsApp gateway with authenticated REST commands and durable events. Normal REST JSON successes use {\"data\": ...}; standard errors use {\"error\": {\"code\", \"message\"}}. No-content responses, binary media, the raw Chatwoot webhook acknowledgement and Manager HTML/redirects have their own formats. Dual-auth API routes accept a valid wzap_session cookie or the apikey header. Global keys and admin sessions have administrative scope; user sessions are restricted to owned instances; instance keys reach only their own instance and cannot use collection/admin routes. Swagger 2.0 cannot declare cookie security: use an existing manager session cookie for session calls, or Authorize with an apikey for machine calls. The /auth/* endpoints use session cookies, never apikey authentication; login, logout, health probes, Swagger, Manager and the Chatwoot webhook load without an apikey.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

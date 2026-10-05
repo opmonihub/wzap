@@ -152,15 +152,16 @@ func profileTarget(w http.ResponseWriter, r *http.Request, instances InstanceSer
 // @Tags profile
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
-// @Success 200 {object} profileResponse "Own profile, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=profileResponse} "Own profile, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 409 {object} errorEnvelope "Instance not connected"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/profile [get]
 func handleGetProfile(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -190,11 +191,11 @@ func handleGetProfile(instances InstanceService, log zerolog.Logger) http.Handle
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body updateProfileRequest true "Profile patch"
-// @Success 200 {object} profileResponse "Refreshed profile, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=profileResponse} "Refreshed profile, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -204,6 +205,7 @@ func handleGetProfile(instances InstanceService, log zerolog.Logger) http.Handle
 // @Failure 422 {object} errorEnvelope "Empty patch or values outside the allowlists"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Failure 501 {object} errorEnvelope "Upstream cannot apply the name change; when name is present nothing is applied, including status_text"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/profile [patch]
 func handleUpdateProfile(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -270,13 +272,14 @@ func handleUpdateProfile(instances InstanceService, log zerolog.Logger) http.Han
 //
 // @Summary Update the own profile photo
 // @Tags profile
-// @Accept octet-stream
+// @Accept image/*
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
-// @Success 200 {object} profilePhotoResponse "Updated, wrapped in the data envelope"
+// @Param image body string true "Raw image bytes with an image/* Content-Type (for example JPEG, PNG or WebP)"
+// @Success 200 {object} envelope{data=profilePhotoResponse} "Updated, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
@@ -285,6 +288,7 @@ func handleUpdateProfile(instances InstanceService, log zerolog.Logger) http.Han
 // @Failure 422 {object} errorEnvelope "Missing or non image body"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Failure 501 {object} errorEnvelope "Upstream cannot apply the photo"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/profile/photo [put]
 func handleSetProfilePhoto(instances InstanceService, log zerolog.Logger, maxBytes int64) http.HandlerFunc {
 	if maxBytes <= 0 {
@@ -331,15 +335,16 @@ func handleSetProfilePhoto(instances InstanceService, log zerolog.Logger, maxByt
 // @Tags privacy
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
-// @Success 200 {object} privacyResponse "Own privacy, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=privacyResponse} "Own privacy, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 409 {object} errorEnvelope "Instance not connected"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/privacy [get]
 func handleGetPrivacy(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -370,11 +375,11 @@ func handleGetPrivacy(instances InstanceService, log zerolog.Logger) http.Handle
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body updatePrivacyRequest true "Privacy patch"
-// @Success 200 {object} privacyResponse "Applied settings, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=privacyResponse} "Applied settings, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -383,6 +388,7 @@ func handleGetPrivacy(instances InstanceService, log zerolog.Logger) http.Handle
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Empty patch or values outside the allowlists"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/privacy [put]
 func handleSetPrivacy(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

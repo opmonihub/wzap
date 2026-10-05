@@ -106,11 +106,11 @@ func newsletterChannel(w http.ResponseWriter, r *http.Request) (string, bool) {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body followNewsletterRequest true "Follow payload"
-// @Success 200 {object} newsletterFollowResponse "Followed, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=newsletterFollowResponse} "Followed, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -119,6 +119,7 @@ func newsletterChannel(w http.ResponseWriter, r *http.Request) (string, bool) {
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid channel"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/newsletters/follow [post]
 func handleFollowNewsletter(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -148,11 +149,11 @@ func handleFollowNewsletter(instances InstanceService, log zerolog.Logger) http.
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param request body followNewsletterRequest true "Unfollow payload"
-// @Success 200 {object} newsletterFollowResponse "Unfollowed, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=newsletterFollowResponse} "Unfollowed, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -161,6 +162,7 @@ func handleFollowNewsletter(instances InstanceService, log zerolog.Logger) http.
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid channel"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/newsletters/unfollow [post]
 func handleUnfollowNewsletter(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -189,16 +191,17 @@ func handleUnfollowNewsletter(instances InstanceService, log zerolog.Logger) htt
 // @Tags newsletters
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param channel path string true "Channel JID"
-// @Success 200 {object} newsletterResponse "Channel, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=newsletterResponse} "Channel, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found, or unknown channel"
 // @Failure 409 {object} errorEnvelope "Instance not connected"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/newsletters/{channel} [get]
 func handleGetNewsletter(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -230,17 +233,18 @@ func handleGetNewsletter(instances InstanceService, log zerolog.Logger) http.Han
 // @Tags newsletters
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param limit query int false "Page size, default 50, max 100"
 // @Param cursor query string false "Opaque pagination cursor"
-// @Success 200 {object} newsletterListResponse "One page, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=newsletterListResponse} "One page, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 409 {object} errorEnvelope "Instance not connected"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/newsletters [get]
 func handleListNewsletters(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

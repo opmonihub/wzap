@@ -73,6 +73,16 @@ func Built() bool {
 // extensionless deep links resolve to index.html so refresh works, missing
 // hashed assets answer 404, and dotfiles are never served. Without a
 // generated build embedded it answers 503.
+//
+// @Summary Open the manager console
+// @Description Public entry without an apikey or session requirement to load. With a built bundle, redirects to /manager/ using 301; without a usable bundle, returns plain-text 503. Console data calls authenticate separately. Responses are outside the REST JSON envelopes.
+// @Tags manager
+// @Produce html,plain
+// @Success 301 {string} string "Redirect to /manager/"
+// @Header 301 {string} Location "Console URL /manager/"
+// @Failure 503 {string} string "Manager console is not built"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
+// @Router /manager [get]
 func Handler() http.Handler {
 	root := distFS()
 	if root == nil {
@@ -110,6 +120,14 @@ func serviceUnavailable() http.Handler {
 	})
 }
 
+// @Summary Load the manager console HTML
+// @Description Public static console entry with SPA fallback for extensionless deep links. A built bundle returns HTML; without a usable bundle, returns plain-text 503. Assets and HTML are outside the REST JSON envelopes. Console data calls require their own authentication.
+// @Tags manager
+// @Produce html,plain
+// @Success 200 {string} string "Console HTML"
+// @Failure 503 {string} string "Manager console is not built"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
+// @Router /manager/ [get]
 func handler(root fs.FS) http.Handler {
 	if root == nil {
 		return serviceUnavailable()

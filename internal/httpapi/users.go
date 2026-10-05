@@ -61,7 +61,7 @@ type createUserRequest struct {
 	Email         string        `json:"email"`
 	Password      string        `json:"password"`
 	Role          string        `json:"role"`
-	InstanceQuota optionalQuota `json:"instance_quota"`
+	InstanceQuota optionalQuota `json:"instance_quota" swaggertype:"integer" minimum:"0"`
 }
 
 // handleCreateUser registers a manager user and answers 201 with the user.
@@ -79,10 +79,10 @@ type createUserRequest struct {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global key or admin session scope"
+// @Param apikey header string false "Global key; alternatively use an admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param request body createUserRequest true "User payload"
-// @Success 201 {object} userQuotaResponse "Created user, wrapped in the data envelope"
+// @Success 201 {object} envelope{data=userQuotaResponse} "Created user, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Requires global or admin scope"
@@ -90,6 +90,7 @@ type createUserRequest struct {
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid email, password, role or quota"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /users [post]
 func handleCreateUser(users storage.UserRepository, defaultQuota int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -161,12 +162,13 @@ func handleCreateUser(users storage.UserRepository, defaultQuota int) http.Handl
 // @Tags users
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global key or admin session scope"
+// @Param apikey header string false "Global key; alternatively use an admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
-// @Success 200 {array} userQuotaResponse "Users, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=[]userQuotaResponse} "Users, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Requires global or admin scope"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /users [get]
 func handleListUsers(users storage.UserRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -201,14 +203,15 @@ func handleListUsers(users storage.UserRepository) http.HandlerFunc {
 // @Tags users
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global key or admin session scope"
+// @Param apikey header string false "Global key; alternatively use an admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "User ID (UUID)"
-// @Success 200 {object} userQuotaResponse "User, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=userQuotaResponse} "User, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Requires global or admin scope"
 // @Failure 404 {object} errorEnvelope "User not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /users/{id} [get]
 func handleGetUser(users storage.UserRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -252,7 +255,7 @@ func handleGetUser(users storage.UserRepository) http.HandlerFunc {
 // @Tags users
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global key or admin session scope"
+// @Param apikey header string false "Global key; alternatively use an admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "User ID (UUID)"
 // @Success 204 "Deleted, no body"
@@ -261,6 +264,7 @@ func handleGetUser(users storage.UserRepository) http.HandlerFunc {
 // @Failure 404 {object} errorEnvelope "User not found"
 // @Failure 409 {object} errorEnvelope "User still owns instances"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /users/{id} [delete]
 func handleDeleteUser(users storage.UserRepository, keys storage.APIKeyRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -316,7 +320,7 @@ func isForeignKeyViolation(err error) bool {
 // raw message so a non-integer value (string, float, boolean, null) can be
 // rejected with 422 instead of the generic 400 of a body decoding failure.
 type patchQuotaRequest struct {
-	InstanceQuota *json.RawMessage `json:"instance_quota"`
+	InstanceQuota *json.RawMessage `json:"instance_quota" swaggertype:"integer" minimum:"0"`
 }
 
 // handleUpdateUserQuota edits the per-user instance quota and answers 200
@@ -331,11 +335,11 @@ type patchQuotaRequest struct {
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global key or admin session scope"
+// @Param apikey header string false "Global key; alternatively use an admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "User ID (UUID)"
 // @Param request body patchQuotaRequest true "Quota payload"
-// @Success 200 {object} userQuotaResponse "Updated user, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=userQuotaResponse} "Updated user, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Requires global or admin scope"
@@ -343,6 +347,7 @@ type patchQuotaRequest struct {
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid instance quota"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /users/{id} [patch]
 func handleUpdateUserQuota(users storage.UserRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

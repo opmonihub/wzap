@@ -59,9 +59,10 @@ type ChatwootImporter interface {
 // are values (absent means false); sign_msg type errors are mapped to 422 by
 // inspecting the decode failure.
 type chatwootSetRequest struct {
-	Enabled             bool     `json:"enabled"`
-	URL                 string   `json:"url"`
-	AccountID           string   `json:"account_id"`
+	Enabled   bool   `json:"enabled"`
+	URL       string `json:"url"`
+	AccountID string `json:"account_id"`
+	// Token is accepted only on write and never echoed in config responses.
 	Token               string   `json:"token"`
 	NameInbox           string   `json:"name_inbox"`
 	SignMsg             bool     `json:"sign_msg"`
@@ -81,10 +82,11 @@ type chatwootSetRequest struct {
 // chatwootConfigResponse is the GET/PUT /instances/{id}/chatwoot body: the
 // stored connector plus the computed webhook_url to register in Chatwoot.
 type chatwootConfigResponse struct {
-	InstanceID          string   `json:"instance_id"`
-	Enabled             bool     `json:"enabled"`
-	URL                 string   `json:"url"`
-	AccountID           string   `json:"account_id"`
+	InstanceID string `json:"instance_id"`
+	Enabled    bool   `json:"enabled"`
+	URL        string `json:"url"`
+	AccountID  string `json:"account_id"`
+	// Token is always an empty string; the stored credential is write-only.
 	Token               string   `json:"token"`
 	NameInbox           string   `json:"name_inbox"`
 	SignMsg             bool     `json:"sign_msg"`
@@ -105,6 +107,27 @@ type chatwootConfigResponse struct {
 // handleChatwootSet stores the connector config behind the dual auth. The
 // global gate answers 400 when disabled; validation failures answer 422
 // without persisting.
+//
+// @Summary Configure the Chatwoot connector
+// @Description Accepts a global key, own instance key or wzap_session cookie; user sessions are limited to owned instances and admin/global scope can access every instance. Token is write-only: GET and PUT responses always carry token as an empty string. Enabled configuration is validated before persistence; auto_create attempts inbox provisioning.
+// @Tags chatwoot
+// @Produce json
+// @Security apikey
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
+// @Param X-Request-Id header string false "Correlation id, echoed back"
+// @Param id path string true "Instance ID (UUID)"
+// @Accept json
+// @Param request body chatwootSetRequest true "Connector configuration; token is accepted only on write"
+// @Success 200 {object} envelope{data=chatwootConfigResponse} "Saved connector config; token is always empty"
+// @Failure 400 {object} errorEnvelope "Connector disabled, malformed request or invalid instance ID"
+// @Failure 401 {object} errorEnvelope "Missing or invalid credential"
+// @Failure 403 {object} errorEnvelope "Not the owner"
+// @Failure 404 {object} errorEnvelope "Instance not found"
+// @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
+// @Failure 422 {object} errorEnvelope "Invalid configuration or field type"
+// @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
+// @Router /instances/{id}/chatwoot [put]
 func handleChatwootSet(instances InstanceService, configs ChatwootConfigStore, global cfgpkg.Chatwoot, publicURL string, clientFor ChatwootClientFor, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !global.Enabled {
@@ -215,6 +238,23 @@ func ensureChatwootInbox(ctx context.Context, clientFor ChatwootClientFor, cfg m
 
 // handleChatwootGet returns the connector config behind the dual auth. An
 // instance that was never configured answers 200 disabled with empty fields.
+//
+// @Summary Get the Chatwoot connector
+// @Description Accepts a global key, own instance key or wzap_session cookie; user sessions are limited to owned instances and admin/global scope can access every instance. A never-configured instance returns a disabled config with empty fields. Token is write-only and the response token is always an empty string.
+// @Tags chatwoot
+// @Produce json
+// @Security apikey
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
+// @Param X-Request-Id header string false "Correlation id, echoed back"
+// @Param id path string true "Instance ID (UUID)"
+// @Success 200 {object} envelope{data=chatwootConfigResponse} "Connector config; token is always empty"
+// @Failure 400 {object} errorEnvelope "Connector disabled, malformed request or invalid instance ID"
+// @Failure 401 {object} errorEnvelope "Missing or invalid credential"
+// @Failure 403 {object} errorEnvelope "Not the owner"
+// @Failure 404 {object} errorEnvelope "Instance not found"
+// @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
+// @Router /instances/{id}/chatwoot [get]
 func handleChatwootGet(instances InstanceService, configs ChatwootConfigStore, global cfgpkg.Chatwoot, publicURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !global.Enabled {
@@ -255,6 +295,22 @@ func handleChatwootGet(instances InstanceService, configs ChatwootConfigStore, g
 // disabled; discards answer 200 with a bot body. O limiter responde 429
 // no estouro por instância; comandos operacionais nunca executam aqui
 // (descartam 200 no inbound) — usam POST /instances/{id}/chatwoot/command.
+//
+// @Summary Receive a Chatwoot webhook
+// @Description Public by design: no apikey or session cookie is required. The per-instance limiter can return 429. Success and discarded events return the raw {"content":""} acknowledgement, outside the REST data envelope. Operational commands are discarded here and must use the authenticated /instances/{id}/chatwoot/command route.
+// @Tags chatwoot
+// @Accept json
+// @Produce json
+// @Param X-Request-Id header string false "Correlation id, echoed back"
+// @Param id path string true "Instance ID (UUID)"
+// @Param request body inbound.Payload true "Chatwoot event subset; unknown fields are ignored"
+// @Success 200 {object} object{content=string} "Raw acknowledgement with empty content"
+// @Failure 400 {object} errorEnvelope "Connector disabled or invalid body (including oversized body)"
+// @Failure 404 {object} errorEnvelope "Invalid or missing instance"
+// @Failure 429 {object} errorEnvelope "Per-instance webhook rate limit exceeded"
+// @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
+// @Router /chatwoot/webhook/{id} [post]
 func handleChatwootWebhook(instances InstanceService, inb ChatwootInbound, global cfgpkg.Chatwoot, limiter *ChatwootRateLimiter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rawID := r.PathValue("id")
@@ -360,6 +416,23 @@ func newChatwootConfigResponse(cfg *model.ChatwootConfig, webhookURL string) cha
 // handleChatwootImport runs the manual history import behind the dual auth.
 // The global gate answers 400 when disabled; an unconfigured instance
 // answers 404; success answers 202 with the imported message count.
+//
+// @Summary Import Chatwoot message history
+// @Description Accepts a global key, own instance key or wzap_session cookie; user sessions are limited to owned instances and admin/global scope can access every instance. Runs the configured history import before returning. The 202 data.imported value counts messages already imported; it is not a background job identifier. No request body is required.
+// @Tags chatwoot
+// @Produce json
+// @Security apikey
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
+// @Param X-Request-Id header string false "Correlation id, echoed back"
+// @Param id path string true "Instance ID (UUID)"
+// @Success 202 {object} envelope{data=object{imported=int}} "Number of messages already imported"
+// @Failure 400 {object} errorEnvelope "Connector disabled, malformed request or invalid instance ID"
+// @Failure 401 {object} errorEnvelope "Missing or invalid credential"
+// @Failure 403 {object} errorEnvelope "Not the owner"
+// @Failure 404 {object} errorEnvelope "Instance or required connector config not found"
+// @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
+// @Router /instances/{id}/chatwoot/import [post]
 func handleChatwootImport(instances InstanceService, configs ChatwootConfigStore, global cfgpkg.Chatwoot, importer ChatwootImporter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !global.Enabled {
@@ -416,6 +489,26 @@ type chatwootCommandRequest struct {
 // handleChatwootCommand runs operational commands behind the dual auth
 // (status, init[:number], clearcache, disconnect). O webhook aberto nunca
 // executa comandos; esta rota autenticada é o único caminho.
+//
+// @Summary Run an authenticated Chatwoot command
+// @Description Accepts a global key, own instance key or wzap_session cookie; user sessions are limited to owned instances and admin/global scope can access every instance. Runs status, init[:number], clearcache or disconnect using the supplied conversation_id. Operational commands are authenticated here; the open webhook never executes them.
+// @Tags chatwoot
+// @Produce json
+// @Security apikey
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
+// @Param X-Request-Id header string false "Correlation id, echoed back"
+// @Param id path string true "Instance ID (UUID)"
+// @Accept json
+// @Param request body chatwootCommandRequest true "Operational command and Chatwoot conversation ID"
+// @Success 200 {object} envelope{data=object{ok=bool}} "Command processed"
+// @Failure 400 {object} errorEnvelope "Connector disabled, malformed request or invalid instance ID"
+// @Failure 401 {object} errorEnvelope "Missing or invalid credential"
+// @Failure 403 {object} errorEnvelope "Not the owner"
+// @Failure 404 {object} errorEnvelope "Instance or required connector config not found"
+// @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
+// @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
+// @Router /instances/{id}/chatwoot/command [post]
 func handleChatwootCommand(instances InstanceService, configs ChatwootConfigStore, global cfgpkg.Chatwoot, inb ChatwootInbound) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !global.Enabled {

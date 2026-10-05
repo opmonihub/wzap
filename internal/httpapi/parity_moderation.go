@@ -46,16 +46,17 @@ func validGroupRequestAction(action string) bool {
 // @Tags groups
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param group_id path string true "Group JID"
-// @Success 200 {object} groupRequestsResponse "Pending requests, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=groupRequestsResponse} "Pending requests, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner, or no group permission"
 // @Failure 404 {object} errorEnvelope "Instance or group not found"
 // @Failure 409 {object} errorEnvelope "Instance not connected"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/groups/{group_id}/requests [get]
 func handleGroupRequests(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -91,13 +92,13 @@ func handleGroupRequests(instances InstanceService, log zerolog.Logger) http.Han
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param Idempotency-Key header string false "Idempotency key, 24h replay per instance"
 // @Param id path string true "Instance ID (UUID)"
 // @Param group_id path string true "Group JID"
 // @Param request body updateGroupRequestsRequest true "Requests payload"
-// @Success 200 {object} groupUpdatedResponse "Applied, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=groupUpdatedResponse} "Applied, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner, or no group permission"
@@ -106,6 +107,7 @@ func handleGroupRequests(instances InstanceService, log zerolog.Logger) http.Han
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Unknown action or invalid participants"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/groups/{group_id}/requests [post]
 func handleUpdateGroupRequests(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -149,12 +151,12 @@ func handleUpdateGroupRequests(instances InstanceService, log zerolog.Logger) ht
 // @Accept json
 // @Produce json
 // @Security apikey
-// @Param apikey header string true "Global, owning user, or own instance key"
+// @Param apikey header string false "Global key or own instance key; alternatively use the owning user/admin session cookie"
 // @Param X-Request-Id header string false "Correlation id, echoed back"
 // @Param id path string true "Instance ID (UUID)"
 // @Param group_id path string true "Group JID"
 // @Param request body updateGroupSettingsRequest true "Settings payload"
-// @Success 200 {object} groupResponse "Updated group, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=groupResponse} "Updated group, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner, or no group permission"
@@ -163,6 +165,7 @@ func handleUpdateGroupRequests(instances InstanceService, log zerolog.Logger) ht
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "No fields or value outside the allowlist"
 // @Failure 500 {object} errorEnvelope "Internal error"
+// @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/groups/{group_id}/settings [patch]
 func handleUpdateGroupSettings(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

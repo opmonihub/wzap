@@ -24,7 +24,7 @@ Write scope: `internal/instance/` name/service implementation and tests; `intern
 
 ## Task 2.1 — Transport/docs
 
-Write scope: `internal/httpapi/` including annotations/tests; generated `docs/docs.go`, `docs/swagger.json`, `docs/swagger.yaml`; `README.md`. Start after Task 1 review makes domain interfaces stable.
+Write scope: `internal/httpapi/` including annotations/tests; generated `docs/docs.go`, `docs/swagger.json`, `docs/swagger.yaml`; `README.md`. Start once Task 1 exposes the fixed domain interfaces; transport verification waits for completed backend code.
 
 1. Add failing actual-router tests for UUID/name reads, status, mutation, public Chatwoot; typed conflicts/missing names and reserved paths.
 2. Add GetByName to HTTP InstanceService and fakes. Implement instance-only registration adapter and open webhook resolver. UUID interpretation takes precedence. For instance-key names compare its own UUID row's current name, refusing foreign names without foreign lookup.

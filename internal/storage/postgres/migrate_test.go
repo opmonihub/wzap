@@ -24,9 +24,11 @@ func TestMigrate(t *testing.T) {
 
 	for _, table := range []string{
 		"instances",
+		"instance_connections",
+		"instance_webhooks",
 		"message_queue",
 		"idempotency_keys",
-		"contacts",
+		"jid_cache",
 		"media",
 		"event_outbox",
 	} {

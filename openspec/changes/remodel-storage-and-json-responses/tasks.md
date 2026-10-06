@@ -9,7 +9,9 @@
 
 ## 2. Remodelar persistência
 
-- [ ] 2.1 Implementar e ensaiar expansão, backfill e constraints das 14 tabelas; verificar upgrade e banco vazio em PostgreSQL com preservação de UUIDs, unicidade, timestamps, owners e dados recuperáveis.
+- [x] 2.1 Implementar e ensaiar expansão, backfill e constraints das 14 tabelas; verificar upgrade e banco vazio em PostgreSQL com preservação de UUIDs, unicidade, timestamps, owners e dados recuperáveis.
+
+  Registro (2.1): migração única `00008_remodel.sql` (expandir+renomear+backfill+constraints num só corte, permitido pelo brief) + tabela de auditoria `remodel_report` (categorias `device_jid_conflicts`, `legacy_connection_errors`, `orphan_media_refs`, `media_chatwoot_markers`). Testes novos em `internal/storage/postgres/migrate_remodel_test.go` verdes contra Postgres real em `127.0.0.1:5435` (`TestMigrateRemodelFresh`, `TestMigrateRemodelUpgrade`, `TestMigrateRemodelDown`, `TestMigrate` atualizado para os nomes finais). Esperado e conhecido: ~90 testes de repositório quebram porque usam os nomes antigos de colunas — correção é escopo de 2.2/2.3/2.4. Down não restaura o bigint de `webhook_dead_letters.id` (documentado no SQL). Detalhes em `.superpowers/sdd/plan/task-2.1-report.md`.
 - [ ] 2.2 Separar repositórios e comandos de identidade, conexão e webhook; verificar reconexão pelo dispositivo correto, exclusividade e edição concorrente sem regressão do estado.
 - [ ] 2.3 Atualizar usuários, cache JID, metadados, configurações Chatwoot e dead letters para os nomes aprovados; verificar quotas, lookup global, unicidade por instância e limite de 500 falhas por instância.
 - [ ] 2.4 Implementar FKs opcionais de mídia e correlação Chatwoot com isolamento por instância; verificar compartilhamento de mídia, múltiplos envios por cw_id e entradas sem fila artificial.

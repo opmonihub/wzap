@@ -110,6 +110,16 @@ func TestMigrateRemodelFresh(t *testing.T) {
 	if got := instances["owner_user_id"]; got.udtName != "uuid" || got.isNullable != "YES" {
 		t.Errorf("instances.owner_user_id = type %s nullable %s, want uuid NULL", got.udtName, got.isNullable)
 	}
+	// Every table's uuid PK carries gen_random_uuid() per the approved matrix,
+	// including the four pre-existing uuid PKs (instances, message_queue,
+	// media, event_outbox).
+	for _, table := range remodelTables {
+		cols := tableColumns(t, ctx, pool, table)
+		def := cols["id"].columnDef
+		if def == nil || !strings.Contains(*def, "gen_random_uuid()") {
+			t.Errorf("%s.id default = %v, want gen_random_uuid()", table, def)
+		}
+	}
 
 	connections := tableColumns(t, ctx, pool, "instance_connections")
 	for _, col := range []string{"id", "instance_id", "device_jid", "status",
@@ -148,6 +158,11 @@ func TestMigrateRemodelFresh(t *testing.T) {
 	}
 	if def := mustDef(t, users["instance_limit"].columnDef, "users.instance_limit"); def != "0" {
 		t.Errorf("users.instance_limit default = %q, want 0", def)
+	}
+	for _, col := range []string{"email", "password_hash"} {
+		if got := users[col]; got.isNullable != "NO" {
+			t.Errorf("users.%s nullable = %s, want NOT NULL per the approved matrix", col, got.isNullable)
+		}
 	}
 
 	queue := tableColumns(t, ctx, pool, "message_queue")

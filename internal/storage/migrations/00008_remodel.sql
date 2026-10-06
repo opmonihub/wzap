@@ -106,13 +106,34 @@ ALTER TABLE instances
 ALTER TABLE instances DROP CONSTRAINT instances_owner_user_id_fkey;
 ALTER TABLE instances ADD CONSTRAINT instances_owner_user_id_fkey
   FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE instances ALTER COLUMN id SET DEFAULT gen_random_uuid();
 CREATE INDEX instances_owner_idx ON instances (owner_user_id);
 CREATE INDEX instances_name_idx ON instances (name);
 
 -- ---------------------------------------------------------------------------
--- users: instance_quota -> instance_limit.
+-- users: instance_quota -> instance_limit; email/password_hash become NOT NULL
+-- per the approved matrix. 00002 left them NULLable, so legacy NULL rows are
+-- defensively coalesced and reported before the constraint lands.
 -- ---------------------------------------------------------------------------
 ALTER TABLE users RENAME COLUMN instance_quota TO instance_limit;
+ALTER TABLE users ALTER COLUMN id SET DEFAULT gen_random_uuid();
+
+INSERT INTO remodel_report (category, ref_id, detail)
+SELECT 'users_null_email', id, jsonb_build_object('email', email)
+FROM users WHERE email IS NULL;
+-- The lower(email) UNIQUE index requires distinct values; the row id keeps the
+-- placeholder unique and greppable as deliberately invalid.
+UPDATE users SET email = 'legacy-' || id::text || '@invalid.remodel'
+WHERE email IS NULL;
+ALTER TABLE users ALTER COLUMN email SET NOT NULL;
+
+INSERT INTO remodel_report (category, ref_id, detail)
+SELECT 'users_null_password_hash', id, jsonb_build_object('email', email)
+FROM users WHERE password_hash IS NULL;
+-- Empty string is not a valid bcrypt hash, so the account stays locked out
+-- until an admin resets it; the row is preserved, never deleted.
+UPDATE users SET password_hash = '' WHERE password_hash IS NULL;
+ALTER TABLE users ALTER COLUMN password_hash SET NOT NULL;
 
 -- ---------------------------------------------------------------------------
 -- message_queue: approved names, error trio, media_id FK.
@@ -123,6 +144,7 @@ ALTER TABLE message_queue RENAME COLUMN status TO send_status;
 ALTER TABLE message_queue RENAME COLUMN retries TO retry_count;
 ALTER TABLE message_queue RENAME COLUMN whatsapp_id TO wa_id;
 ALTER TABLE message_queue RENAME COLUMN last_error TO last_error_message;
+ALTER TABLE message_queue ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE message_queue ADD COLUMN last_error_code text;
 ALTER TABLE message_queue ADD COLUMN last_error_at timestamptz;
 UPDATE message_queue
@@ -168,6 +190,7 @@ ALTER TABLE media RENAME COLUMN mimetype TO mime_type;
 ALTER TABLE media RENAME COLUMN filename TO file_name;
 ALTER TABLE media RENAME COLUMN storage_path TO object_key;
 
+ALTER TABLE media ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE media ADD COLUMN bucket text;
 ALTER TABLE media ADD COLUMN object_deleted_at timestamptz;
 ALTER TABLE media ADD COLUMN updated_at timestamptz;
@@ -323,6 +346,7 @@ ALTER TABLE idempotency_keys ADD CONSTRAINT idempotency_keys_status_check
 -- ---------------------------------------------------------------------------
 ALTER TABLE event_outbox RENAME COLUMN attempts TO attempt_count;
 ALTER TABLE event_outbox RENAME COLUMN last_error TO last_error_message;
+ALTER TABLE event_outbox ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE event_outbox ADD COLUMN last_error_code text;
 ALTER TABLE event_outbox ADD COLUMN last_error_at timestamptz;
 ALTER TABLE event_outbox ADD COLUMN updated_at timestamptz;
@@ -394,6 +418,7 @@ CREATE INDEX webhook_dead_letters_instance_idx
   ON webhook_dead_letters (instance_id, created_at DESC, id DESC);
 
 ALTER TABLE event_outbox ADD COLUMN published_at timestamptz;
+ALTER TABLE event_outbox ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE event_outbox RENAME COLUMN attempt_count TO attempts;
 ALTER TABLE event_outbox RENAME COLUMN last_error_message TO last_error;
 ALTER TABLE event_outbox DROP COLUMN last_error_code;
@@ -469,6 +494,7 @@ DROP INDEX media_wa_id_idx;
 DROP INDEX media_instance_idx;
 DROP INDEX media_expires_idx;
 ALTER TABLE media DROP CONSTRAINT media_bucket_object_key_key;
+ALTER TABLE media ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE media DROP COLUMN bucket;
 ALTER TABLE media DROP COLUMN object_deleted_at;
 ALTER TABLE media DROP COLUMN updated_at;
@@ -484,6 +510,7 @@ DROP INDEX message_queue_wa_id_idx;
 DROP INDEX message_queue_instance_status_idx;
 ALTER TABLE message_queue DROP CONSTRAINT message_queue_media_id_fkey;
 ALTER TABLE message_queue DROP CONSTRAINT message_queue_send_status_check;
+ALTER TABLE message_queue ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE message_queue RENAME COLUMN recipient_jid TO recipient;
 ALTER TABLE message_queue RENAME COLUMN message_type TO type;
 ALTER TABLE message_queue RENAME COLUMN send_status TO status;
@@ -496,6 +523,9 @@ ALTER TABLE message_queue ALTER COLUMN status SET DEFAULT 'queued';
 CREATE INDEX message_queue_instance_status_idx ON message_queue (instance_id, status);
 CREATE INDEX message_queue_wa_id_idx ON message_queue (whatsapp_id);
 
+ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
+ALTER TABLE users ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE users RENAME COLUMN instance_limit TO instance_quota;
 
 DROP INDEX instances_name_idx;
@@ -503,6 +533,7 @@ DROP INDEX instances_owner_idx;
 ALTER TABLE instances DROP CONSTRAINT instances_owner_user_id_fkey;
 ALTER TABLE instances ADD CONSTRAINT instances_owner_user_id_fkey
   FOREIGN KEY (owner_user_id) REFERENCES users(id);
+ALTER TABLE instances ALTER COLUMN id DROP DEFAULT;
 
 ALTER TABLE instances
   ADD COLUMN status text NOT NULL DEFAULT 'disconnected',

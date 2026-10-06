@@ -405,20 +405,23 @@ func (s *Storage) removeCacheFile(rel string) error {
 // step of the deployment removes it. Returns the count of uploaded objects.
 // It is a no-op in filesystem mode (nothing to migrate).
 //
-// The bucket of every store call — the existence probe and the upload — is
-// the one recorded on the row (the metadata authority, same rule as
-// Get/Delete): a migration that wrote elsewhere would leave media
-// unreachable on read and orphan objects under the sweep, the exact
-// wrong-bucket failure the row bucket prevents. Error behavior, per row: a
-// probe that reports the object absent (404/NotFound) triggers the upload
-// into the row bucket; any other error — an absent or unreachable bucket,
-// access denial, a failed upload — is aggregated as a per-row failure,
-// returned joined with the partial count, while the loop always continues
-// to the remaining rows. One stuck row can therefore neither abort the
-// batch nor trap the migration in a re-upload loop. Reruns are idempotent
-// and converge: uploaded rows are recognized by the probe and skipped, and
-// a deferred row is retried as-is because its local file is kept as the
-// recovery path.
+// Buckets: the existence probe runs on the bucket recorded on the row (the
+// metadata authority), so a row whose object already lives in its own bucket
+// is skipped untouched. When the object is absent, the upload goes into the
+// configured bucket — the one the deployment provisions (EnsureBucket) —
+// and the row is rewritten to record where the object landed, exactly like
+// Save. A filesystem-era row (bucket "local") or a row backfilled with
+// another deployment's bucket has no object yet; uploading into its stale
+// bucket would strand media behind a bucket nobody provisioned. Error
+// behavior, per row: any error — an absent or unreachable bucket, access
+// denial, a failed upload, a failed row rewrite — is aggregated as a
+// per-row failure, returned joined with the partial count, while the loop
+// always continues to the remaining rows. One stuck row can therefore
+// neither abort the batch nor trap the migration in a re-upload loop.
+// Reruns are idempotent and converge: a rewritten row is recognized by the
+// probe and skipped, a row whose rewrite failed is re-uploaded (same key,
+// same bytes) and rewritten again, and the local file is kept as the
+// recovery path throughout.
 func (s *Storage) MigrateLocalFiles(ctx context.Context, onProgress func(done, total int)) (int, error) {
 	if s.objects == nil {
 		return 0, nil
@@ -463,10 +466,13 @@ func (s *Storage) MigrateLocalFiles(ctx context.Context, onProgress func(done, t
 				continue
 			}
 		}
-		// The probe and the upload share one target: the bucket recorded on
-		// the row. A missing object (404/NotFound) is uploaded there, so the
-		// next run's probe finds it and the migration converges instead of
-		// re-uploading; any other error defers the row to a rerun without
+		// The probe stays on the row bucket: a row whose object already
+		// lives in its own bucket is left exactly as it is. A missing object
+		// (404/NotFound) is uploaded into the configured bucket — the one
+		// the deployment provisions — and the row is rewritten to record
+		// where the object landed, so the next run's probe (now on the
+		// upload bucket) finds it and the migration converges instead of
+		// re-uploading. Any other error defers the row to a rerun without
 		// aborting the batch (see the doc comment above).
 		exists, err := s.objects.Exists(ctx, record.Bucket, record.ObjectKey)
 		if err != nil {
@@ -476,7 +482,12 @@ func (s *Storage) MigrateLocalFiles(ctx context.Context, onProgress func(done, t
 		if exists {
 			continue
 		}
-		if err := s.objects.Put(ctx, record.Bucket, record.ObjectKey, data, record.Mimetype); err != nil {
+		uploadBucket := s.objects.Bucket()
+		if err := s.objects.Put(ctx, uploadBucket, record.ObjectKey, data, record.Mimetype); err != nil {
+			failures = append(failures, fmt.Errorf("media %s: %w", record.ID, err))
+			continue
+		}
+		if err := s.repo.SetBucket(ctx, record.ID, uploadBucket); err != nil {
 			failures = append(failures, fmt.Errorf("media %s: %w", record.ID, err))
 			continue
 		}

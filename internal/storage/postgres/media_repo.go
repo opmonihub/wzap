@@ -100,6 +100,21 @@ func (r *MediaRepository) MarkObjectDeleted(ctx context.Context, id uuid.UUID, a
 	return nil
 }
 
+// SetBucket rewrites the bucket a media object lives in, recording where a
+// migrated upload actually landed. Returns storage.ErrNotFound when the row
+// is absent.
+func (r *MediaRepository) SetBucket(ctx context.Context, id uuid.UUID, bucket string) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE media SET bucket = $2 WHERE id = $1`, id, bucket)
+	if err != nil {
+		return fmt.Errorf("set media bucket: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("set media bucket: %w", storage.ErrNotFound)
+	}
+	return nil
+}
+
 // ListInstancesWithMedia returns the distinct instance ids that own at least
 // one media row.
 func (r *MediaRepository) ListInstancesWithMedia(ctx context.Context) ([]uuid.UUID, error) {

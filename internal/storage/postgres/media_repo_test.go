@@ -216,6 +216,52 @@ func TestMediaRepositoryListExpired(t *testing.T) {
 	}
 }
 
+// TestMediaRepositorySetBucket pins the migration rewrite: SetBucket
+// persists the bucket where a migrated object was uploaded, so the row keeps
+// recording where the content lives (the metadata authority for every later
+// Get/Delete). An absent row reports ErrNotFound.
+func TestMediaRepositorySetBucket(t *testing.T) {
+	ctx := context.Background()
+	pool := newTestPool(t)
+	instances := NewInstanceRepository(pool)
+	media := NewMediaRepository(pool)
+	instance := createTestInstance(t, instances, "media-setbucket", "")
+
+	record, err := media.Create(ctx, model.Media{
+		ID:         uuid.New(),
+		InstanceID: instance.ID,
+		Direction:  "inbound",
+		Mimetype:   "image/jpeg",
+		Filename:   "foto.jpg",
+		SizeBytes:  1234,
+		Bucket:     "local",
+		ObjectKey:  "media/" + instance.ID.String() + "/setbucket",
+		SHA256:     "c0ffee",
+		ExpiresAt:  time.Now().Add(2 * time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if err := media.SetBucket(ctx, record.ID, "wzap-media"); err != nil {
+		t.Fatalf("SetBucket: %v", err)
+	}
+	got, err := media.Get(ctx, record.ID)
+	if err != nil {
+		t.Fatalf("Get after SetBucket: %v", err)
+	}
+	if got.Bucket != "wzap-media" {
+		t.Errorf("Bucket = %q, want wzap-media", got.Bucket)
+	}
+	if got.ObjectKey != record.ObjectKey {
+		t.Errorf("ObjectKey = %q, want %q (only the bucket may change)", got.ObjectKey, record.ObjectKey)
+	}
+
+	if err := media.SetBucket(ctx, uuid.New(), "wzap-media"); !errors.Is(err, storage.ErrNotFound) {
+		t.Errorf("SetBucket(absent) err = %v, want %v", err, storage.ErrNotFound)
+	}
+}
+
 func TestMediaRepositoryDelete(t *testing.T) {
 	ctx := context.Background()
 	pool := newTestPool(t)

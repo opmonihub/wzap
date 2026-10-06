@@ -31,6 +31,7 @@ type fakeObjects struct {
 	deleteErr error
 	existsErr error
 	deleted   []string
+	puts      []string
 }
 
 func newFakeObjects() *fakeObjects {
@@ -71,7 +72,15 @@ func (f *fakeObjects) Put(_ context.Context, bucket, key string, data []byte, _ 
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.data[f.fullKey(bucket, key)] = append([]byte(nil), data...)
+	f.puts = append(f.puts, f.fullKey(bucket, key))
 	return nil
+}
+
+// putCalls returns how many Put operations reached the store.
+func (f *fakeObjects) putCalls() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.puts)
 }
 
 func (f *fakeObjects) Get(_ context.Context, bucket, key string) (io.ReadCloser, error) {
@@ -614,15 +623,17 @@ func TestMigrateLocalFilesUploadsMissingObjectsWithChecksum(t *testing.T) {
 	}
 }
 
-// TestMigrateLocalFilesUploadsIntoRowBucket pins the bucket consistency of
-// the migration: the upload lands in the bucket recorded on the row (the row
-// is the metadata authority, like every other store call), never in the
-// currently configured one. A filesystem-era row (bucket "local") migrated
-// under a different WZAP_S3_BUCKET must end up reachable through the same
-// bucket that Get/Delete later target — uploading elsewhere orphans the
-// object while every read and delete keeps probing the row bucket. Get and
-// Delete through the storage must resolve that same bucket.
-func TestMigrateLocalFilesUploadsIntoRowBucket(t *testing.T) {
+// TestMigrateLocalFilesUploadsIntoConfiguredBucketAndRewritesRow pins the
+// upload target of the migration: rows whose content still lives only as a
+// local file (filesystem-era bucket "local", or a row backfilled with a
+// bucket from another deployment) are uploaded into the CONFIGURED bucket —
+// the only one the deployment provisions — and the row is rewritten to
+// record where the object was born, exactly like Save. The row stays the
+// authority for every later Get/Delete, so the migrated media must be
+// readable and sweepable right after the run. A rerun converges: the probe
+// (now on the rewritten bucket) finds the object and nothing is uploaded
+// again.
+func TestMigrateLocalFilesUploadsIntoConfiguredBucketAndRewritesRow(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
 	repo := newFakeMediaRepo()
@@ -658,14 +669,20 @@ func TestMigrateLocalFilesUploadsIntoRowBucket(t *testing.T) {
 	if migrated != 1 {
 		t.Errorf("migrated = %d, want 1", migrated)
 	}
-	if !objects.hasIn("local", legacy.ObjectKey) {
-		t.Error("upload did not land in the row bucket 'local'")
+	// The upload lands in the configured bucket, never in the row's stale
+	// one (which the deployment never provisioned).
+	if !objects.hasIn("", legacy.ObjectKey) {
+		t.Error("upload did not land in the configured bucket")
 	}
-	if objects.hasIn("", legacy.ObjectKey) {
-		t.Error("upload leaked into the configured bucket")
+	if objects.hasIn("local", legacy.ObjectKey) {
+		t.Error("upload wrote the stale row bucket 'local'")
+	}
+	// The row is rewritten to record the upload bucket, like Save does.
+	if got := repo.records[legacy.ID].Bucket; got != "wzap-media" {
+		t.Errorf("row bucket = %q, want wzap-media (rewritten to the upload bucket)", got)
 	}
 
-	// Get resolves the row bucket: Open serves the migrated object.
+	// Get follows the rewritten row: the migrated media is readable.
 	rc, _, err := store.Open(ctx, legacy.ID)
 	if err != nil {
 		t.Fatalf("Open after migration: %v", err)
@@ -676,22 +693,32 @@ func TestMigrateLocalFilesUploadsIntoRowBucket(t *testing.T) {
 		t.Errorf("Open content = %q, want %q", got, content)
 	}
 
-	// Delete resolves the row bucket: the expiry sweep removes the object
-	// from 'local' and never issues a delete against the configured bucket.
+	// A rerun converges: the probe (now on the rewritten bucket) finds the
+	// object and no second upload happens.
+	migrated, err = store.MigrateLocalFiles(ctx, nil)
+	if err != nil {
+		t.Fatalf("MigrateLocalFiles rerun: %v", err)
+	}
+	if migrated != 0 {
+		t.Errorf("migrated on rerun = %d, want 0", migrated)
+	}
+	if n := objects.putCalls(); n != 1 {
+		t.Errorf("Put calls = %d, want 1 (rerun must not re-upload)", n)
+	}
+
+	// Delete follows the row too: the expiry sweep removes the object from
+	// the rewritten bucket and never from the stale one.
 	expired := repo.records[legacy.ID]
 	expired.ExpiresAt = time.Now().Add(-time.Minute)
 	repo.records[legacy.ID] = expired
 	if removed, err := store.DeleteExpired(ctx, time.Now()); err != nil || removed != 1 {
 		t.Fatalf("DeleteExpired = (%d, %v), want (1, nil)", removed, err)
 	}
-	if objects.hasIn("local", legacy.ObjectKey) {
-		t.Error("object still present in the row bucket after DeleteExpired")
+	if !objects.deletedFrom("", legacy.ObjectKey) {
+		t.Error("delete did not target the rewritten row bucket")
 	}
-	if !objects.deletedFrom("local", legacy.ObjectKey) {
-		t.Error("delete did not target the row bucket 'local'")
-	}
-	if objects.deletedFrom("", legacy.ObjectKey) {
-		t.Error("a delete was issued against the configured bucket for the row-bucket key")
+	if objects.deletedFrom("local", legacy.ObjectKey) {
+		t.Error("a delete was issued against the stale row bucket")
 	}
 }
 
@@ -737,6 +764,13 @@ func TestMigrateLocalFilesSkipsWhenRowBucketAlreadyHasObject(t *testing.T) {
 	}
 	if objects.hasIn("", legacy.ObjectKey) {
 		t.Error("configured bucket received a write for a row-bucket key")
+	}
+	if n := objects.putCalls(); n != 0 {
+		t.Errorf("Put calls = %d, want 0 (row is skipped)", n)
+	}
+	// The row is left untouched: its object already lives in its own bucket.
+	if got := repo.records[legacy.ID].Bucket; got != "local" {
+		t.Errorf("row bucket = %q, want 'local' (skipped rows are never rewritten)", got)
 	}
 }
 

@@ -3,7 +3,9 @@
 - [x] 1.1 Fechar os cinco bloqueios do design, preenchendo tipos, nullabilidade, defaults, enums, índices, exclusões, rollback, vínculos legados, correlação pré-WA ID, catálogo de erros, matriz completa por rota e origem verificável da imagem exata; verificar que nenhuma decisão material permanece aberta.
 
   Registro (1.1): a tag MinIO aprovada foi substituída por `docker.io/cccs/minio:latest` por ruling do controller (quay 401 em todas as tags); o spec `wzap-media` ainda cita a tag quay e será reconciliado na sincronização de specs. Detalhes em design.md §"Decisões fechadas na task 1.1" e `.superpowers/sdd/plan/task-1.1-report.md`.
-- [ ] 1.2 Coordenar a baseline e a migração 00007 com a change de origem, preparar worktree em `.worktrees/` e preflight com backups e fixtures; verificar que alterações locais alheias não entram no diff e que os bancos de teste são isolados.
+- [x] 1.2 Coordenar a baseline e a migração 00007 com a change de origem, preparar worktree em `.worktrees/` e preflight com backups e fixtures; verificar que alterações locais alheias não entram no diff e que os bancos de teste são isolados.
+
+  Registro (1.2): preflight em `preflight.md` (schema 12 próprias + 17 whatsmeow + goose, 00007 registrada em `goose_db_version`, contagens por tabela, política de backup descartável + `pg_dump` local em `backups/` não commitado). Fixtures em `internal/storage/postgres/postgrestest/fixtures.go` (`SeedRemodelFixtures` cobre device_jid presente/ausente/legado/divergente, media_id órfão, marcadores `chatwoot-*`, `pending:{uuid}`, idempotência completed/in_progress, media expirada, dead letter, outbox publicado/pendente). `go build`/`vet`/`test` do pacote limpos; integração real exige `WZAP_TEST_DATABASE_URL` (skipped sem ela). Detalhes em `.superpowers/sdd/plan/task-1.2-report.md`.
 
 ## 2. Remodelar persistência
 

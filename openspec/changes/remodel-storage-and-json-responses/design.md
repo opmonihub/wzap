@@ -279,9 +279,9 @@ Observação: `whatsapp_jid` legado migra para `device_jid` quando ausente (regr
 | last_error_at | timestamptz | NULL | — | — |
 | next_attempt_at | timestamptz | NULL | — | — |
 | delivered_at | timestamptz | NULL | — | — |
-| read_at | timestamptz | NOT NULL | now() | — |
+| read_at | timestamptz | NULL | — | — |
 
-`media_id` ON DELETE SET NULL: uma mídia expirada/removida não pode derrubar a mensagem que a referenciava. A regra "mesma instância" é reforçada por trigger de verificação na migração? Não — enforce no repositório via constraint composta quando aplicável; na prática a aplicação sempre consulta `media.id` junto com `instance_id`, e uma `CHECK` declarativa não cobre cross-table. Política: validação no repositório (SELECT media WHERE id=$1 AND instance_id=$2) mais assert de integridade no pós-migração. Índices: `message_queue_instance_status_idx (instance_id, send_status)`, `message_queue_created_idx (created_at)`, `message_queue_wa_id_idx (wa_id)`, `message_queue_media_idx (media_id) WHERE media_id IS NOT NULL`, `message_queue_next_attempt_idx (next_attempt_at) WHERE send_status='queued'` (suporta `ClaimQueued`).
+`media_id` ON DELETE SET NULL: uma mídia expirada/removida não pode derrubar a mensagem que a referenciava. A regra "mesma instância" é garantida no repositório (a aplicação sempre consulta `media.id` junto com `instance_id`), sem triggers — uma `CHECK` declarativa não cobre validação cross-table. Política: validação no repositório (SELECT media WHERE id=$1 AND instance_id=$2) mais assert de integridade no pós-migração. Índices: `message_queue_instance_status_idx (instance_id, send_status)`, `message_queue_created_idx (created_at)`, `message_queue_wa_id_idx (wa_id)`, `message_queue_media_idx (media_id) WHERE media_id IS NOT NULL`, `message_queue_next_attempt_idx (next_attempt_at) WHERE send_status='queued'` (suporta `ClaimQueued`).
 
 #### 2.6 `media`
 

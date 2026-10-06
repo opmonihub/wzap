@@ -532,3 +532,152 @@ func TestChatwootMessageKeepsCorrelationWhenQueueRowDies(t *testing.T) {
 		t.Errorf("cw_id = %d, want the mirror evidence 777 kept", got.ChatwootMessageID)
 	}
 }
+
+// TestChatwootPromotePendingRewritesWAKey proves the pending:{uuid} window
+// end to end on real Postgres: the inbound write lands with the provisional
+// key and queue FK, and the sent event promotes it to the real wa_id.
+func TestChatwootPromotePendingRewritesWAKey(t *testing.T) {
+	ctx := context.Background()
+	pool := postgrestest.NewPool(t)
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatalf("migrate test schema: %v", err)
+	}
+
+	instances := NewInstanceRepository(pool)
+	messages := NewMessageRepository(pool)
+	instance, err := instances.Create(ctx, model.Instance{
+		ID:         uuid.New(),
+		Name:       "chatwoot-pending",
+		Connection: model.InstanceConnection{Status: "disconnected"},
+	})
+	if err != nil {
+		t.Fatalf("create instance: %v", err)
+	}
+	queue, err := messages.Create(ctx, model.OutboundMessage{
+		ID:           uuid.New(),
+		InstanceID:   instance.ID,
+		Type:         "text",
+		RecipientJID: "5511999999999@s.whatsapp.net",
+		Payload:      []byte(`{"text":"pendente"}`),
+		Status:       "queued",
+	})
+	if err != nil {
+		t.Fatalf("create queue row: %v", err)
+	}
+
+	_, msgRepo := NewChatwootRepositories(pool, nil)
+	if _, err := msgRepo.Put(ctx, model.ChatwootMessage{
+		InstanceID:        instance.ID,
+		MessageID:         &queue.ID,
+		WAKey:             "pending:" + queue.ID.String(),
+		ChatwootMessageID: 555,
+		ConversationID:    12,
+		InboxID:           4,
+	}); err != nil {
+		t.Fatalf("Put pending: %v", err)
+	}
+
+	promoted, err := msgRepo.PromotePending(ctx, instance.ID, queue.ID, "WAMID-REAL-9")
+	if err != nil {
+		t.Fatalf("PromotePending: %v", err)
+	}
+	if !promoted {
+		t.Fatal("PromotePending = false, want the pending row rewritten")
+	}
+
+	got, err := msgRepo.GetByWAKey(ctx, instance.ID, "WAMID-REAL-9")
+	if err != nil {
+		t.Fatalf("GetByWAKey real id: %v", err)
+	}
+	if got.ChatwootMessageID != 555 {
+		t.Errorf("cw_id = %d, want 555", got.ChatwootMessageID)
+	}
+	if got.MessageID == nil || *got.MessageID != queue.ID {
+		t.Errorf("message_id = %v, want %s kept", got.MessageID, queue.ID)
+	}
+	if _, err := msgRepo.GetByWAKey(ctx, instance.ID, "pending:"+queue.ID.String()); !errors.Is(err, storage.ErrNotFound) {
+		t.Errorf("pending key still present: %v", err)
+	}
+
+	// Idempotent: replaying the same promotion reports no pending row, no error.
+	again, err := msgRepo.PromotePending(ctx, instance.ID, queue.ID, "WAMID-REAL-9")
+	if err != nil {
+		t.Fatalf("replayed PromotePending: %v", err)
+	}
+	if again {
+		t.Error("replayed PromotePending = true, want false (nothing pending)")
+	}
+}
+
+// TestChatwootPromotePendingConflictKeepsRealKey proves that when the real
+// wa_key is already correlated (mirror won the race), the promotion drops
+// the stale pending row instead of erroring on the UNIQUE conflict.
+func TestChatwootPromotePendingConflictKeepsRealKey(t *testing.T) {
+	ctx := context.Background()
+	pool := postgrestest.NewPool(t)
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatalf("migrate test schema: %v", err)
+	}
+
+	instances := NewInstanceRepository(pool)
+	messages := NewMessageRepository(pool)
+	instance, err := instances.Create(ctx, model.Instance{
+		ID:         uuid.New(),
+		Name:       "chatwoot-conflict",
+		Connection: model.InstanceConnection{Status: "disconnected"},
+	})
+	if err != nil {
+		t.Fatalf("create instance: %v", err)
+	}
+	queue, err := messages.Create(ctx, model.OutboundMessage{
+		ID:           uuid.New(),
+		InstanceID:   instance.ID,
+		Type:         "text",
+		RecipientJID: "5511999999999@s.whatsapp.net",
+		Payload:      []byte(`{"text":"x"}`),
+		Status:       "queued",
+	})
+	if err != nil {
+		t.Fatalf("create queue row: %v", err)
+	}
+
+	_, msgRepo := NewChatwootRepositories(pool, nil)
+	// The real key is already correlated (mirror/import wrote first).
+	if _, err := msgRepo.Put(ctx, model.ChatwootMessage{
+		InstanceID:        instance.ID,
+		WAKey:             "WAMID-DUP",
+		ChatwootMessageID: 900,
+		ConversationID:    1,
+		InboxID:           2,
+	}); err != nil {
+		t.Fatalf("Put real key: %v", err)
+	}
+	if _, err := msgRepo.Put(ctx, model.ChatwootMessage{
+		InstanceID:        instance.ID,
+		MessageID:         &queue.ID,
+		WAKey:             "pending:" + queue.ID.String(),
+		ChatwootMessageID: 900,
+		ConversationID:    1,
+		InboxID:           2,
+	}); err != nil {
+		t.Fatalf("Put pending: %v", err)
+	}
+
+	promoted, err := msgRepo.PromotePending(ctx, instance.ID, queue.ID, "WAMID-DUP")
+	if err != nil {
+		t.Fatalf("PromotePending conflict: %v", err)
+	}
+	if !promoted {
+		t.Error("conflict PromotePending = false, want true (stale pending dropped)")
+	}
+	if _, err := msgRepo.GetByWAKey(ctx, instance.ID, "pending:"+queue.ID.String()); !errors.Is(err, storage.ErrNotFound) {
+		t.Errorf("stale pending row still present: %v", err)
+	}
+	got, err := msgRepo.GetByWAKey(ctx, instance.ID, "WAMID-DUP")
+	if err != nil {
+		t.Fatalf("GetByWAKey: %v", err)
+	}
+	if got.ChatwootMessageID != 900 {
+		t.Errorf("cw_id = %d, want the first correlation kept", got.ChatwootMessageID)
+	}
+}

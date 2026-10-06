@@ -220,6 +220,26 @@ func (f *fakeMessages) GetByChatwootID(_ context.Context, _ uuid.UUID, _ int64) 
 	return nil, storage.ErrNotFound
 }
 
+func (f *fakeMessages) PromotePending(_ context.Context, instanceID, queueID uuid.UUID, waKey string) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	pendingKey := f.key(instanceID, "pending:"+queueID.String())
+	msg, ok := f.rows[pendingKey]
+	if !ok {
+		return false, nil
+	}
+	realKey := f.key(instanceID, waKey)
+	if _, dup := f.rows[realKey]; dup {
+		// Mirror the SQL behavior: the real key wins, the pending row goes.
+		delete(f.rows, pendingKey)
+		return true, nil
+	}
+	delete(f.rows, pendingKey)
+	msg.WAKey = waKey
+	f.rows[realKey] = msg
+	return true, nil
+}
+
 func (f *fakeMessages) LatestByConversation(_ context.Context, _ uuid.UUID, _ int64) (*model.ChatwootMessage, error) {
 	return nil, storage.ErrNotFound
 }
@@ -1146,6 +1166,58 @@ func TestHandleMessageSkipsSearchLikePayload(t *testing.T) {
 	}
 	if n := len(fx.cli.creates()); n != 0 {
 		t.Errorf("CreateMessage calls = %d, want 0 (search-like payloads ignored)", n)
+	}
+}
+
+// TestHandleMessageStatusPromotesPendingCorrelation pins the second half of
+// the pending:{uuid} window: the sent status event rewrites the provisional
+// wa_key to the real WhatsApp id, and replays stay a no-op.
+func TestHandleMessageStatusPromotesPendingCorrelation(t *testing.T) {
+	fx := newFixture(nil)
+	ctx := context.Background()
+	instanceID := uuid.New()
+	queueID := uuid.New()
+
+	fx.msgs.rows[fx.msgs.key(instanceID, "pending:"+queueID.String())] = model.ChatwootMessage{
+		InstanceID:        instanceID,
+		MessageID:         &queueID,
+		WAKey:             "pending:" + queueID.String(),
+		ChatwootMessageID: 777,
+		ConversationID:    9,
+		InboxID:           5,
+	}
+
+	err := fx.worker.HandleMessageStatus(ctx, instanceID, uuid.New(), StatusPayload{
+		MessageID: queueID, Status: "sent", WhatsAppID: "WAMID-REAL-1",
+	})
+	if err != nil {
+		t.Fatalf("HandleMessageStatus: %v", err)
+	}
+	got, err := fx.msgs.GetByWAKey(ctx, instanceID, "WAMID-REAL-1")
+	if err != nil {
+		t.Fatalf("promoted correlation missing: %v", err)
+	}
+	if got.ChatwootMessageID != 777 {
+		t.Errorf("promoted cw_id = %d, want 777", got.ChatwootMessageID)
+	}
+	if _, err := fx.msgs.GetByWAKey(ctx, instanceID, "pending:"+queueID.String()); !errors.Is(err, storage.ErrNotFound) {
+		t.Errorf("pending row still present: %v", err)
+	}
+
+	// A replayed event is a no-op: nothing pending left and no error.
+	if err := fx.worker.HandleMessageStatus(ctx, instanceID, uuid.New(), StatusPayload{
+		MessageID: queueID, Status: "sent", WhatsAppID: "WAMID-REAL-1",
+	}); err != nil {
+		t.Errorf("replayed promotion errored: %v", err)
+	}
+
+	// Non-sent statuses never touch correlations.
+	for _, st := range []string{"failed", "delivered", "read", "queued"} {
+		if err := fx.worker.HandleMessageStatus(ctx, instanceID, uuid.New(), StatusPayload{
+			MessageID: queueID, Status: st, WhatsAppID: "WAMID-X",
+		}); err != nil {
+			t.Errorf("status %q errored: %v", st, err)
+		}
 	}
 }
 

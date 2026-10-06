@@ -47,6 +47,7 @@ type fakeOutbox struct {
 	claims     int
 	claimErr   error
 	published  map[uuid.UUID]int
+	markErr    error
 	attempts   map[uuid.UUID]int
 	lastErrors map[uuid.UUID]string
 	deleted    []time.Time
@@ -91,12 +92,17 @@ func (f *fakeOutbox) ClaimPending(_ context.Context, limit int) ([]model.OutboxE
 
 func (f *fakeOutbox) MarkPublished(_ context.Context, id uuid.UUID) error {
 	f.published[id]++
-	now := time.Now()
-	for i := range f.events {
-		if f.events[i].ID == id {
-			f.events[i].PublishedAt = &now
+	if f.markErr != nil {
+		return f.markErr
+	}
+	// Pending-only semantics: the confirmed event leaves the outbox entirely.
+	kept := make([]model.OutboxEvent, 0, len(f.events))
+	for _, event := range f.events {
+		if event.ID != id {
+			kept = append(kept, event)
 		}
 	}
+	f.events = kept
 	return nil
 }
 
@@ -117,18 +123,8 @@ func (f *fakeOutbox) DeletePublishedBefore(_ context.Context, t time.Time) (int6
 	if f.deleteErr != nil {
 		return 0, f.deleteErr
 	}
-
-	var removed int64
-	kept := make([]model.OutboxEvent, 0, len(f.events))
-	for _, event := range f.events {
-		if event.PublishedAt != nil && event.PublishedAt.Before(t) {
-			removed++
-			continue
-		}
-		kept = append(kept, event)
-	}
-	f.events = kept
-	return removed, nil
+	// Pending-only outbox: MarkPublished already removed published rows.
+	return 0, nil
 }
 
 type publishedEvent struct {
@@ -322,6 +318,54 @@ func TestRelayPublishNowContinuesAfterFailure(t *testing.T) {
 	}
 	if outbox.published[published.ID] != 1 {
 		t.Errorf("second event published count = %d, want 1", outbox.published[published.ID])
+	}
+}
+
+func TestRelayPublishNowDeleteFailureRepublishesSameUUID(t *testing.T) {
+	ctx := context.Background()
+	instanceID := uuid.New()
+	env := mustEnvelope(t, instanceID, "message")
+	row := outboxRow(t, env, Subjects.Message(instanceID))
+
+	outbox := newFakeOutbox(row)
+	publisher := &fakePublisher{}
+	relay := NewRelay(outbox, publisher, zerolog.Nop(), 7)
+
+	// The broker confirmed (PubAck) but the SQL delete failed: the row stays
+	// pending, so a later pass republishes the very same event_id — the
+	// JetStream Nats-Msg-Id dedup window is what keeps consumers safe.
+	outbox.markErr = errors.New("connection reset")
+	err := relay.PublishNow(ctx, []model.OutboxEvent{row})
+	if err == nil {
+		t.Fatal("PublishNow succeeded when the post-PubAck delete failed")
+	}
+	if len(publisher.calls) != 1 {
+		t.Fatalf("Publish calls = %d, want 1", len(publisher.calls))
+	}
+	pending, err := outbox.ClaimPending(ctx, 10)
+	if err != nil {
+		t.Fatalf("ClaimPending: %v", err)
+	}
+	if len(pending) != 1 || pending[0].ID != row.ID {
+		t.Fatalf("pending after delete failure = %+v, want the same row %s", pending, row.ID)
+	}
+
+	outbox.markErr = nil
+	if err := relay.PublishNow(ctx, pending); err != nil {
+		t.Fatalf("second PublishNow: %v", err)
+	}
+	if len(publisher.calls) != 2 {
+		t.Fatalf("Publish calls = %d, want 2 (republish after restart)", len(publisher.calls))
+	}
+	if publisher.calls[1].env.EventID != publisher.calls[0].env.EventID {
+		t.Errorf("republished event id = %s, want the same %s", publisher.calls[1].env.EventID, publisher.calls[0].env.EventID)
+	}
+	pending, err = outbox.ClaimPending(ctx, 10)
+	if err != nil {
+		t.Fatalf("ClaimPending: %v", err)
+	}
+	if len(pending) != 0 {
+		t.Errorf("pending after confirmed delete = %+v, want none", pending)
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	chatwootcfg "wzap/internal/chatwoot/config"
@@ -19,8 +20,8 @@ const chatwootConfigColumns = `instance_id, is_enabled, url, account_id, token, 
 	`is_merge_enabled, is_import_contacts, is_import_messages, import_days, is_auto_create, ` +
 	`organization, logo, ignored_jids, created_at, updated_at`
 
-const chatwootMessageColumns = `instance_id, wa_key, cw_id, ` +
-	`conversation_id, inbox_id, chat_jid, is_read, created_at`
+const chatwootMessageColumns = `id, instance_id, message_id, wa_key, cw_id, ` +
+	`conversation_id, inbox_id, chat_jid, is_read, created_at, updated_at`
 
 // ChatwootConfigRepository is the pgx-backed storage.ChatwootConfigRepository.
 // When tokenKey is non-nil the token column holds sealed values (enc:v1:):
@@ -189,21 +190,50 @@ func (r *ChatwootConfigRepository) Delete(ctx context.Context, instanceID uuid.U
 // and returns the stored row.
 func (r *ChatwootMessageRepository) Put(ctx context.Context, msg model.ChatwootMessage) (*model.ChatwootMessage, error) {
 	stored, err := scanChatwootMessage(r.pool.QueryRow(ctx, `
-		INSERT INTO chatwoot_messages (instance_id, wa_key, cw_id,
+		INSERT INTO chatwoot_messages (instance_id, message_id, wa_key, cw_id,
 			conversation_id, inbox_id, chat_jid, is_read)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (instance_id, wa_key) DO UPDATE SET
-			cw_id = EXCLUDED.cw_id,
+			cw_id = EXCLUDED.cw_id, message_id = EXCLUDED.message_id,
 			conversation_id = EXCLUDED.conversation_id, inbox_id = EXCLUDED.inbox_id,
 			chat_jid = EXCLUDED.chat_jid, is_read = EXCLUDED.is_read, updated_at = now()
 		RETURNING `+chatwootMessageColumns,
-		msg.InstanceID, msg.WAKey, msg.ChatwootMessageID,
+		msg.InstanceID, msg.MessageID, msg.WAKey, msg.ChatwootMessageID,
 		msg.ConversationID, msg.InboxID, msg.ContactSourceID, msg.IsRead,
 	))
 	if err != nil {
 		return nil, mapChatwootError("put chatwoot message", err)
 	}
 	return stored, nil
+}
+
+// PromotePending moves the provisional correlation of a queue row — stored
+// under the reserved wa_key "pending:{queue uuid}" — to the real WhatsApp id
+// once MarkSent produced it. It returns false when no pending row matches
+// (the send went out before the pending rule existed or was already
+// promoted). A wa_key already correlated reports a swallowed conflict as a
+// successful no-op: the event replay never errors for a duplicate promote.
+func (r *ChatwootMessageRepository) PromotePending(ctx context.Context, instanceID, queueID uuid.UUID, waKey string) (bool, error) {
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE chatwoot_messages
+		SET wa_key = $3, updated_at = now()
+		WHERE instance_id = $1 AND wa_key = 'pending:' || $2::text`,
+		instanceID, queueID, waKey)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			// The real wa_key is already correlated (mirror or import won
+			// first): drop the stale pending row and report promoted.
+			if _, derr := r.pool.Exec(ctx,
+				`DELETE FROM chatwoot_messages WHERE instance_id = $1 AND wa_key = 'pending:' || $2::text`,
+				instanceID, queueID); derr != nil {
+				return false, fmt.Errorf("promote pending chatwoot message: %w", derr)
+			}
+			return true, nil
+		}
+		return false, fmt.Errorf("promote pending chatwoot message: %w", err)
+	}
+	return tag.RowsAffected() > 0, nil
 }
 
 // GetByWAKey returns the correlation for a WhatsApp key or
@@ -274,9 +304,9 @@ func scanChatwootConfig(scanner rowScanner) (*model.ChatwootConfig, error) {
 func scanChatwootMessage(scanner rowScanner) (*model.ChatwootMessage, error) {
 	var msg model.ChatwootMessage
 	if err := scanner.Scan(
-		&msg.InstanceID, &msg.WAKey, &msg.ChatwootMessageID,
+		&msg.ID, &msg.InstanceID, &msg.MessageID, &msg.WAKey, &msg.ChatwootMessageID,
 		&msg.ConversationID, &msg.InboxID, &msg.ContactSourceID, &msg.IsRead,
-		&msg.CreatedAt,
+		&msg.CreatedAt, &msg.UpdatedAt,
 	); err != nil {
 		return nil, err
 	}

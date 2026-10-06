@@ -164,6 +164,15 @@ type ReadPayload struct {
 	Timestamp  time.Time `json:"timestamp"`
 }
 
+// StatusPayload is the JSON body of an outbound message.status event. On
+// "sent" it carries the queue message id plus the real WhatsApp id, which is
+// what promotes a pending:{uuid} correlation to the real wa_key.
+type StatusPayload struct {
+	MessageID  uuid.UUID `json:"message_id"`
+	Status     string    `json:"status"`
+	WhatsAppID string    `json:"whatsapp_id,omitempty"`
+}
+
 // ConnectionNotice is the JSON body of a connection event plus the optional
 // pairing material: the QR render and the pairing code travel out of band
 // (the connection envelope carries neither), so direct callers attach them
@@ -518,6 +527,31 @@ func (w *Worker) HandleRead(ctx context.Context, instanceID, eventID uuid.UUID, 
 	return nil
 }
 
+// HandleMessageStatus promotes the provisional pending:{uuid} correlation
+// to the real WhatsApp id when a queued outbound send completes. Other
+// statuses carry no wa_key and are acked without work. A missing pending
+// row (sends queued before this rule, or already promoted by a replay) is
+// a no-op, keeping the event idempotent.
+func (w *Worker) HandleMessageStatus(ctx context.Context, instanceID, eventID uuid.UUID, status StatusPayload) error {
+	if status.Status != "sent" || strings.TrimSpace(status.WhatsAppID) == "" || status.MessageID == uuid.Nil {
+		return nil
+	}
+	if w.messages == nil {
+		return nil
+	}
+	promoted, err := w.messages.PromotePending(ctx, instanceID, status.MessageID, status.WhatsAppID)
+	if err != nil {
+		w.log.Warn().Str("instance_id", instanceID.String()).Str("event_id", eventID.String()).
+			Str("queue_id", status.MessageID.String()).Err(err).Msg("pending correlation promotion failed")
+		return err
+	}
+	if promoted {
+		w.log.Debug().Str("instance_id", instanceID.String()).Str("queue_id", status.MessageID.String()).
+			Msg("chatwoot correlation promoted to wa_id")
+	}
+	return nil
+}
+
 // HandleConnection posts the connection transition to the operational
 // conversation in pt-BR. Identical consecutive notices within 30s are
 // throttled so a reconnect storm does not flood the operators.
@@ -829,10 +863,16 @@ func (w *Worker) handleNATSMessage(msg *nats.Msg) {
 		}
 		err = w.HandleConnection(ctx, env.InstanceID, env.EventID, payload)
 	case "message.status":
-		// Outbound delivery statuses feed other consumers; the Chatwoot
-		// mirror has nothing to project from them.
-		_ = msg.Ack()
-		return
+		// Outbound delivery statuses feed other consumers, but a "sent"
+		// status carries the real wa_id that promotes the provisional
+		// pending:{uuid} correlation the inbound webhook wrote.
+		var payload StatusPayload
+		if derr := json.Unmarshal(env.Payload, &payload); derr != nil {
+			w.log.Warn().Str("event_id", env.EventID.String()).Err(derr).Msg("dropping undecodable message.status payload")
+			_ = msg.Term()
+			return
+		}
+		err = w.HandleMessageStatus(ctx, env.InstanceID, env.EventID, payload)
 	default:
 		w.log.Warn().Str("event_id", env.EventID.String()).Str("type", env.Type).Msg("dropping event with unknown type")
 		_ = msg.Ack()

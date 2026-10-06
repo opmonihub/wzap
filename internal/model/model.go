@@ -200,7 +200,12 @@ type ChatwootConfig struct {
 // ChatwootMessage correlates a WhatsApp message key with its Chatwoot mirror.
 // Rows are never purged; they disappear on instance DELETE via cascade.
 type ChatwootMessage struct {
-	InstanceID        uuid.UUID
+	ID         uuid.UUID
+	InstanceID uuid.UUID
+	// MessageID references the queue row of an outbound send still awaiting
+	// or already carrying its WhatsApp id; nil for inbound and edit
+	// correlations that never had a queue row.
+	MessageID         *uuid.UUID
 	WAKey             string
 	ChatwootMessageID int64
 	ConversationID    int64
@@ -208,6 +213,7 @@ type ChatwootMessage struct {
 	ContactSourceID   string
 	IsRead            bool
 	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 // GroupMetadata is the cached metadata of a group: refreshed on demand from

@@ -139,10 +139,14 @@ type MediaSaver interface {
 }
 
 // Correlations resolves Chatwoot messages back to WhatsApp keys for quoting,
-// reverse delete and read markers.
+// reverse delete and read markers, and records the pending correlation of an
+// attendant reply still awaiting its WhatsApp id.
 type Correlations interface {
 	GetByChatwootID(ctx context.Context, instanceID uuid.UUID, chatwootID int64) (*model.ChatwootMessage, error)
 	LatestByConversation(ctx context.Context, instanceID uuid.UUID, conversationID int64) (*model.ChatwootMessage, error)
+	// Put upserts a correlation row keyed by (instance_id, wa_key); the
+	// pending window uses the reserved wa_key "pending:{queue uuid}".
+	Put(ctx context.Context, msg model.ChatwootMessage) (*model.ChatwootMessage, error)
 }
 
 // Instances reads the instance an operational command reports on.
@@ -388,7 +392,7 @@ func (h *Handler) handleOutgoing(ctx context.Context, instanceID uuid.UUID, cfg 
 				h.postPrivateNote(ctx, cfg, conversationIDOf(payload), fmt.Sprintf("Falha ao armazenar anexo: %v", err))
 				continue
 			}
-			if _, err := h.enqueuer.Enqueue(ctx, instanceID, message.EnqueueInput{
+			queueID, err := h.enqueuer.Enqueue(ctx, instanceID, message.EnqueueInput{
 				Type:     message.TypeMedia,
 				To:       recipient,
 				Caption:  text,
@@ -396,27 +400,31 @@ func (h *Handler) handleOutgoing(ctx context.Context, instanceID uuid.UUID, cfg 
 				PTT:      false,
 				MediaID:  &stored.ID,
 				QuotedID: quotedID,
-			}); err != nil {
+			})
+			if err != nil {
 				h.log.Warn().Str("instance_id", instanceID.String()).Err(err).Msg("media enqueue failed")
 				h.postPrivateNote(ctx, cfg, conversationIDOf(payload), fmt.Sprintf("Falha ao enviar mídia ao WhatsApp: %v", err))
 				continue
 			}
+			h.recordPending(ctx, instanceID, queueID, payload)
 			enqueued++
 		}
 		// When every attachment was skipped or failed but the message carries
 		// text, fall back to a text send so the attendant content is not
 		// silently lost.
 		if enqueued == 0 && strings.TrimSpace(text) != "" {
-			if _, err := h.enqueuer.Enqueue(ctx, instanceID, message.EnqueueInput{
+			queueID, err := h.enqueuer.Enqueue(ctx, instanceID, message.EnqueueInput{
 				Type:     message.TypeText,
 				To:       recipient,
 				Text:     text,
 				QuotedID: quotedID,
-			}); err != nil {
+			})
+			if err != nil {
 				h.log.Warn().Str("instance_id", instanceID.String()).Err(err).Msg("text fallback enqueue failed")
 				h.postPrivateNote(ctx, cfg, conversationIDOf(payload), fmt.Sprintf("Falha ao enviar ao WhatsApp: %v", err))
 				return 200, nil
 			}
+			h.recordPending(ctx, instanceID, queueID, payload)
 			enqueued++
 		}
 		if enqueued > 0 {
@@ -427,18 +435,59 @@ func (h *Handler) handleOutgoing(ctx context.Context, instanceID uuid.UUID, cfg 
 	if strings.TrimSpace(text) == "" {
 		return 200, nil
 	}
-	if _, err := h.enqueuer.Enqueue(ctx, instanceID, message.EnqueueInput{
+	queueID, err := h.enqueuer.Enqueue(ctx, instanceID, message.EnqueueInput{
 		Type:     message.TypeText,
 		To:       recipient,
 		Text:     text,
 		QuotedID: quotedID,
-	}); err != nil {
+	})
+	if err != nil {
 		h.log.Warn().Str("instance_id", instanceID.String()).Err(err).Msg("text enqueue failed")
 		h.postPrivateNote(ctx, cfg, conversationIDOf(payload), fmt.Sprintf("Falha ao enviar ao WhatsApp: %v", err))
 		return 200, nil
 	}
+	h.recordPending(ctx, instanceID, queueID, payload)
 	h.markReadBestEffort(ctx, instanceID, conversationIDOf(payload))
 	return 200, nil
+}
+
+// recordPending registers the provisional correlation of an attendant reply
+// that was queued but has no WhatsApp id yet: the reserved wa_key
+// "pending:{queue uuid}" keeps one row per queue entry (every send of a
+// multi-attachment Chatwoot message gets its own pending key) until the
+// mirror promotes it to the real wa_id on the sent status event. Failures
+// are logged and swallowed — the correlation is evidence, never a gate on
+// the send itself.
+func (h *Handler) recordPending(ctx context.Context, instanceID, queueID uuid.UUID, payload Payload) {
+	if h.correlations == nil {
+		return
+	}
+	msg := payload.Message
+	var cwID, convID, inboxID int64
+	if msg != nil {
+		cwID = msg.ID
+		convID = msg.ConversationID
+	}
+	if convID == 0 {
+		convID = conversationIDOf(payload)
+	}
+	chatJID := ""
+	if prev, err := h.correlations.LatestByConversation(ctx, instanceID, convID); err == nil && prev != nil {
+		inboxID = prev.InboxID
+		chatJID = prev.ContactSourceID
+	}
+	pending := model.ChatwootMessage{
+		InstanceID:        instanceID,
+		MessageID:         &queueID,
+		WAKey:             "pending:" + queueID.String(),
+		ChatwootMessageID: cwID,
+		ConversationID:    convID,
+		InboxID:           inboxID,
+		ContactSourceID:   chatJID,
+	}
+	if _, err := h.correlations.Put(ctx, pending); err != nil {
+		h.log.Warn().Str("instance_id", instanceID.String()).Str("queue_id", queueID.String()).Err(err).Msg("pending chatwoot correlation failed")
+	}
 }
 
 // signedText renders the outbound text: templates go direct without

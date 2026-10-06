@@ -79,12 +79,14 @@ func (f *fakeConfigs) Put(_ context.Context, cfg model.ChatwootConfig) (*model.C
 
 func (f *fakeConfigs) Delete(_ context.Context, _ uuid.UUID) error { return nil }
 
-// fakeCorrelations resolves Chatwoot IDs to WA keys.
+// fakeCorrelations resolves Chatwoot IDs to WA keys and records Put calls.
 type fakeCorrelations struct {
 	byChatwootID map[int64]*model.ChatwootMessage
 	latest       *model.ChatwootMessage
 	latestErr    error
 	lookups      []int64
+	puts         []model.ChatwootMessage
+	putErr       error
 }
 
 func (f *fakeCorrelations) GetByChatwootID(_ context.Context, _ uuid.UUID, id int64) (*model.ChatwootMessage, error) {
@@ -103,6 +105,15 @@ func (f *fakeCorrelations) LatestByConversation(_ context.Context, _ uuid.UUID, 
 		return nil, storage.ErrNotFound
 	}
 	return f.latest, nil
+}
+
+func (f *fakeCorrelations) Put(_ context.Context, msg model.ChatwootMessage) (*model.ChatwootMessage, error) {
+	f.puts = append(f.puts, msg)
+	if f.putErr != nil {
+		return nil, f.putErr
+	}
+	stored := msg
+	return &stored, nil
 }
 
 // fakeInstances returns a fixed instance.
@@ -1012,5 +1023,106 @@ func TestHandleAttachmentSSRFRejectedKeepsWebhook200(t *testing.T) {
 	}
 	if got := fx.enqueuer.inputs[0]; got.Type != message.TypeText {
 		t.Errorf("Enqueue type = %q, want text fallback", got.Type)
+	}
+}
+
+// TestHandleOutgoingRegistersPendingCorrelation pins the pending:{uuid}
+// rule: every queued attendant reply gets a chatwoot_messages row keyed by
+// the reserved pending wa_key and carrying the queue UUID, so the sent
+// status event can later promote it to the real wa_id.
+func TestHandleOutgoingRegistersPendingCorrelation(t *testing.T) {
+	fx := newFixture(t, enabledConnector(), globalOn())
+	fx.correls.latestErr = storage.ErrNotFound
+	queueID := uuid.New()
+	fx.enqueuer.fn = func(context.Context, uuid.UUID, message.EnqueueInput) (uuid.UUID, error) {
+		return queueID, nil
+	}
+	payload := outgoingPayload(90, "resposta ao cliente")
+
+	status, err := fx.handler.Handle(context.Background(), fx.instance, payload)
+	if err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	if status != 200 {
+		t.Fatalf("status = %d, want 200", status)
+	}
+	if len(fx.correls.puts) != 1 {
+		t.Fatalf("correlation Put calls = %d, want 1", len(fx.correls.puts))
+	}
+	put := fx.correls.puts[0]
+	if put.WAKey != "pending:"+queueID.String() {
+		t.Errorf("pending wa_key = %q, want pending:%s", put.WAKey, queueID)
+	}
+	if put.MessageID == nil || *put.MessageID != queueID {
+		t.Errorf("pending message_id = %v, want %s", put.MessageID, queueID)
+	}
+	if put.ChatwootMessageID != payload.Message.ID {
+		t.Errorf("pending cw_id = %d, want %d", put.ChatwootMessageID, payload.Message.ID)
+	}
+	if put.ConversationID != conversationIDOf(payload) {
+		t.Errorf("pending conversation_id = %d, want %d", put.ConversationID, conversationIDOf(payload))
+	}
+}
+
+// TestHandleOutgoingMultipleAttachmentsRegisterOnePendingEach pins that a
+// multi-attachment Chatwoot message produces one pending correlation per
+// queue row — each send gets its own pending:{uuid} key, never a shared
+// synthetic wa_id.
+func TestHandleOutgoingMultipleAttachmentsRegisterOnePendingEach(t *testing.T) {
+	fx := newFixture(t, enabledConnector(), globalOn())
+	fx.correls.latestErr = storage.ErrNotFound
+	var queueIDs []uuid.UUID
+	fx.enqueuer.fn = func(context.Context, uuid.UUID, message.EnqueueInput) (uuid.UUID, error) {
+		id := uuid.New()
+		queueIDs = append(queueIDs, id)
+		return id, nil
+	}
+	payload := outgoingPayload(91, "fotos")
+	payload.Message.Attachments = []Attachment{
+		{ID: 1, FileType: "image", DataURL: "https://chatwoot.example.com/rails/a.jpg", FileName: "a.jpg"},
+		{ID: 2, FileType: "image", DataURL: "https://chatwoot.example.com/rails/b.jpg", FileName: "b.jpg"},
+	}
+
+	status, err := fx.handler.Handle(context.Background(), fx.instance, payload)
+	if err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	if status != 200 {
+		t.Fatalf("status = %d, want 200", status)
+	}
+	if len(fx.enqueuer.inputs) != 2 {
+		t.Fatalf("Enqueue calls = %d, want 2 media", len(fx.enqueuer.inputs))
+	}
+	if len(fx.correls.puts) != 2 {
+		t.Fatalf("correlation Put calls = %d, want 2 (one per queue row)", len(fx.correls.puts))
+	}
+	for i, put := range fx.correls.puts {
+		if put.WAKey != "pending:"+queueIDs[i].String() {
+			t.Errorf("pending[%d] wa_key = %q, want pending:%s", i, put.WAKey, queueIDs[i])
+		}
+		if put.ChatwootMessageID != payload.Message.ID {
+			t.Errorf("pending[%d] cw_id = %d, want the shared Chatwoot message %d", i, put.ChatwootMessageID, payload.Message.ID)
+		}
+	}
+}
+
+// TestHandleOutgoingPendingCorrelationFailureKeepsSend pins that a broken
+// correlation store never gates the send: the enqueue already went out and
+// the webhook still answers 200.
+func TestHandleOutgoingPendingCorrelationFailureKeepsSend(t *testing.T) {
+	fx := newFixture(t, enabledConnector(), globalOn())
+	fx.correls.latestErr = storage.ErrNotFound
+	fx.correls.putErr = errors.New("correlation store down")
+	payload := outgoingPayload(92, "resposta")
+
+	status, err := fx.handler.Handle(context.Background(), fx.instance, payload)
+	if err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	if status != 200 {
+		t.Fatalf("status = %d, want 200", status)
+	}
+	if len(fx.enqueuer.inputs) != 1 {
+		t.Fatalf("Enqueue calls = %d, want the send to proceed", len(fx.enqueuer.inputs))
 	}
 }

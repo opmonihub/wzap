@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -138,7 +139,7 @@ func Idempotency(
 			}
 
 			if !acquired {
-				replay(w, record)
+				replay(w, r, record)
 				return
 			}
 
@@ -179,16 +180,52 @@ func Idempotency(
 	}
 }
 
-// replay answers with a response stored under an idempotency key.
-func replay(w http.ResponseWriter, record *model.IdempotencyRecord) {
+// replay answers with a response stored under an idempotency key. A stored
+// body that no longer converts to the current contract — empty, truncated
+// or not one of the API envelopes — answers 410 Gone instead of replaying
+// the raw bytes: removed fields must never resurface, and re-running the
+// operation is exactly what the key exists to prevent.
+func replay(w http.ResponseWriter, r *http.Request, record *model.IdempotencyRecord) {
 	status := record.ResponseStatus
 	if status == 0 {
 		status = http.StatusOK
+	}
+	if !convertibleBody(record.ResponseBody) {
+		Error(w, r, http.StatusGone, "idempotency_response_expired",
+			"cached response predates the current contract; retry without the idempotency key or with a new one")
+		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set(idempotentReplayHeader, "true")
 	w.WriteHeader(status)
 	_, _ = w.Write(record.ResponseBody)
+}
+
+// convertibleBody reports whether a stored response body is safe to replay:
+// it must parse as one of the API envelopes, {"data": ...} or
+// {"error": {"code", "message"}}. Anything else predates the contract and is
+// not convertible.
+func convertibleBody(body []byte) bool {
+	if len(bytes.TrimSpace(body)) == 0 {
+		return false
+	}
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return false
+	}
+	if data, ok := envelope["data"]; ok && len(bytes.TrimSpace(data)) > 0 {
+		return true
+	}
+	if errField, ok := envelope["error"]; ok {
+		var apiErr struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		}
+		if err := json.Unmarshal(errField, &apiErr); err == nil && apiErr.Code != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // releaseKey frees an idempotency key, logging a failure to free it.

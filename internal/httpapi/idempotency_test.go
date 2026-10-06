@@ -911,3 +911,89 @@ func TestFingerprintLargeBodyFallsBackToRouteAndKeepsBody(t *testing.T) {
 		t.Errorf("restored body length = %d, want %d", len(restored), len(large))
 	}
 }
+
+// TestIdempotencyUnconvertibleReplayAnswers410 pins the closed policy for
+// legacy cached bodies: a stored response that no longer converts to the
+// current contract (truncated, empty or not an API envelope) answers 410
+// Gone and never replays the raw bytes or re-runs the effect.
+func TestIdempotencyUnconvertibleReplayAnswers410(t *testing.T) {
+	id := uuid.New()
+	request := idempotencyRequest(id, "key-old", `{"to":"5547"}`)
+	fingerprint, cleanup, err := fingerprintRequest(request, testMultipartBytes)
+	if err != nil {
+		t.Fatalf("fingerprintRequest: %v", err)
+	}
+	if cleanup != nil {
+		defer cleanup()
+	}
+
+	cases := map[string][]byte{
+		"truncated json":        []byte(`{"data":{"mess`),
+		"empty body":            nil,
+		"non-envelope object":   []byte(`{"message_id":"m1","status":"queued"}`),
+		"plain text":            []byte(`ok`),
+		"malformed error":       []byte(`{"error":"oops"}`),
+		"array without data":    []byte(`[{"a":1}]`),
+		"envelope missing keys": []byte(`{"result":{"id":"1"}}`),
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			repo := newFakeIdempotency()
+			repo.putRecord(model.IdempotencyRecord{
+				InstanceID: id, Key: "key-old", Fingerprint: fingerprint,
+				Status: "completed", ResponseStatus: http.StatusAccepted, ResponseBody: body,
+			})
+			calls := 0
+			rec := serveIdempotency(repo, countingHandler(&calls, http.StatusAccepted, "new"),
+				idempotencyRequest(id, "key-old", `{"to":"5547"}`))
+
+			if calls != 0 {
+				t.Errorf("handler calls = %d, want 0 (the effect never re-runs)", calls)
+			}
+			if rec.Code != http.StatusGone {
+				t.Errorf("status = %d, want 410", rec.Code)
+			}
+			if code := errorCode(t, rec.Body.Bytes()); code != "idempotency_response_expired" {
+				t.Errorf("error code = %q, want idempotency_response_expired", code)
+			}
+			// The key stays owned: the caller decides, the fingerprint is not
+			// silently reacquired by the same content.
+			if len(repo.releases) != 0 {
+				t.Errorf("Release calls = %d, want the key kept", len(repo.releases))
+			}
+		})
+	}
+}
+
+// TestIdempotencyReplayAcceptsBothEnvelopes pins that a stored {"data":...}
+// or {"error":{"code","message"}} body is convertible and replays as stored.
+func TestIdempotencyReplayAcceptsBothEnvelopes(t *testing.T) {
+	id := uuid.New()
+	request := idempotencyRequest(id, "key-env", `{"to":"5547"}`)
+	fingerprint, cleanup, err := fingerprintRequest(request, testMultipartBytes)
+	if err != nil {
+		t.Fatalf("fingerprintRequest: %v", err)
+	}
+	if cleanup != nil {
+		defer cleanup()
+	}
+
+	for _, body := range [][]byte{
+		[]byte(`{"data":{"message_id":"m1"}}`),
+		[]byte(`{"error":{"code":"upstream_error","message":"wa down"}}`),
+	} {
+		repo := newFakeIdempotency()
+		repo.putRecord(model.IdempotencyRecord{
+			InstanceID: id, Key: "key-env", Fingerprint: fingerprint,
+			Status: "completed", ResponseStatus: http.StatusAccepted, ResponseBody: body,
+		})
+		rec := serveIdempotency(repo, countingHandler(new(int), http.StatusAccepted, "new"),
+			idempotencyRequest(id, "key-env", `{"to":"5547"}`))
+		if rec.Code != http.StatusAccepted {
+			t.Errorf("replay of %s = %d, want 202", body, rec.Code)
+		}
+		if rec.Body.String() != string(body) {
+			t.Errorf("replay body = %q, want the stored %q", rec.Body.String(), body)
+		}
+	}
+}

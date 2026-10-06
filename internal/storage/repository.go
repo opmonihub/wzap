@@ -229,6 +229,11 @@ type ChatwootMessageRepository interface {
 	// backing recipient resolution and mark-read. It reports ErrNotFound
 	// without one.
 	LatestByConversation(ctx context.Context, instanceID uuid.UUID, conversationID int64) (*model.ChatwootMessage, error)
+	// PromotePending rewrites the provisional wa_key "pending:{queueID}" of an
+	// outbound correlation to the real WhatsApp id. It returns false when no
+	// pending row matches; an already-correlated wa_key is a successful
+	// no-op so replayed status events never fail.
+	PromotePending(ctx context.Context, instanceID, queueID uuid.UUID, waKey string) (bool, error)
 	DeleteByInstance(ctx context.Context, instanceID uuid.UUID) (int64, error)
 }
 

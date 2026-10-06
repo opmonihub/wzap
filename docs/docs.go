@@ -51,7 +51,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.identityResponse"
+                                            "$ref": "#/definitions/httpapi.meEnvelope"
                                         }
                                     }
                                 }
@@ -195,7 +195,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.identityResponse"
+                                            "$ref": "#/definitions/httpapi.meEnvelope"
                                         }
                                     }
                                 }
@@ -640,7 +640,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.instanceStatsResponse"
+                                            "$ref": "#/definitions/httpapi.statsEnvelope"
                                         }
                                     }
                                 }
@@ -751,7 +751,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.instanceResponse"
+                                            "$ref": "#/definitions/httpapi.instanceEnvelope"
                                         }
                                     }
                                 }
@@ -966,7 +966,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.instanceResponse"
+                                            "$ref": "#/definitions/httpapi.instanceEnvelope"
                                         }
                                     }
                                 }
@@ -1761,7 +1761,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Applied duration, wrapped in the data envelope",
+                        "description": "Default timer updated, wrapped in the data envelope",
                         "schema": {
                             "allOf": [
                                 {
@@ -1771,7 +1771,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.disappearingResponse"
+                                            "$ref": "#/definitions/httpapi.disappearingUpdatedResponse"
                                         }
                                     }
                                 }
@@ -2214,7 +2214,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Applied timer, wrapped in the data envelope",
+                        "description": "Timer updated, wrapped in the data envelope",
                         "schema": {
                             "allOf": [
                                 {
@@ -2224,7 +2224,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.disappearingResponse"
+                                            "$ref": "#/definitions/httpapi.disappearingUpdatedResponse"
                                         }
                                     }
                                 }
@@ -2343,7 +2343,7 @@ const docTemplate = `{
                         "apikey": []
                     }
                 ],
-                "description": "Accepts a global key, own instance key or wzap_session cookie; user sessions are limited to owned instances and admin/global scope can access every instance. A never-configured instance returns a disabled config with empty fields. Token is write-only and the response token is always an empty string.",
+                "description": "Accepts a global key, own instance key or wzap_session cookie; user sessions are limited to owned instances and admin/global scope can access every instance. A never-configured instance returns a disabled config with empty fields. Token is write-only and absent from the response.",
                 "produces": [
                     "application/json"
                 ],
@@ -2362,7 +2362,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Connector config; token is always empty",
+                        "description": "Connector config under data.chatwoot_config; token is absent",
                         "schema": {
                             "allOf": [
                                 {
@@ -2372,7 +2372,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.chatwootConfigResponse"
+                                            "$ref": "#/definitions/httpapi.chatwootConfigEnvelope"
                                         }
                                     }
                                 }
@@ -2465,7 +2465,7 @@ const docTemplate = `{
                         "apikey": []
                     }
                 ],
-                "description": "Accepts a global key, own instance key or wzap_session cookie; user sessions are limited to owned instances and admin/global scope can access every instance. Token is write-only: GET and PUT responses always carry token as an empty string. Enabled configuration is validated before persistence; auto_create attempts inbox provisioning.",
+                "description": "Accepts a global key, own instance key or wzap_session cookie; user sessions are limited to owned instances and admin/global scope can access every instance. Token is write-only: it is accepted on PUT and never appears in GET or PUT responses. Enabled configuration is validated before persistence; is_auto_create attempts inbox provisioning.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2496,7 +2496,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Saved connector config; token is always empty",
+                        "description": "Saved connector config under data.chatwoot_config; token is absent",
                         "schema": {
                             "allOf": [
                                 {
@@ -2506,7 +2506,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.chatwootConfigResponse"
+                                            "$ref": "#/definitions/httpapi.chatwootConfigEnvelope"
                                         }
                                     }
                                 }
@@ -4071,7 +4071,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.groupResponse"
+                                            "$ref": "#/definitions/httpapi.groupEnvelope"
                                         }
                                     }
                                 }
@@ -4225,7 +4225,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.groupResponse"
+                                            "$ref": "#/definitions/httpapi.groupEnvelope"
                                         }
                                     }
                                 }
@@ -4514,7 +4514,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.groupResponse"
+                                            "$ref": "#/definitions/httpapi.groupEnvelope"
                                         }
                                     }
                                 }
@@ -4632,7 +4632,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Updated group, wrapped in the data envelope",
+                        "description": "Updated, wrapped in the data envelope",
                         "schema": {
                             "allOf": [
                                 {
@@ -4642,7 +4642,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.groupResponse"
+                                            "$ref": "#/definitions/httpapi.groupUpdatedResponse"
                                         }
                                     }
                                 }
@@ -5760,7 +5760,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Updated group, wrapped in the data envelope",
+                        "description": "Updated, wrapped in the data envelope",
                         "schema": {
                             "allOf": [
                                 {
@@ -5770,7 +5770,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.groupResponse"
+                                            "$ref": "#/definitions/httpapi.groupUpdatedResponse"
                                         }
                                     }
                                 }
@@ -7284,7 +7284,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.messageResponse"
+                                            "$ref": "#/definitions/httpapi.messageEnvelope"
                                         }
                                     }
                                 }
@@ -7528,7 +7528,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.newsletterResponse"
+                                            "$ref": "#/definitions/httpapi.channelEnvelope"
                                         }
                                     }
                                 }
@@ -8000,7 +8000,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.newsletterResponse"
+                                            "$ref": "#/definitions/httpapi.channelEnvelope"
                                         }
                                     }
                                 }
@@ -11196,10 +11196,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/httpapi.userQuotaResponse"
-                                            }
+                                            "$ref": "#/definitions/httpapi.userListResponse"
                                         }
                                     }
                                 }
@@ -11289,7 +11286,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.userQuotaResponse"
+                                            "$ref": "#/definitions/httpapi.userResponseEnvelope"
                                         }
                                     }
                                 }
@@ -11424,7 +11421,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.userQuotaResponse"
+                                            "$ref": "#/definitions/httpapi.userResponseEnvelope"
                                         }
                                     }
                                 }
@@ -11627,7 +11624,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.userQuotaResponse"
+                                            "$ref": "#/definitions/httpapi.userResponseEnvelope"
                                         }
                                     }
                                 }
@@ -11729,6 +11726,23 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "httpapi.acceptedMessageResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "instance_id": {
+                    "type": "string"
+                },
+                "media_id": {
+                    "type": "string"
+                },
+                "send_status": {
+                    "type": "string"
+                }
+            }
+        },
         "httpapi.blocklistResponse": {
             "type": "object",
             "properties": {
@@ -11748,6 +11762,14 @@ const docTemplate = `{
                 }
             }
         },
+        "httpapi.channelEnvelope": {
+            "type": "object",
+            "properties": {
+                "channel": {
+                    "$ref": "#/definitions/httpapi.newsletterResponse"
+                }
+            }
+        },
         "httpapi.chatwootCommandRequest": {
             "type": "object",
             "properties": {
@@ -11759,62 +11781,66 @@ const docTemplate = `{
                 }
             }
         },
+        "httpapi.chatwootConfigEnvelope": {
+            "type": "object",
+            "properties": {
+                "chatwoot_config": {
+                    "$ref": "#/definitions/httpapi.chatwootConfigResponse"
+                }
+            }
+        },
         "httpapi.chatwootConfigResponse": {
             "type": "object",
             "properties": {
                 "account_id": {
                     "type": "string"
                 },
-                "auto_create": {
-                    "type": "boolean"
-                },
-                "conversation_pending": {
-                    "type": "boolean"
-                },
-                "days_limit": {
-                    "type": "integer"
-                },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "ignore_jids": {
+                "ignored_jids": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
-                "import_contacts": {
-                    "type": "boolean"
+                "import_days": {
+                    "type": "integer"
                 },
-                "import_messages": {
-                    "type": "boolean"
+                "inbox_name": {
+                    "type": "string"
                 },
                 "instance_id": {
                     "type": "string"
                 },
-                "logo": {
-                    "type": "string"
-                },
-                "merge_brazil_contacts": {
+                "is_auto_create": {
                     "type": "boolean"
                 },
-                "name_inbox": {
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "is_import_contacts": {
+                    "type": "boolean"
+                },
+                "is_import_messages": {
+                    "type": "boolean"
+                },
+                "is_merge_enabled": {
+                    "type": "boolean"
+                },
+                "is_pending_enabled": {
+                    "type": "boolean"
+                },
+                "is_reopen_enabled": {
+                    "type": "boolean"
+                },
+                "is_sign_enabled": {
+                    "type": "boolean"
+                },
+                "logo": {
                     "type": "string"
                 },
                 "organization": {
                     "type": "string"
                 },
-                "reopen_conversation": {
-                    "type": "boolean"
-                },
                 "sign_delimiter": {
-                    "type": "string"
-                },
-                "sign_msg": {
-                    "type": "boolean"
-                },
-                "token": {
-                    "description": "Token is always an empty string; the stored credential is write-only.",
                     "type": "string"
                 },
                 "url": {
@@ -11831,50 +11857,50 @@ const docTemplate = `{
                 "account_id": {
                     "type": "string"
                 },
-                "auto_create": {
-                    "type": "boolean"
-                },
-                "conversation_pending": {
-                    "type": "boolean"
-                },
-                "days_limit": {
-                    "type": "integer"
-                },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "ignore_jids": {
+                "ignored_jids": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
-                "import_contacts": {
+                "import_days": {
+                    "type": "integer"
+                },
+                "inbox_name": {
+                    "type": "string"
+                },
+                "is_auto_create": {
                     "type": "boolean"
                 },
-                "import_messages": {
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "is_import_contacts": {
+                    "type": "boolean"
+                },
+                "is_import_messages": {
+                    "type": "boolean"
+                },
+                "is_merge_enabled": {
+                    "type": "boolean"
+                },
+                "is_pending_enabled": {
+                    "type": "boolean"
+                },
+                "is_reopen_enabled": {
+                    "type": "boolean"
+                },
+                "is_sign_enabled": {
                     "type": "boolean"
                 },
                 "logo": {
                     "type": "string"
                 },
-                "merge_brazil_contacts": {
-                    "type": "boolean"
-                },
-                "name_inbox": {
-                    "type": "string"
-                },
                 "organization": {
                     "type": "string"
                 },
-                "reopen_conversation": {
-                    "type": "boolean"
-                },
                 "sign_delimiter": {
                     "type": "string"
-                },
-                "sign_msg": {
-                    "type": "boolean"
                 },
                 "token": {
                     "description": "Token is accepted only on write and never echoed in config responses.",
@@ -11910,6 +11936,20 @@ const docTemplate = `{
         "httpapi.connectResponse": {
             "type": "object",
             "properties": {
+                "connection": {
+                    "$ref": "#/definitions/httpapi.pairingConnection"
+                }
+            }
+        },
+        "httpapi.connectionResponse": {
+            "type": "object",
+            "properties": {
+                "last_connected_at": {
+                    "type": "string"
+                },
+                "last_error": {
+                    "$ref": "#/definitions/httpapi.lastErrorResponse"
+                },
                 "qr_code": {
                     "type": "string"
                 },
@@ -12018,66 +12058,18 @@ const docTemplate = `{
                 "owner_user_id": {
                     "type": "string"
                 },
-                "webhook_enabled": {
-                    "type": "boolean"
-                },
-                "webhook_events": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "webhook_url": {
-                    "type": "string"
+                "webhook": {
+                    "$ref": "#/definitions/httpapi.webhookInput"
                 }
             }
         },
         "httpapi.createInstanceResponse": {
             "type": "object",
             "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "external_ref": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
+                "instance": {
+                    "$ref": "#/definitions/httpapi.instanceResponse"
                 },
                 "instance_api_key": {
-                    "type": "string"
-                },
-                "last_connected_at": {
-                    "type": "string"
-                },
-                "last_error": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "owner_user_id": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "webhook_enabled": {
-                    "type": "boolean"
-                },
-                "webhook_events": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "webhook_url": {
-                    "type": "string"
-                },
-                "whatsapp_jid": {
                     "type": "string"
                 }
             }
@@ -12099,7 +12091,7 @@ const docTemplate = `{
                 "email": {
                     "type": "string"
                 },
-                "instance_quota": {
+                "instance_limit": {
                     "type": "integer",
                     "minimum": 0
                 },
@@ -12129,6 +12121,14 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "found": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "httpapi.disappearingUpdatedResponse": {
+            "type": "object",
+            "properties": {
+                "updated": {
                     "type": "boolean"
                 }
             }
@@ -12185,6 +12185,14 @@ const docTemplate = `{
             "properties": {
                 "channel": {
                     "type": "string"
+                }
+            }
+        },
+        "httpapi.groupEnvelope": {
+            "type": "object",
+            "properties": {
+                "group": {
+                    "$ref": "#/definitions/httpapi.groupResponse"
                 }
             }
         },
@@ -12288,13 +12296,21 @@ const docTemplate = `{
                 }
             }
         },
+        "httpapi.instanceEnvelope": {
+            "type": "object",
+            "properties": {
+                "instance": {
+                    "$ref": "#/definitions/httpapi.instanceResponse"
+                }
+            }
+        },
         "httpapi.instanceListResponse": {
             "type": "object",
             "properties": {
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/httpapi.instanceResponse"
+                        "$ref": "#/definitions/httpapi.instanceEnvelope"
                     }
                 }
             }
@@ -12302,47 +12318,23 @@ const docTemplate = `{
         "httpapi.instanceResponse": {
             "type": "object",
             "properties": {
-                "created_at": {
-                    "type": "string"
+                "connection": {
+                    "$ref": "#/definitions/httpapi.connectionResponse"
                 },
-                "external_ref": {
+                "created_at": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
                 },
-                "last_connected_at": {
-                    "type": "string"
-                },
-                "last_error": {
-                    "type": "string"
-                },
                 "name": {
-                    "type": "string"
-                },
-                "owner_user_id": {
-                    "type": "string"
-                },
-                "status": {
                     "type": "string"
                 },
                 "updated_at": {
                     "type": "string"
                 },
-                "webhook_enabled": {
-                    "type": "boolean"
-                },
-                "webhook_events": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "webhook_url": {
-                    "type": "string"
-                },
-                "whatsapp_jid": {
-                    "type": "string"
+                "webhook": {
+                    "$ref": "#/definitions/httpapi.webhookResponse"
                 }
             }
         },
@@ -12374,10 +12366,24 @@ const docTemplate = `{
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/httpapi.groupResponse"
+                        "$ref": "#/definitions/httpapi.groupEnvelope"
                     }
                 },
                 "next_cursor": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.lastErrorResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "occurred_at": {
                     "type": "string"
                 }
             }
@@ -12434,14 +12440,27 @@ const docTemplate = `{
                 }
             }
         },
+        "httpapi.meEnvelope": {
+            "type": "object",
+            "properties": {
+                "me": {
+                    "$ref": "#/definitions/httpapi.identityResponse"
+                }
+            }
+        },
         "httpapi.messageAcceptedResponse": {
             "type": "object",
             "properties": {
-                "message_id": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
+                "message": {
+                    "$ref": "#/definitions/httpapi.acceptedMessageResponse"
+                }
+            }
+        },
+        "httpapi.messageEnvelope": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "$ref": "#/definitions/httpapi.messageResponse"
                 }
             }
         },
@@ -12451,7 +12470,7 @@ const docTemplate = `{
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/httpapi.messageResponse"
+                        "$ref": "#/definitions/httpapi.messageEnvelope"
                     }
                 },
                 "next_cursor": {
@@ -12462,9 +12481,6 @@ const docTemplate = `{
         "httpapi.messageResponse": {
             "type": "object",
             "properties": {
-                "attempts": {
-                    "type": "integer"
-                },
                 "created_at": {
                     "type": "string"
                 },
@@ -12478,24 +12494,33 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "last_error": {
+                    "$ref": "#/definitions/httpapi.lastErrorResponse"
+                },
+                "media_id": {
+                    "type": "string"
+                },
+                "message_type": {
+                    "type": "string"
+                },
+                "next_attempt_at": {
                     "type": "string"
                 },
                 "read_at": {
                     "type": "string"
                 },
-                "recipient": {
+                "recipient_jid": {
                     "type": "string"
                 },
-                "status": {
-                    "type": "string"
+                "retry_count": {
+                    "type": "integer"
                 },
-                "type": {
+                "send_status": {
                     "type": "string"
                 },
                 "updated_at": {
                     "type": "string"
                 },
-                "whatsapp_message_id": {
+                "wa_id": {
                     "type": "string"
                 }
             }
@@ -12530,7 +12555,7 @@ const docTemplate = `{
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/httpapi.newsletterResponse"
+                        "$ref": "#/definitions/httpapi.channelEnvelope"
                     }
                 },
                 "next_cursor": {
@@ -12674,10 +12699,24 @@ const docTemplate = `{
                 }
             }
         },
+        "httpapi.pairingConnection": {
+            "type": "object",
+            "properties": {
+                "qr_code": {
+                    "type": "string"
+                },
+                "qr_expires_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "httpapi.patchQuotaRequest": {
             "type": "object",
             "properties": {
-                "instance_quota": {
+                "instance_limit": {
                     "type": "integer",
                     "minimum": 0
                 }
@@ -12966,6 +13005,14 @@ const docTemplate = `{
                 }
             }
         },
+        "httpapi.statsEnvelope": {
+            "type": "object",
+            "properties": {
+                "stats": {
+                    "$ref": "#/definitions/httpapi.instanceStatsResponse"
+                }
+            }
+        },
         "httpapi.statusDeleteResponse": {
             "type": "object",
             "properties": {
@@ -13013,17 +13060,8 @@ const docTemplate = `{
         "httpapi.statusResponse": {
             "type": "object",
             "properties": {
-                "last_connected_at": {
-                    "type": "string"
-                },
-                "last_error": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "whatsapp_jid": {
-                    "type": "string"
+                "connection": {
+                    "$ref": "#/definitions/httpapi.connectionResponse"
                 }
             }
         },
@@ -13098,17 +13136,8 @@ const docTemplate = `{
                     "description": "Actual renames follow the create name grammar and uniqueness rule; an exactly unchanged legacy name is accepted.",
                     "type": "string"
                 },
-                "webhook_enabled": {
-                    "type": "boolean"
-                },
-                "webhook_events": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "webhook_url": {
-                    "type": "string"
+                "webhook": {
+                    "$ref": "#/definitions/httpapi.webhookInput"
                 }
             }
         },
@@ -13157,19 +13186,81 @@ const docTemplate = `{
                 }
             }
         },
-        "httpapi.userQuotaResponse": {
+        "httpapi.userListResponse": {
             "type": "object",
             "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httpapi.userResponseEnvelope"
+                    }
+                }
+            }
+        },
+        "httpapi.userResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
                 },
-                "instance_quota": {
+                "instance_limit": {
+                    "type": "integer"
+                },
+                "instances_used": {
                     "type": "integer"
                 },
                 "role": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.userResponseEnvelope": {
+            "type": "object",
+            "properties": {
+                "user": {
+                    "$ref": "#/definitions/httpapi.userResponse"
+                }
+            }
+        },
+        "httpapi.webhookInput": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.webhookResponse": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "url": {
                     "type": "string"
                 }
             }

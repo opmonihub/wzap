@@ -1,5 +1,16 @@
 basePath: /
 definitions:
+  httpapi.acceptedMessageResponse:
+    properties:
+      id:
+        type: string
+      instance_id:
+        type: string
+      media_id:
+        type: string
+      send_status:
+        type: string
+    type: object
   httpapi.blocklistResponse:
     properties:
       items:
@@ -12,6 +23,11 @@ definitions:
       updated:
         type: boolean
     type: object
+  httpapi.channelEnvelope:
+    properties:
+      channel:
+        $ref: '#/definitions/httpapi.newsletterResponse'
+    type: object
   httpapi.chatwootCommandRequest:
     properties:
       command:
@@ -19,44 +35,46 @@ definitions:
       conversation_id:
         type: integer
     type: object
+  httpapi.chatwootConfigEnvelope:
+    properties:
+      chatwoot_config:
+        $ref: '#/definitions/httpapi.chatwootConfigResponse'
+    type: object
   httpapi.chatwootConfigResponse:
     properties:
       account_id:
         type: string
-      auto_create:
-        type: boolean
-      conversation_pending:
-        type: boolean
-      days_limit:
-        type: integer
-      enabled:
-        type: boolean
-      ignore_jids:
+      ignored_jids:
         items:
           type: string
         type: array
-      import_contacts:
-        type: boolean
-      import_messages:
-        type: boolean
+      import_days:
+        type: integer
+      inbox_name:
+        type: string
       instance_id:
         type: string
-      logo:
-        type: string
-      merge_brazil_contacts:
+      is_auto_create:
         type: boolean
-      name_inbox:
+      is_enabled:
+        type: boolean
+      is_import_contacts:
+        type: boolean
+      is_import_messages:
+        type: boolean
+      is_merge_enabled:
+        type: boolean
+      is_pending_enabled:
+        type: boolean
+      is_reopen_enabled:
+        type: boolean
+      is_sign_enabled:
+        type: boolean
+      logo:
         type: string
       organization:
         type: string
-      reopen_conversation:
-        type: boolean
       sign_delimiter:
-        type: string
-      sign_msg:
-        type: boolean
-      token:
-        description: Token is always an empty string; the stored credential is write-only.
         type: string
       url:
         type: string
@@ -67,36 +85,36 @@ definitions:
     properties:
       account_id:
         type: string
-      auto_create:
-        type: boolean
-      conversation_pending:
-        type: boolean
-      days_limit:
-        type: integer
-      enabled:
-        type: boolean
-      ignore_jids:
+      ignored_jids:
         items:
           type: string
         type: array
-      import_contacts:
+      import_days:
+        type: integer
+      inbox_name:
+        type: string
+      is_auto_create:
         type: boolean
-      import_messages:
+      is_enabled:
+        type: boolean
+      is_import_contacts:
+        type: boolean
+      is_import_messages:
+        type: boolean
+      is_merge_enabled:
+        type: boolean
+      is_pending_enabled:
+        type: boolean
+      is_reopen_enabled:
+        type: boolean
+      is_sign_enabled:
         type: boolean
       logo:
         type: string
-      merge_brazil_contacts:
-        type: boolean
-      name_inbox:
-        type: string
       organization:
         type: string
-      reopen_conversation:
-        type: boolean
       sign_delimiter:
         type: string
-      sign_msg:
-        type: boolean
       token:
         description: Token is accepted only on write and never echoed in config responses.
         type: string
@@ -119,6 +137,15 @@ definitions:
     type: object
   httpapi.connectResponse:
     properties:
+      connection:
+        $ref: '#/definitions/httpapi.pairingConnection'
+    type: object
+  httpapi.connectionResponse:
+    properties:
+      last_connected_at:
+        type: string
+      last_error:
+        $ref: '#/definitions/httpapi.lastErrorResponse'
       qr_code:
         type: string
       qr_expires_at:
@@ -190,46 +217,14 @@ definitions:
         type: string
       owner_user_id:
         type: string
-      webhook_enabled:
-        type: boolean
-      webhook_events:
-        items:
-          type: string
-        type: array
-      webhook_url:
-        type: string
+      webhook:
+        $ref: '#/definitions/httpapi.webhookInput'
     type: object
   httpapi.createInstanceResponse:
     properties:
-      created_at:
-        type: string
-      external_ref:
-        type: string
-      id:
-        type: string
+      instance:
+        $ref: '#/definitions/httpapi.instanceResponse'
       instance_api_key:
-        type: string
-      last_connected_at:
-        type: string
-      last_error:
-        type: string
-      name:
-        type: string
-      owner_user_id:
-        type: string
-      status:
-        type: string
-      updated_at:
-        type: string
-      webhook_enabled:
-        type: boolean
-      webhook_events:
-        items:
-          type: string
-        type: array
-      webhook_url:
-        type: string
-      whatsapp_jid:
         type: string
     type: object
   httpapi.createNewsletterRequest:
@@ -243,7 +238,7 @@ definitions:
     properties:
       email:
         type: string
-      instance_quota:
+      instance_limit:
         minimum: 0
         type: integer
       password:
@@ -263,6 +258,11 @@ definitions:
       duration_seconds:
         type: integer
       found:
+        type: boolean
+    type: object
+  httpapi.disappearingUpdatedResponse:
+    properties:
+      updated:
         type: boolean
     type: object
   httpapi.editMessageRequest:
@@ -299,6 +299,11 @@ definitions:
     properties:
       channel:
         type: string
+    type: object
+  httpapi.groupEnvelope:
+    properties:
+      group:
+        $ref: '#/definitions/httpapi.groupResponse'
     type: object
   httpapi.groupInviteResponse:
     properties:
@@ -364,43 +369,32 @@ definitions:
       role:
         type: string
     type: object
+  httpapi.instanceEnvelope:
+    properties:
+      instance:
+        $ref: '#/definitions/httpapi.instanceResponse'
+    type: object
   httpapi.instanceListResponse:
     properties:
       items:
         items:
-          $ref: '#/definitions/httpapi.instanceResponse'
+          $ref: '#/definitions/httpapi.instanceEnvelope'
         type: array
     type: object
   httpapi.instanceResponse:
     properties:
+      connection:
+        $ref: '#/definitions/httpapi.connectionResponse'
       created_at:
-        type: string
-      external_ref:
         type: string
       id:
         type: string
-      last_connected_at:
-        type: string
-      last_error:
-        type: string
       name:
-        type: string
-      owner_user_id:
-        type: string
-      status:
         type: string
       updated_at:
         type: string
-      webhook_enabled:
-        type: boolean
-      webhook_events:
-        items:
-          type: string
-        type: array
-      webhook_url:
-        type: string
-      whatsapp_jid:
-        type: string
+      webhook:
+        $ref: '#/definitions/httpapi.webhookResponse'
     type: object
   httpapi.instanceStatsResponse:
     properties:
@@ -420,9 +414,18 @@ definitions:
     properties:
       items:
         items:
-          $ref: '#/definitions/httpapi.groupResponse'
+          $ref: '#/definitions/httpapi.groupEnvelope'
         type: array
       next_cursor:
+        type: string
+    type: object
+  httpapi.lastErrorResponse:
+    properties:
+      code:
+        type: string
+      message:
+        type: string
+      occurred_at:
         type: string
     type: object
   httpapi.loginRequest:
@@ -458,26 +461,32 @@ definitions:
       marked_read:
         type: boolean
     type: object
+  httpapi.meEnvelope:
+    properties:
+      me:
+        $ref: '#/definitions/httpapi.identityResponse'
+    type: object
   httpapi.messageAcceptedResponse:
     properties:
-      message_id:
-        type: string
-      status:
-        type: string
+      message:
+        $ref: '#/definitions/httpapi.acceptedMessageResponse'
+    type: object
+  httpapi.messageEnvelope:
+    properties:
+      message:
+        $ref: '#/definitions/httpapi.messageResponse'
     type: object
   httpapi.messageListResponse:
     properties:
       items:
         items:
-          $ref: '#/definitions/httpapi.messageResponse'
+          $ref: '#/definitions/httpapi.messageEnvelope'
         type: array
       next_cursor:
         type: string
     type: object
   httpapi.messageResponse:
     properties:
-      attempts:
-        type: integer
       created_at:
         type: string
       delivered_at:
@@ -487,18 +496,24 @@ definitions:
       instance_id:
         type: string
       last_error:
+        $ref: '#/definitions/httpapi.lastErrorResponse'
+      media_id:
+        type: string
+      message_type:
+        type: string
+      next_attempt_at:
         type: string
       read_at:
         type: string
-      recipient:
+      recipient_jid:
         type: string
-      status:
-        type: string
-      type:
+      retry_count:
+        type: integer
+      send_status:
         type: string
       updated_at:
         type: string
-      whatsapp_message_id:
+      wa_id:
         type: string
     type: object
   httpapi.muteNewsletterRequest:
@@ -520,7 +535,7 @@ definitions:
     properties:
       items:
         items:
-          $ref: '#/definitions/httpapi.newsletterResponse'
+          $ref: '#/definitions/httpapi.channelEnvelope'
         type: array
       next_cursor:
         type: string
@@ -612,9 +627,18 @@ definitions:
       pairing_code:
         type: string
     type: object
+  httpapi.pairingConnection:
+    properties:
+      qr_code:
+        type: string
+      qr_expires_at:
+        type: string
+      status:
+        type: string
+    type: object
   httpapi.patchQuotaRequest:
     properties:
-      instance_quota:
+      instance_limit:
         minimum: 0
         type: integer
     type: object
@@ -800,6 +824,11 @@ definitions:
       to:
         type: string
     type: object
+  httpapi.statsEnvelope:
+    properties:
+      stats:
+        $ref: '#/definitions/httpapi.instanceStatsResponse'
+    type: object
   httpapi.statusDeleteResponse:
     properties:
       deleted:
@@ -830,14 +859,8 @@ definitions:
     type: object
   httpapi.statusResponse:
     properties:
-      last_connected_at:
-        type: string
-      last_error:
-        type: string
-      status:
-        type: string
-      whatsapp_jid:
-        type: string
+      connection:
+        $ref: '#/definitions/httpapi.connectionResponse'
     type: object
   httpapi.subscribePresenceResponse:
     properties:
@@ -886,14 +909,8 @@ definitions:
         description: Actual renames follow the create name grammar and uniqueness
           rule; an exactly unchanged legacy name is accepted.
         type: string
-      webhook_enabled:
-        type: boolean
-      webhook_events:
-        items:
-          type: string
-        type: array
-      webhook_url:
-        type: string
+      webhook:
+        $ref: '#/definitions/httpapi.webhookInput'
     type: object
   httpapi.updateParticipantsRequest:
     properties:
@@ -924,15 +941,55 @@ definitions:
       status_text:
         type: string
     type: object
-  httpapi.userQuotaResponse:
+  httpapi.userListResponse:
     properties:
+      items:
+        items:
+          $ref: '#/definitions/httpapi.userResponseEnvelope'
+        type: array
+    type: object
+  httpapi.userResponse:
+    properties:
+      created_at:
+        type: string
       email:
         type: string
       id:
         type: string
-      instance_quota:
+      instance_limit:
+        type: integer
+      instances_used:
         type: integer
       role:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  httpapi.userResponseEnvelope:
+    properties:
+      user:
+        $ref: '#/definitions/httpapi.userResponse'
+    type: object
+  httpapi.webhookInput:
+    properties:
+      enabled:
+        type: boolean
+      events:
+        items:
+          type: string
+        type: array
+      url:
+        type: string
+    type: object
+  httpapi.webhookResponse:
+    properties:
+      enabled:
+        type: boolean
+      events:
+        items:
+          type: string
+        type: array
+      url:
         type: string
     type: object
   inbound.Attachment:
@@ -1069,7 +1126,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.identityResponse'
+                  $ref: '#/definitions/httpapi.meEnvelope'
               type: object
         "400":
           description: Malformed body
@@ -1157,7 +1214,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.identityResponse'
+                  $ref: '#/definitions/httpapi.meEnvelope'
               type: object
         "401":
           description: Missing or invalid session
@@ -1501,7 +1558,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.instanceResponse'
+                  $ref: '#/definitions/httpapi.instanceEnvelope'
               type: object
         "401":
           description: Missing or invalid credential
@@ -1577,7 +1634,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.instanceResponse'
+                  $ref: '#/definitions/httpapi.instanceEnvelope'
               type: object
         "400":
           description: Malformed body or invalid cursor
@@ -2169,7 +2226,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: Applied timer, wrapped in the data envelope
+          description: Timer updated, wrapped in the data envelope
           headers:
             X-Request-Id:
               description: Correlation id, generated when absent
@@ -2179,7 +2236,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.disappearingResponse'
+                  $ref: '#/definitions/httpapi.disappearingUpdatedResponse'
               type: object
         "400":
           description: Malformed body
@@ -2271,7 +2328,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: Applied duration, wrapped in the data envelope
+          description: Default timer updated, wrapped in the data envelope
           headers:
             X-Request-Id:
               description: Correlation id, generated when absent
@@ -2281,7 +2338,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.disappearingResponse'
+                  $ref: '#/definitions/httpapi.disappearingUpdatedResponse'
               type: object
         "400":
           description: Malformed body
@@ -2460,8 +2517,7 @@ paths:
       description: Accepts a global key, own instance key or wzap_session cookie;
         user sessions are limited to owned instances and admin/global scope can access
         every instance. A never-configured instance returns a disabled config with
-        empty fields. Token is write-only and the response token is always an empty
-        string.
+        empty fields. Token is write-only and absent from the response.
       parameters:
       - description: Instance UUID or name (exact, case-sensitive)
         in: path
@@ -2472,7 +2528,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: Connector config; token is always empty
+          description: Connector config under data.chatwoot_config; token is absent
           headers:
             X-Request-Id:
               description: Correlation id, generated when absent
@@ -2482,7 +2538,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.chatwootConfigResponse'
+                  $ref: '#/definitions/httpapi.chatwootConfigEnvelope'
               type: object
         "400":
           description: Connector disabled, malformed request or invalid instance ID
@@ -2542,9 +2598,9 @@ paths:
       - application/json
       description: 'Accepts a global key, own instance key or wzap_session cookie;
         user sessions are limited to owned instances and admin/global scope can access
-        every instance. Token is write-only: GET and PUT responses always carry token
-        as an empty string. Enabled configuration is validated before persistence;
-        auto_create attempts inbox provisioning.'
+        every instance. Token is write-only: it is accepted on PUT and never appears
+        in GET or PUT responses. Enabled configuration is validated before persistence;
+        is_auto_create attempts inbox provisioning.'
       parameters:
       - description: Instance UUID or name (exact, case-sensitive)
         in: path
@@ -2561,7 +2617,8 @@ paths:
       - application/json
       responses:
         "200":
-          description: Saved connector config; token is always empty
+          description: Saved connector config under data.chatwoot_config; token is
+            absent
           headers:
             X-Request-Id:
               description: Correlation id, generated when absent
@@ -2571,7 +2628,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.chatwootConfigResponse'
+                  $ref: '#/definitions/httpapi.chatwootConfigEnvelope'
               type: object
         "400":
           description: Connector disabled, malformed request or invalid instance ID
@@ -3577,7 +3634,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.groupResponse'
+                  $ref: '#/definitions/httpapi.groupEnvelope'
               type: object
         "400":
           description: Malformed body
@@ -3676,7 +3733,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.groupResponse'
+                  $ref: '#/definitions/httpapi.groupEnvelope'
               type: object
         "401":
           description: Missing or invalid credential
@@ -3748,7 +3805,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: Updated group, wrapped in the data envelope
+          description: Updated, wrapped in the data envelope
           headers:
             X-Request-Id:
               description: Correlation id, generated when absent
@@ -3758,7 +3815,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.groupResponse'
+                  $ref: '#/definitions/httpapi.groupUpdatedResponse'
               type: object
         "400":
           description: Malformed body
@@ -4472,7 +4529,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: Updated group, wrapped in the data envelope
+          description: Updated, wrapped in the data envelope
           headers:
             X-Request-Id:
               description: Correlation id, generated when absent
@@ -4482,7 +4539,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.groupResponse'
+                  $ref: '#/definitions/httpapi.groupUpdatedResponse'
               type: object
         "400":
           description: Malformed body
@@ -4581,7 +4638,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.groupResponse'
+                  $ref: '#/definitions/httpapi.groupEnvelope'
               type: object
         "401":
           description: Missing or invalid credential
@@ -4965,7 +5022,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.messageResponse'
+                  $ref: '#/definitions/httpapi.messageEnvelope'
               type: object
         "401":
           description: Missing or invalid credential
@@ -5797,7 +5854,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.newsletterResponse'
+                  $ref: '#/definitions/httpapi.channelEnvelope'
               type: object
         "400":
           description: Malformed body
@@ -5896,7 +5953,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.newsletterResponse'
+                  $ref: '#/definitions/httpapi.channelEnvelope'
               type: object
         "401":
           description: Missing or invalid credential
@@ -7999,7 +8056,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.instanceStatsResponse'
+                  $ref: '#/definitions/httpapi.statsEnvelope'
               type: object
         "401":
           description: Missing or invalid credential
@@ -8230,9 +8287,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  items:
-                    $ref: '#/definitions/httpapi.userQuotaResponse'
-                  type: array
+                  $ref: '#/definitions/httpapi.userListResponse'
               type: object
         "401":
           description: Missing or invalid credential
@@ -8287,7 +8342,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.userQuotaResponse'
+                  $ref: '#/definitions/httpapi.userResponseEnvelope'
               type: object
         "400":
           description: Malformed body
@@ -8433,7 +8488,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.userQuotaResponse'
+                  $ref: '#/definitions/httpapi.userResponseEnvelope'
               type: object
         "401":
           description: Missing or invalid credential
@@ -8501,7 +8556,7 @@ paths:
             - $ref: '#/definitions/httpapi.envelope'
             - properties:
                 data:
-                  $ref: '#/definitions/httpapi.userQuotaResponse'
+                  $ref: '#/definitions/httpapi.userResponseEnvelope'
               type: object
         "400":
           description: Malformed body

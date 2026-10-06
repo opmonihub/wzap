@@ -59,49 +59,49 @@ type ChatwootImporter interface {
 // are values (absent means false); sign_msg type errors are mapped to 422 by
 // inspecting the decode failure.
 type chatwootSetRequest struct {
-	Enabled   bool   `json:"enabled"`
+	IsEnabled bool   `json:"is_enabled"`
 	URL       string `json:"url"`
 	AccountID string `json:"account_id"`
 	// Token is accepted only on write and never echoed in config responses.
-	Token               string   `json:"token"`
-	NameInbox           string   `json:"name_inbox"`
-	SignMsg             bool     `json:"sign_msg"`
-	SignDelimiter       string   `json:"sign_delimiter"`
-	ReopenConversation  bool     `json:"reopen_conversation"`
-	ConversationPending bool     `json:"conversation_pending"`
-	MergeBrazilContacts bool     `json:"merge_brazil_contacts"`
-	ImportContacts      bool     `json:"import_contacts"`
-	ImportMessages      bool     `json:"import_messages"`
-	DaysLimit           int      `json:"days_limit"`
-	AutoCreate          bool     `json:"auto_create"`
-	Organization        string   `json:"organization"`
-	Logo                string   `json:"logo"`
-	IgnoreJIDs          []string `json:"ignore_jids"`
+	Token            string   `json:"token"`
+	InboxName        string   `json:"inbox_name"`
+	IsSignEnabled    bool     `json:"is_sign_enabled"`
+	SignDelimiter    string   `json:"sign_delimiter"`
+	IsReopenEnabled  bool     `json:"is_reopen_enabled"`
+	IsPendingEnabled bool     `json:"is_pending_enabled"`
+	IsMergeEnabled   bool     `json:"is_merge_enabled"`
+	IsImportContacts bool     `json:"is_import_contacts"`
+	IsImportMessages bool     `json:"is_import_messages"`
+	ImportDays       int      `json:"import_days"`
+	IsAutoCreate     bool     `json:"is_auto_create"`
+	Organization     string   `json:"organization"`
+	Logo             string   `json:"logo"`
+	IgnoredJIDs      []string `json:"ignored_jids"`
 }
 
-// chatwootConfigResponse is the GET/PUT /instances/{id}/chatwoot body: the
-// stored connector plus the computed webhook_url to register in Chatwoot.
+// chatwootConfigResponse is the GET/PUT /instances/{id}/chatwoot body (the
+// public §6 shape): the stored connector with the remodeled flag names plus
+// the computed webhook_url. The token field never exists on reads — it is
+// write-only, so it is not serialized at all.
 type chatwootConfigResponse struct {
-	InstanceID string `json:"instance_id"`
-	Enabled    bool   `json:"enabled"`
-	URL        string `json:"url"`
-	AccountID  string `json:"account_id"`
-	// Token is always an empty string; the stored credential is write-only.
-	Token               string   `json:"token"`
-	NameInbox           string   `json:"name_inbox"`
-	SignMsg             bool     `json:"sign_msg"`
-	SignDelimiter       string   `json:"sign_delimiter"`
-	ReopenConversation  bool     `json:"reopen_conversation"`
-	ConversationPending bool     `json:"conversation_pending"`
-	MergeBrazilContacts bool     `json:"merge_brazil_contacts"`
-	ImportContacts      bool     `json:"import_contacts"`
-	ImportMessages      bool     `json:"import_messages"`
-	DaysLimit           int      `json:"days_limit"`
-	AutoCreate          bool     `json:"auto_create"`
-	Organization        string   `json:"organization"`
-	Logo                string   `json:"logo"`
-	IgnoreJIDs          []string `json:"ignore_jids"`
-	WebhookURL          string   `json:"webhook_url"`
+	InstanceID       string   `json:"instance_id"`
+	IsEnabled        bool     `json:"is_enabled"`
+	URL              string   `json:"url"`
+	AccountID        string   `json:"account_id"`
+	InboxName        string   `json:"inbox_name"`
+	IsSignEnabled    bool     `json:"is_sign_enabled"`
+	SignDelimiter    string   `json:"sign_delimiter"`
+	IsReopenEnabled  bool     `json:"is_reopen_enabled"`
+	IsPendingEnabled bool     `json:"is_pending_enabled"`
+	IsMergeEnabled   bool     `json:"is_merge_enabled"`
+	IsImportContacts bool     `json:"is_import_contacts"`
+	IsImportMessages bool     `json:"is_import_messages"`
+	ImportDays       int      `json:"import_days"`
+	IsAutoCreate     bool     `json:"is_auto_create"`
+	Organization     string   `json:"organization"`
+	Logo             string   `json:"logo"`
+	IgnoredJIDs      []string `json:"ignored_jids"`
+	WebhookURL       string   `json:"webhook_url"`
 }
 
 // handleChatwootSet stores the connector config behind the dual auth. The
@@ -159,7 +159,7 @@ func handleChatwootSet(instances InstanceService, configs ChatwootConfigStore, g
 			writeJSONBodyError(w, r, err)
 			return
 		}
-		nameInbox := strings.TrimSpace(request.NameInbox)
+		nameInbox := strings.TrimSpace(request.InboxName)
 		if nameInbox == "" {
 			nameInbox = config.DefaultInbox(stored.Name)
 		}
@@ -167,29 +167,29 @@ func handleChatwootSet(instances InstanceService, configs ChatwootConfigStore, g
 		if delimiter == "" {
 			delimiter = config.DefaultDelimiter()
 		}
-		ignoreJIDs := request.IgnoreJIDs
-		if ignoreJIDs == nil {
-			ignoreJIDs = []string{}
+		ignoredJIDs := request.IgnoredJIDs
+		if ignoredJIDs == nil {
+			ignoredJIDs = []string{}
 		}
 		cfg := model.ChatwootConfig{
 			InstanceID:          id,
-			Enabled:             request.Enabled,
+			Enabled:             request.IsEnabled,
 			URL:                 strings.TrimSpace(request.URL),
 			AccountID:           strings.TrimSpace(request.AccountID),
 			Token:               request.Token,
 			NameInbox:           nameInbox,
-			SignMsg:             request.SignMsg,
+			SignMsg:             request.IsSignEnabled,
 			SignDelimiter:       delimiter,
-			ReopenConversation:  request.ReopenConversation,
-			ConversationPending: request.ConversationPending,
-			MergeBrazilContacts: request.MergeBrazilContacts,
-			ImportContacts:      request.ImportContacts,
-			ImportMessages:      request.ImportMessages,
-			DaysLimit:           request.DaysLimit,
-			AutoCreate:          request.AutoCreate,
+			ReopenConversation:  request.IsReopenEnabled,
+			ConversationPending: request.IsPendingEnabled,
+			MergeBrazilContacts: request.IsMergeEnabled,
+			ImportContacts:      request.IsImportContacts,
+			ImportMessages:      request.IsImportMessages,
+			DaysLimit:           request.ImportDays,
+			AutoCreate:          request.IsAutoCreate,
 			Organization:        strings.TrimSpace(request.Organization),
 			Logo:                strings.TrimSpace(request.Logo),
-			IgnoreJIDs:          ignoreJIDs,
+			IgnoreJIDs:          ignoredJIDs,
 		}
 		if err := config.Validate(cfg); err != nil {
 			var field *config.ErrField
@@ -209,7 +209,7 @@ func handleChatwootSet(instances InstanceService, configs ChatwootConfigStore, g
 		if saved.Enabled && saved.AutoCreate && clientFor != nil {
 			ensureChatwootInbox(r.Context(), clientFor, *saved, webhookURL, log)
 		}
-		JSON(w, r, http.StatusOK, newChatwootConfigResponse(saved, webhookURL))
+		JSON(w, r, http.StatusOK, chatwootConfigEnvelope{ChatwootConfig: newChatwootConfigResponse(saved, webhookURL)})
 	}
 }
 
@@ -278,13 +278,13 @@ func handleChatwootGet(instances InstanceService, configs ChatwootConfigStore, g
 		cfg, err := configs.Get(r.Context(), id)
 		if err != nil {
 			if errors.Is(err, storage.ErrNotFound) {
-				JSON(w, r, http.StatusOK, newChatwootConfigResponse(&model.ChatwootConfig{InstanceID: id, IgnoreJIDs: []string{}}, chatwootWebhookURL(publicURL, id)))
+				JSON(w, r, http.StatusOK, chatwootConfigEnvelope{ChatwootConfig: newChatwootConfigResponse(&model.ChatwootConfig{InstanceID: id, IgnoreJIDs: []string{}}, chatwootWebhookURL(publicURL, id))})
 				return
 			}
 			Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
 			return
 		}
-		JSON(w, r, http.StatusOK, newChatwootConfigResponse(cfg, chatwootWebhookURL(publicURL, id)))
+		JSON(w, r, http.StatusOK, chatwootConfigEnvelope{ChatwootConfig: newChatwootConfigResponse(cfg, chatwootWebhookURL(publicURL, id))})
 	}
 }
 
@@ -380,34 +380,33 @@ func writeChatwootBotBody(w http.ResponseWriter) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"content": ""})
 }
 
-// newChatwootConfigResponse maps a stored config plus its webhook URL. The
-// token is accepted on write only and never echoed back: responses always
-// carry an empty token so a read cannot leak the Chatwoot credential.
+// newChatwootConfigResponse maps a stored config plus its webhook URL to the
+// public §6 shape. The token is accepted on write only and is never part of
+// the read representation — the field does not exist in the DTO.
 func newChatwootConfigResponse(cfg *model.ChatwootConfig, webhookURL string) chatwootConfigResponse {
-	ignoreJIDs := cfg.IgnoreJIDs
-	if ignoreJIDs == nil {
-		ignoreJIDs = []string{}
+	ignoredJIDs := cfg.IgnoreJIDs
+	if ignoredJIDs == nil {
+		ignoredJIDs = []string{}
 	}
 	return chatwootConfigResponse{
-		InstanceID:          cfg.InstanceID.String(),
-		Enabled:             cfg.Enabled,
-		URL:                 cfg.URL,
-		AccountID:           cfg.AccountID,
-		Token:               "",
-		NameInbox:           cfg.NameInbox,
-		SignMsg:             cfg.SignMsg,
-		SignDelimiter:       cfg.SignDelimiter,
-		ReopenConversation:  cfg.ReopenConversation,
-		ConversationPending: cfg.ConversationPending,
-		MergeBrazilContacts: cfg.MergeBrazilContacts,
-		ImportContacts:      cfg.ImportContacts,
-		ImportMessages:      cfg.ImportMessages,
-		DaysLimit:           cfg.DaysLimit,
-		AutoCreate:          cfg.AutoCreate,
-		Organization:        cfg.Organization,
-		Logo:                cfg.Logo,
-		IgnoreJIDs:          ignoreJIDs,
-		WebhookURL:          webhookURL,
+		InstanceID:       cfg.InstanceID.String(),
+		IsEnabled:        cfg.Enabled,
+		URL:              cfg.URL,
+		AccountID:        cfg.AccountID,
+		InboxName:        cfg.NameInbox,
+		IsSignEnabled:    cfg.SignMsg,
+		SignDelimiter:    cfg.SignDelimiter,
+		IsReopenEnabled:  cfg.ReopenConversation,
+		IsPendingEnabled: cfg.ConversationPending,
+		IsMergeEnabled:   cfg.MergeBrazilContacts,
+		IsImportContacts: cfg.ImportContacts,
+		IsImportMessages: cfg.ImportMessages,
+		ImportDays:       cfg.DaysLimit,
+		IsAutoCreate:     cfg.AutoCreate,
+		Organization:     cfg.Organization,
+		Logo:             cfg.Logo,
+		IgnoredJIDs:      ignoredJIDs,
+		WebhookURL:       webhookURL,
 	}
 }
 

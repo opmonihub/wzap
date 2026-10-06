@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -63,26 +64,32 @@ func TestInstancesListCompleteCollection(t *testing.T) {
 					if _, ok := payload.Data["next_cursor"]; ok {
 						t.Error("data.next_cursor must be absent")
 					}
-					var items []instanceResponse
+					var items []instanceEnvelope
 					decodeJSON(t, payload.Data["items"], &items)
 					if len(items) != tt.want {
 						t.Fatalf("data.items length = %d, want %d", len(items), tt.want)
 					}
 					if tt.name == "other owner" {
-						if items[0].ID != f.instB.ID.String() {
-							t.Errorf("other owner's item = %s, want %s", items[0].ID, f.instB.ID)
+						if items[0].Instance.ID != f.instB.ID.String() {
+							t.Errorf("other owner's item = %s, want %s", items[0].Instance.ID, f.instB.ID)
 						}
 						return
 					}
 					for i, item := range items {
-						if item.ID != rows[i].ID.String() {
-							t.Errorf("item %d = %s, want %s (preserve repository order)", i, item.ID, rows[i].ID)
+						if item.Instance.ID != rows[i].ID.String() {
+							t.Errorf("item %d = %s, want %s (preserve repository order)", i, item.Instance.ID, rows[i].ID)
 						}
 					}
 					if tt.name == "owner" {
-						for _, item := range items {
-							if item.OwnerUserID == nil || *item.OwnerUserID != f.userA {
-								t.Errorf("owner received unauthorized item %s", item.ID)
+						// owner_user_id stays internal: the listing must not
+						// expose it even to the owner.
+						for i, item := range items {
+							raw, _ := json.Marshal(item)
+							if strings.Contains(string(raw), "owner_user_id") {
+								t.Errorf("item %s leaks owner_user_id", item.Instance.ID)
+							}
+							if item.Instance.ID != rows[i].ID.String() {
+								t.Errorf("owner item %d = %s, want %s (ownership filter order)", i, item.Instance.ID, rows[i].ID)
 							}
 						}
 					}

@@ -38,11 +38,11 @@ func TestGetMessageReadsRichType(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	var payload struct {
-		Data messageResponse `json:"data"`
+		Data messageEnvelope `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if payload.Data.Type != message.TypePoll {
-		t.Errorf("data.type = %q, want %q", payload.Data.Type, message.TypePoll)
+	if payload.Data.Message.MessageType != message.TypePoll {
+		t.Errorf("data.message.message_type = %q, want %q", payload.Data.Message.MessageType, message.TypePoll)
 	}
 }
 

@@ -304,10 +304,10 @@ func TestRenameChangesOnlyTheAlias(t *testing.T) {
 		}
 		if tc.status == 200 {
 			var payload struct {
-				Data instanceResponse `json:"data"`
+				Data instanceEnvelope `json:"data"`
 			}
 			decodeJSON(t, rec.Body.Bytes(), &payload)
-			if payload.Data.ID != f.instA.ID.String() || payload.Data.Name != "Renamed" {
+			if payload.Data.Instance.ID != f.instA.ID.String() || payload.Data.Instance.Name != "Renamed" {
 				t.Errorf("renamed response=%+v", payload.Data)
 			}
 		}

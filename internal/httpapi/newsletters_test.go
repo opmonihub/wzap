@@ -129,14 +129,14 @@ func TestNewsletterGet(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data newsletterResponse `json:"data"`
+			Data channelEnvelope `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if payload.Data.Title != "Canal da loja" || payload.Data.FollowerCount != 41 {
-			t.Errorf("data = %+v, want title and followers", payload.Data)
+		if payload.Data.Channel.Title != "Canal da loja" || payload.Data.Channel.FollowerCount != 41 {
+			t.Errorf("data = %+v, want title and followers under data.channel", payload.Data)
 		}
-		if !payload.Data.UpdatedAt.Equal(now) {
-			t.Errorf("data.updated_at = %v, want %v", payload.Data.UpdatedAt, now)
+		if !payload.Data.Channel.UpdatedAt.Equal(now) {
+			t.Errorf("data.channel.updated_at = %v, want %v", payload.Data.Channel.UpdatedAt, now)
 		}
 	})
 

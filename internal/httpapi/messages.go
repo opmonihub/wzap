@@ -7,7 +7,6 @@ import (
 	"mime"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -44,33 +43,8 @@ type MessageService interface {
 // drift at build time.
 var _ MessageService = (*message.Service)(nil)
 
-// messageAcceptedResponse is the 202 answer to an accepted send.
-type messageAcceptedResponse struct {
-	MessageID string `json:"message_id"`
-	Status    string `json:"status"`
-}
-
-// messageResponse is the JSON representation of a queued or delivered message.
-type messageResponse struct {
-	ID                string     `json:"id"`
-	InstanceID        string     `json:"instance_id"`
-	Type              string     `json:"type"`
-	Recipient         string     `json:"recipient"`
-	Status            string     `json:"status"`
-	WhatsAppMessageID string     `json:"whatsapp_message_id"`
-	LastError         string     `json:"last_error"`
-	Attempts          int        `json:"attempts"`
-	DeliveredAt       *time.Time `json:"delivered_at"`
-	ReadAt            *time.Time `json:"read_at"`
-	CreatedAt         time.Time  `json:"created_at"`
-	UpdatedAt         time.Time  `json:"updated_at"`
-}
-
-// messageListResponse is the JSON representation of a message page.
-type messageListResponse struct {
-	Items      []messageResponse `json:"items"`
-	NextCursor string            `json:"next_cursor"`
-}
+// messageAcceptedResponse, messageResponse and messageListResponse live in
+// dto.go with the other public shapes.
 
 // sendTextRequest is the POST /instances/{id}/messages/text payload.
 type sendTextRequest struct {
@@ -203,7 +177,7 @@ func handleSendMessage(instances InstanceService, messages MessageService) http.
 			writeMessageError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID))
+		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID, id))
 	}
 }
 
@@ -324,7 +298,7 @@ func handleSendText(instances InstanceService, messages MessageService) http.Han
 			writeMessageError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID))
+		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID, id))
 	}
 }
 
@@ -393,7 +367,7 @@ func handleSendLocation(instances InstanceService, messages MessageService) http
 			writeMessageError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID))
+		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID, id))
 	}
 }
 
@@ -458,7 +432,7 @@ func handleSendContact(instances InstanceService, messages MessageService) http.
 			writeMessageError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID))
+		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID, id))
 	}
 }
 
@@ -621,7 +595,7 @@ func handleSendMedia(instances InstanceService, messages MessageService, mediaSt
 			writeMessageError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID))
+		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID, id))
 	}
 }
 
@@ -726,7 +700,7 @@ func handleGetMessage(instances InstanceService, messages MessageService) http.H
 			writeMessageError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusOK, newMessageResponse(found))
+		JSON(w, r, http.StatusOK, messageEnvelope{Message: newMessageResponse(found)})
 	}
 }
 
@@ -776,9 +750,9 @@ func handleListMessages(instances InstanceService, messages MessageService) http
 			return
 		}
 
-		response := messageListResponse{Items: make([]messageResponse, 0, len(items)), NextCursor: next}
+		response := messageListResponse{Items: make([]messageEnvelope, 0, len(items)), NextCursor: next}
 		for i := range items {
-			response.Items = append(response.Items, newMessageResponse(&items[i]))
+			response.Items = append(response.Items, messageEnvelope{Message: newMessageResponse(&items[i])})
 		}
 		JSON(w, r, http.StatusOK, response)
 	}
@@ -789,27 +763,14 @@ func parseMessagesLimit(raw string) int {
 	return parseLimit(raw, defaultMessagesLimit, maxMessagesLimit)
 }
 
-// newMessageAcceptedResponse maps an accepted message id to its 202 body.
-func newMessageAcceptedResponse(messageID uuid.UUID) messageAcceptedResponse {
-	return messageAcceptedResponse{MessageID: messageID.String(), Status: message.StatusQueued}
-}
-
-// newMessageResponse maps a stored message to its JSON representation.
-func newMessageResponse(msg *model.OutboundMessage) messageResponse {
-	return messageResponse{
-		ID:                msg.ID.String(),
-		InstanceID:        msg.InstanceID.String(),
-		Type:              msg.Type,
-		Recipient:         msg.RecipientJID,
-		Status:            msg.Status,
-		WhatsAppMessageID: msg.WhatsAppMessageID,
-		LastError:         msg.LastError,
-		Attempts:          msg.Attempts,
-		DeliveredAt:       msg.DeliveredAt,
-		ReadAt:            msg.ReadAt,
-		CreatedAt:         msg.CreatedAt,
-		UpdatedAt:         msg.UpdatedAt,
-	}
+// newMessageAcceptedResponse maps an accepted send to its 202 body: the
+// queue id plus the queued status under data.message.
+func newMessageAcceptedResponse(id, instanceID uuid.UUID) messageAcceptedResponse {
+	return messageAcceptedResponse{Message: messageResponse{
+		ID:         id.String(),
+		InstanceID: instanceID.String(),
+		SendStatus: message.StatusQueued,
+	}}
 }
 
 // writeMessageError maps a message service error to its HTTP status and error

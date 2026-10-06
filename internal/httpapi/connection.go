@@ -2,27 +2,21 @@ package httpapi
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/rs/zerolog"
 
 	"wzap/internal/instance"
 )
 
-// connectResponse is the JSON representation of a pairing result.
+// connectResponse wraps the pairing subset under data.connection (matrix
+// §2): only the status plus the QR fields while pairing is in progress.
 type connectResponse struct {
-	Status      string     `json:"status"`
-	QRCode      string     `json:"qr_code,omitempty"`
-	QRExpiresAt *time.Time `json:"qr_expires_at,omitempty"`
+	Connection pairingConnection `json:"connection"`
 }
 
-// statusResponse is the JSON representation of the connection status of an
-// instance.
+// statusResponse wraps the connection block for the status route.
 type statusResponse struct {
-	Status          string     `json:"status"`
-	WhatsAppJID     string     `json:"whatsapp_jid"`
-	LastError       string     `json:"last_error"`
-	LastConnectedAt *time.Time `json:"last_connected_at"`
+	Connection connectionResponse `json:"connection"`
 }
 
 // handleConnectInstance starts pairing and answers 200 with the QR code and its
@@ -174,10 +168,7 @@ func handleInstanceStatus(instances InstanceService, log zerolog.Logger) http.Ha
 		}
 		log.Debug().Str("instance_id", id.String()).Str("op", "status").Str("status", found.Connection.Status).Msg("instance status result")
 		JSON(w, r, http.StatusOK, statusResponse{
-			Status:          found.Connection.Status,
-			WhatsAppJID:     found.Connection.DeviceJID,
-			LastError:       found.LastErrorMessage(),
-			LastConnectedAt: found.Connection.LastConnectedAt,
+			Connection: newConnectionResponse(found.Connection),
 		})
 	}
 }
@@ -231,11 +222,14 @@ func handleDisconnectInstance(instances InstanceService, log zerolog.Logger) htt
 	}
 }
 
-// newConnectResponse maps a pairing result to its JSON representation.
+// newConnectResponse maps a pairing result to its JSON representation: the
+// connection block with the QR fields while pairing.
 func newConnectResponse(result instance.ConnectResult) connectResponse {
 	return connectResponse{
-		Status:      string(result.Status),
-		QRCode:      result.QRCode,
-		QRExpiresAt: result.QRExpiresAt,
+		Connection: pairingConnection{
+			Status:      string(result.Status),
+			QRCode:      result.QRCode,
+			QRExpiresAt: result.QRExpiresAt,
+		},
 	}
 }

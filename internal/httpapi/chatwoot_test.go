@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -61,7 +60,7 @@ func TestChatwootSetRequiresAuth(t *testing.T) {
 	id := uuid.New()
 	srv := chatwootTestServer(t, &fakeInstanceService{}, &fakeChatwootConfigs{}, chatwootOn())
 
-	req := httptest.NewRequest(http.MethodPut, "/instances/"+id.String()+"/chatwoot", strings.NewReader(`{"enabled":false}`))
+	req := httptest.NewRequest(http.MethodPut, "/instances/"+id.String()+"/chatwoot", strings.NewReader(`{"is_enabled":false}`))
 	rec := httptest.NewRecorder()
 	srv.Handler.ServeHTTP(rec, req)
 
@@ -79,7 +78,7 @@ func TestChatwootSetBehindDualAuth(t *testing.T) {
 		},
 	}, cfgs, chatwootOn())
 
-	rec := serveJSON(t, srv, http.MethodPut, "/instances/"+id.String()+"/chatwoot", `{"enabled":false}`)
+	rec := serveJSON(t, srv, http.MethodPut, "/instances/"+id.String()+"/chatwoot", `{"is_enabled":false}`)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (body %s)", rec.Code, rec.Body.String())
@@ -98,7 +97,7 @@ func TestChatwootSetValidation422(t *testing.T) {
 		},
 	}, cfgs, chatwootOn())
 
-	rec := serveJSON(t, srv, http.MethodPut, "/instances/"+id.String()+"/chatwoot", `{"enabled":true,"url":"","account_id":"","token":""}`)
+	rec := serveJSON(t, srv, http.MethodPut, "/instances/"+id.String()+"/chatwoot", `{"is_enabled":true,"url":"","account_id":"","token":""}`)
 
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("status = %d, want 422 (body %s)", rec.Code, rec.Body.String())
@@ -120,7 +119,7 @@ func TestChatwootSetAutoCreateReturnsWebhookURL(t *testing.T) {
 		},
 	}, cfgs, chatwootOn())
 
-	body := `{"enabled":true,"url":"https://chatwoot.example.com","account_id":"1","token":"secret","auto_create":true}`
+	body := `{"is_enabled":true,"url":"https://chatwoot.example.com","account_id":"1","token":"secret","is_auto_create":true}`
 	rec := serveJSON(t, srv, http.MethodPut, "/instances/"+id.String()+"/chatwoot", body)
 
 	if rec.Code != http.StatusOK {
@@ -132,7 +131,7 @@ func TestChatwootSetAutoCreateReturnsWebhookURL(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "/chatwoot/webhook/"+id.String()) {
 		t.Errorf("webhook_url misses instance path: %s", rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "auto_create") {
+	if !strings.Contains(rec.Body.String(), "is_auto_create") {
 		t.Errorf("response misses auto_create: %s", rec.Body.String())
 	}
 }
@@ -150,7 +149,7 @@ func TestChatwootGetWithoutConfigReturnsDisabled(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (body %s)", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), `"enabled":false`) {
+	if !strings.Contains(rec.Body.String(), `"is_enabled":false`) {
 		t.Errorf("response misses disabled default: %s", rec.Body.String())
 	}
 }
@@ -160,7 +159,7 @@ func TestChatwootGlobalDisabledReturns400(t *testing.T) {
 	off := config.Chatwoot{Enabled: false}
 	srv := chatwootTestServer(t, &fakeInstanceService{}, &fakeChatwootConfigs{}, off)
 
-	rec := serveJSON(t, srv, http.MethodPut, "/instances/"+id.String()+"/chatwoot", `{"enabled":false}`)
+	rec := serveJSON(t, srv, http.MethodPut, "/instances/"+id.String()+"/chatwoot", `{"is_enabled":false}`)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("PUT status = %d, want 400 (body %s)", rec.Code, rec.Body.String())
 	}
@@ -211,18 +210,12 @@ func TestChatwootTokenMasked(t *testing.T) {
 	}, cfgs, chatwootOn())
 
 	rec := serveJSON(t, srv, http.MethodPut, "/instances/"+id.String()+"/chatwoot",
-		`{"enabled":true,"url":"https://chatwoot.example.com","account_id":"1","token":"secret"}`)
+		`{"is_enabled":true,"url":"https://chatwoot.example.com","account_id":"1","token":"secret"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("PUT status = %d, want 200 (body %s)", rec.Code, rec.Body.String())
 	}
-	var putBody struct {
-		Data chatwootConfigResponse `json:"data"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &putBody); err != nil {
-		t.Fatalf("decode PUT response: %v", err)
-	}
-	if putBody.Data.Token != "" {
-		t.Errorf("PUT token = %q, want empty (write-only)", putBody.Data.Token)
+	if strings.Contains(rec.Body.String(), `"token"`) {
+		t.Errorf("PUT body %q contains a token field (write-only)", rec.Body.String())
 	}
 	if len(cfgs.puts) != 1 || cfgs.puts[0].Token != "secret" {
 		t.Errorf("stored token = %v, want the write to persist the secret", cfgs.puts)
@@ -242,14 +235,8 @@ func TestChatwootTokenMasked(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET status = %d, want 200 (body %s)", rec.Code, rec.Body.String())
 	}
-	var getBody struct {
-		Data chatwootConfigResponse `json:"data"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &getBody); err != nil {
-		t.Fatalf("decode GET response: %v", err)
-	}
-	if getBody.Data.Token != "" {
-		t.Errorf("GET token = %q, want empty (write-only)", getBody.Data.Token)
+	if strings.Contains(rec.Body.String(), `"token"`) {
+		t.Errorf("GET body %q contains a token field (write-only)", rec.Body.String())
 	}
 }
 

@@ -179,20 +179,22 @@ func TestAuthLoginSuccess(t *testing.T) {
 	}
 	var payload struct {
 		Data struct {
-			ID    string `json:"id"`
-			Email string `json:"email"`
-			Role  string `json:"role"`
+			Me struct {
+				ID    string `json:"id"`
+				Email string `json:"email"`
+				Role  string `json:"role"`
+			} `json:"me"`
 		} `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if payload.Data.ID != user.ID.String() {
-		t.Errorf("data.id = %q, want %q", payload.Data.ID, user.ID)
+	if payload.Data.Me.ID != user.ID.String() {
+		t.Errorf("data.me.id = %q, want %q", payload.Data.Me.ID, user.ID)
 	}
-	if payload.Data.Email != user.Email {
-		t.Errorf("data.email = %q, want %q", payload.Data.Email, user.Email)
+	if payload.Data.Me.Email != user.Email {
+		t.Errorf("data.me.email = %q, want %q", payload.Data.Me.Email, user.Email)
 	}
-	if payload.Data.Role != "admin" {
-		t.Errorf("data.role = %q, want %q", payload.Data.Role, "admin")
+	if payload.Data.Me.Role != "admin" {
+		t.Errorf("data.me.role = %q, want %q", payload.Data.Me.Role, "admin")
 	}
 
 	cookie := sessionCookie(t, rec)
@@ -302,13 +304,15 @@ func TestAuthMe(t *testing.T) {
 		}
 		var payload struct {
 			Data struct {
-				ID    string `json:"id"`
-				Email string `json:"email"`
-				Role  string `json:"role"`
+				Me struct {
+					ID    string `json:"id"`
+					Email string `json:"email"`
+					Role  string `json:"role"`
+				} `json:"me"`
 			} `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if payload.Data.ID != user.ID.String() || payload.Data.Email != user.Email || payload.Data.Role != "user" {
+		if payload.Data.Me.ID != user.ID.String() || payload.Data.Me.Email != user.Email || payload.Data.Me.Role != "user" {
 			t.Errorf("data = %+v, want the identity of %s", payload.Data, user.Email)
 		}
 	})

@@ -142,11 +142,11 @@ func TestUpdateGroupSettings(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data groupResponse `json:"data"`
+			Data groupUpdatedResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if payload.Data.JID != "12036300000001@g.us" {
-			t.Errorf("data.jid = %q, want the updated group", payload.Data.JID)
+		if !payload.Data.Updated {
+			t.Errorf("data.updated = false, want true")
 		}
 	})
 

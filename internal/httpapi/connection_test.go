@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,11 +16,10 @@ import (
 	"wzap/internal/session"
 )
 
-// connectPayload is the decoded data of a connect or qr response.
+// connectPayload is the decoded data of a connect or qr response: the
+// connection DTO nested under data.connection.
 type connectPayload struct {
-	Status      string     `json:"status"`
-	QRCode      string     `json:"qr_code"`
-	QRExpiresAt *time.Time `json:"qr_expires_at"`
+	Connection connectionResponse `json:"connection"`
 }
 
 func TestInstancesConnectStartsPairing(t *testing.T) {
@@ -41,14 +41,14 @@ func TestInstancesConnectStartsPairing(t *testing.T) {
 		Data connectPayload `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if payload.Data.Status != string(session.StatusPairing) {
-		t.Errorf("data.status = %q, want %q", payload.Data.Status, session.StatusPairing)
+	if payload.Data.Connection.Status != string(session.StatusPairing) {
+		t.Errorf("data.connection.status = %q, want %q", payload.Data.Connection.Status, session.StatusPairing)
 	}
-	if payload.Data.QRCode != "qr-123" {
-		t.Errorf("data.qr_code = %q, want %q", payload.Data.QRCode, "qr-123")
+	if payload.Data.Connection.QRCode != "qr-123" {
+		t.Errorf("data.connection.qr_code = %q, want %q", payload.Data.Connection.QRCode, "qr-123")
 	}
-	if payload.Data.QRExpiresAt == nil || !payload.Data.QRExpiresAt.Equal(expiresAt) {
-		t.Errorf("data.qr_expires_at = %v, want %v", payload.Data.QRExpiresAt, expiresAt)
+	if payload.Data.Connection.QRExpiresAt == nil || !payload.Data.Connection.QRExpiresAt.Equal(expiresAt) {
+		t.Errorf("data.connection.qr_expires_at = %v, want %v", payload.Data.Connection.QRExpiresAt, expiresAt)
 	}
 	if len(svc.connectIDs) != 1 || svc.connectIDs[0] != id {
 		t.Errorf("Connect calls = %v, want [%s]", svc.connectIDs, id)
@@ -70,14 +70,14 @@ func TestInstancesConnectAlreadyConnected(t *testing.T) {
 		Data connectPayload `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if payload.Data.Status != string(session.StatusConnected) {
-		t.Errorf("data.status = %q, want %q", payload.Data.Status, session.StatusConnected)
+	if payload.Data.Connection.Status != string(session.StatusConnected) {
+		t.Errorf("data.connection.status = %q, want %q", payload.Data.Connection.Status, session.StatusConnected)
 	}
-	if payload.Data.QRCode != "" {
-		t.Errorf("data.qr_code = %q, want empty", payload.Data.QRCode)
+	if payload.Data.Connection.QRCode != "" {
+		t.Errorf("data.connection.qr_code = %q, want empty", payload.Data.Connection.QRCode)
 	}
-	if payload.Data.QRExpiresAt != nil {
-		t.Errorf("data.qr_expires_at = %v, want null", payload.Data.QRExpiresAt)
+	if payload.Data.Connection.QRExpiresAt != nil {
+		t.Errorf("data.connection.qr_expires_at = %v, want null", payload.Data.Connection.QRExpiresAt)
 	}
 }
 
@@ -134,11 +134,11 @@ func TestInstancesQR(t *testing.T) {
 		Data connectPayload `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if payload.Data.QRCode != "qr-456" {
-		t.Errorf("data.qr_code = %q, want %q", payload.Data.QRCode, "qr-456")
+	if payload.Data.Connection.QRCode != "qr-456" {
+		t.Errorf("data.connection.qr_code = %q, want %q", payload.Data.Connection.QRCode, "qr-456")
 	}
-	if payload.Data.QRExpiresAt == nil || !payload.Data.QRExpiresAt.Equal(expiresAt) {
-		t.Errorf("data.qr_expires_at = %v, want %v", payload.Data.QRExpiresAt, expiresAt)
+	if payload.Data.Connection.QRExpiresAt == nil || !payload.Data.Connection.QRExpiresAt.Equal(expiresAt) {
+		t.Errorf("data.connection.qr_expires_at = %v, want %v", payload.Data.Connection.QRExpiresAt, expiresAt)
 	}
 	if len(svc.qrIDs) != 1 || svc.qrIDs[0] != id {
 		t.Errorf("QR calls = %v, want [%s]", svc.qrIDs, id)
@@ -178,21 +178,21 @@ func TestInstancesStatus(t *testing.T) {
 	}
 	var payload struct {
 		Data struct {
-			Status          string     `json:"status"`
-			WhatsAppJID     string     `json:"whatsapp_jid"`
-			LastError       string     `json:"last_error"`
-			LastConnectedAt *time.Time `json:"last_connected_at"`
+			Connection struct {
+				Status          string     `json:"status"`
+				LastConnectedAt *time.Time `json:"last_connected_at"`
+			} `json:"connection"`
 		} `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if payload.Data.Status != string(session.StatusConnected) {
-		t.Errorf("data.status = %q, want %q", payload.Data.Status, session.StatusConnected)
+	if payload.Data.Connection.Status != string(session.StatusConnected) {
+		t.Errorf("data.connection.status = %q, want %q", payload.Data.Connection.Status, session.StatusConnected)
 	}
-	if payload.Data.WhatsAppJID != want.Connection.DeviceJID {
-		t.Errorf("data.whatsapp_jid = %q, want %q", payload.Data.WhatsAppJID, want.Connection.DeviceJID)
+	if strings.Contains(rec.Body.String(), `"whatsapp_jid"`) {
+		t.Errorf("body %q leaks whatsapp_jid (internal field)", rec.Body.String())
 	}
-	if payload.Data.LastConnectedAt == nil || !payload.Data.LastConnectedAt.Equal(connectedAt) {
-		t.Errorf("data.last_connected_at = %v, want %v", payload.Data.LastConnectedAt, connectedAt)
+	if payload.Data.Connection.LastConnectedAt == nil || !payload.Data.Connection.LastConnectedAt.Equal(connectedAt) {
+		t.Errorf("data.connection.last_connected_at = %v, want %v", payload.Data.Connection.LastConnectedAt, connectedAt)
 	}
 }
 

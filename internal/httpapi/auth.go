@@ -30,6 +30,13 @@ type logoutResponse struct {
 	Status string `json:"status"`
 }
 
+// meEnvelope nests the authenticated identity under data.me (response matrix
+// §1): the session identity is not a resource keyed by the request, so it
+// travels under its own named key instead of a flat data object.
+type meEnvelope struct {
+	Me identityResponse `json:"me"`
+}
+
 // dummyPasswordHash is a valid bcrypt hash burned on unknown emails so the
 // 401 path costs one comparison like a wrong password, closing the
 // timing oracle between "unknown email" (immediate) and "wrong password"
@@ -88,7 +95,7 @@ func handleLogin(users storage.UserRepository, jwtSecret string, secure bool) ht
 			return
 		}
 		setSessionCookie(w, token, secure)
-		JSON(w, r, http.StatusOK, newIdentityResponse(user))
+		JSON(w, r, http.StatusOK, meEnvelope{Me: newIdentityResponse(user)})
 	}
 }
 
@@ -144,7 +151,7 @@ func handleMe(users storage.UserRepository, jwtSecret string) http.HandlerFunc {
 			Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
 			return
 		}
-		JSON(w, r, http.StatusOK, newIdentityResponse(user))
+		JSON(w, r, http.StatusOK, meEnvelope{Me: newIdentityResponse(user)})
 	}
 }
 

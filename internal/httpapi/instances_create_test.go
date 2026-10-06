@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -80,12 +81,10 @@ func TestInstancesCreateByUserSessionEmitsOwnerAndKey(t *testing.T) {
 		t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusCreated, rec.Body.String())
 	}
 	data := createData(t, rec.Body.Bytes())
-	ownerRaw, ok := data["owner_user_id"]
-	if !ok {
-		t.Fatal("data is missing owner_user_id")
-	}
-	if got := rawString(t, ownerRaw); got != userID.String() {
-		t.Errorf("data.owner_user_id = %q, want the session user %s", got, userID)
+	// owner_user_id stays internal: the service receives the session user,
+	// the response never echoes it.
+	if strings.Contains(rec.Body.String(), `"owner_user_id"`) {
+		t.Errorf("body %q leaks owner_user_id", rec.Body.String())
 	}
 	keyRaw, ok := data["instance_api_key"]
 	if !ok {
@@ -114,15 +113,15 @@ func TestInstancesCreateByGlobalDefaultsToOldestAdmin(t *testing.T) {
 		t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusCreated, rec.Body.String())
 	}
 	data := createData(t, rec.Body.Bytes())
-	ownerRaw, ok := data["owner_user_id"]
-	if !ok {
-		t.Fatal("data is missing owner_user_id")
-	}
-	if got := rawString(t, ownerRaw); got != oldest.String() {
-		t.Errorf("data.owner_user_id = %q, want the oldest admin %s", got, oldest)
+	if strings.Contains(rec.Body.String(), `"owner_user_id"`) {
+		t.Errorf("body %q leaks owner_user_id", rec.Body.String())
 	}
 	if keyRaw, ok := data["instance_api_key"]; !ok || string(keyRaw) == `""` {
 		t.Error("data.instance_api_key is missing or empty, want the one-time plaintext key")
+	}
+	if len(svc.createInputs) != 1 || svc.createInputs[0].OwnerUserID == nil ||
+		*svc.createInputs[0].OwnerUserID != oldest {
+		t.Errorf("Create owner = %+v, want the oldest admin %s", svc.createInputs, oldest)
 	}
 }
 
@@ -145,12 +144,8 @@ func TestInstancesCreateWithOwnerOverride(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusCreated, rec.Body.String())
 		}
 		data := createData(t, rec.Body.Bytes())
-		ownerRaw, ok := data["owner_user_id"]
-		if !ok {
-			t.Fatal("data is missing owner_user_id")
-		}
-		if got := rawString(t, ownerRaw); got != override.String() {
-			t.Errorf("data.owner_user_id = %q, want the override %s", got, override)
+		if strings.Contains(rec.Body.String(), `"owner_user_id"`) {
+			t.Errorf("body %q leaks owner_user_id", rec.Body.String())
 		}
 		if keyRaw, ok := data["instance_api_key"]; !ok || string(keyRaw) == `""` {
 			t.Error("data.instance_api_key is missing or empty, want the one-time plaintext key")
@@ -172,15 +167,15 @@ func TestInstancesCreateWithOwnerOverride(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusCreated, rec.Body.String())
 		}
 		data := createData(t, rec.Body.Bytes())
-		ownerRaw, ok := data["owner_user_id"]
-		if !ok {
-			t.Fatal("data is missing owner_user_id")
-		}
-		if got := rawString(t, ownerRaw); got != override.String() {
-			t.Errorf("data.owner_user_id = %q, want the override %s", got, override)
+		if strings.Contains(rec.Body.String(), `"owner_user_id"`) {
+			t.Errorf("body %q leaks owner_user_id", rec.Body.String())
 		}
 		if keyRaw, ok := data["instance_api_key"]; !ok || string(keyRaw) == `""` {
 			t.Error("data.instance_api_key is missing or empty, want the one-time plaintext key")
+		}
+		if len(svc.createInputs) != 1 || svc.createInputs[0].OwnerUserID == nil ||
+			*svc.createInputs[0].OwnerUserID != override {
+			t.Errorf("Create owner = %+v, want the override %s", svc.createInputs, override)
 		}
 	})
 }
@@ -273,9 +268,15 @@ func TestInstancesCreateKeyShownOnce(t *testing.T) {
 	if !ok || string(keyRaw) == `""` {
 		t.Fatalf("create response is missing the one-time instance_api_key (body %q)", created.Body.String())
 	}
-	idRaw, ok := data["id"]
+	instanceRaw, ok := data["instance"]
 	if !ok {
-		t.Fatalf("create response is missing id (body %q)", created.Body.String())
+		t.Fatalf("create response is missing data.instance (body %q)", created.Body.String())
+	}
+	var instanceData map[string]json.RawMessage
+	decodeJSON(t, instanceRaw, &instanceData)
+	idRaw, ok := instanceData["id"]
+	if !ok {
+		t.Fatalf("create response is missing data.instance.id (body %q)", created.Body.String())
 	}
 	id := rawString(t, idRaw)
 
@@ -284,7 +285,9 @@ func TestInstancesCreateKeyShownOnce(t *testing.T) {
 		if name == "list" {
 			var list struct {
 				Data struct {
-					Items []map[string]json.RawMessage `json:"items"`
+					Items []struct {
+						Instance map[string]json.RawMessage `json:"instance"`
+					} `json:"items"`
 				} `json:"data"`
 			}
 			decodeJSON(t, body, &list)
@@ -292,7 +295,7 @@ func TestInstancesCreateKeyShownOnce(t *testing.T) {
 				t.Fatalf("%s has no items, want the owned instance listed", name)
 			}
 			for i, item := range list.Data.Items {
-				if _, found := item["instance_api_key"]; found {
+				if _, found := item.Instance["instance_api_key"]; found {
 					t.Errorf("%s items[%d] exposes instance_api_key, want it exactly once at create", name, i)
 				}
 			}

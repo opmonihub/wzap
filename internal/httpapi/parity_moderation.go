@@ -138,9 +138,9 @@ func handleUpdateGroupRequests(instances InstanceService, log zerolog.Logger) ht
 }
 
 // handleUpdateGroupSettings applies the group modes present in the body and
-// answers 200 with the updated group. A body without fields, or a
-// join_approval/member_add_mode outside its allowlist, answers 422 before the
-// session is touched.
+// answers 200 with the command result (matrix: {updated:true}). A body
+// without fields, or a join_approval/member_add_mode outside its allowlist,
+// answers 422 before the session is touched.
 //
 // @Summary Update group settings
 // @Tags groups
@@ -150,7 +150,7 @@ func handleUpdateGroupRequests(instances InstanceService, log zerolog.Logger) ht
 // @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param group_id path string true "Group JID"
 // @Param request body updateGroupSettingsRequest true "Settings payload"
-// @Success 200 {object} envelope{data=groupResponse} "Updated group, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=groupUpdatedResponse} "Updated, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner, or no group permission"
@@ -195,12 +195,11 @@ func handleUpdateGroupSettings(instances InstanceService, log zerolog.Logger) ht
 			memberAddMode = &trimmed
 		}
 
-		group, err := instances.UpdateGroupSettings(r.Context(), id, groupJID, request.Announce, request.Locked, joinApproval, memberAddMode)
-		if err != nil {
+		if _, err := instances.UpdateGroupSettings(r.Context(), id, groupJID, request.Announce, request.Locked, joinApproval, memberAddMode); err != nil {
 			log.Warn().Str("instance_id", id.String()).Str("op", "group-settings").Err(err).Msg("update group settings failed")
 			writeInstanceError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusOK, newGroupResponse(group))
+		JSON(w, r, http.StatusOK, groupUpdatedResponse{Updated: true})
 	}
 }

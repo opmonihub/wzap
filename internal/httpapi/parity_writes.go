@@ -385,7 +385,7 @@ func handleCreateNewsletter(instances InstanceService, log zerolog.Logger) http.
 			writeInstanceError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusCreated, newNewsletterResponse(newsletter))
+		JSON(w, r, http.StatusCreated, channelEnvelope{Channel: newNewsletterResponse(newsletter)})
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -989,17 +990,19 @@ func TestInstancesCreate(t *testing.T) {
 		Data createInstanceResponse `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if payload.Data.ID != created.ID.String() {
-		t.Errorf("data.id = %q, want %q", payload.Data.ID, created.ID)
+	if payload.Data.Instance.ID != created.ID.String() {
+		t.Errorf("data.id = %q, want %q", payload.Data.Instance.ID, created.ID)
 	}
-	if payload.Data.Status != "disconnected" {
-		t.Errorf("data.status = %q, want %q", payload.Data.Status, "disconnected")
+	if payload.Data.Instance.Connection.Status != "disconnected" {
+		t.Errorf("data.status = %q, want %q", payload.Data.Instance.Connection.Status, "disconnected")
 	}
-	if payload.Data.Name != "loja" || payload.Data.ExternalRef != "crm-1" {
-		t.Errorf("data = %+v, want name loja and external ref crm-1", payload.Data)
+	if payload.Data.Instance.Name != "loja" {
+		t.Errorf("data = %+v, want instance name loja", payload.Data)
 	}
-	if payload.Data.OwnerUserID == nil || *payload.Data.OwnerUserID != oldest {
-		t.Errorf("data.owner_user_id = %v, want the oldest admin %s", payload.Data.OwnerUserID, oldest)
+	// external_ref and owner_user_id stay internal: neither is serialized on
+	// the public instance DTO.
+	if strings.Contains(rec.Body.String(), `"external_ref"`) || strings.Contains(rec.Body.String(), `"owner_user_id"`) {
+		t.Errorf("body %q leaks internal fields external_ref/owner_user_id", rec.Body.String())
 	}
 	if payload.Data.InstanceAPIKey != "one-time-key" {
 		t.Errorf("data.instance_api_key = %q, want the one-time key", payload.Data.InstanceAPIKey)
@@ -1074,11 +1077,14 @@ func TestInstancesList(t *testing.T) {
 	if len(payload.Data.Items) != 2 {
 		t.Fatalf("data.items length = %d, want 2", len(payload.Data.Items))
 	}
-	if payload.Data.Items[0].ID != first.ID.String() {
-		t.Errorf("data.items[0].id = %q, want %q", payload.Data.Items[0].ID, first.ID)
+	if payload.Data.Items[0].Instance.ID != first.ID.String() {
+		t.Errorf("data.items[0].instance.id = %q, want %q", payload.Data.Items[0].Instance.ID, first.ID)
 	}
-	if payload.Data.Items[1].WhatsAppJID != second.Connection.DeviceJID {
-		t.Errorf("data.items[1].whatsapp_jid = %q, want %q", payload.Data.Items[1].WhatsAppJID, second.Connection.DeviceJID)
+	if strings.Contains(rec.Body.String(), `"whatsapp_jid"`) || strings.Contains(rec.Body.String(), `"device_jid"`) {
+		t.Errorf("body %q leaks internal jid fields", rec.Body.String())
+	}
+	if payload.Data.Items[1].Instance.Connection.Status != "connected" {
+		t.Errorf("data.items[1].instance.connection.status = %q, want connected", payload.Data.Items[1].Instance.Connection.Status)
 	}
 	if svc.listCalls != 1 {
 		t.Errorf("List calls = %d, want 1", svc.listCalls)
@@ -1115,11 +1121,66 @@ func TestInstancesGet(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	var payload struct {
-		Data instanceResponse `json:"data"`
+		Data instanceEnvelope `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if payload.Data.ID != want.ID.String() || payload.Data.Status != "connected" {
+	if payload.Data.Instance.ID != want.ID.String() || payload.Data.Instance.Connection.Status != "connected" {
 		t.Errorf("data = %+v, want instance %s connected", payload.Data, want.ID)
+	}
+}
+
+// TestInstancesGetPublicShape pins the remodeled fixture: the instance nests
+// under data.instance, connection exposes the structured last_error (legacy
+// text maps to legacy_error with occurred_at null) and webhook travels as
+// the nested block — while external_ref, owner_user_id and device/whatsapp
+// JIDs never leave the service.
+func TestInstancesGetPublicShape(t *testing.T) {
+	lastConnectedAt := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
+	owner := uuid.New()
+	want := &model.Instance{
+		ID:          uuid.New(),
+		Name:        "loja",
+		ExternalRef: "crm-1",
+		OwnerUserID: &owner,
+		Connection: model.InstanceConnection{
+			Status:          "error",
+			DeviceJID:       "5511@s.whatsapp.net",
+			LastConnectedAt: &lastConnectedAt,
+			LastError:       &model.InstanceError{Code: "legacy_error", Message: "qr code expired"},
+		},
+		Webhook: model.InstanceWebhook{
+			IsEnabled: true,
+			Events:    []string{"message"},
+		},
+	}
+	svc := &fakeInstanceService{getFn: func(context.Context, uuid.UUID) (*model.Instance, error) {
+		return want, nil
+	}}
+
+	rec := serveJSON(t, instancesServer(t, svc), http.MethodGet, "/instances/"+want.ID.String(), "")
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	var payload struct {
+		Data instanceEnvelope `json:"data"`
+	}
+	decodeJSON(t, rec.Body.Bytes(), &payload)
+	got := payload.Data.Instance
+	if got.Connection.LastError == nil || got.Connection.LastError.Code != "legacy_error" ||
+		got.Connection.LastError.Message != "qr code expired" || got.Connection.LastError.OccurredAt != nil {
+		t.Errorf("data.instance.connection.last_error = %+v, want legacy_error with null occurred_at", got.Connection.LastError)
+	}
+	if got.Connection.LastConnectedAt == nil || !got.Connection.LastConnectedAt.Equal(lastConnectedAt) {
+		t.Errorf("data.instance.connection.last_connected_at = %v, want %v", got.Connection.LastConnectedAt, lastConnectedAt)
+	}
+	if !got.Webhook.Enabled || !reflect.DeepEqual(got.Webhook.Events, []string{"message"}) {
+		t.Errorf("data.instance.webhook = %+v, want enabled with [message]", got.Webhook)
+	}
+	for _, leaked := range []string{`"external_ref"`, `"owner_user_id"`, `"device_jid"`, `"whatsapp_jid"`, `"api_key_hash"`} {
+		if strings.Contains(rec.Body.String(), leaked) {
+			t.Errorf("body %q leaks internal field %s", rec.Body.String(), leaked)
+		}
 	}
 }
 
@@ -1176,11 +1237,14 @@ func TestInstancesUpdate(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	var payload struct {
-		Data instanceResponse `json:"data"`
+		Data instanceEnvelope `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if payload.Data.Name != "novo" || payload.Data.ExternalRef != "ref-1" {
-		t.Errorf("data = %+v, want name novo and external ref ref-1", payload.Data)
+	if payload.Data.Instance.Name != "novo" {
+		t.Errorf("data = %+v, want instance name novo", payload.Data)
+	}
+	if strings.Contains(rec.Body.String(), `"external_ref"`) {
+		t.Errorf("body %q leaks internal external_ref", rec.Body.String())
 	}
 }
 

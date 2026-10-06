@@ -14,28 +14,42 @@ import (
 	"wzap/internal/storage"
 )
 
-// userQuotaResponse is the JSON representation of a user after a quota edit:
-// the minimal shape of task 3.3, which task 3.4 may extend with the remaining
-// users CRUD. The password hash never leaves the storage boundary.
-type userQuotaResponse struct {
+// userResponse is the public representation of a manager user (matrix §5):
+// identity, role, the per-user instance limit (0 = unlimited) and the
+// backend-computed count of owned instances. Password hashes never leave
+// the storage boundary.
+type userResponse struct {
 	ID            string `json:"id"`
 	Email         string `json:"email"`
 	Role          string `json:"role"`
-	InstanceQuota int    `json:"instance_quota"`
+	InstanceLimit int    `json:"instance_limit"`
+	InstancesUsed int    `json:"instances_used"`
 }
 
-// newUserQuotaResponse maps a stored user to its JSON representation. The
-// password hash never leaves the storage boundary.
-func newUserQuotaResponse(user *model.User) userQuotaResponse {
-	return userQuotaResponse{
+// userResponseEnvelope wraps a user under data.user (matrix §1) and nests
+// each item of the /users collection under its own key.
+type userResponseEnvelope struct {
+	User userResponse `json:"user"`
+}
+
+// userListResponse is the authorized user collection.
+type userListResponse struct {
+	Items []userResponseEnvelope `json:"items"`
+}
+
+// newUserResponse maps a stored user to its public DTO with the instances
+// count supplied by the caller.
+func newUserResponse(user *model.User, instancesUsed int) userResponse {
+	return userResponse{
 		ID:            user.ID.String(),
 		Email:         user.Email,
 		Role:          user.Role,
-		InstanceQuota: user.InstanceQuota,
+		InstanceLimit: user.InstanceQuota,
+		InstancesUsed: instancesUsed,
 	}
 }
 
-// optionalQuota captures the presence of the instance_quota field
+// optionalQuota captures the presence of the instance_limit field
 // independently of its JSON type: a *json.RawMessage cannot tell an absent
 // field from an explicit null (both decode to nil), while this value type
 // records every occurrence — including null — via UnmarshalJSON, so an
@@ -53,7 +67,7 @@ func (o *optionalQuota) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// createUserRequest is the POST /users payload. The quota uses optionalQuota
+// createUserRequest is the POST /users payload. The limit uses optionalQuota
 // so an absent field (creation-time default) stays distinct from an explicit
 // value, and a non-integer value can be rejected with 422 instead of the
 // generic 400 of a body decoding failure.
@@ -61,7 +75,7 @@ type createUserRequest struct {
 	Email         string        `json:"email"`
 	Password      string        `json:"password"`
 	Role          string        `json:"role"`
-	InstanceQuota optionalQuota `json:"instance_quota" swaggertype:"integer" minimum:"0"`
+	InstanceLimit optionalQuota `json:"instance_limit" swaggertype:"integer" minimum:"0"`
 }
 
 // handleCreateUser registers a manager user and answers 201 with the user.
@@ -80,7 +94,7 @@ type createUserRequest struct {
 // @Produce json
 // @Security apikey
 // @Param request body createUserRequest true "User payload"
-// @Success 201 {object} envelope{data=userQuotaResponse} "Created user, wrapped in the data envelope"
+// @Success 201 {object} envelope{data=userResponseEnvelope} "Created user, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Requires global or admin scope"
@@ -115,14 +129,14 @@ func handleCreateUser(users storage.UserRepository, defaultQuota int) http.Handl
 			Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "invalid role")
 			return
 		}
-		quota := defaultQuota
-		if request.InstanceQuota.Present {
+		limit := defaultQuota
+		if request.InstanceLimit.Present {
 			var parsed *int
-			if err := json.Unmarshal(request.InstanceQuota.Raw, &parsed); err != nil || parsed == nil || *parsed < 0 {
-				Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "invalid instance_quota")
+			if err := json.Unmarshal(request.InstanceLimit.Raw, &parsed); err != nil || parsed == nil || *parsed < 0 {
+				Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "invalid instance_limit")
 				return
 			}
-			quota = *parsed
+			limit = *parsed
 		}
 
 		if users == nil {
@@ -139,7 +153,7 @@ func handleCreateUser(users storage.UserRepository, defaultQuota int) http.Handl
 			Email:         email,
 			PasswordHash:  hash,
 			Role:          request.Role,
-			InstanceQuota: quota,
+			InstanceQuota: limit,
 		})
 		if err != nil {
 			if errors.Is(err, storage.ErrEmailTaken) {
@@ -149,7 +163,7 @@ func handleCreateUser(users storage.UserRepository, defaultQuota int) http.Handl
 			Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
 			return
 		}
-		JSON(w, r, http.StatusCreated, newUserQuotaResponse(created))
+		JSON(w, r, http.StatusCreated, userResponseEnvelope{User: newUserResponse(created, 0)})
 	}
 }
 
@@ -160,20 +174,20 @@ func handleCreateUser(users storage.UserRepository, defaultQuota int) http.Handl
 // @Tags users
 // @Produce json
 // @Security apikey
-// @Success 200 {object} envelope{data=[]userQuotaResponse} "Users, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=userListResponse} "Users, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Requires global or admin scope"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /users [get]
-func handleListUsers(users storage.UserRepository) http.HandlerFunc {
+func handleListUsers(users storage.UserRepository, keys storage.APIKeyRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := requireAdminScope(r); err != nil {
 			writeForbidden(w, r)
 			return
 		}
 
-		if users == nil {
+		if users == nil || keys == nil {
 			Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
 			return
 		}
@@ -182,11 +196,16 @@ func handleListUsers(users storage.UserRepository) http.HandlerFunc {
 			Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
 			return
 		}
-		response := make([]userQuotaResponse, 0, len(stored))
+		items := make([]userResponseEnvelope, 0, len(stored))
 		for i := range stored {
-			response = append(response, newUserQuotaResponse(&stored[i]))
+			used, err := keys.CountByOwner(r.Context(), stored[i].ID)
+			if err != nil {
+				Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
+				return
+			}
+			items = append(items, userResponseEnvelope{User: newUserResponse(&stored[i], used)})
 		}
-		JSON(w, r, http.StatusOK, response)
+		JSON(w, r, http.StatusOK, userListResponse{Items: items})
 	}
 }
 
@@ -200,14 +219,14 @@ func handleListUsers(users storage.UserRepository) http.HandlerFunc {
 // @Produce json
 // @Security apikey
 // @Param id path string true "User ID (UUID)"
-// @Success 200 {object} envelope{data=userQuotaResponse} "User, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=userResponseEnvelope} "User, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Requires global or admin scope"
 // @Failure 404 {object} errorEnvelope "User not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /users/{id} [get]
-func handleGetUser(users storage.UserRepository) http.HandlerFunc {
+func handleGetUser(users storage.UserRepository, keys storage.APIKeyRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := requireAdminScope(r); err != nil {
 			writeForbidden(w, r)
@@ -220,7 +239,7 @@ func handleGetUser(users storage.UserRepository) http.HandlerFunc {
 			return
 		}
 
-		if users == nil {
+		if users == nil || keys == nil {
 			Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
 			return
 		}
@@ -233,7 +252,12 @@ func handleGetUser(users storage.UserRepository) http.HandlerFunc {
 			Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
 			return
 		}
-		JSON(w, r, http.StatusOK, newUserQuotaResponse(stored))
+		used, err := keys.CountByOwner(r.Context(), stored.ID)
+		if err != nil {
+			Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
+			return
+		}
+		JSON(w, r, http.StatusOK, userResponseEnvelope{User: newUserResponse(stored, used)})
 	}
 }
 
@@ -308,11 +332,11 @@ func isForeignKeyViolation(err error) bool {
 	return errors.As(err, &pgErr) && pgErr.Code == "23503"
 }
 
-// patchQuotaRequest is the PATCH /users/{id} payload. The quota arrives as a
+// patchQuotaRequest is the PATCH /users/{id} payload. The limit arrives as a
 // raw message so a non-integer value (string, float, boolean, null) can be
 // rejected with 422 instead of the generic 400 of a body decoding failure.
 type patchQuotaRequest struct {
-	InstanceQuota *json.RawMessage `json:"instance_quota" swaggertype:"integer" minimum:"0"`
+	InstanceLimit *json.RawMessage `json:"instance_limit" swaggertype:"integer" minimum:"0"`
 }
 
 // handleUpdateUserQuota edits the per-user instance quota and answers 200
@@ -329,7 +353,7 @@ type patchQuotaRequest struct {
 // @Security apikey
 // @Param id path string true "User ID (UUID)"
 // @Param request body patchQuotaRequest true "Quota payload"
-// @Success 200 {object} envelope{data=userQuotaResponse} "Updated user, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=userResponseEnvelope} "Updated user, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Requires global or admin scope"
@@ -339,7 +363,7 @@ type patchQuotaRequest struct {
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /users/{id} [patch]
-func handleUpdateUserQuota(users storage.UserRepository) http.HandlerFunc {
+func handleUpdateUserQuota(users storage.UserRepository, keys storage.APIKeyRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := requireAdminScope(r); err != nil {
 			writeForbidden(w, r)
@@ -357,21 +381,21 @@ func handleUpdateUserQuota(users storage.UserRepository) http.HandlerFunc {
 			writeJSONBodyError(w, r, err)
 			return
 		}
-		if request.InstanceQuota == nil {
-			Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "invalid instance_quota")
+		if request.InstanceLimit == nil {
+			Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "invalid instance_limit")
 			return
 		}
-		var quota *int
-		if err := json.Unmarshal(*request.InstanceQuota, &quota); err != nil || quota == nil || *quota < 0 {
-			Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "invalid instance_quota")
+		var limit *int
+		if err := json.Unmarshal(*request.InstanceLimit, &limit); err != nil || limit == nil || *limit < 0 {
+			Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "invalid instance_limit")
 			return
 		}
 
-		if users == nil {
+		if users == nil || keys == nil {
 			Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
 			return
 		}
-		if err := users.UpdateQuota(r.Context(), id, *quota); err != nil {
+		if err := users.UpdateQuota(r.Context(), id, *limit); err != nil {
 			if errors.Is(err, storage.ErrNotFound) {
 				Error(w, r, http.StatusNotFound, "not_found", "user not found")
 				return
@@ -385,11 +409,11 @@ func handleUpdateUserQuota(users storage.UserRepository) http.HandlerFunc {
 			Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
 			return
 		}
-		JSON(w, r, http.StatusOK, userQuotaResponse{
-			ID:            updated.ID.String(),
-			Email:         updated.Email,
-			Role:          updated.Role,
-			InstanceQuota: updated.InstanceQuota,
-		})
+		used, err := keys.CountByOwner(r.Context(), updated.ID)
+		if err != nil {
+			Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
+			return
+		}
+		JSON(w, r, http.StatusOK, userResponseEnvelope{User: newUserResponse(updated, used)})
 	}
 }

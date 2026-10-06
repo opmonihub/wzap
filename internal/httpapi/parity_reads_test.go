@@ -62,8 +62,8 @@ func TestListJoinedGroups(t *testing.T) {
 			Data joinedGroupsResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if len(payload.Data.Items) != 1 || payload.Data.Items[0].JID != "120363000000000001@g.us" {
-			t.Errorf("data.items = %+v, want the single group", payload.Data.Items)
+		if len(payload.Data.Items) != 1 || payload.Data.Items[0].Group.JID != "120363000000000001@g.us" {
+			t.Errorf("data.items = %+v, want the single group under items[].group", payload.Data.Items)
 		}
 		if payload.Data.NextCursor == "" {
 			t.Error("data.next_cursor is empty, want the page cursor")
@@ -172,11 +172,11 @@ func TestInvitePreview(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data groupResponse `json:"data"`
+			Data groupEnvelope `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if payload.Data.JID != "120363000000000001@g.us" {
-			t.Errorf("data.jid = %q, want the previewed group", payload.Data.JID)
+		if payload.Data.Group.JID != "120363000000000001@g.us" {
+			t.Errorf("data.group.jid = %q, want the previewed group", payload.Data.Group.JID)
 		}
 	})
 

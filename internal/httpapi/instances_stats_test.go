@@ -13,17 +13,20 @@ import (
 	"wzap/internal/model"
 )
 
-// statsTotals decodes the scoped counts answered by GET /instances/stats.
+// statsTotals decodes the scoped counts answered by GET /instances/stats
+// (data.stats carries total plus the by_status buckets).
 func statsTotals(t *testing.T, body []byte) (int, map[string]int) {
 	t.Helper()
 	var payload struct {
 		Data struct {
-			Total    int            `json:"total"`
-			ByStatus map[string]int `json:"by_status"`
+			Stats struct {
+				Total    int            `json:"total"`
+				ByStatus map[string]int `json:"by_status"`
+			} `json:"stats"`
 		} `json:"data"`
 	}
 	decodeJSON(t, body, &payload)
-	return payload.Data.Total, payload.Data.ByStatus
+	return payload.Data.Stats.Total, payload.Data.Stats.ByStatus
 }
 
 func TestInstanceStatsGlobalCountsAllStatuses(t *testing.T) {

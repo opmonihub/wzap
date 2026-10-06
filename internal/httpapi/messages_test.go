@@ -156,11 +156,14 @@ func serveMessages(t *testing.T, srv *http.Server, method, path, body string, he
 	return rec
 }
 
-// messageAcceptedPayload is the decoded data of a 202 send response.
+// messageAcceptedPayload is the decoded data of a 202 send response: the
+// queue message carries its id and the queued send_status under data.message.
 type messageAcceptedPayload struct {
 	Data struct {
-		MessageID string `json:"message_id"`
-		Status    string `json:"status"`
+		Message struct {
+			ID         string `json:"id"`
+			SendStatus string `json:"send_status"`
+		} `json:"message"`
 	} `json:"data"`
 }
 
@@ -185,11 +188,11 @@ func TestSendTextAccepted(t *testing.T) {
 	}
 	var payload messageAcceptedPayload
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if payload.Data.MessageID != messageID.String() {
-		t.Errorf("data.message_id = %q, want %q", payload.Data.MessageID, messageID)
+	if payload.Data.Message.ID != messageID.String() {
+		t.Errorf("data.message.id = %q, want %q", payload.Data.Message.ID, messageID)
 	}
-	if payload.Data.Status != message.StatusQueued {
-		t.Errorf("data.status = %q, want %q", payload.Data.Status, message.StatusQueued)
+	if payload.Data.Message.SendStatus != message.StatusQueued {
+		t.Errorf("data.message.send_status = %q, want %q", payload.Data.Message.SendStatus, message.StatusQueued)
 	}
 }
 
@@ -373,11 +376,14 @@ func TestGetMessage(t *testing.T) {
 			RecipientJID:      "5547988359190@s.whatsapp.net",
 			Status:            "sent",
 			WhatsAppMessageID: "wamid-1",
-			LastError:         "boom",
-			Attempts:          2,
-			DeliveredAt:       &deliveredAt,
-			CreatedAt:         deliveredAt,
-			UpdatedAt:         deliveredAt,
+			// A pre-remodel row carries free text only: the public
+			// last_error surfaces it as legacy_error with no invented
+			// occurrence time.
+			LastError:   "boom",
+			Attempts:    2,
+			DeliveredAt: &deliveredAt,
+			CreatedAt:   deliveredAt,
+			UpdatedAt:   deliveredAt,
 		}, nil
 	}}
 
@@ -388,29 +394,39 @@ func TestGetMessage(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	var payload struct {
-		Data messageResponse `json:"data"`
+		Data messageEnvelope `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if payload.Data.ID != messageID.String() || payload.Data.InstanceID != id.String() {
-		t.Errorf("data ids = (%q, %q), want (%q, %q)", payload.Data.ID, payload.Data.InstanceID, messageID, id)
+	msg := payload.Data.Message
+	if msg.ID != messageID.String() || msg.InstanceID != id.String() {
+		t.Errorf("data.message ids = (%q, %q), want (%q, %q)", msg.ID, msg.InstanceID, messageID, id)
 	}
-	if payload.Data.Status != "sent" {
-		t.Errorf("data.status = %q, want %q", payload.Data.Status, "sent")
+	if msg.MessageType != message.TypeText {
+		t.Errorf("data.message.message_type = %q, want %q", msg.MessageType, message.TypeText)
 	}
-	if payload.Data.WhatsAppMessageID != "wamid-1" {
-		t.Errorf("data.whatsapp_message_id = %q, want %q", payload.Data.WhatsAppMessageID, "wamid-1")
+	if msg.RecipientJID != "5547988359190@s.whatsapp.net" {
+		t.Errorf("data.message.recipient_jid = %q, want the stored JID", msg.RecipientJID)
 	}
-	if payload.Data.LastError != "boom" {
-		t.Errorf("data.last_error = %q, want %q", payload.Data.LastError, "boom")
+	if msg.SendStatus != "sent" {
+		t.Errorf("data.message.send_status = %q, want %q", msg.SendStatus, "sent")
 	}
-	if payload.Data.Attempts != 2 {
-		t.Errorf("data.attempts = %d, want 2", payload.Data.Attempts)
+	if msg.WAID == nil || *msg.WAID != "wamid-1" {
+		t.Errorf("data.message.wa_id = %v, want %q", msg.WAID, "wamid-1")
 	}
-	if payload.Data.DeliveredAt == nil || !payload.Data.DeliveredAt.Equal(deliveredAt) {
-		t.Errorf("data.delivered_at = %v, want %v", payload.Data.DeliveredAt, deliveredAt)
+	if msg.LastError == nil || msg.LastError.Code != "legacy_error" || msg.LastError.Message != "boom" || msg.LastError.OccurredAt != nil {
+		t.Errorf("data.message.last_error = %+v, want legacy_error boom with null occurred_at", msg.LastError)
 	}
-	if payload.Data.ReadAt != nil {
-		t.Errorf("data.read_at = %v, want nil", payload.Data.ReadAt)
+	if msg.RetryCount != 2 {
+		t.Errorf("data.message.retry_count = %d, want 2", msg.RetryCount)
+	}
+	if msg.DeliveredAt == nil || !msg.DeliveredAt.Equal(deliveredAt) {
+		t.Errorf("data.message.delivered_at = %v, want %v", msg.DeliveredAt, deliveredAt)
+	}
+	if msg.ReadAt != nil {
+		t.Errorf("data.message.read_at = %v, want nil", msg.ReadAt)
+	}
+	if strings.Contains(rec.Body.String(), `"whatsapp_message_id"`) || strings.Contains(rec.Body.String(), `"attempts"`) {
+		t.Errorf("body %q leaks the pre-remodel field names", rec.Body.String())
 	}
 }
 
@@ -566,11 +582,11 @@ func TestSendMediaAccepted(t *testing.T) {
 	}
 	var payload messageAcceptedPayload
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if payload.Data.MessageID != messageID.String() {
-		t.Errorf("data.message_id = %q, want %q", payload.Data.MessageID, messageID)
+	if payload.Data.Message.ID != messageID.String() {
+		t.Errorf("data.message.id = %q, want %q", payload.Data.Message.ID, messageID)
 	}
-	if payload.Data.Status != message.StatusQueued {
-		t.Errorf("data.status = %q, want %q", payload.Data.Status, message.StatusQueued)
+	if payload.Data.Message.SendStatus != message.StatusQueued {
+		t.Errorf("data.message.send_status = %q, want %q", payload.Data.Message.SendStatus, message.StatusQueued)
 	}
 	if len(store.saveCalls) != 1 {
 		t.Errorf("Save calls = %d, want 1", len(store.saveCalls))

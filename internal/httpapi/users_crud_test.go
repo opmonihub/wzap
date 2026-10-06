@@ -55,7 +55,7 @@ func TestUsersCreateHappy(t *testing.T) {
 		cookie := rbacSessionCookie(mustSessionToken(t, admin.ID, "admin"))
 
 		rec := serveRBAC(t, srv, http.MethodPost, "/users",
-			`{"email":"cliente@example.com","password":"s3cret-password","role":"user","instance_quota":7}`,
+			`{"email":"cliente@example.com","password":"s3cret-password","role":"user","instance_limit":7}`,
 			cookie, "", nil)
 
 		if rec.Code != http.StatusCreated {
@@ -69,7 +69,7 @@ func TestUsersCreateHappy(t *testing.T) {
 		if got := userDataString(t, data, "role"); got != "user" {
 			t.Errorf("data.role = %q, want %q", got, "user")
 		}
-		if got := userDataInt(t, data, "instance_quota"); got != 7 {
+		if got := userDataInt(t, data, "instance_limit"); got != 7 {
 			t.Errorf("data.instance_quota = %d, want 7", got)
 		}
 		idRaw, ok := data["id"]
@@ -108,7 +108,7 @@ func TestUsersCreateHappy(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusCreated, rec.Body.String())
 		}
 		data := decodeUserData(t, rec.Body.Bytes())
-		if got := userDataInt(t, data, "instance_quota"); got != 4 {
+		if got := userDataInt(t, data, "instance_limit"); got != 4 {
 			t.Errorf("data.instance_quota = %d, want the default 4", got)
 		}
 	})
@@ -121,14 +121,14 @@ func TestUsersCreateHappy(t *testing.T) {
 		cookie := rbacSessionCookie(mustSessionToken(t, admin.ID, "admin"))
 
 		rec := serveRBAC(t, srv, http.MethodPost, "/users",
-			`{"email":"zero@example.com","password":"s3cret-password","role":"user","instance_quota":0}`,
+			`{"email":"zero@example.com","password":"s3cret-password","role":"user","instance_limit":0}`,
 			cookie, "", nil)
 
 		if rec.Code != http.StatusCreated {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusCreated, rec.Body.String())
 		}
 		data := decodeUserData(t, rec.Body.Bytes())
-		if got := userDataInt(t, data, "instance_quota"); got != 0 {
+		if got := userDataInt(t, data, "instance_limit"); got != 0 {
 			t.Errorf("data.instance_quota = %d, want the explicit 0", got)
 		}
 	})
@@ -161,11 +161,11 @@ func TestUsersCreateValidation(t *testing.T) {
 		"missing role":     {`{"email":"a@example.com","password":"s3cret-password"}`, http.StatusUnprocessableEntity, "unprocessable_entity"},
 		"invalid role":     {`{"email":"a@example.com","password":"s3cret-password","role":"owner"}`, http.StatusUnprocessableEntity, "unprocessable_entity"},
 		"uppercase role":   {`{"email":"a@example.com","password":"s3cret-password","role":"Admin"}`, http.StatusUnprocessableEntity, "unprocessable_entity"},
-		"negative quota":   {`{"email":"a@example.com","password":"s3cret-password","role":"user","instance_quota":-1}`, http.StatusUnprocessableEntity, "unprocessable_entity"},
-		"string quota":     {`{"email":"a@example.com","password":"s3cret-password","role":"user","instance_quota":"many"}`, http.StatusUnprocessableEntity, "unprocessable_entity"},
-		"float quota":      {`{"email":"a@example.com","password":"s3cret-password","role":"user","instance_quota":1.5}`, http.StatusUnprocessableEntity, "unprocessable_entity"},
-		"bool quota":       {`{"email":"a@example.com","password":"s3cret-password","role":"user","instance_quota":true}`, http.StatusUnprocessableEntity, "unprocessable_entity"},
-		"null quota":       {`{"email":"a@example.com","password":"s3cret-password","role":"user","instance_quota":null}`, http.StatusUnprocessableEntity, "unprocessable_entity"},
+		"negative quota":   {`{"email":"a@example.com","password":"s3cret-password","role":"user","instance_limit":-1}`, http.StatusUnprocessableEntity, "unprocessable_entity"},
+		"string quota":     {`{"email":"a@example.com","password":"s3cret-password","role":"user","instance_limit":"many"}`, http.StatusUnprocessableEntity, "unprocessable_entity"},
+		"float quota":      {`{"email":"a@example.com","password":"s3cret-password","role":"user","instance_limit":1.5}`, http.StatusUnprocessableEntity, "unprocessable_entity"},
+		"bool quota":       {`{"email":"a@example.com","password":"s3cret-password","role":"user","instance_limit":true}`, http.StatusUnprocessableEntity, "unprocessable_entity"},
+		"null quota":       {`{"email":"a@example.com","password":"s3cret-password","role":"user","instance_limit":null}`, http.StatusUnprocessableEntity, "unprocessable_entity"},
 		"malformed body":   {`{"email":`, http.StatusBadRequest, "invalid_request"},
 	}
 
@@ -263,21 +263,25 @@ func TestUsersListGet(t *testing.T) {
 		}
 		assertNoSecrets(t, rec.Body.Bytes())
 		var payload struct {
-			Data []map[string]any `json:"data"`
+			Data struct {
+				Items []struct {
+					User map[string]any `json:"user"`
+				} `json:"items"`
+			} `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if len(payload.Data) != 3 {
-			t.Fatalf("items = %d, want 3 (body %q)", len(payload.Data), rec.Body.String())
+		if len(payload.Data.Items) != 3 {
+			t.Fatalf("items = %d, want 3 (body %q)", len(payload.Data.Items), rec.Body.String())
 		}
-		if payload.Data[0]["email"] != "older@example.com" || payload.Data[1]["email"] != "newer@example.com" ||
-			payload.Data[2]["email"] != "admin@example.com" {
+		if payload.Data.Items[0].User["email"] != "older@example.com" || payload.Data.Items[1].User["email"] != "newer@example.com" ||
+			payload.Data.Items[2].User["email"] != "admin@example.com" {
 			t.Errorf("order = %v %v %v, want older then newer then admin",
-				payload.Data[0]["email"], payload.Data[1]["email"], payload.Data[2]["email"])
+				payload.Data.Items[0].User["email"], payload.Data.Items[1].User["email"], payload.Data.Items[2].User["email"])
 		}
-		for i, item := range payload.Data {
-			for _, field := range []string{"id", "email", "role", "instance_quota"} {
-				if _, ok := item[field]; !ok {
-					t.Errorf("items[%d] is missing %q", i, field)
+		for i, item := range payload.Data.Items {
+			for _, field := range []string{"id", "email", "role", "instance_limit", "instances_used"} {
+				if _, ok := item.User[field]; !ok {
+					t.Errorf("items[%d].user is missing %q", i, field)
 				}
 			}
 		}
@@ -313,7 +317,7 @@ func TestUsersUnknownIDsAdmin(t *testing.T) {
 	}{
 		"get unknown":      {http.MethodGet, "/users/" + unknown, ""},
 		"get malformed":    {http.MethodGet, "/users/not-a-uuid", ""},
-		"patch unknown":    {http.MethodPatch, "/users/" + unknown, `{"instance_quota":1}`},
+		"patch unknown":    {http.MethodPatch, "/users/" + unknown, `{"instance_limit":1}`},
 		"delete unknown":   {http.MethodDelete, "/users/" + unknown, ""},
 		"delete malformed": {http.MethodDelete, "/users/not-a-uuid", ""},
 	} {
@@ -446,7 +450,7 @@ func TestUsersDeniedMatrix(t *testing.T) {
 		{"create", http.MethodPost, "/users", `{"email":"novo@example.com","password":"s3cret-password","role":"user"}`},
 		{"list", http.MethodGet, "/users", ""},
 		{"get one", http.MethodGet, "/users/" + targetID.String(), ""},
-		{"patch quota", http.MethodPatch, "/users/" + targetID.String(), `{"instance_quota":1}`},
+		{"patch quota", http.MethodPatch, "/users/" + targetID.String(), `{"instance_limit":1}`},
 		{"delete", http.MethodDelete, "/users/" + targetID.String(), ""},
 	}
 
@@ -502,7 +506,7 @@ func TestUsersDeniedMatrix(t *testing.T) {
 			body   string
 		}{
 			"get":    {http.MethodGet, ""},
-			"patch":  {http.MethodPatch, `{"instance_quota":1}`},
+			"patch":  {http.MethodPatch, `{"instance_limit":1}`},
 			"delete": {http.MethodDelete, ""},
 		} {
 			t.Run(name+" as user", func(t *testing.T) {

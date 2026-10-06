@@ -23,9 +23,10 @@ const (
 	maxCheckContactsBatch = 50
 )
 
-// joinedGroupsResponse is one page of the groups the instance belongs to.
+// joinedGroupsResponse is one page of the groups the instance belongs to;
+// each element nests the group DTO under its own key (matrix §1).
 type joinedGroupsResponse struct {
-	Items      []groupResponse `json:"items"`
+	Items      []groupEnvelope `json:"items"`
 	NextCursor string          `json:"next_cursor"`
 }
 
@@ -200,9 +201,9 @@ func handleListJoinedGroups(instances InstanceService, log zerolog.Logger) http.
 			writeInstanceError(w, r, err)
 			return
 		}
-		response := joinedGroupsResponse{Items: make([]groupResponse, 0, len(items)), NextCursor: next}
+		response := joinedGroupsResponse{Items: make([]groupEnvelope, 0, len(items)), NextCursor: next}
 		for _, item := range items {
-			response.Items = append(response.Items, newGroupResponse(item))
+			response.Items = append(response.Items, groupEnvelope{Group: newGroupResponse(item)})
 		}
 		JSON(w, r, http.StatusOK, response)
 	}
@@ -249,7 +250,7 @@ func handleInvitePreview(instances InstanceService, log zerolog.Logger) http.Han
 			writeInstanceError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusOK, newGroupResponse(group))
+		JSON(w, r, http.StatusOK, groupEnvelope{Group: newGroupResponse(group)})
 	}
 }
 

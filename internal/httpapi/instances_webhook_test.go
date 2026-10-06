@@ -68,13 +68,31 @@ func newWebhookRoundTripFake() *webhookRoundTripFake {
 	return f
 }
 
+// webhookData decodes data.instance.webhook of rec into a raw field map.
 func webhookData(t *testing.T, body []byte) map[string]any {
 	t.Helper()
 	var payload struct {
-		Data map[string]any `json:"data"`
+		Data struct {
+			Instance struct {
+				ID      string         `json:"id"`
+				Webhook map[string]any `json:"webhook"`
+			} `json:"instance"`
+		} `json:"data"`
 	}
 	decodeJSON(t, body, &payload)
-	return payload.Data
+	return payload.Data.Instance.Webhook
+}
+
+// instanceData decodes data.instance of rec into a raw field map.
+func instanceData(t *testing.T, body []byte) map[string]any {
+	t.Helper()
+	var payload struct {
+		Data struct {
+			Instance map[string]any `json:"instance"`
+		} `json:"data"`
+	}
+	decodeJSON(t, body, &payload)
+	return payload.Data.Instance
 }
 
 func TestInstancesCreateWithWebhookRoundTrip(t *testing.T) {
@@ -82,7 +100,7 @@ func TestInstancesCreateWithWebhookRoundTrip(t *testing.T) {
 	srv := instancesServer(t, svc)
 
 	rec := serveJSON(t, srv, http.MethodPost, "/instances",
-		`{"name":"loja","webhook_url":"https://hooks.example.com/wzap","webhook_enabled":true,"webhook_events":["message","receipt"]}`)
+		`{"name":"loja","webhook":{"url":"https://hooks.example.com/wzap","enabled":true,"events":["message","receipt"]}}`)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create status = %d, want %d (body %q)", rec.Code, http.StatusCreated, rec.Body.String())
 	}
@@ -91,40 +109,40 @@ func TestInstancesCreateWithWebhookRoundTrip(t *testing.T) {
 	}
 	sent := svc.createInputs[0]
 	if sent.WebhookURL == nil || *sent.WebhookURL != "https://hooks.example.com/wzap" {
-		t.Errorf("Create webhook_url = %v, want the configured URL", sent.WebhookURL)
+		t.Errorf("Create webhook url = %v, want the configured URL", sent.WebhookURL)
 	}
 	if sent.WebhookEnabled == nil || !*sent.WebhookEnabled {
-		t.Errorf("Create webhook_enabled = %v, want an explicit true", sent.WebhookEnabled)
+		t.Errorf("Create webhook enabled = %v, want an explicit true", sent.WebhookEnabled)
 	}
 	if sent.WebhookEvents == nil || !reflect.DeepEqual(*sent.WebhookEvents, []string{"message", "receipt"}) {
-		t.Errorf("Create webhook_events = %v, want [message receipt]", sent.WebhookEvents)
+		t.Errorf("Create webhook events = %v, want [message receipt]", sent.WebhookEvents)
 	}
 
 	data := webhookData(t, rec.Body.Bytes())
-	if data["webhook_url"] != "https://hooks.example.com/wzap" {
-		t.Errorf("data.webhook_url = %v, want the configured URL", data["webhook_url"])
+	if data["url"] != "https://hooks.example.com/wzap" {
+		t.Errorf("data.instance.webhook.url = %v, want the configured URL", data["url"])
 	}
-	if data["webhook_enabled"] != true {
-		t.Errorf("data.webhook_enabled = %v, want true", data["webhook_enabled"])
+	if data["enabled"] != true {
+		t.Errorf("data.instance.webhook.enabled = %v, want true", data["enabled"])
 	}
-	if !reflect.DeepEqual(data["webhook_events"], []any{"message", "receipt"}) {
-		t.Errorf("data.webhook_events = %v, want [message receipt]", data["webhook_events"])
+	if !reflect.DeepEqual(data["events"], []any{"message", "receipt"}) {
+		t.Errorf("data.instance.webhook.events = %v, want [message receipt]", data["events"])
 	}
-	id, _ := data["id"].(string)
+	id, _ := instanceData(t, rec.Body.Bytes())["id"].(string)
 
 	got := serveJSON(t, srv, http.MethodGet, "/instances/"+id, "")
 	if got.Code != http.StatusOK {
 		t.Fatalf("get status = %d, want %d (body %q)", got.Code, http.StatusOK, got.Body.String())
 	}
 	getData := webhookData(t, got.Body.Bytes())
-	if getData["webhook_url"] != "https://hooks.example.com/wzap" {
-		t.Errorf("get webhook_url = %v, want the configured URL", getData["webhook_url"])
+	if getData["url"] != "https://hooks.example.com/wzap" {
+		t.Errorf("get webhook.url = %v, want the configured URL", getData["url"])
 	}
-	if getData["webhook_enabled"] != true {
-		t.Errorf("get webhook_enabled = %v, want true", getData["webhook_enabled"])
+	if getData["enabled"] != true {
+		t.Errorf("get webhook.enabled = %v, want true", getData["enabled"])
 	}
-	if !reflect.DeepEqual(getData["webhook_events"], []any{"message", "receipt"}) {
-		t.Errorf("get webhook_events = %v, want [message receipt]", getData["webhook_events"])
+	if !reflect.DeepEqual(getData["events"], []any{"message", "receipt"}) {
+		t.Errorf("get webhook.events = %v, want [message receipt]", getData["events"])
 	}
 }
 
@@ -133,14 +151,14 @@ func TestInstancesUpdateWebhookDisablesAndNarrows(t *testing.T) {
 	srv := instancesServer(t, svc)
 
 	created := serveJSON(t, srv, http.MethodPost, "/instances",
-		`{"name":"loja","webhook_url":"https://hooks.example.com/wzap","webhook_enabled":true}`)
+		`{"name":"loja","webhook":{"url":"https://hooks.example.com/wzap","enabled":true}}`)
 	if created.Code != http.StatusCreated {
 		t.Fatalf("create status = %d, want %d (body %q)", created.Code, http.StatusCreated, created.Body.String())
 	}
-	id, _ := webhookData(t, created.Body.Bytes())["id"].(string)
+	id, _ := instanceData(t, created.Body.Bytes())["id"].(string)
 
 	updated := serveJSON(t, srv, http.MethodPatch, "/instances/"+id,
-		`{"webhook_enabled":false,"webhook_events":["receipt"]}`)
+		`{"webhook":{"enabled":false,"events":["receipt"]}}`)
 	if updated.Code != http.StatusOK {
 		t.Fatalf("update status = %d, want %d (body %q)", updated.Code, http.StatusOK, updated.Body.String())
 	}
@@ -149,24 +167,43 @@ func TestInstancesUpdateWebhookDisablesAndNarrows(t *testing.T) {
 	}
 	sent := svc.updateInputs[0]
 	if sent.WebhookEnabled == nil || *sent.WebhookEnabled {
-		t.Errorf("Update webhook_enabled = %v, want an explicit false", sent.WebhookEnabled)
+		t.Errorf("Update webhook enabled = %v, want an explicit false", sent.WebhookEnabled)
 	}
 	if sent.WebhookEvents == nil || !reflect.DeepEqual(*sent.WebhookEvents, []string{"receipt"}) {
-		t.Errorf("Update webhook_events = %v, want [receipt]", sent.WebhookEvents)
+		t.Errorf("Update webhook events = %v, want [receipt]", sent.WebhookEvents)
 	}
 	if sent.WebhookURL != nil {
-		t.Errorf("Update webhook_url = %v, want nil (absent keeps the stored URL)", sent.WebhookURL)
+		t.Errorf("Update webhook url = %v, want nil (absent keeps the stored URL)", sent.WebhookURL)
 	}
 
 	data := webhookData(t, updated.Body.Bytes())
-	if data["webhook_url"] != "https://hooks.example.com/wzap" {
-		t.Errorf("data.webhook_url = %v, want the stored URL kept", data["webhook_url"])
+	if data["url"] != "https://hooks.example.com/wzap" {
+		t.Errorf("data.instance.webhook.url = %v, want the stored URL kept", data["url"])
 	}
-	if data["webhook_enabled"] != false {
-		t.Errorf("data.webhook_enabled = %v, want false", data["webhook_enabled"])
+	if data["enabled"] != false {
+		t.Errorf("data.instance.webhook.enabled = %v, want false", data["enabled"])
 	}
-	if !reflect.DeepEqual(data["webhook_events"], []any{"receipt"}) {
-		t.Errorf("data.webhook_events = %v, want [receipt]", data["webhook_events"])
+	if !reflect.DeepEqual(data["events"], []any{"receipt"}) {
+		t.Errorf("data.instance.webhook.events = %v, want [receipt]", data["events"])
+	}
+}
+
+// A flat webhook_url field is ignored by the nested contract: the write goes
+// through with the defaults and the stored config stays unset.
+func TestInstancesCreateFlatWebhookFieldsIgnored(t *testing.T) {
+	svc := &fakeInstanceService{createFn: echoCreateFn("k")}
+
+	rec := serveJSON(t, instancesServer(t, svc), http.MethodPost, "/instances",
+		`{"name":"loja","webhook_url":"https://hooks.example.com/wzap","webhook_enabled":true}`)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	if len(svc.createInputs) != 1 {
+		t.Fatalf("Create calls = %d, want 1", len(svc.createInputs))
+	}
+	if svc.createInputs[0].WebhookURL != nil || svc.createInputs[0].WebhookEnabled != nil || svc.createInputs[0].WebhookEvents != nil {
+		t.Errorf("Create webhook input = %+v, want all nil (flat fields are ignored)", svc.createInputs[0])
 	}
 }
 
@@ -176,7 +213,7 @@ func TestInstancesCreateInvalidWebhookUnprocessable(t *testing.T) {
 	}}
 
 	rec := serveJSON(t, instancesServer(t, svc), http.MethodPost, "/instances",
-		`{"name":"loja","webhook_url":"http://example.com/hook"}`)
+		`{"name":"loja","webhook":{"url":"http://example.com/hook"}}`)
 
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusUnprocessableEntity, rec.Body.String())
@@ -193,17 +230,17 @@ func TestInstancesUpdateInvalidWebhookKeepsPrevious(t *testing.T) {
 	srv := instancesServer(t, svc)
 
 	created := serveJSON(t, srv, http.MethodPost, "/instances",
-		`{"name":"loja","webhook_url":"https://hooks.example.com/wzap","webhook_enabled":true,"webhook_events":["message"]}`)
+		`{"name":"loja","webhook":{"url":"https://hooks.example.com/wzap","enabled":true,"events":["message"]}}`)
 	if created.Code != http.StatusCreated {
 		t.Fatalf("create status = %d, want %d (body %q)", created.Code, http.StatusCreated, created.Body.String())
 	}
-	id, _ := webhookData(t, created.Body.Bytes())["id"].(string)
+	id, _ := instanceData(t, created.Body.Bytes())["id"].(string)
 
 	svc.updateFn = func(_ context.Context, _ uuid.UUID, _ instance.UpdateInput) (*model.Instance, error) {
 		return nil, instance.ErrInvalidWebhook
 	}
 	bad := serveJSON(t, srv, http.MethodPatch, "/instances/"+id,
-		`{"webhook_url":"http://example.com/hook"}`)
+		`{"webhook":{"url":"http://example.com/hook"}}`)
 	if bad.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("update status = %d, want %d (body %q)", bad.Code, http.StatusUnprocessableEntity, bad.Body.String())
 	}
@@ -216,10 +253,10 @@ func TestInstancesUpdateInvalidWebhookKeepsPrevious(t *testing.T) {
 		t.Fatalf("get status = %d, want %d (body %q)", got.Code, http.StatusOK, got.Body.String())
 	}
 	data := webhookData(t, got.Body.Bytes())
-	if data["webhook_url"] != "https://hooks.example.com/wzap" {
-		t.Errorf("get webhook_url = %v, want the previous URL kept", data["webhook_url"])
+	if data["url"] != "https://hooks.example.com/wzap" {
+		t.Errorf("get webhook.url = %v, want the previous URL kept", data["url"])
 	}
-	if !reflect.DeepEqual(data["webhook_events"], []any{"message"}) {
-		t.Errorf("get webhook_events = %v, want the previous [message] kept", data["webhook_events"])
+	if !reflect.DeepEqual(data["events"], []any{"message"}) {
+		t.Errorf("get webhook.events = %v, want the previous [message] kept", data["events"])
 	}
 }

@@ -17,7 +17,8 @@ import (
 
 const messageColumns = `id, instance_id, message_type, recipient_jid, payload, media_id, send_status, ` +
 	`COALESCE(wa_id, '') AS wa_id, COALESCE(last_error_message, '') AS last_error_message, ` +
-	`retry_count, delivered_at, read_at, created_at, updated_at`
+	`COALESCE(last_error_code, '') AS last_error_code, last_error_at, ` +
+	`retry_count, next_attempt_at, delivered_at, read_at, created_at, updated_at`
 
 const listMessagesQuery = `SELECT ` + messageColumns + ` FROM message_queue ` +
 	`WHERE instance_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2`
@@ -300,7 +301,8 @@ func scanMessageRow(scanner rowScanner, message *model.OutboundMessage) error {
 	return scanner.Scan(
 		&message.ID, &message.InstanceID, &message.Type, &message.RecipientJID,
 		&message.Payload, &message.MediaID, &message.Status, &message.WhatsAppMessageID,
-		&message.LastError, &message.Attempts, &message.DeliveredAt, &message.ReadAt,
+		&message.LastError, &message.LastErrorCode, &message.LastErrorAt,
+		&message.Attempts, &message.NextAttemptAt, &message.DeliveredAt, &message.ReadAt,
 		&message.CreatedAt, &message.UpdatedAt,
 	)
 }

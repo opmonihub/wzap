@@ -99,10 +99,12 @@ func patchQuotaServer(t *testing.T, maxInstances int, users storage.UserReposito
 func decodeUserData(t *testing.T, body []byte) map[string]json.RawMessage {
 	t.Helper()
 	var payload struct {
-		Data map[string]json.RawMessage `json:"data"`
+		Data struct {
+			User map[string]json.RawMessage `json:"user"`
+		} `json:"data"`
 	}
 	decodeJSON(t, body, &payload)
-	return payload.Data
+	return payload.Data.User
 }
 
 func userDataString(t *testing.T, data map[string]json.RawMessage, field string) string {
@@ -155,7 +157,7 @@ func TestUsersPatchQuotaHappy(t *testing.T) {
 			srv, svc := patchQuotaServer(t, 0, users, keys)
 
 			cookie, apiKey := patcher(t)
-			rec := serveRBAC(t, srv, http.MethodPatch, "/users/"+userID.String(), `{"instance_quota":1}`, cookie, apiKey, nil)
+			rec := serveRBAC(t, srv, http.MethodPatch, "/users/"+userID.String(), `{"instance_limit":1}`, cookie, apiKey, nil)
 
 			if rec.Code != http.StatusOK {
 				t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
@@ -170,7 +172,7 @@ func TestUsersPatchQuotaHappy(t *testing.T) {
 			if got := userDataString(t, data, "role"); got != "user" {
 				t.Errorf("data.role = %q, want %q", got, "user")
 			}
-			if got := userDataInt(t, data, "instance_quota"); got != 1 {
+			if got := userDataInt(t, data, "instance_limit"); got != 1 {
 				t.Errorf("data.instance_quota = %d, want 1", got)
 			}
 
@@ -210,7 +212,7 @@ func TestUsersPatchQuotaForbidden(t *testing.T) {
 
 	t.Run("user session is forbidden", func(t *testing.T) {
 		cookie := rbacSessionCookie(mustSessionToken(t, userID, "user"))
-		rec := serveRBAC(t, srv, http.MethodPatch, path, `{"instance_quota":1}`, cookie, "", nil)
+		rec := serveRBAC(t, srv, http.MethodPatch, path, `{"instance_limit":1}`, cookie, "", nil)
 
 		if rec.Code != http.StatusForbidden {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusForbidden, rec.Body.String())
@@ -221,7 +223,7 @@ func TestUsersPatchQuotaForbidden(t *testing.T) {
 	})
 
 	t.Run("instance key is forbidden", func(t *testing.T) {
-		rec := serveRBAC(t, srv, http.MethodPatch, path, `{"instance_quota":1}`, nil, liveKey, nil)
+		rec := serveRBAC(t, srv, http.MethodPatch, path, `{"instance_limit":1}`, nil, liveKey, nil)
 
 		if rec.Code != http.StatusForbidden {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusForbidden, rec.Body.String())
@@ -251,7 +253,7 @@ func TestUsersPatchQuotaNotFound(t *testing.T) {
 
 	t.Run("unknown user", func(t *testing.T) {
 		cookie := rbacSessionCookie(mustSessionToken(t, adminID, "admin"))
-		rec := serveRBAC(t, srv, http.MethodPatch, "/users/"+uuid.NewString(), `{"instance_quota":1}`, cookie, "", nil)
+		rec := serveRBAC(t, srv, http.MethodPatch, "/users/"+uuid.NewString(), `{"instance_limit":1}`, cookie, "", nil)
 
 		if rec.Code != http.StatusNotFound {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusNotFound, rec.Body.String())
@@ -263,7 +265,7 @@ func TestUsersPatchQuotaNotFound(t *testing.T) {
 
 	t.Run("malformed id", func(t *testing.T) {
 		cookie := rbacSessionCookie(mustSessionToken(t, adminID, "admin"))
-		rec := serveRBAC(t, srv, http.MethodPatch, "/users/not-a-uuid", `{"instance_quota":1}`, cookie, "", nil)
+		rec := serveRBAC(t, srv, http.MethodPatch, "/users/not-a-uuid", `{"instance_limit":1}`, cookie, "", nil)
 
 		if rec.Code != http.StatusNotFound {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusNotFound, rec.Body.String())
@@ -279,11 +281,11 @@ func TestUsersPatchQuotaInvalid(t *testing.T) {
 	userID := uuid.New()
 
 	cases := map[string]string{
-		"negative":     `{"instance_quota":-1}`,
-		"string":       `{"instance_quota":"many"}`,
-		"float":        `{"instance_quota":1.5}`,
-		"bool":         `{"instance_quota":true}`,
-		"null":         `{"instance_quota":null}`,
+		"negative":     `{"instance_limit":-1}`,
+		"string":       `{"instance_limit":"many"}`,
+		"float":        `{"instance_limit":1.5}`,
+		"bool":         `{"instance_limit":true}`,
+		"null":         `{"instance_limit":null}`,
 		"missing":      `{}`,
 		"empty object": `{"other":1}`,
 	}
@@ -321,7 +323,7 @@ func TestUsersPatchQuotaRequiresAuth(t *testing.T) {
 	users := newQuotaUserStore()
 	srv, _ := patchQuotaServer(t, 0, users, &countingKeys{})
 
-	req := httptest.NewRequest(http.MethodPatch, "/users/"+uuid.NewString(), strings.NewReader(`{"instance_quota":1}`))
+	req := httptest.NewRequest(http.MethodPatch, "/users/"+uuid.NewString(), strings.NewReader(`{"instance_limit":1}`))
 	rec := httptest.NewRecorder()
 	srv.Handler.ServeHTTP(rec, req)
 

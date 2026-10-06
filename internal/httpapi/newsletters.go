@@ -30,10 +30,11 @@ type newsletterResponse struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
-// newsletterListResponse is one page of followed channels.
+// newsletterListResponse is one page of followed channels; each element
+// nests the channel DTO under its own key (matrix §1).
 type newsletterListResponse struct {
-	Items      []newsletterResponse `json:"items"`
-	NextCursor string               `json:"next_cursor"`
+	Items      []channelEnvelope `json:"items"`
+	NextCursor string            `json:"next_cursor"`
 }
 
 // followNewsletterRequest is the follow/unfollow payload.
@@ -215,7 +216,7 @@ func handleGetNewsletter(instances InstanceService, log zerolog.Logger) http.Han
 			writeInstanceError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusOK, newNewsletterResponse(newsletter))
+		JSON(w, r, http.StatusOK, channelEnvelope{Channel: newNewsletterResponse(newsletter)})
 	}
 }
 
@@ -253,9 +254,9 @@ func handleListNewsletters(instances InstanceService, log zerolog.Logger) http.H
 			writeInstanceError(w, r, err)
 			return
 		}
-		response := newsletterListResponse{Items: make([]newsletterResponse, 0, len(items)), NextCursor: next}
+		response := newsletterListResponse{Items: make([]channelEnvelope, 0, len(items)), NextCursor: next}
 		for _, item := range items {
-			response.Items = append(response.Items, newNewsletterResponse(item))
+			response.Items = append(response.Items, channelEnvelope{Channel: newNewsletterResponse(item)})
 		}
 		JSON(w, r, http.StatusOK, response)
 	}

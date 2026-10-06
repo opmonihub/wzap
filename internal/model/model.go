@@ -116,12 +116,18 @@ type OutboundMessage struct {
 	MediaID           *uuid.UUID
 	Status            string
 	WhatsAppMessageID string
-	LastError         string
-	Attempts          int
-	DeliveredAt       *time.Time
-	ReadAt            *time.Time
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	// LastError keeps the free-text failure for internal consumers
+	// (retry decisions and legacy reads); LastErrorCode/LastErrorAt carry
+	// the structured form the public DTO exposes.
+	LastError     string
+	LastErrorCode string
+	LastErrorAt   *time.Time
+	Attempts      int
+	NextAttemptAt *time.Time
+	DeliveredAt   *time.Time
+	ReadAt        *time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 // Media is a stored media object. Its bytes live in the object store at

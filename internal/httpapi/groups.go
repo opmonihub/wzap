@@ -220,12 +220,12 @@ func handleCreateGroup(instances InstanceService, log zerolog.Logger) http.Handl
 		if err != nil {
 			log.Warn().Str("instance_id", id.String()).Str("op", "group-create").Err(err).Msg("create group invite failed")
 			log.Debug().Str("instance_id", id.String()).Str("op", "group-create").Msg("create group result (partial, no invite)")
-			JSON(w, r, http.StatusCreated, response)
+			JSON(w, r, http.StatusCreated, groupEnvelope{Group: response})
 			return
 		}
 		response.InviteCode = invite
 		log.Debug().Str("instance_id", id.String()).Str("op", "group-create").Msg("create group result")
-		JSON(w, r, http.StatusCreated, response)
+		JSON(w, r, http.StatusCreated, groupEnvelope{Group: response})
 	}
 }
 
@@ -259,12 +259,12 @@ func handleGetGroup(instances InstanceService, log zerolog.Logger) http.HandlerF
 			writeInstanceError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusOK, newGroupResponse(group))
+		JSON(w, r, http.StatusOK, groupEnvelope{Group: newGroupResponse(group)})
 	}
 }
 
-// handleUpdateGroup applies the subject/topic patch and answers the refreshed
-// metadata. At least one field must be present.
+// handleUpdateGroup applies the subject/topic patch and answers the command
+// result (matrix: {updated:true}). At least one field must be present.
 //
 // @Summary Update a group
 // @Tags groups
@@ -274,7 +274,7 @@ func handleGetGroup(instances InstanceService, log zerolog.Logger) http.HandlerF
 // @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param group_id path string true "Group JID"
 // @Param request body updateGroupRequest true "Group patch"
-// @Success 200 {object} envelope{data=groupResponse} "Updated group, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=groupUpdatedResponse} "Updated, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner, or no group permission"
@@ -311,13 +311,12 @@ func handleUpdateGroup(instances InstanceService, log zerolog.Logger) http.Handl
 			input.Name = &name
 		}
 
-		group, err := instances.UpdateGroup(r.Context(), id, groupJID, input)
-		if err != nil {
+		if _, err := instances.UpdateGroup(r.Context(), id, groupJID, input); err != nil {
 			log.Warn().Str("instance_id", id.String()).Str("op", "group-update").Err(err).Msg("update group failed")
 			writeInstanceError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusOK, newGroupResponse(group))
+		JSON(w, r, http.StatusOK, groupUpdatedResponse{Updated: true})
 	}
 }
 

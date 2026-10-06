@@ -191,11 +191,11 @@ func TestCreateNewsletter(t *testing.T) {
 		t.Fatalf("status = %d, want 201 (body %q)", rec.Code, rec.Body.String())
 	}
 	var payload struct {
-		Data newsletterResponse `json:"data"`
+		Data channelEnvelope `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if payload.Data.Channel != "123@newsletter" || payload.Data.Title != "Comunidade" {
-		t.Errorf("data = %+v, want the created channel", payload.Data)
+	if payload.Data.Channel.Channel != "123@newsletter" || payload.Data.Channel.Title != "Comunidade" {
+		t.Errorf("data = %+v, want the created channel under data.channel", payload.Data)
 	}
 }
 

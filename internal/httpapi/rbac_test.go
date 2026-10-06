@@ -475,7 +475,7 @@ func TestRBACListFiltersByOwner(t *testing.T) {
 		decodeJSON(t, body, &payload)
 		ids := make([]string, 0, len(payload.Data.Items))
 		for _, item := range payload.Data.Items {
-			ids = append(ids, item.ID)
+			ids = append(ids, item.Instance.ID)
 		}
 		return ids
 	}

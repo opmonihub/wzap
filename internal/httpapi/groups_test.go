@@ -65,14 +65,14 @@ func TestGroupCreate(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusCreated, rec.Body.String())
 		}
 		var payload struct {
-			Data groupResponse `json:"data"`
+			Data groupEnvelope `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if payload.Data.JID != testChatGroup {
-			t.Errorf("data.jid = %q, want %q", payload.Data.JID, testChatGroup)
+		if payload.Data.Group.JID != testChatGroup {
+			t.Errorf("data.group.jid = %q, want %q", payload.Data.Group.JID, testChatGroup)
 		}
-		if payload.Data.InviteCode != "invite-code-1" {
-			t.Errorf("data.invite_code = %q, want the group invite", payload.Data.InviteCode)
+		if payload.Data.Group.InviteCode != "invite-code-1" {
+			t.Errorf("data.group.invite_code = %q, want the group invite", payload.Data.Group.InviteCode)
 		}
 		if len(svc.createGroupCalls) != 1 {
 			t.Fatalf("CreateGroup calls = %d, want 1", len(svc.createGroupCalls))
@@ -97,14 +97,14 @@ func TestGroupCreate(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusCreated, rec.Body.String())
 		}
 		var payload struct {
-			Data groupResponse `json:"data"`
+			Data groupEnvelope `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if payload.Data.JID != testChatGroup {
-			t.Errorf("data.jid = %q, want %q", payload.Data.JID, testChatGroup)
+		if payload.Data.Group.JID != testChatGroup {
+			t.Errorf("data.group.jid = %q, want %q", payload.Data.Group.JID, testChatGroup)
 		}
-		if payload.Data.InviteCode != "" {
-			t.Errorf("data.invite_code = %q, want empty on partial create", payload.Data.InviteCode)
+		if payload.Data.Group.InviteCode != "" {
+			t.Errorf("data.group.invite_code = %q, want empty on partial create", payload.Data.Group.InviteCode)
 		}
 		if len(svc.createGroupCalls) != 1 {
 			t.Errorf("CreateGroup calls = %d, want 1 (no client retry needed)", len(svc.createGroupCalls))
@@ -187,17 +187,17 @@ func TestGroupGet(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data groupResponse `json:"data"`
+			Data groupEnvelope `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if payload.Data.Name != "Time do churrasco" {
-			t.Errorf("data.name = %q, want the subject", payload.Data.Name)
+		if payload.Data.Group.Name != "Time do churrasco" {
+			t.Errorf("data.group.name = %q, want the subject", payload.Data.Group.Name)
 		}
-		if len(payload.Data.Participants) != 1 || !payload.Data.Participants[0].IsAdmin {
-			t.Errorf("data.participants = %+v, want the single admin", payload.Data.Participants)
+		if len(payload.Data.Group.Participants) != 1 || !payload.Data.Group.Participants[0].IsAdmin {
+			t.Errorf("data.group.participants = %+v, want the single admin", payload.Data.Group.Participants)
 		}
-		if !payload.Data.UpdatedAt.Equal(now) {
-			t.Errorf("data.updated_at = %v, want %v", payload.Data.UpdatedAt, now)
+		if !payload.Data.Group.UpdatedAt.Equal(now) {
+			t.Errorf("data.group.updated_at = %v, want %v", payload.Data.Group.UpdatedAt, now)
 		}
 	})
 
@@ -220,7 +220,7 @@ func TestGroupGet(t *testing.T) {
 }
 
 func TestGroupUpdate(t *testing.T) {
-	t.Run("subject and description update answers the group", func(t *testing.T) {
+	t.Run("subject and description update answers the command flag", func(t *testing.T) {
 		id := uuid.New()
 		svc := &fakeInstanceService{
 			updateGroupFn: func(_ context.Context, instanceID uuid.UUID, groupJID string, input instance.UpdateGroupInput) (instance.Group, error) {
@@ -241,11 +241,11 @@ func TestGroupUpdate(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data groupResponse `json:"data"`
+			Data groupUpdatedResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if payload.Data.Name != "Novo assunto" || payload.Data.Description != "Nova descrição" {
-			t.Errorf("data = %+v, want the updated subject and description", payload.Data)
+		if !payload.Data.Updated {
+			t.Errorf("data.updated = false, want true")
 		}
 	})
 

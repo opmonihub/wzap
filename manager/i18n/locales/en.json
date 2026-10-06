@@ -58,8 +58,7 @@
       "open": "Open {name}",
       "columns": {
         "name": "Name",
-        "status": "Status",
-        "jid": "WhatsApp number"
+        "status": "Status"
       }
     },
     "loadFailed": "Could not load the overview.",
@@ -87,13 +86,10 @@
     "loadFailed": "Could not load instances.",
     "columns": {
       "name": "Name",
-      "status": "Status",
-      "externalRef": "External ref",
-      "owner": "Owner",
-      "jid": "WhatsApp number"
+      "status": "Status"
     },
     "table": {
-      "search": "Search by name or external ref",
+      "search": "Search by name",
       "selectedOf": "{selected} of {filtered} row(s) selected.",
       "cardsCount": "{filtered} instance(s).",
       "viewLabel": "Change view",
@@ -171,8 +167,6 @@
       "externalRef": "External reference",
       "externalRefHint": "Optional unique reference used by your systems.",
       "externalRefWriteOnlyHint": "Stored secret-style reference: it is never shown back. Leave empty to keep the current value; type a value to replace it.",
-      "owner": "Owner",
-      "jid": "WhatsApp JID",
       "lastConnectedAt": "Last connected",
       "lastError": "Last error",
       "createdAt": "Created",

@@ -24,9 +24,9 @@ const { updateInstance, disconnectInstance } = useInstances()
 const { confirmDelete } = useConfirmDelete()
 
 // external_ref never comes back on reads (it is write-only in the public
-// DTO), so the field always starts empty; an explicit empty value clears the
-// stored reference while an unchanged empty edit leaves it untouched — the
-// input stays as the operator left it, hidden fields are never wiped.
+// DTO), so the field always starts empty and an empty submit is never sent:
+// only a typed value reaches the API, so the stored reference is never
+// erased implicitly.
 const schema = z.object({
   name: z.string().refine(name => isValidInstanceName(name, props.instance.name), t('instances.fields.nameHint')),
   external_ref: z.string().max(255)

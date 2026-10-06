@@ -245,7 +245,7 @@ func assertSeeded(ctx context.Context, pool *pgxpool.Pool) error {
 		{"users", 2},
 		{"instances", 4},
 		{"media", 3},
-		{"message_queue", 4},
+		{"message_queue", 5},
 		{"chatwoot_configs", 1},
 		{"chatwoot_messages", 3},
 		{"idempotency_keys", 2},

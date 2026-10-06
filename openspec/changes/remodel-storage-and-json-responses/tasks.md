@@ -1,6 +1,8 @@
 ## 1. Fechar condições de execução
 
-- [ ] 1.1 Fechar os cinco bloqueios do design, preenchendo tipos, nullabilidade, defaults, enums, índices, exclusões, rollback, vínculos legados, correlação pré-WA ID, catálogo de erros, matriz completa por rota e origem verificável da imagem exata; verificar que nenhuma decisão material permanece aberta.
+- [x] 1.1 Fechar os cinco bloqueios do design, preenchendo tipos, nullabilidade, defaults, enums, índices, exclusões, rollback, vínculos legados, correlação pré-WA ID, catálogo de erros, matriz completa por rota e origem verificável da imagem exata; verificar que nenhuma decisão material permanece aberta.
+
+  Registro (1.1): a tag MinIO aprovada foi substituída por `docker.io/cccs/minio:latest` por ruling do controller (quay 401 em todas as tags); o spec `wzap-media` ainda cita a tag quay e será reconciliado na sincronização de specs. Detalhes em design.md §"Decisões fechadas na task 1.1" e `.superpowers/sdd/plan/task-1.1-report.md`.
 - [ ] 1.2 Coordenar a baseline e a migração 00007 com a change de origem, preparar worktree em `.worktrees/` e preflight com backups e fixtures; verificar que alterações locais alheias não entram no diff e que os bancos de teste são isolados.
 
 ## 2. Remodelar persistência

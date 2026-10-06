@@ -8,40 +8,90 @@ import (
 	"github.com/google/uuid"
 )
 
-// Instance is a WhatsApp instance registered with the wzap service.
+// InstanceError is the structured failure recorded on a satellite table:
+// code is the typed catalog entry (legacy_error when a pre-remodel row only
+// carried free text), message the human-readable cause and at the instant it
+// happened (nil for legacy errors whose occurrence time is unknown — never
+// inferred from updated_at).
+type InstanceError struct {
+	Code    string
+	Message string
+	At      *time.Time
+}
+
+// InstanceConnection is the connection state of an instance, persisted in
+// instance_connections (one row per instance). DeviceJID is the whatsmeow
+// linked-device identity persisted in the session store; it is unique across
+// instances when set (instance_connections_device_jid_uidx) and doubles as
+// the public WhatsApp JID once paired.
+type InstanceConnection struct {
+	InstanceID      uuid.UUID
+	DeviceJID       string
+	Status          string
+	LastConnectedAt *time.Time
+	LastError       *InstanceError
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+// InstanceWebhook is the per-instance webhook configuration, persisted in
+// instance_webhooks (one row per instance).
+type InstanceWebhook struct {
+	InstanceID uuid.UUID
+	// URL is the webhook endpoint. Nil means unconfigured.
+	URL *string
+	// IsEnabled toggles delivery to URL. Events lists the subscribed event
+	// types.
+	IsEnabled bool
+	Events    []string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// Instance is a WhatsApp instance registered with the wzap service. It is an
+// aggregate: the row in instances carries the identity (name, external_ref,
+// owner, key hash) while Connection and Webhook are the satellite rows read
+// together with it.
 type Instance struct {
 	ID          uuid.UUID
 	Name        string
 	ExternalRef string
-	Status      string
-	WhatsAppJID string
-	// DeviceJID is the whatsmeow linked-device identity persisted in the
-	// session store. It matches WhatsAppJID once paired and is unique across
-	// instances (see instances_device_jid_uidx).
-	DeviceJID       string
-	LastError       string
-	LastConnectedAt *time.Time
 	// OwnerUserID is the manager user owning the instance. It stays nil for
 	// legacy rows created before the product migration backfilled owners.
 	OwnerUserID *uuid.UUID
-	// WebhookURL is the per-instance webhook endpoint. Nil means unconfigured.
-	WebhookURL *string
-	// WebhookEnabled toggles delivery to WebhookURL. WebhookEvents lists the
-	// subscribed event types. The instance key hash is never exposed here;
-	// it stays inside the API key repository methods.
-	WebhookEnabled bool
-	WebhookEvents  []string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	// Connection is the instance_connections satellite: session lifecycle
+	// state written only by the connection commands.
+	Connection InstanceConnection
+	// Webhook is the instance_webhooks satellite: delivery configuration
+	// written only by the webhook command. The instance key hash is never
+	// exposed here; it stays inside the API key repository methods.
+	Webhook   InstanceWebhook
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
-// BoundDeviceJID returns the whatsmeow device identity bound to the instance,
-// preferring DeviceJID when set.
+// BoundDeviceJID returns the whatsmeow device identity bound to the
+// instance, empty when it was never paired.
 func (i Instance) BoundDeviceJID() string {
-	if i.DeviceJID != "" {
-		return i.DeviceJID
+	return i.Connection.DeviceJID
+}
+
+// LastErrorMessage returns the message of the last connection error, empty
+// when there is none.
+func (i Instance) LastErrorMessage() string {
+	if i.Connection.LastError == nil {
+		return ""
 	}
-	return i.WhatsAppJID
+	return i.Connection.LastError.Message
+}
+
+// LastErrorCode returns the typed code of the last connection error, empty
+// when there is none.
+func (i Instance) LastErrorCode() string {
+	if i.Connection.LastError == nil {
+		return ""
+	}
+	return i.Connection.LastError.Code
 }
 
 // User is a manager account. PasswordHash is a repo-level credential detail and

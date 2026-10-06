@@ -444,8 +444,8 @@ func handleInstanceStats(instances InstanceService) http.HandlerFunc {
 			items = filterInstancesByOwner(scope, items)
 		}
 		for _, item := range items {
-			if _, known := byStatus[item.Status]; known {
-				byStatus[item.Status]++
+			if _, known := byStatus[item.Connection.Status]; known {
+				byStatus[item.Connection.Status]++
 			} else {
 				byStatus["disconnected"]++
 			}
@@ -645,22 +645,25 @@ func writeJSONBodyError(w http.ResponseWriter, r *http.Request, err error) {
 // stored events list is emitted as an empty array so the field keeps its array
 // shape on every read.
 func newInstanceResponse(inst *model.Instance) instanceResponse {
-	events := inst.WebhookEvents
+	events := inst.Webhook.Events
 	if events == nil {
 		events = []string{}
 	}
+	// The HTTP contract stays flat until the 5.x cut: the nested satellites
+	// are flattened back into the legacy fields (last_error keeps the
+	// message only, mirroring the pre-remodel free-text column).
 	return instanceResponse{
 		ID:              inst.ID.String(),
 		Name:            inst.Name,
 		ExternalRef:     inst.ExternalRef,
 		OwnerUserID:     inst.OwnerUserID,
-		WebhookURL:      inst.WebhookURL,
-		WebhookEnabled:  inst.WebhookEnabled,
+		WebhookURL:      inst.Webhook.URL,
+		WebhookEnabled:  inst.Webhook.IsEnabled,
 		WebhookEvents:   events,
-		Status:          inst.Status,
-		WhatsAppJID:     inst.WhatsAppJID,
-		LastError:       inst.LastError,
-		LastConnectedAt: inst.LastConnectedAt,
+		Status:          inst.Connection.Status,
+		WhatsAppJID:     inst.Connection.DeviceJID,
+		LastError:       inst.LastErrorMessage(),
+		LastConnectedAt: inst.Connection.LastConnectedAt,
 		CreatedAt:       inst.CreatedAt,
 		UpdatedAt:       inst.UpdatedAt,
 	}

@@ -91,7 +91,7 @@ func quotaUser(id uuid.UUID, email, role string, quota int) *model.User {
 }
 
 func ownedInstance(owner uuid.UUID, status string) model.Instance {
-	return model.Instance{ID: uuid.New(), Name: "loja", Status: status, OwnerUserID: &owner}
+	return model.Instance{ID: uuid.New(), Name: "loja", OwnerUserID: &owner, Connection: model.InstanceConnection{Status: status}}
 }
 
 func TestQuotaGlobalMaxBlocksUserButNotAdminOrGlobal(t *testing.T) {

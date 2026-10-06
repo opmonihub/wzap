@@ -207,7 +207,7 @@ func TestQRBoundaryLogsAlreadyConnected(t *testing.T) {
 func TestStatusBoundaryLogs(t *testing.T) {
 	wantID := uuid.New()
 	svc := &fakeInstanceService{getFn: func(_ context.Context, id uuid.UUID) (*model.Instance, error) {
-		return &model.Instance{ID: id, Name: "loja", Status: string(session.StatusConnected)}, nil
+		return &model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusConnected)}}, nil
 	}}
 	logs, log := captureBoundaryLogs(t)
 

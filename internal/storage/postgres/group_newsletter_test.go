@@ -19,7 +19,7 @@ func TestGroupNewsletterMetadataRoundTrip(t *testing.T) {
 		t.Fatalf("migrate test schema: %v", err)
 	}
 
-	for _, table := range []string{"group_metadata", "newsletter_metadata"} {
+	for _, table := range []string{"group_metadata", "channel_metadata"} {
 		var exists bool
 		if err := pool.QueryRow(ctx, `
 			SELECT EXISTS (
@@ -35,9 +35,9 @@ func TestGroupNewsletterMetadataRoundTrip(t *testing.T) {
 
 	instances := NewInstanceRepository(pool)
 	instance, err := instances.Create(ctx, model.Instance{
-		ID:     uuid.New(),
-		Name:   "metadata",
-		Status: "disconnected",
+		ID:         uuid.New(),
+		Name:       "metadata",
+		Connection: model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)

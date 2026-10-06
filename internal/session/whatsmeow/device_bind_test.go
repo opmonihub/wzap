@@ -41,7 +41,10 @@ func (s *stubInstanceRepo) GetByDeviceJID(_ context.Context, deviceJID string) (
 func (s *stubInstanceRepo) List(context.Context) ([]model.Instance, error) {
 	panic("unexpected")
 }
-func (s *stubInstanceRepo) Update(context.Context, model.Instance) (*model.Instance, error) {
+func (s *stubInstanceRepo) UpdateIdentity(context.Context, uuid.UUID, string, string) (*model.Instance, error) {
+	panic("unexpected")
+}
+func (s *stubInstanceRepo) SetWebhook(context.Context, uuid.UUID, *string, bool, []string) error {
 	panic("unexpected")
 }
 func (s *stubInstanceRepo) SetConnection(context.Context, uuid.UUID, string, string) error {
@@ -60,11 +63,11 @@ func TestDeviceForRejectsJIDBoundToOtherInstance(t *testing.T) {
 	saveTestDevice(t, manager.devices, "5511999999999")
 
 	manager.instances = &stubInstanceRepo{byJID: map[string]model.Instance{
-		jid.String(): {ID: ownerID, DeviceJID: jid.String(), WhatsAppJID: jid.String()},
+		jid.String(): {ID: ownerID, Connection: model.InstanceConnection{DeviceJID: jid.String()}},
 	}}
 
 	_, err := manager.deviceFor(context.Background(), &model.Instance{
-		ID: otherID, WhatsAppJID: jid.String(), DeviceJID: jid.String(),
+		ID: otherID, Connection: model.InstanceConnection{DeviceJID: jid.String()},
 	})
 	if !errors.Is(err, session.ErrDeviceJIDTaken) {
 		t.Fatalf("deviceFor = %v, want ErrDeviceJIDTaken", err)

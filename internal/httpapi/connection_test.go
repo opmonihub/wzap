@@ -163,11 +163,7 @@ func TestInstancesQRAlreadyConnected(t *testing.T) {
 
 func TestInstancesStatus(t *testing.T) {
 	connectedAt := time.Now().UTC().Truncate(time.Second)
-	want := &model.Instance{
-		ID: uuid.New(), Name: "loja", Status: string(session.StatusConnected),
-		WhatsAppJID: "5511999999999@s.whatsapp.net", LastError: "",
-		LastConnectedAt: &connectedAt,
-	}
+	want := &model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusConnected), DeviceJID: "5511999999999@s.whatsapp.net", LastConnectedAt: &connectedAt}}
 	svc := &fakeInstanceService{getFn: func(_ context.Context, id uuid.UUID) (*model.Instance, error) {
 		if id != want.ID {
 			t.Errorf("Get id = %s, want %s", id, want.ID)
@@ -192,8 +188,8 @@ func TestInstancesStatus(t *testing.T) {
 	if payload.Data.Status != string(session.StatusConnected) {
 		t.Errorf("data.status = %q, want %q", payload.Data.Status, session.StatusConnected)
 	}
-	if payload.Data.WhatsAppJID != want.WhatsAppJID {
-		t.Errorf("data.whatsapp_jid = %q, want %q", payload.Data.WhatsAppJID, want.WhatsAppJID)
+	if payload.Data.WhatsAppJID != want.Connection.DeviceJID {
+		t.Errorf("data.whatsapp_jid = %q, want %q", payload.Data.WhatsAppJID, want.Connection.DeviceJID)
 	}
 	if payload.Data.LastConnectedAt == nil || !payload.Data.LastConnectedAt.Equal(connectedAt) {
 		t.Errorf("data.last_connected_at = %v, want %v", payload.Data.LastConnectedAt, connectedAt)

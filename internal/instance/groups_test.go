@@ -15,7 +15,7 @@ import (
 
 func groupService(t *testing.T, sessions *sessiontest.Fake) (*Service, *model.Instance) {
 	t.Helper()
-	inst := &model.Instance{ID: uuid.New(), Name: "loja", Status: "connected"}
+	inst := &model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: "connected"}}
 	repo := newFakeRepo(*inst)
 	sess := sessiontest.NewSession(inst.ID, nil)
 	sessions.Put(inst.ID, sess)

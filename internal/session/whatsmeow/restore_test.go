@@ -35,7 +35,7 @@ func TestManagerRestartKeepsPersistedSessions(t *testing.T) {
 	t.Cleanup(func() { _ = second.Close() })
 
 	instanceID := uuid.New()
-	sess, err := second.Create(&model.Instance{ID: instanceID, WhatsAppJID: jid.String()})
+	sess, err := second.Create(&model.Instance{ID: instanceID, Connection: model.InstanceConnection{DeviceJID: jid.String()}})
 	if err != nil {
 		t.Fatalf("Create after restart: %v", err)
 	}
@@ -60,9 +60,7 @@ func TestRestoreAllReconnectsWithoutNewPairing(t *testing.T) {
 	sink := &recordingSink{}
 	manager.sink = sink
 	instanceID := uuid.New()
-	manager.instances = &fakeInstanceRepo{instances: []model.Instance{{
-		ID: instanceID, Status: "disconnected", WhatsAppJID: jid.String(),
-	}}}
+	manager.instances = &fakeInstanceRepo{instances: []model.Instance{{ID: instanceID, Connection: model.InstanceConnection{Status: "disconnected", DeviceJID: jid.String()}}}}
 
 	var mu sync.Mutex
 	restoredJIDs := map[string]bool{}

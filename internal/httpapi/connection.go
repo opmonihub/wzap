@@ -172,12 +172,12 @@ func handleInstanceStatus(instances InstanceService, log zerolog.Logger) http.Ha
 			writeForbidden(w, r)
 			return
 		}
-		log.Debug().Str("instance_id", id.String()).Str("op", "status").Str("status", found.Status).Msg("instance status result")
+		log.Debug().Str("instance_id", id.String()).Str("op", "status").Str("status", found.Connection.Status).Msg("instance status result")
 		JSON(w, r, http.StatusOK, statusResponse{
-			Status:          found.Status,
-			WhatsAppJID:     found.WhatsAppJID,
-			LastError:       found.LastError,
-			LastConnectedAt: found.LastConnectedAt,
+			Status:          found.Connection.Status,
+			WhatsAppJID:     found.Connection.DeviceJID,
+			LastError:       found.LastErrorMessage(),
+			LastConnectedAt: found.Connection.LastConnectedAt,
 		})
 	}
 }

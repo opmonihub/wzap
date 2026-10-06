@@ -59,9 +59,9 @@ func newRBACFixture(t *testing.T) *rbacFixture {
 	}
 	userA := f.userA
 	userB := f.userB
-	f.instA = &model.Instance{ID: uuid.New(), Name: "a", Status: "disconnected", OwnerUserID: &userA}
-	f.instB = &model.Instance{ID: uuid.New(), Name: "b", Status: "disconnected", OwnerUserID: &userB}
-	f.legacy = &model.Instance{ID: uuid.New(), Name: "legacy", Status: "disconnected"}
+	f.instA = &model.Instance{ID: uuid.New(), Name: "a", OwnerUserID: &userA, Connection: model.InstanceConnection{Status: "disconnected"}}
+	f.instB = &model.Instance{ID: uuid.New(), Name: "b", OwnerUserID: &userB, Connection: model.InstanceConnection{Status: "disconnected"}}
+	f.legacy = &model.Instance{ID: uuid.New(), Name: "legacy", Connection: model.InstanceConnection{Status: "disconnected"}}
 	f.mediaBytes = []byte("bytes da midia")
 	f.mediaForB = &model.Media{
 		ID:         f.mediaID,
@@ -649,7 +649,7 @@ func TestRBACMediaUploadGating(t *testing.T) {
 
 func TestRBACCreateGating(t *testing.T) {
 	f := newRBACFixture(t)
-	created := &model.Instance{ID: uuid.New(), Name: "loja", Status: "disconnected"}
+	created := &model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}}
 	svc := &fakeInstanceService{
 		getFn: func(_ context.Context, id uuid.UUID) (*model.Instance, error) {
 			if id == created.ID {

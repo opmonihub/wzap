@@ -195,9 +195,9 @@ func (m *Manager) RestoreAll(ctx context.Context) error {
 			}
 			if err := m.restore(ctx, instance); err != nil {
 				m.log.Warn().Str("instance_id", instance.ID.String()).Err(err).Msg("restore session failed")
-				m.emitConnection(instance.ID, session.StatusError, instance.WhatsAppJID, err.Error())
+				m.emitConnection(instance.ID, session.StatusError, instance.Connection.DeviceJID, err.Error())
 			} else if sess, ok := m.Get(instance.ID); ok && sess != nil {
-				m.log.Info().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).
+				m.log.Info().Str("instance_id", instance.ID.String()).Str("jid", instance.Connection.DeviceJID).
 					Str("live_status", string(sess.Status())).Bool("socket_connected", sess.IsConnected()).
 					Msg("restore session dialed")
 			} else {
@@ -214,7 +214,7 @@ func (m *Manager) RestoreAll(ctx context.Context) error {
 func (m *Manager) restoreAborted(instance model.Instance, err error) {
 	reason := "restore cancelled: " + err.Error()
 	m.log.Warn().Str("instance_id", instance.ID.String()).Err(err).Msg("restore session cancelled")
-	m.emitConnection(instance.ID, session.StatusError, instance.WhatsAppJID, reason)
+	m.emitConnection(instance.ID, session.StatusError, instance.Connection.DeviceJID, reason)
 }
 
 // restore attaches the persisted device of instance and brings it online.

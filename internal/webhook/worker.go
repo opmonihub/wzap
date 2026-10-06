@@ -272,12 +272,12 @@ func (w *Worker) attempt(ctx context.Context, j job, payload []byte, attempt int
 	}
 
 	var url string
-	if instance.WebhookURL != nil {
-		url = *instance.WebhookURL
+	if instance.Webhook.URL != nil {
+		url = *instance.Webhook.URL
 	}
 	// Silent skip (no HTTP, no failure): disabled, URL-less, or unsubscribed
 	// jobs never reach Deliver.
-	if !ShouldDeliver(WebhookConfig{URL: url, Enabled: instance.WebhookEnabled, Events: instance.WebhookEvents}, j.eventType) {
+	if !ShouldDeliver(WebhookConfig{URL: url, Enabled: instance.Webhook.IsEnabled, Events: instance.Webhook.Events}, j.eventType) {
 		return true, nil
 	}
 

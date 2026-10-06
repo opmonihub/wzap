@@ -124,9 +124,7 @@ type serviceFixture struct {
 // newServiceFixture returns a fixture whose instance has the given status.
 func newServiceFixture(status session.Status) *serviceFixture {
 	instanceID := uuid.New()
-	instances := &fakeInstances{instances: map[uuid.UUID]model.Instance{
-		instanceID: {ID: instanceID, Name: "loja", Status: string(status)},
-	}}
+	instances := &fakeInstances{instances: map[uuid.UUID]model.Instance{instanceID: {ID: instanceID, Name: "loja", Connection: model.InstanceConnection{Status: string(status)}}}}
 	resolver := &fakeResolver{}
 	messages := &fakeMessages{}
 	return &serviceFixture{

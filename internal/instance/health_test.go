@@ -28,7 +28,7 @@ func TestServiceHealthNotFound(t *testing.T) {
 // do banco.
 func TestServiceHealthWithoutSession(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: string(session.StatusDisconnected)})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusDisconnected)}})
 	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, zerolog.Nop())
 
 	got, err := svc.Health(context.Background(), id)
@@ -53,7 +53,7 @@ func TestServiceHealthWithoutSession(t *testing.T) {
 // vivo e o socket vêm da sessão, o DBStatus do banco.
 func TestServiceHealthLiveSocket(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: string(session.StatusConnected)})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusConnected)}})
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sess.SetStatus(session.StatusConnected)
@@ -84,10 +84,7 @@ func TestServiceHealthLiveSocket(t *testing.T) {
 // o socket caído. O health distingue os dois lados sem criar sessão.
 func TestServiceHealthDetectsDeadSocket(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{
-		ID: id, Name: "loja", Status: string(session.StatusConnected),
-		WhatsAppJID: "5511999999999@s.whatsapp.net",
-	})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusConnected), DeviceJID: "5511999999999@s.whatsapp.net"}})
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sess.SetStatus(session.StatusDisconnected)

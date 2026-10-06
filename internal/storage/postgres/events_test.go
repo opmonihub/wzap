@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"wzap/internal/model"
 	"wzap/internal/storage"
@@ -19,15 +18,6 @@ func enqueueTestEvent(t *testing.T, repo storage.EventOutboxRepository, id uuid.
 
 	if err := repo.Enqueue(context.Background(), id, subject, []byte(`{"event_id":"`+id.String()+`"}`)); err != nil {
 		t.Fatalf("Enqueue %s: %v", id, err)
-	}
-}
-
-func backdateOutboxPublishedAt(t *testing.T, pool *pgxpool.Pool, id uuid.UUID, at time.Time) {
-	t.Helper()
-
-	if _, err := pool.Exec(context.Background(),
-		`UPDATE event_outbox SET published_at = $2 WHERE id = $1`, id, at); err != nil {
-		t.Fatalf("backdate outbox published_at: %v", err)
 	}
 }
 
@@ -60,9 +50,6 @@ func TestEventOutboxRepositoryEnqueueAndClaim(t *testing.T) {
 		}
 		if event.LastError != "" {
 			t.Errorf("event %s LastError = %q, want empty", event.ID, event.LastError)
-		}
-		if event.PublishedAt != nil {
-			t.Errorf("event %s PublishedAt = %v, want nil", event.ID, event.PublishedAt)
 		}
 		requireTimeBetween(t, "Claim: CreatedAt", event.CreatedAt, start.Add(-time.Second), time.Now().Add(time.Second))
 		byID[event.ID] = event
@@ -120,7 +107,7 @@ func TestEventOutboxRepositoryClaimPendingLimit(t *testing.T) {
 	}
 
 	var pending int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM event_outbox WHERE published_at IS NULL`).Scan(&pending); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM event_outbox`).Scan(&pending); err != nil {
 		t.Fatalf("count pending events: %v", err)
 	}
 	if pending != 3 {
@@ -241,7 +228,6 @@ func TestEventOutboxRepositoryMarkPublished(t *testing.T) {
 	enqueueTestEvent(t, repo, publishedID, "wzap.instances.a.message")
 	enqueueTestEvent(t, repo, pendingID, "wzap.instances.a.message")
 
-	start := time.Now()
 	if err := repo.MarkPublished(ctx, publishedID); err != nil {
 		t.Fatalf("MarkPublished: %v", err)
 	}
@@ -254,15 +240,15 @@ func TestEventOutboxRepositoryMarkPublished(t *testing.T) {
 		t.Fatalf("ClaimPending after MarkPublished = %+v, want only %s", claimed, pendingID)
 	}
 
-	var publishedAt *time.Time
+	// The pending-only outbox deletes the row once the relay hands the event
+	// to the broker — published_at tracking is gone.
+	var count int
 	if err := pool.QueryRow(ctx,
-		`SELECT published_at FROM event_outbox WHERE id = $1`, publishedID).Scan(&publishedAt); err != nil {
-		t.Fatalf("select published_at: %v", err)
+		`SELECT count(*) FROM event_outbox WHERE id = $1`, publishedID).Scan(&count); err != nil {
+		t.Fatalf("select published row: %v", err)
 	}
-	requireTimePtrNear(t, "MarkPublished: PublishedAt", publishedAt, start)
-
-	if err := repo.MarkPublished(ctx, uuid.New()); !errors.Is(err, storage.ErrNotFound) {
-		t.Errorf("MarkPublished(unknown) error = %v, want ErrNotFound", err)
+	if count != 0 {
+		t.Errorf("published event still present in event_outbox, want deleted")
 	}
 }
 
@@ -290,9 +276,6 @@ func TestEventOutboxRepositoryMarkAttempt(t *testing.T) {
 	if claimed[0].LastError != "broker unavailable" {
 		t.Errorf("LastError = %q, want broker unavailable", claimed[0].LastError)
 	}
-	if claimed[0].PublishedAt != nil {
-		t.Errorf("PublishedAt = %v, want nil (failed publish stays pending)", claimed[0].PublishedAt)
-	}
 
 	if err := repo.MarkAttempt(ctx, id, "broker still down"); err != nil {
 		t.Fatalf("second MarkAttempt: %v", err)
@@ -315,40 +298,17 @@ func TestEventOutboxRepositoryDeletePublishedBefore(t *testing.T) {
 	pool := newTestPool(t)
 	repo := NewEventOutboxRepository(pool)
 
-	oldID := uuid.New()
-	recentID := uuid.New()
+	// Pending-only outbox: MarkPublished deletes the row, so the prune
+	// command has nothing to do beyond staying callable.
 	pendingID := uuid.New()
-	enqueueTestEvent(t, repo, oldID, "wzap.instances.a.message")
-	enqueueTestEvent(t, repo, recentID, "wzap.instances.a.message")
 	enqueueTestEvent(t, repo, pendingID, "wzap.instances.a.message")
-
-	if err := repo.MarkPublished(ctx, oldID); err != nil {
-		t.Fatalf("MarkPublished(old): %v", err)
-	}
-	if err := repo.MarkPublished(ctx, recentID); err != nil {
-		t.Fatalf("MarkPublished(recent): %v", err)
-	}
-	backdateOutboxPublishedAt(t, pool, oldID, time.Now().Add(-2*time.Hour))
-
-	if _, err := pool.Exec(ctx,
-		`UPDATE event_outbox SET created_at = $2 WHERE id = $1`, pendingID, time.Now().Add(-2*time.Hour)); err != nil {
-		t.Fatalf("backdate pending created_at: %v", err)
-	}
 
 	removed, err := repo.DeletePublishedBefore(ctx, time.Now().Add(-time.Hour))
 	if err != nil {
 		t.Fatalf("DeletePublishedBefore: %v", err)
 	}
-	if removed != 1 {
-		t.Errorf("DeletePublishedBefore = %d, want 1", removed)
-	}
-
-	var oldCount int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM event_outbox WHERE id = $1`, oldID).Scan(&oldCount); err != nil {
-		t.Fatalf("count old event: %v", err)
-	}
-	if oldCount != 0 {
-		t.Errorf("old published event still present, want deleted")
+	if removed != 0 {
+		t.Errorf("DeletePublishedBefore = %d, want 0 (published rows are deleted on publish)", removed)
 	}
 
 	claimed, err := repo.ClaimPending(ctx, 10)
@@ -357,13 +317,5 @@ func TestEventOutboxRepositoryDeletePublishedBefore(t *testing.T) {
 	}
 	if len(claimed) != 1 || claimed[0].ID != pendingID {
 		t.Errorf("ClaimPending after cleanup = %+v, want only pending %s", claimed, pendingID)
-	}
-
-	var recentCount int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM event_outbox WHERE id = $1`, recentID).Scan(&recentCount); err != nil {
-		t.Fatalf("count recent event: %v", err)
-	}
-	if recentCount != 1 {
-		t.Errorf("recent published event count = %d, want 1", recentCount)
 	}
 }

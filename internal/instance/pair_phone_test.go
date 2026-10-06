@@ -15,7 +15,7 @@ import (
 
 func TestServicePairPhoneReturnsCodeWithChannelExpiry(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: string(session.StatusPairing)})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusPairing)}})
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sessions.Put(id, sess)
@@ -43,7 +43,7 @@ func TestServicePairPhoneReturnsCodeWithChannelExpiry(t *testing.T) {
 
 func TestServicePairPhoneExpiredChannelAnswersConflictWithoutEmittingCode(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: string(session.StatusPairing)})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusPairing)}})
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sess.SetStatus(session.StatusPairing)

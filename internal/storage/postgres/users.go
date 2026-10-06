@@ -15,7 +15,7 @@ import (
 )
 
 const userColumns = `id, COALESCE(email, '') AS email, COALESCE(password_hash, '') AS password_hash, ` +
-	`COALESCE(role, '') AS role, instance_quota, created_at, updated_at`
+	`COALESCE(role, '') AS role, instance_limit, created_at, updated_at`
 
 // UserRepository is the pgx-backed storage.UserRepository.
 type UserRepository struct {
@@ -34,7 +34,7 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 // case-insensitively.
 func (r *UserRepository) Create(ctx context.Context, user model.User) (*model.User, error) {
 	row := r.pool.QueryRow(ctx, `
-		INSERT INTO users (id, email, password_hash, role, instance_quota)
+		INSERT INTO users (id, email, password_hash, role, instance_limit)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING `+userColumns,
 		user.ID, user.Email, user.PasswordHash, user.Role, user.InstanceQuota,
@@ -117,7 +117,7 @@ func (r *UserRepository) Count(ctx context.Context) (int, error) {
 // returns storage.ErrNotFound when the user does not exist.
 func (r *UserRepository) UpdateQuota(ctx context.Context, id uuid.UUID, quota int) error {
 	tag, err := r.pool.Exec(ctx,
-		`UPDATE users SET instance_quota = $2, updated_at = now() WHERE id = $1`, id, quota)
+		`UPDATE users SET instance_limit = $2, updated_at = now() WHERE id = $1`, id, quota)
 	if err != nil {
 		return fmt.Errorf("update user quota: %w", err)
 	}

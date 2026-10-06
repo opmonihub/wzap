@@ -20,8 +20,8 @@ const (
 	idempotencyStatusCompleted  = "completed"
 )
 
-const idempotencyColumns = `instance_id, idempotency_key, request_hash, status, ` +
-	`COALESCE(response_status, 0) AS response_status, response_body, created_at, expires_at`
+const idempotencyColumns = `instance_id, key, request_hash, status, ` +
+	`COALESCE(http_status, 0) AS http_status, response_body, created_at, expires_at`
 
 // IdempotencyRepository is the pgx-backed storage.IdempotencyRepository.
 type IdempotencyRepository struct {
@@ -45,15 +45,15 @@ func (r *IdempotencyRepository) Acquire(
 	// An expired key is as good as absent, so drop it before trying to own it.
 	if _, err := r.pool.Exec(ctx, `
 		DELETE FROM idempotency_keys
-		WHERE instance_id = $1 AND idempotency_key = $2 AND expires_at < now()`,
+		WHERE instance_id = $1 AND key = $2 AND expires_at < now()`,
 		instanceID, key); err != nil {
 		return nil, false, fmt.Errorf("acquire idempotency key: drop expired: %w", err)
 	}
 
 	inserted, err := scanIdempotencyRecord(r.pool.QueryRow(ctx, `
-		INSERT INTO idempotency_keys (instance_id, idempotency_key, request_hash, status, expires_at)
+		INSERT INTO idempotency_keys (instance_id, key, request_hash, status, expires_at)
 		VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (instance_id, idempotency_key) DO NOTHING
+		ON CONFLICT (instance_id, key) DO NOTHING
 		RETURNING `+idempotencyColumns,
 		instanceID, key, fingerprint, idempotencyStatusInProgress, expiresAt))
 	if err == nil {
@@ -64,7 +64,7 @@ func (r *IdempotencyRepository) Acquire(
 	}
 
 	existing, err := scanIdempotencyRecord(r.pool.QueryRow(ctx,
-		`SELECT `+idempotencyColumns+` FROM idempotency_keys WHERE instance_id = $1 AND idempotency_key = $2`,
+		`SELECT `+idempotencyColumns+` FROM idempotency_keys WHERE instance_id = $1 AND key = $2`,
 		instanceID, key))
 	if err != nil {
 		return nil, false, mapIdempotencyError("acquire idempotency key", err)
@@ -84,8 +84,8 @@ func (r *IdempotencyRepository) Complete(
 ) error {
 	tag, err := r.pool.Exec(ctx, `
 		UPDATE idempotency_keys
-		SET status = $3, response_status = $4, response_body = $5
-		WHERE instance_id = $1 AND idempotency_key = $2`,
+		SET status = $3, http_status = $4, response_body = $5, updated_at = now()
+		WHERE instance_id = $1 AND key = $2`,
 		instanceID, key, idempotencyStatusCompleted, status, body)
 	if err != nil {
 		return fmt.Errorf("complete idempotency key: %w", err)
@@ -100,7 +100,7 @@ func (r *IdempotencyRepository) Complete(
 // gone is not an error, so deferred releases are safe.
 func (r *IdempotencyRepository) Release(ctx context.Context, instanceID uuid.UUID, key string) error {
 	if _, err := r.pool.Exec(ctx,
-		`DELETE FROM idempotency_keys WHERE instance_id = $1 AND idempotency_key = $2`,
+		`DELETE FROM idempotency_keys WHERE instance_id = $1 AND key = $2`,
 		instanceID, key); err != nil {
 		return fmt.Errorf("release idempotency key: %w", err)
 	}

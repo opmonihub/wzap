@@ -216,6 +216,11 @@ func TestUserRepositoryDelete(t *testing.T) {
 	}
 }
 
+// TestUserRepositoryDeleteOwnerWithInstances proves the remodel policy:
+// deleting an owner succeeds and its instances become ownerless (ON DELETE
+// SET NULL), matching the legacy pre-backfill rows. The "don't delete users
+// with instances" rule stays a service-layer guard (CountByOwner check in
+// the handler); the FK is the safety net for a bypass.
 func TestUserRepositoryDeleteOwnerWithInstances(t *testing.T) {
 	ctx := context.Background()
 	pool := newTestPool(t)
@@ -226,16 +231,16 @@ func TestUserRepositoryDeleteOwnerWithInstances(t *testing.T) {
 	instance := createTestInstance(t, instances, "owned", "owned-ref")
 	setInstanceOwner(t, pool, instance.ID, owner.ID)
 
-	err := users.Delete(ctx, owner.ID)
-	if err == nil {
-		t.Fatal("Delete owner with instances: got nil, want FK error")
-	}
-	if errors.Is(err, storage.ErrNotFound) || errors.Is(err, storage.ErrEmailTaken) {
-		t.Fatalf("Delete owner with instances error = %v, want plain FK error", err)
+	if err := users.Delete(ctx, owner.ID); err != nil {
+		t.Fatalf("Delete owner with instances: %v, want success (SET NULL)", err)
 	}
 
-	if _, err := users.GetByID(ctx, owner.ID); err != nil {
-		t.Errorf("owner missing after failed Delete: %v", err)
+	got, err := instances.Get(ctx, instance.ID)
+	if err != nil {
+		t.Fatalf("Get instance after owner delete: %v", err)
+	}
+	if got.OwnerUserID != nil {
+		t.Errorf("OwnerUserID = %v, want NULL after owner delete", *got.OwnerUserID)
 	}
 }
 

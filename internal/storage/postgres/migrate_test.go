@@ -114,16 +114,16 @@ func TestMigrateProductFresh(t *testing.T) {
 	}
 
 	users := tableColumns(t, ctx, pool, "users")
-	for _, col := range []string{"id", "email", "password_hash", "role", "instance_quota", "created_at", "updated_at"} {
+	for _, col := range []string{"id", "email", "password_hash", "role", "instance_limit", "created_at", "updated_at"} {
 		if _, ok := users[col]; !ok {
 			t.Errorf("users.%s column is missing", col)
 		}
 	}
-	if got := users["instance_quota"]; got.dataType != "integer" || got.isNullable != "NO" {
-		t.Errorf("users.instance_quota = type %s nullable %s, want integer NOT NULL", got.dataType, got.isNullable)
+	if got := users["instance_limit"]; got.dataType != "integer" || got.isNullable != "NO" {
+		t.Errorf("users.instance_limit = type %s nullable %s, want integer NOT NULL", got.dataType, got.isNullable)
 	}
-	if def := users["instance_quota"].columnDef; def == nil || *def != "0" {
-		t.Errorf("users.instance_quota default = %v, want 0", def)
+	if def := users["instance_limit"].columnDef; def == nil || *def != "0" {
+		t.Errorf("users.instance_limit default = %v, want 0", def)
 	}
 	// owner stays logically required later; the migration keeps it out of users.
 
@@ -151,27 +151,43 @@ func TestMigrateProductFresh(t *testing.T) {
 	}
 
 	instances := tableColumns(t, ctx, pool, "instances")
-	for _, col := range []string{"owner_user_id", "api_key_hash", "webhook_url", "webhook_enabled", "webhook_events"} {
+	for _, col := range []string{"owner_user_id", "api_key_hash"} {
 		if _, ok := instances[col]; !ok {
 			t.Errorf("instances.%s column is missing", col)
+		}
+	}
+	// The connection and webhook fields moved to the satellite tables.
+	for _, dropped := range []string{"status", "whatsapp_jid", "device_jid", "last_connected_at", "last_error", "webhook_url", "webhook_enabled", "webhook_events"} {
+		if _, ok := instances[dropped]; ok {
+			t.Errorf("instances.%s still present, want it moved to its satellite", dropped)
 		}
 	}
 	// R4: owner stays NULLABLE in this migration; NOT NULL comes later.
 	if got := instances["owner_user_id"]; got.udtName != "uuid" || got.isNullable != "YES" {
 		t.Errorf("instances.owner_user_id = type %s nullable %s, want uuid NULL", got.udtName, got.isNullable)
 	}
-	if got := instances["webhook_enabled"]; got.dataType != "boolean" || got.isNullable != "NO" {
-		t.Errorf("instances.webhook_enabled = type %s nullable %s, want boolean NOT NULL", got.dataType, got.isNullable)
+
+	webhooks := tableColumns(t, ctx, pool, "instance_webhooks")
+	if got := webhooks["is_enabled"]; got.dataType != "boolean" || got.isNullable != "NO" {
+		t.Errorf("instance_webhooks.is_enabled = type %s nullable %s, want boolean NOT NULL", got.dataType, got.isNullable)
 	}
-	if def := mustDef(t, instances["webhook_enabled"].columnDef, "instances.webhook_enabled"); def != "false" {
-		t.Errorf("instances.webhook_enabled default = %q, want false", def)
+	if def := mustDef(t, webhooks["is_enabled"].columnDef, "instance_webhooks.is_enabled"); def != "false" {
+		t.Errorf("instance_webhooks.is_enabled default = %q, want false", def)
 	}
-	if got := instances["webhook_events"]; got.udtName != "_text" || got.isNullable != "NO" {
-		t.Errorf("instances.webhook_events = type %s nullable %s, want text[] NOT NULL", got.udtName, got.isNullable)
+	if got := webhooks["events"]; got.udtName != "_text" || got.isNullable != "NO" {
+		t.Errorf("instance_webhooks.events = type %s nullable %s, want text[] NOT NULL", got.udtName, got.isNullable)
 	}
-	if def := mustDef(t, instances["webhook_events"].columnDef, "instances.webhook_events"); !strings.Contains(def, "message") ||
+	if def := mustDef(t, webhooks["events"].columnDef, "instance_webhooks.events"); !strings.Contains(def, "message") ||
 		!strings.Contains(def, "receipt") || !strings.Contains(def, "connection") || !strings.Contains(def, "message.status") {
-		t.Errorf("instances.webhook_events default = %q, want message,receipt,connection,message.status", def)
+		t.Errorf("instance_webhooks.events default = %q, want message,receipt,connection,message.status", def)
+	}
+
+	connections := tableColumns(t, ctx, pool, "instance_connections")
+	if got := connections["status"]; got.dataType != "text" || got.isNullable != "NO" {
+		t.Errorf("instance_connections.status = type %s nullable %s, want text NOT NULL", got.dataType, got.isNullable)
+	}
+	if def := mustDef(t, connections["status"].columnDef, "instance_connections.status"); def != "'disconnected'::text" {
+		t.Errorf("instance_connections.status default = %q, want 'disconnected'", def)
 	}
 
 	// Behavior: case-insensitive email uniqueness, role check, FK, defaults.
@@ -193,20 +209,25 @@ func TestMigrateProductFresh(t *testing.T) {
 	}
 
 	instanceID := uuid.New()
+	var owner *string
 	var enabled bool
 	var events []string
-	var owner *string
 	if err := pool.QueryRow(ctx, `
 		INSERT INTO instances (id, name, owner_user_id) VALUES ($1, 'loja', $2)
-		RETURNING webhook_enabled, webhook_events, owner_user_id::text`,
-		instanceID, adminID).Scan(&enabled, &events, &owner); err != nil {
+		RETURNING owner_user_id::text`,
+		instanceID, adminID).Scan(&owner); err != nil {
 		t.Fatalf("insert owned instance: %v", err)
 	}
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO instance_webhooks (instance_id) VALUES ($1)
+		RETURNING is_enabled, events`, instanceID).Scan(&enabled, &events); err != nil {
+		t.Fatalf("insert instance webhook: %v", err)
+	}
 	if enabled {
-		t.Error("webhook_enabled default = true, want false")
+		t.Error("webhook is_enabled default = true, want false")
 	}
 	if len(events) != 4 || events[0] != "message" || events[1] != "receipt" || events[2] != "connection" || events[3] != "message.status" {
-		t.Errorf("webhook_events default = %v, want [message receipt connection message.status]", events)
+		t.Errorf("webhook events default = %v, want [message receipt connection message.status]", events)
 	}
 	if owner == nil || *owner != adminID.String() {
 		t.Errorf("owner_user_id = %v, want %s", owner, adminID)
@@ -263,14 +284,10 @@ func TestMigrateProductLegacyInstances(t *testing.T) {
 	var extRef *string
 	var owner *string
 	var apiKeyHash *string
-	var webhookURL *string
-	var enabled bool
-	var events []string
 	if err := pool.QueryRow(ctx, `
-		SELECT name, external_ref, owner_user_id::text, api_key_hash,
-		       webhook_url, webhook_enabled, webhook_events
+		SELECT name, external_ref, owner_user_id::text, api_key_hash
 		FROM instances WHERE id = $1`, legacyID).
-		Scan(&name, &extRef, &owner, &apiKeyHash, &webhookURL, &enabled, &events); err != nil {
+		Scan(&name, &extRef, &owner, &apiKeyHash); err != nil {
 		t.Fatalf("read legacy instance: %v", err)
 	}
 	if name != "legacy" || extRef == nil || *extRef != "ext-1" {
@@ -279,14 +296,35 @@ func TestMigrateProductLegacyInstances(t *testing.T) {
 	if owner != nil {
 		t.Errorf("legacy owner_user_id = %v, want NULL", *owner)
 	}
-	if apiKeyHash != nil || webhookURL != nil {
-		t.Errorf("legacy api_key_hash=%v webhook_url=%v, want NULL", apiKeyHash, webhookURL)
+	if apiKeyHash != nil {
+		t.Errorf("legacy api_key_hash=%v, want NULL", apiKeyHash)
+	}
+
+	// The migration splits connection/webhook into satellites with defaults.
+	var status string
+	var enabled bool
+	var webhookURL *string
+	var events []string
+	if err := pool.QueryRow(ctx, `
+		SELECT status FROM instance_connections WHERE instance_id = $1`, legacyID).Scan(&status); err != nil {
+		t.Fatalf("read legacy connection satellite: %v", err)
+	}
+	if status != "disconnected" {
+		t.Errorf("legacy connection status = %q, want disconnected", status)
+	}
+	if err := pool.QueryRow(ctx, `
+		SELECT url, is_enabled, events FROM instance_webhooks WHERE instance_id = $1`, legacyID).
+		Scan(&webhookURL, &enabled, &events); err != nil {
+		t.Fatalf("read legacy webhook satellite: %v", err)
+	}
+	if webhookURL != nil {
+		t.Errorf("legacy webhook url=%v, want NULL", webhookURL)
 	}
 	if enabled {
-		t.Error("legacy webhook_enabled = true, want false")
+		t.Error("legacy webhook is_enabled = true, want false")
 	}
 	if len(events) != 4 {
-		t.Errorf("legacy webhook_events = %v, want 4 default entries", events)
+		t.Errorf("legacy webhook events = %v, want 4 default entries", events)
 	}
 }
 

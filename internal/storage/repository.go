@@ -39,9 +39,16 @@ var (
 	ErrInProgress = errors.New("idempotency key in progress")
 )
 
-// InstanceRepository persists WhatsApp instances. List returns every instance
-// ordered by created_at descending, then id descending.
+// InstanceRepository persists WhatsApp instances. The aggregate reads join the
+// identity row (instances) with its two satellites (instance_connections and
+// instance_webhooks), both created together with the identity. Writes are
+// split per concern so an identity edit can never overwrite a concurrent
+// connection transition (the lost-update bug of the snapshot UPDATE). List
+// returns every instance ordered by created_at descending, then id
+// descending.
 type InstanceRepository interface {
+	// Create persists the identity row plus its connection and webhook
+	// satellites in one transaction.
 	Create(ctx context.Context, instance model.Instance) (*model.Instance, error)
 	Get(ctx context.Context, id uuid.UUID) (*model.Instance, error)
 	GetByName(ctx context.Context, name string) (*model.Instance, error)
@@ -49,18 +56,26 @@ type InstanceRepository interface {
 	// GetByDeviceJID returns the instance bound to deviceJID or ErrNotFound.
 	GetByDeviceJID(ctx context.Context, deviceJID string) (*model.Instance, error)
 	List(ctx context.Context) ([]model.Instance, error)
-	Update(ctx context.Context, instance model.Instance) (*model.Instance, error)
-	// SetConnection updates the status and whatsapp_jid of an instance in
-	// place, clearing the JID when whatsappJID is empty. Unlike Update it never
-	// touches the other columns, so a concurrent writer cannot be overwritten
-	// with stale values.
-	SetConnection(ctx context.Context, id uuid.UUID, status, whatsappJID string) error
+	// UpdateIdentity rewrites only the identity columns (name, external_ref)
+	// and returns the re-read aggregate. It never touches the connection or
+	// webhook satellites, so a name edit cannot resurrect a stale session
+	// state.
+	UpdateIdentity(ctx context.Context, id uuid.UUID, name, externalRef string) (*model.Instance, error)
+	// SetConnection updates the connection row of an instance in place:
+	// status always, device_jid bound to deviceJID (cleared when empty) and
+	// the error trio cleared when the JID is cleared. It never touches the
+	// identity or webhook columns.
+	SetConnection(ctx context.Context, id uuid.UUID, status, deviceJID string) error
 	// SetConnectionState records a connection transition in place: status and
-	// last_error always, whatsapp_jid when it is not empty (keeping the stored
-	// one otherwise) and last_connected_at when connectedAt is set. Like
-	// SetConnection it never touches the other columns, so a concurrent
-	// writer is not overwritten with stale values.
-	SetConnectionState(ctx context.Context, id uuid.UUID, status, whatsappJID, lastError string, connectedAt *time.Time) error
+	// the error trio always (empty lastError clears them, a message stores
+	// its classified code and the current instant), device_jid when it is
+	// not empty (keeping the stored one otherwise) and last_connected_at
+	// when connectedAt is set. Like SetConnection it never touches the other
+	// tables.
+	SetConnectionState(ctx context.Context, id uuid.UUID, status, deviceJID, lastError string, connectedAt *time.Time) error
+	// SetWebhook replaces the webhook configuration of an instance in place,
+	// never touching identity or connection columns.
+	SetWebhook(ctx context.Context, id uuid.UUID, url *string, enabled bool, events []string) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 

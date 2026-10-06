@@ -14,13 +14,13 @@ import (
 	"wzap/internal/storage"
 )
 
-const chatwootConfigColumns = `instance_id, enabled, url, account_id, token, ` +
-	`name_inbox, sign_msg, sign_delimiter, reopen_conversation, conversation_pending, ` +
-	`merge_brazil_contacts, import_contacts, import_messages, days_limit, auto_create, ` +
-	`organization, logo, ignore_jids, created_at, updated_at`
+const chatwootConfigColumns = `instance_id, is_enabled, url, account_id, token, ` +
+	`inbox_name, is_sign_enabled, sign_delimiter, is_reopen_enabled, is_pending_enabled, ` +
+	`is_merge_enabled, is_import_contacts, is_import_messages, import_days, is_auto_create, ` +
+	`organization, logo, ignored_jids, created_at, updated_at`
 
-const chatwootMessageColumns = `instance_id, wa_key, chatwoot_message_id, ` +
-	`conversation_id, inbox_id, contact_source_id, is_read, created_at`
+const chatwootMessageColumns = `instance_id, wa_key, cw_id, ` +
+	`conversation_id, inbox_id, chat_jid, is_read, created_at`
 
 // ChatwootConfigRepository is the pgx-backed storage.ChatwootConfigRepository.
 // When tokenKey is non-nil the token column holds sealed values (enc:v1:):
@@ -82,7 +82,7 @@ func (r *ChatwootConfigRepository) Get(ctx context.Context, instanceID uuid.UUID
 // the in-memory contract never exposes the storage envelope.
 func (r *ChatwootConfigRepository) Put(ctx context.Context, cfg model.ChatwootConfig) (*model.ChatwootConfig, error) {
 	// pgx encodes a nil slice as NULL, which would violate the
-	// ignore_jids NOT NULL constraint; an absent list means "ignore none".
+	// ignored_jids NOT NULL constraint; an absent list means "ignore none".
 	if cfg.IgnoreJIDs == nil {
 		cfg.IgnoreJIDs = []string{}
 	}
@@ -95,21 +95,21 @@ func (r *ChatwootConfigRepository) Put(ctx context.Context, cfg model.ChatwootCo
 		}
 	}
 	stored, err := scanChatwootConfig(r.pool.QueryRow(ctx, `
-		INSERT INTO chatwoot_configs (instance_id, enabled, url, account_id, token,
-			name_inbox, sign_msg, sign_delimiter, reopen_conversation, conversation_pending,
-			merge_brazil_contacts, import_contacts, import_messages, days_limit, auto_create,
-			organization, logo, ignore_jids)
+		INSERT INTO chatwoot_configs (instance_id, is_enabled, url, account_id, token,
+			inbox_name, is_sign_enabled, sign_delimiter, is_reopen_enabled, is_pending_enabled,
+			is_merge_enabled, is_import_contacts, is_import_messages, import_days, is_auto_create,
+			organization, logo, ignored_jids)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 		ON CONFLICT (instance_id) DO UPDATE SET
-			enabled = EXCLUDED.enabled, url = EXCLUDED.url, account_id = EXCLUDED.account_id,
-			token = EXCLUDED.token, name_inbox = EXCLUDED.name_inbox, sign_msg = EXCLUDED.sign_msg,
-			sign_delimiter = EXCLUDED.sign_delimiter, reopen_conversation = EXCLUDED.reopen_conversation,
-			conversation_pending = EXCLUDED.conversation_pending,
-			merge_brazil_contacts = EXCLUDED.merge_brazil_contacts,
-			import_contacts = EXCLUDED.import_contacts, import_messages = EXCLUDED.import_messages,
-			days_limit = EXCLUDED.days_limit, auto_create = EXCLUDED.auto_create,
+			is_enabled = EXCLUDED.is_enabled, url = EXCLUDED.url, account_id = EXCLUDED.account_id,
+			token = EXCLUDED.token, inbox_name = EXCLUDED.inbox_name, is_sign_enabled = EXCLUDED.is_sign_enabled,
+			sign_delimiter = EXCLUDED.sign_delimiter, is_reopen_enabled = EXCLUDED.is_reopen_enabled,
+			is_pending_enabled = EXCLUDED.is_pending_enabled,
+			is_merge_enabled = EXCLUDED.is_merge_enabled,
+			is_import_contacts = EXCLUDED.is_import_contacts, is_import_messages = EXCLUDED.is_import_messages,
+			import_days = EXCLUDED.import_days, is_auto_create = EXCLUDED.is_auto_create,
 			organization = EXCLUDED.organization, logo = EXCLUDED.logo,
-			ignore_jids = EXCLUDED.ignore_jids, updated_at = now()
+			ignored_jids = EXCLUDED.ignored_jids, updated_at = now()
 		RETURNING `+chatwootConfigColumns,
 		cfg.InstanceID, cfg.Enabled, cfg.URL, cfg.AccountID, sealed,
 		cfg.NameInbox, cfg.SignMsg, cfg.SignDelimiter, cfg.ReopenConversation, cfg.ConversationPending,
@@ -189,13 +189,13 @@ func (r *ChatwootConfigRepository) Delete(ctx context.Context, instanceID uuid.U
 // and returns the stored row.
 func (r *ChatwootMessageRepository) Put(ctx context.Context, msg model.ChatwootMessage) (*model.ChatwootMessage, error) {
 	stored, err := scanChatwootMessage(r.pool.QueryRow(ctx, `
-		INSERT INTO chatwoot_messages (instance_id, wa_key, chatwoot_message_id,
-			conversation_id, inbox_id, contact_source_id, is_read)
+		INSERT INTO chatwoot_messages (instance_id, wa_key, cw_id,
+			conversation_id, inbox_id, chat_jid, is_read)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (instance_id, wa_key) DO UPDATE SET
-			chatwoot_message_id = EXCLUDED.chatwoot_message_id,
+			cw_id = EXCLUDED.cw_id,
 			conversation_id = EXCLUDED.conversation_id, inbox_id = EXCLUDED.inbox_id,
-			contact_source_id = EXCLUDED.contact_source_id, is_read = EXCLUDED.is_read
+			chat_jid = EXCLUDED.chat_jid, is_read = EXCLUDED.is_read, updated_at = now()
 		RETURNING `+chatwootMessageColumns,
 		msg.InstanceID, msg.WAKey, msg.ChatwootMessageID,
 		msg.ConversationID, msg.InboxID, msg.ContactSourceID, msg.IsRead,
@@ -233,7 +233,7 @@ func (r *ChatwootMessageRepository) DeleteByInstance(ctx context.Context, instan
 // lookups without changing the storage interface.
 func (r *ChatwootMessageRepository) GetByChatwootID(ctx context.Context, instanceID uuid.UUID, chatwootID int64) (*model.ChatwootMessage, error) {
 	msg, err := scanChatwootMessage(r.pool.QueryRow(ctx,
-		`SELECT `+chatwootMessageColumns+` FROM chatwoot_messages WHERE instance_id = $1 AND chatwoot_message_id = $2 LIMIT 1`,
+		`SELECT `+chatwootMessageColumns+` FROM chatwoot_messages WHERE instance_id = $1 AND cw_id = $2 LIMIT 1`,
 		instanceID, chatwootID))
 	if err != nil {
 		return nil, mapChatwootError("get chatwoot message by chatwoot id", err)
@@ -243,13 +243,13 @@ func (r *ChatwootMessageRepository) GetByChatwootID(ctx context.Context, instanc
 
 // LatestByConversation returns the newest correlation of a conversation or
 // storage.ErrNotFound. It backs the inbound MESSAGE_READ marking of the last
-// received message. The tiebreak on chatwoot_message_id keeps the choice
+// received message. The tiebreak on cw_id keeps the choice
 // deterministic when two rows share created_at (same instant), matching the
-// (instance_id, conversation_id, created_at DESC, chatwoot_message_id DESC)
+// (instance_id, conversation_id, created_at DESC, cw_id DESC)
 // covering index from migration 00004.
 func (r *ChatwootMessageRepository) LatestByConversation(ctx context.Context, instanceID uuid.UUID, conversationID int64) (*model.ChatwootMessage, error) {
 	msg, err := scanChatwootMessage(r.pool.QueryRow(ctx,
-		`SELECT `+chatwootMessageColumns+` FROM chatwoot_messages WHERE instance_id = $1 AND conversation_id = $2 ORDER BY created_at DESC, chatwoot_message_id DESC LIMIT 1`,
+		`SELECT `+chatwootMessageColumns+` FROM chatwoot_messages WHERE instance_id = $1 AND conversation_id = $2 ORDER BY created_at DESC, cw_id DESC LIMIT 1`,
 		instanceID, conversationID))
 	if err != nil {
 		return nil, mapChatwootError("get latest chatwoot message", err)

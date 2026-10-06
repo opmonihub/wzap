@@ -189,7 +189,7 @@ func TestPublicChatwootNameReference(t *testing.T) {
 func TestTargetedInstanceStats(t *testing.T) {
 	f, svc, _, _, srv := aliasFixture(t)
 	for _, status := range []string{"connected", "disconnected", "pairing", "error", "unknown"} {
-		f.instA.Status = status
+		f.instA.Connection.Status = status
 		for _, ref := range []string{f.instA.Name, f.instA.ID.String()} {
 			rec := serveRBAC(t, srv, "GET", "/instances/stats?instance="+ref, "", rbacSessionCookie(f.adminTok), "", nil)
 			if rec.Code != 200 {

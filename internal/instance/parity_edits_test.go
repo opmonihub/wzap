@@ -16,7 +16,7 @@ import (
 
 func newParityTestInstance(t *testing.T) (*model.Instance, *fakeRepo) {
 	t.Helper()
-	inst := &model.Instance{ID: uuid.New(), Name: "loja", Status: "connected"}
+	inst := &model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: "connected"}}
 	return inst, newFakeRepo(*inst)
 }
 

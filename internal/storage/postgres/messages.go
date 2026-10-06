@@ -15,9 +15,9 @@ import (
 	"wzap/internal/storage"
 )
 
-const messageColumns = `id, instance_id, type, recipient, payload, media_id, status, ` +
-	`COALESCE(whatsapp_id, '') AS whatsapp_id, COALESCE(last_error, '') AS last_error, ` +
-	`retries, delivered_at, read_at, created_at, updated_at`
+const messageColumns = `id, instance_id, message_type, recipient_jid, payload, media_id, send_status, ` +
+	`COALESCE(wa_id, '') AS wa_id, COALESCE(last_error_message, '') AS last_error_message, ` +
+	`retry_count, delivered_at, read_at, created_at, updated_at`
 
 const listMessagesQuery = `SELECT ` + messageColumns + ` FROM message_queue ` +
 	`WHERE instance_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2`
@@ -27,10 +27,10 @@ const listMessagesAfterQuery = `SELECT ` + messageColumns + ` FROM message_queue
 	`ORDER BY created_at DESC, id DESC LIMIT $3`
 
 const claimQueuedSelectQuery = `SELECT ` + messageColumns + ` FROM message_queue ` +
-	`WHERE status = 'queued' AND (next_attempt_at IS NULL OR next_attempt_at <= now()) ` +
+	`WHERE send_status = 'queued' AND (next_attempt_at IS NULL OR next_attempt_at <= now()) ` +
 	`ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT $1`
 
-const claimQueuedUpdateQuery = `UPDATE message_queue SET status = 'sending', updated_at = now() ` +
+const claimQueuedUpdateQuery = `UPDATE message_queue SET send_status = 'sending', updated_at = now() ` +
 	`WHERE id = ANY($1) RETURNING ` + messageColumns
 
 // MessageRepository is the pgx-backed storage.MessageRepository.
@@ -46,10 +46,22 @@ func NewMessageRepository(pool *pgxpool.Pool) *MessageRepository {
 }
 
 // Create persists a new outbound message and returns it with database
-// timestamps.
+// timestamps. A media reference must point at a media row of the same
+// instance; a missing or cross-instance media is ErrNotFound.
 func (r *MessageRepository) Create(ctx context.Context, message model.OutboundMessage) (*model.OutboundMessage, error) {
+	if message.MediaID != nil {
+		var exists bool
+		if err := r.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM media WHERE id = $1 AND instance_id = $2)`,
+			*message.MediaID, message.InstanceID).Scan(&exists); err != nil {
+			return nil, fmt.Errorf("create message: check media: %w", err)
+		}
+		if !exists {
+			return nil, fmt.Errorf("create message: %w", storage.ErrNotFound)
+		}
+	}
 	row := r.pool.QueryRow(ctx, `
-		INSERT INTO message_queue (id, instance_id, type, recipient, payload, media_id, status, whatsapp_id)
+		INSERT INTO message_queue (id, instance_id, message_type, recipient_jid, payload, media_id, send_status, wa_id)
 		VALUES ($1, $2, $3, $4, $5, $6, COALESCE(NULLIF($7, ''), 'queued'), NULLIF($8, ''))
 		RETURNING `+messageColumns,
 		message.ID, message.InstanceID, message.Type, message.RecipientJID,
@@ -196,7 +208,9 @@ func (r *MessageRepository) ClaimQueued(ctx context.Context, limit int) ([]model
 func (r *MessageRepository) MarkSent(ctx context.Context, id uuid.UUID, whatsAppMessageID string) error {
 	tag, err := r.pool.Exec(ctx, `
 		UPDATE message_queue
-		SET status = 'sent', whatsapp_id = NULLIF($2, ''), last_error = NULL, updated_at = now()
+		SET send_status = 'sent', wa_id = NULLIF($2, ''),
+		    last_error_code = NULL, last_error_message = NULL, last_error_at = NULL,
+		    updated_at = now()
 		WHERE id = $1`, id, whatsAppMessageID)
 	if err != nil {
 		return fmt.Errorf("mark message sent: %w", err)
@@ -211,7 +225,10 @@ func (r *MessageRepository) MarkSent(ctx context.Context, id uuid.UUID, whatsApp
 func (r *MessageRepository) MarkFailed(ctx context.Context, id uuid.UUID, errMsg string) error {
 	tag, err := r.pool.Exec(ctx, `
 		UPDATE message_queue
-		SET status = 'failed', last_error = NULLIF($2, ''), updated_at = now()
+		SET send_status = 'failed', last_error_code = CASE WHEN NULLIF($2, '') IS NULL THEN NULL ELSE 'send_failed' END,
+		    last_error_message = NULLIF($2, ''),
+		    last_error_at = CASE WHEN NULLIF($2, '') IS NULL THEN NULL ELSE now() END,
+		    updated_at = now()
 		WHERE id = $1`, id, errMsg)
 	if err != nil {
 		return fmt.Errorf("mark message failed: %w", err)
@@ -226,7 +243,10 @@ func (r *MessageRepository) MarkFailed(ctx context.Context, id uuid.UUID, errMsg
 func (r *MessageRepository) MarkRetrying(ctx context.Context, id uuid.UUID, errMsg string, nextAttemptAt time.Time) error {
 	tag, err := r.pool.Exec(ctx, `
 		UPDATE message_queue
-		SET status = 'queued', retries = retries + 1, last_error = NULLIF($2, ''),
+		SET send_status = 'queued', retry_count = retry_count + 1,
+		    last_error_code = CASE WHEN NULLIF($2, '') IS NULL THEN NULL ELSE 'send_retry' END,
+		    last_error_message = NULLIF($2, ''),
+		    last_error_at = CASE WHEN NULLIF($2, '') IS NULL THEN NULL ELSE now() END,
 		    next_attempt_at = $3, updated_at = now()
 		WHERE id = $1`, id, errMsg, nextAttemptAt)
 	if err != nil {
@@ -247,7 +267,7 @@ func (r *MessageRepository) UpdateReceipt(
 		SET delivered_at = COALESCE(delivered_at, $3),
 		    read_at = CASE WHEN $2 IN ('read', 'played') THEN COALESCE(read_at, $3) ELSE read_at END,
 		    updated_at = now()
-		WHERE whatsapp_id = $1 AND $2 IN ('delivered', 'read', 'played')`,
+		WHERE wa_id = $1 AND $2 IN ('delivered', 'read', 'played')`,
 		whatsAppMessageID, status, at)
 	if err != nil {
 		return false, fmt.Errorf("update message receipt: %w", err)
@@ -260,8 +280,8 @@ func (r *MessageRepository) UpdateReceipt(
 func (r *MessageRepository) RequeueStuck(ctx context.Context, olderThan time.Time) (int64, error) {
 	tag, err := r.pool.Exec(ctx, `
 		UPDATE message_queue
-		SET status = 'queued', updated_at = now()
-		WHERE status = 'sending' AND updated_at < $1`, olderThan)
+		SET send_status = 'queued', updated_at = now()
+		WHERE send_status = 'sending' AND updated_at < $1`, olderThan)
 	if err != nil {
 		return 0, fmt.Errorf("requeue stuck messages: %w", err)
 	}

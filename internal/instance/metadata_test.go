@@ -87,7 +87,7 @@ func (f *fakeNewsletterMetadataRepo) DeleteByInstance(_ context.Context, _ uuid.
 
 func metadataService(t *testing.T) (*Service, *model.Instance, *sessiontest.Fake, *fakeGroupMetadataRepo, *fakeNewsletterMetadataRepo) {
 	t.Helper()
-	inst := &model.Instance{ID: uuid.New(), Name: "loja", Status: "connected"}
+	inst := &model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: "connected"}}
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(inst.ID, nil)
 	sessions.Put(inst.ID, sess)
@@ -125,7 +125,7 @@ func TestServiceGetGroupRefreshesCache(t *testing.T) {
 }
 
 func TestServiceGetGroupWithoutCacheLeavesUpdatedAtZero(t *testing.T) {
-	inst := &model.Instance{ID: uuid.New(), Name: "loja", Status: "connected"}
+	inst := &model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: "connected"}}
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(inst.ID, nil)
 	sessions.Put(inst.ID, sess)

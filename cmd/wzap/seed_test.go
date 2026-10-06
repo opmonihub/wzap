@@ -55,11 +55,7 @@ func createSeedUser(t *testing.T, users *postgres.UserRepository, email string) 
 func createLegacyInstance(t *testing.T, instances *postgres.InstanceRepository, name string) *model.Instance {
 	t.Helper()
 
-	instance, err := instances.Create(context.Background(), model.Instance{
-		ID:     uuid.New(),
-		Name:   name,
-		Status: "disconnected",
-	})
+	instance, err := instances.Create(context.Background(), model.Instance{ID: uuid.New(), Name: name, Connection: model.InstanceConnection{Status: "disconnected"}})
 	if err != nil {
 		t.Fatalf("create instance %q: %v", name, err)
 	}

@@ -19,7 +19,7 @@ func TestCreateInstanceCachesPlaintextKey(t *testing.T) {
 	svc := &fakeInstanceService{
 		oldestAdminFn: func(context.Context) (uuid.UUID, error) { return uuid.New(), nil },
 		createFn: func(_ context.Context, input instance.CreateInput) (*model.Instance, string, error) {
-			return &model.Instance{ID: id, Name: input.Name, Status: "disconnected", OwnerUserID: input.OwnerUserID}, "hook-key-create", nil
+			return &model.Instance{ID: id, Name: input.Name, OwnerUserID: input.OwnerUserID, Connection: model.InstanceConnection{Status: "disconnected"}}, "hook-key-create", nil
 		},
 	}
 	srv := createOwnerTestServer(t, svc)
@@ -37,7 +37,7 @@ func TestCreateInstanceCachesPlaintextKey(t *testing.T) {
 // TestRotateAPIKeyCachesPlaintextKey pins the rotate hook: after a 200 the
 // fresh plaintext replaces whatever the cache held.
 func TestRotateAPIKeyCachesPlaintextKey(t *testing.T) {
-	inst := &model.Instance{ID: uuid.New(), Name: "loja", Status: "disconnected"}
+	inst := &model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}}
 	keys := &fakeAPIKeyRepository{byHash: map[string]uuid.UUID{}}
 	srv := apikeyTestServer(t, apikeyInstanceService(inst), keys)
 	t.Cleanup(func() { webhook.Keys.Clear(inst.ID) })
@@ -56,7 +56,7 @@ func TestRotateAPIKeyCachesPlaintextKey(t *testing.T) {
 // TestRevokeAPIKeyClearsCachedKey pins the revoke hook: after a 204 the cache
 // holds nothing for the instance.
 func TestRevokeAPIKeyClearsCachedKey(t *testing.T) {
-	inst := &model.Instance{ID: uuid.New(), Name: "loja", Status: "disconnected"}
+	inst := &model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}}
 	keys := &fakeAPIKeyRepository{byHash: map[string]uuid.UUID{}}
 	srv := apikeyTestServer(t, apikeyInstanceService(inst), keys)
 
@@ -77,7 +77,7 @@ func TestDeleteInstanceClearsCachedKey(t *testing.T) {
 	id := uuid.New()
 	svc := &fakeInstanceService{
 		getFn: func(_ context.Context, _ uuid.UUID) (*model.Instance, error) {
-			return &model.Instance{ID: id, Name: "loja", Status: "disconnected"}, nil
+			return &model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}}, nil
 		},
 	}
 

@@ -500,7 +500,7 @@ func TestRemoveDeletesCredentials(t *testing.T) {
 	manager := newTestManager(t)
 	id := uuid.New()
 	jid := saveTestDevice(t, manager.devices, "5511999999999")
-	if _, err := manager.Create(&model.Instance{ID: id, WhatsAppJID: jid.String()}); err != nil {
+	if _, err := manager.Create(&model.Instance{ID: id, Connection: model.InstanceConnection{DeviceJID: jid.String()}}); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
@@ -523,7 +523,7 @@ func TestRemoveLogsOutFromWhatsApp(t *testing.T) {
 	manager := newTestManager(t)
 	id := uuid.New()
 	jid := saveTestDevice(t, manager.devices, "5511999999999")
-	sess, err := manager.Create(&model.Instance{ID: id, WhatsAppJID: jid.String()})
+	sess, err := manager.Create(&model.Instance{ID: id, Connection: model.InstanceConnection{DeviceJID: jid.String()}})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -553,7 +553,7 @@ func TestRemoveKeepsSessionWhenDeleteFails(t *testing.T) {
 	manager := newTestManager(t)
 	id := uuid.New()
 	jid := saveTestDevice(t, manager.devices, "5511888888888")
-	if _, err := manager.Create(&model.Instance{ID: id, WhatsAppJID: jid.String()}); err != nil {
+	if _, err := manager.Create(&model.Instance{ID: id, Connection: model.InstanceConnection{DeviceJID: jid.String()}}); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
@@ -571,7 +571,7 @@ func TestRemoveKeepsSessionWhenDeleteFails(t *testing.T) {
 func TestCreateMissingDeviceReturnsErrNoDevice(t *testing.T) {
 	manager := newTestManager(t)
 
-	_, err := manager.Create(&model.Instance{ID: uuid.New(), WhatsAppJID: "5511999999999@s.whatsapp.net"})
+	_, err := manager.Create(&model.Instance{ID: uuid.New(), Connection: model.InstanceConnection{DeviceJID: "5511999999999@s.whatsapp.net"}})
 	if !errors.Is(err, session.ErrNoDevice) {
 		t.Fatalf("Create error = %v, want ErrNoDevice", err)
 	}
@@ -618,8 +618,12 @@ func (r *fakeInstanceRepo) List(context.Context) ([]model.Instance, error) {
 	return r.instances, nil
 }
 
-func (r *fakeInstanceRepo) Update(context.Context, model.Instance) (*model.Instance, error) {
-	return nil, errors.New("fakeInstanceRepo.Update: unexpected call")
+func (r *fakeInstanceRepo) UpdateIdentity(context.Context, uuid.UUID, string, string) (*model.Instance, error) {
+	return nil, errors.New("fakeInstanceRepo.UpdateIdentity: unexpected call")
+}
+
+func (r *fakeInstanceRepo) SetWebhook(context.Context, uuid.UUID, *string, bool, []string) error {
+	return errors.New("fakeInstanceRepo.SetWebhook: unexpected call")
 }
 
 func (r *fakeInstanceRepo) SetConnection(context.Context, uuid.UUID, string, string) error {
@@ -636,7 +640,7 @@ func (r *fakeInstanceRepo) Delete(context.Context, uuid.UUID) error {
 
 func TestRestoreAllSkipsInstancesWithoutCredentials(t *testing.T) {
 	manager := &Manager{
-		instances: &fakeInstanceRepo{instances: []model.Instance{{ID: uuid.New(), Status: "disconnected"}}},
+		instances: &fakeInstanceRepo{instances: []model.Instance{{ID: uuid.New(), Connection: model.InstanceConnection{Status: "disconnected"}}}},
 		log:       zerolog.Nop(),
 		sessions:  make(map[uuid.UUID]*instanceSession),
 	}
@@ -664,8 +668,8 @@ func TestRestoreAllSkipsAlreadyRegistered(t *testing.T) {
 	unpairedID := uuid.New()
 	manager := &Manager{
 		instances: &fakeInstanceRepo{instances: []model.Instance{
-			{ID: registeredID, Status: "connected", WhatsAppJID: "5511999999999@s.whatsapp.net"},
-			{ID: unpairedID, Status: "disconnected"},
+			{ID: registeredID, Connection: model.InstanceConnection{Status: "connected", DeviceJID: "5511999999999@s.whatsapp.net"}},
+			{ID: unpairedID, Connection: model.InstanceConnection{Status: "disconnected"}},
 		}},
 		log:      zerolog.Nop(),
 		sessions: map[uuid.UUID]*instanceSession{registeredID: {instanceID: registeredID}},
@@ -695,9 +699,7 @@ func TestRestoreAllReflectsFailure(t *testing.T) {
 	jid := saveTestDevice(t, manager.devices, "5511999999999")
 	sink := &recordingSink{}
 	manager.sink = sink
-	manager.instances = &fakeInstanceRepo{instances: []model.Instance{{
-		ID: uuid.New(), Status: "connected", WhatsAppJID: jid.String(),
-	}}}
+	manager.instances = &fakeInstanceRepo{instances: []model.Instance{{ID: uuid.New(), Connection: model.InstanceConnection{Status: "connected", DeviceJID: jid.String()}}}}
 	manager.restoreConnect = func(context.Context, *instanceSession) error {
 		return errors.New("whatsapp unreachable")
 	}
@@ -721,9 +723,7 @@ func TestRestoreAllMissingDeviceReflectsErrNoDevice(t *testing.T) {
 	manager := newTestManager(t)
 	sink := &recordingSink{}
 	manager.sink = sink
-	manager.instances = &fakeInstanceRepo{instances: []model.Instance{{
-		ID: uuid.New(), Status: "connected", WhatsAppJID: "5511999999999@s.whatsapp.net",
-	}}}
+	manager.instances = &fakeInstanceRepo{instances: []model.Instance{{ID: uuid.New(), Connection: model.InstanceConnection{Status: "connected", DeviceJID: "5511999999999@s.whatsapp.net"}}}}
 
 	if err := manager.RestoreAll(context.Background()); err != nil {
 		t.Fatalf("RestoreAll: %v", err)
@@ -739,7 +739,7 @@ func TestRestoreAllMissingDeviceReflectsErrNoDevice(t *testing.T) {
 
 func TestRestoreAllReflectsCancellation(t *testing.T) {
 	sink := &recordingSink{}
-	instance := model.Instance{ID: uuid.New(), Status: "connected", WhatsAppJID: "5511999999999@s.whatsapp.net"}
+	instance := model.Instance{ID: uuid.New(), Connection: model.InstanceConnection{Status: "connected", DeviceJID: "5511999999999@s.whatsapp.net"}}
 	manager := &Manager{
 		instances: &fakeInstanceRepo{instances: []model.Instance{instance}},
 		log:       zerolog.Nop(),

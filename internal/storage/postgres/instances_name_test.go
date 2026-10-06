@@ -42,15 +42,13 @@ func TestInstanceRepositoryNameLookupLegacy(t *testing.T) {
 		t.Fatalf("legacy = %+v, %v", legacy, err)
 	}
 	for _, inst := range []*model.Instance{exact, legacy} {
-		inst.ExternalRef = uuid.NewString()
-		got, err := repo.Update(ctx, *inst)
+		got, err := repo.UpdateIdentity(ctx, inst.ID, inst.Name, uuid.NewString())
 		if err != nil || got.Name != inst.Name || got.ID != inst.ID {
 			t.Fatalf("unchanged legacy = %+v, %v", got, err)
 		}
 	}
 	renamed := "renamed"
-	exact.Name = renamed
-	if _, err := repo.Update(ctx, *exact); err != nil {
+	if _, err := repo.UpdateIdentity(ctx, exact.ID, renamed, exact.ExternalRef); err != nil {
 		t.Fatal(err)
 	}
 	got, err := repo.GetByName(ctx, renamed)
@@ -82,11 +80,10 @@ func TestInstanceRepositoryNameClaims(t *testing.T) {
 		t.Fatalf("cross-owner duplicate = %v", err)
 	}
 	second := createTestInstance(t, repo, "other", "")
-	second.Name = first.Name
-	if _, err := repo.Update(ctx, *second); !errors.Is(err, storage.ErrInstanceNameTaken) {
+	if _, err := repo.UpdateIdentity(ctx, second.ID, first.Name, second.ExternalRef); !errors.Is(err, storage.ErrInstanceNameTaken) {
 		t.Fatalf("rename occupied = %v", err)
 	}
-	if _, err := repo.Update(ctx, model.Instance{ID: uuid.New(), Name: first.Name}); !errors.Is(err, storage.ErrNotFound) {
+	if _, err := repo.UpdateIdentity(ctx, uuid.New(), first.Name, ""); !errors.Is(err, storage.ErrNotFound) {
 		t.Fatalf("unknown row = %v", err)
 	}
 }
@@ -110,7 +107,7 @@ func TestInstanceRepositoryNameConcurrentClaims(t *testing.T) {
 					}
 					ops = append(ops, func() error {
 						if rename {
-							_, err := repo.Update(ctx, inst)
+							_, err := repo.UpdateIdentity(ctx, inst.ID, inst.Name, inst.ExternalRef)
 							return err
 						}
 						_, err := repo.Create(ctx, inst)
@@ -168,7 +165,7 @@ func TestInstanceRepositoryNameSameRowUsesCurrentDatabaseName(t *testing.T) {
 		t.Fatal(err)
 	}
 	result := make(chan error, 1)
-	go func() { _, err := repo.Update(ctx, *stale); result <- err }()
+	go func() { _, err := repo.UpdateIdentity(ctx, stale.ID, stale.Name, stale.ExternalRef); result <- err }()
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var blocked bool

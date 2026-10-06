@@ -71,7 +71,7 @@ func rotateKeyResponse(t *testing.T, body []byte) (id, key string) {
 }
 
 func TestAPIKeyRotateHappy(t *testing.T) {
-	inst := &model.Instance{ID: uuid.New(), Name: "loja", Status: "disconnected"}
+	inst := &model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}}
 	const oldKey = "old-instance-key-happy"
 	keys := &fakeAPIKeyRepository{byHash: map[string]uuid.UUID{apikeyHashOf(oldKey): inst.ID}}
 	srv := apikeyTestServer(t, apikeyInstanceService(inst), keys)
@@ -116,7 +116,7 @@ func TestAPIKeyRotateHappy(t *testing.T) {
 
 func TestAPIKeyRotateBackfill(t *testing.T) {
 	// A keyless legacy instance gains its first key through the same path.
-	inst := &model.Instance{ID: uuid.New(), Name: "legacy", Status: "disconnected"}
+	inst := &model.Instance{ID: uuid.New(), Name: "legacy", Connection: model.InstanceConnection{Status: "disconnected"}}
 	keys := &fakeAPIKeyRepository{byHash: map[string]uuid.UUID{}}
 	srv := apikeyTestServer(t, apikeyInstanceService(inst), keys)
 
@@ -140,7 +140,7 @@ func TestAPIKeyRotateBackfill(t *testing.T) {
 }
 
 func TestAPIKeyRevoke(t *testing.T) {
-	inst := &model.Instance{ID: uuid.New(), Name: "loja", Status: "disconnected"}
+	inst := &model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}}
 	const oldKey = "old-instance-key-revoke"
 	keys := &fakeAPIKeyRepository{byHash: map[string]uuid.UUID{apikeyHashOf(oldKey): inst.ID}}
 	srv := apikeyTestServer(t, apikeyInstanceService(inst), keys)
@@ -173,7 +173,7 @@ func TestAPIKeyRevoke(t *testing.T) {
 func TestAPIKeyRotateRevokeForbidden(t *testing.T) {
 	userID := uuid.New()
 	adminID := uuid.New()
-	inst := &model.Instance{ID: uuid.New(), Name: "loja", Status: "disconnected"}
+	inst := &model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}}
 	const ownKey = "own-instance-key-forbidden"
 	keys := &fakeAPIKeyRepository{byHash: map[string]uuid.UUID{apikeyHashOf(ownKey): inst.ID}}
 	srv := apikeyTestServer(t, apikeyInstanceService(inst), keys)

@@ -32,7 +32,7 @@ func createTestInstance(t *testing.T, repo storage.InstanceRepository, name, ext
 		ID:          uuid.New(),
 		Name:        name,
 		ExternalRef: externalRef,
-		Status:      "disconnected",
+		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance %q: %v", name, err)
@@ -84,7 +84,7 @@ func TestInstanceRepositoryCreate(t *testing.T) {
 		ID:          uuid.New(),
 		Name:        "Account A",
 		ExternalRef: "account-a",
-		Status:      "disconnected",
+		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -99,17 +99,17 @@ func TestInstanceRepositoryCreate(t *testing.T) {
 	if created.ExternalRef != "account-a" {
 		t.Errorf("Create: ExternalRef = %q, want %q", created.ExternalRef, "account-a")
 	}
-	if created.Status != "disconnected" {
-		t.Errorf("Create: Status = %q, want %q", created.Status, "disconnected")
+	if created.Connection.Status != "disconnected" {
+		t.Errorf("Create: Status = %q, want %q", created.Connection.Status, "disconnected")
 	}
-	if created.WhatsAppJID != "" {
-		t.Errorf("Create: WhatsAppJID = %q, want empty", created.WhatsAppJID)
+	if created.Connection.DeviceJID != "" {
+		t.Errorf("Create: DeviceJID = %q, want empty", created.Connection.DeviceJID)
 	}
-	if created.LastConnectedAt != nil {
-		t.Errorf("Create: LastConnectedAt = %v, want nil", created.LastConnectedAt)
+	if created.Connection.LastConnectedAt != nil {
+		t.Errorf("Create: LastConnectedAt = %v, want nil", created.Connection.LastConnectedAt)
 	}
-	if created.LastError != "" {
-		t.Errorf("Create: LastError = %q, want empty", created.LastError)
+	if created.Connection.LastError != nil {
+		t.Errorf("Create: LastError = %+v, want nil", created.Connection.LastError)
 	}
 	requireTimeBetween(t, "Create: CreatedAt", created.CreatedAt, start.Add(-time.Second), time.Now().Add(time.Second))
 	requireTimeBetween(t, "Create: UpdatedAt", created.UpdatedAt, start.Add(-time.Second), time.Now().Add(time.Second))
@@ -134,7 +134,7 @@ func TestInstanceRepositoryCreateDuplicateExternalRef(t *testing.T) {
 		ID:          uuid.New(),
 		Name:        "second",
 		ExternalRef: "same-ref",
-		Status:      "disconnected",
+		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if !errors.Is(err, storage.ErrExternalRefTaken) {
 		t.Fatalf("Create duplicate external_ref error = %v, want ErrExternalRefTaken", err)
@@ -181,7 +181,7 @@ func TestInstanceRepositoryCreateWithOwner(t *testing.T) {
 
 	created, err := instances.Create(ctx, model.Instance{
 		ID: uuid.New(), Name: "owned", ExternalRef: "owned-ref",
-		Status: "disconnected", OwnerUserID: &owner.ID,
+		Connection: model.InstanceConnection{Status: "disconnected"}, OwnerUserID: &owner.ID,
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -205,19 +205,19 @@ func TestInstanceRepositoryCreateWithOwner(t *testing.T) {
 	if got.OwnerUserID == nil || *got.OwnerUserID != owner.ID {
 		t.Errorf("Get OwnerUserID = %v, want %s", got.OwnerUserID, owner.ID)
 	}
-	if got.WebhookURL != nil {
-		t.Errorf("Get WebhookURL = %q, want nil by default", *got.WebhookURL)
+	if got.Webhook.URL != nil {
+		t.Errorf("Get WebhookURL = %q, want nil by default", *got.Webhook.URL)
 	}
-	if got.WebhookEnabled {
+	if got.Webhook.IsEnabled {
 		t.Error("Get WebhookEnabled = true, want false by default")
 	}
 	wantEvents := []string{"message", "receipt", "connection", "message.status"}
-	if len(got.WebhookEvents) != len(wantEvents) {
-		t.Fatalf("Get WebhookEvents = %v, want %v", got.WebhookEvents, wantEvents)
+	if len(got.Webhook.Events) != len(wantEvents) {
+		t.Fatalf("Get WebhookEvents = %v, want %v", got.Webhook.Events, wantEvents)
 	}
 	for i := range wantEvents {
-		if got.WebhookEvents[i] != wantEvents[i] {
-			t.Fatalf("Get WebhookEvents = %v, want %v", got.WebhookEvents, wantEvents)
+		if got.Webhook.Events[i] != wantEvents[i] {
+			t.Fatalf("Get WebhookEvents = %v, want %v", got.Webhook.Events, wantEvents)
 		}
 	}
 }
@@ -306,53 +306,85 @@ func TestInstanceRepositoryListCompleteAndDeterministic(t *testing.T) {
 	}
 }
 
-func TestInstanceRepositoryUpdate(t *testing.T) {
+func TestInstanceRepositoryUpdateIdentity(t *testing.T) {
 	ctx := context.Background()
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
 
 	instance := createTestInstance(t, repo, "original", "original-ref")
 
-	connectedAt := time.Now().Add(-time.Minute).UTC()
-	instance.Name = "renamed"
-	instance.ExternalRef = "renamed-ref"
-	instance.Status = "connected"
-	instance.WhatsAppJID = "5511999999999@s.whatsapp.net"
-	instance.LastError = "previous failure"
-	instance.LastConnectedAt = &connectedAt
-
-	updated, err := repo.Update(ctx, *instance)
+	updated, err := repo.UpdateIdentity(ctx, instance.ID, "renamed", "renamed-ref")
 	if err != nil {
-		t.Fatalf("Update: %v", err)
+		t.Fatalf("UpdateIdentity: %v", err)
 	}
 	if updated.Name != "renamed" || updated.ExternalRef != "renamed-ref" {
-		t.Errorf("Update returned %+v", updated)
+		t.Errorf("UpdateIdentity returned %+v", updated)
 	}
-	if updated.Status != "connected" {
-		t.Errorf("Update Status = %q, want connected", updated.Status)
+	if updated.Connection.Status != "disconnected" {
+		t.Errorf("UpdateIdentity Status = %q, want disconnected (untouched)", updated.Connection.Status)
 	}
-	if updated.WhatsAppJID != "5511999999999@s.whatsapp.net" {
-		t.Errorf("Update WhatsAppJID = %q", updated.WhatsAppJID)
-	}
-	if updated.LastError != "previous failure" {
-		t.Errorf("Update LastError = %q", updated.LastError)
-	}
-	requireTimePtrNear(t, "Update: LastConnectedAt", updated.LastConnectedAt, connectedAt)
 
-	updated.ExternalRef = ""
-	updated.WhatsAppJID = ""
-	updated.LastError = ""
-	updated.LastConnectedAt = nil
-
-	cleared, err := repo.Update(ctx, *updated)
+	cleared, err := repo.UpdateIdentity(ctx, instance.ID, "renamed", "")
 	if err != nil {
-		t.Fatalf("Update(clear): %v", err)
+		t.Fatalf("UpdateIdentity(clear): %v", err)
 	}
-	if cleared.ExternalRef != "" || cleared.WhatsAppJID != "" || cleared.LastError != "" || cleared.LastConnectedAt != nil {
-		t.Errorf("Update(clear) did not clear optional fields: %+v", cleared)
+	if cleared.ExternalRef != "" {
+		t.Errorf("UpdateIdentity(clear) ExternalRef = %q, want empty", cleared.ExternalRef)
 	}
 
 	createTestInstance(t, repo, "reuses ref", "renamed-ref")
+}
+
+// TestInstanceRepositoryUpdateIdentityDoesNotTouchConnection is the
+// lost-update regression test: a concurrent identity edit must not regress a
+// connection transition. Before the split, Update rewrote the whole snapshot —
+// a PATCH name racing a connection event regraved the stale status.
+func TestInstanceRepositoryUpdateIdentityDoesNotTouchConnection(t *testing.T) {
+	ctx := context.Background()
+	pool := newTestPool(t)
+	repo := NewInstanceRepository(pool)
+
+	instance := createTestInstance(t, repo, "original", "original-ref")
+	connectedAt := time.Now().UTC()
+	if err := repo.SetConnectionState(ctx, instance.ID, "connected", "5511999999999@s.whatsapp.net", "", &connectedAt); err != nil {
+		t.Fatalf("SetConnectionState seed: %v", err)
+	}
+
+	// Interleave the two commands: identity edit racing a status transition.
+	start := make(chan struct{})
+	done := make(chan error, 2)
+	go func() {
+		<-start
+		_, err := repo.UpdateIdentity(ctx, instance.ID, "renamed", "original-ref")
+		done <- err
+	}()
+	go func() {
+		<-start
+		done <- repo.SetConnectionState(ctx, instance.ID, "error", "", "temporary ban", nil)
+	}()
+	close(start)
+	for i := 0; i < 2; i++ {
+		if err := <-done; err != nil {
+			t.Fatalf("concurrent write: %v", err)
+		}
+	}
+
+	got, err := repo.Get(ctx, instance.ID)
+	if err != nil {
+		t.Fatalf("Get after concurrent writes: %v", err)
+	}
+	if got.Name != "renamed" {
+		t.Errorf("name = %q, want renamed", got.Name)
+	}
+	if got.Connection.Status != "error" {
+		t.Errorf("status = %q, want error (identity edit must not regress it)", got.Connection.Status)
+	}
+	if got.LastErrorMessage() != "temporary ban" {
+		t.Errorf("last error = %q, want temporary ban", got.LastErrorMessage())
+	}
+	if got.Connection.DeviceJID != "5511999999999@s.whatsapp.net" {
+		t.Errorf("device_jid = %q, want the bound device kept", got.Connection.DeviceJID)
+	}
 }
 
 func TestInstanceRepositoryUpdateDuplicateExternalRef(t *testing.T) {
@@ -363,10 +395,9 @@ func TestInstanceRepositoryUpdateDuplicateExternalRef(t *testing.T) {
 	first := createTestInstance(t, repo, "first", "first-ref")
 	second := createTestInstance(t, repo, "second", "second-ref")
 
-	second.ExternalRef = first.ExternalRef
-	_, err := repo.Update(ctx, *second)
+	_, err := repo.UpdateIdentity(ctx, second.ID, second.Name, first.ExternalRef)
 	if !errors.Is(err, storage.ErrExternalRefTaken) {
-		t.Fatalf("Update duplicate external_ref error = %v, want ErrExternalRefTaken", err)
+		t.Fatalf("UpdateIdentity duplicate external_ref error = %v, want ErrExternalRefTaken", err)
 	}
 
 	got, err := repo.Get(ctx, second.ID)
@@ -383,13 +414,9 @@ func TestInstanceRepositoryUpdateNotFound(t *testing.T) {
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
 
-	_, err := repo.Update(ctx, model.Instance{
-		ID:     uuid.New(),
-		Name:   "ghost",
-		Status: "disconnected",
-	})
+	_, err := repo.UpdateIdentity(ctx, uuid.New(), "ghost", "")
 	if !errors.Is(err, storage.ErrNotFound) {
-		t.Errorf("Update(unknown) error = %v, want ErrNotFound", err)
+		t.Errorf("UpdateIdentity(unknown) error = %v, want ErrNotFound", err)
 	}
 }
 
@@ -400,12 +427,8 @@ func TestInstanceRepositorySetConnection(t *testing.T) {
 
 	instance := createTestInstance(t, repo, "original", "original-ref")
 	connectedAt := time.Now().Add(-time.Minute).UTC()
-	instance.Status = "connected"
-	instance.WhatsAppJID = "5511999999999@s.whatsapp.net"
-	instance.LastError = "previous failure"
-	instance.LastConnectedAt = &connectedAt
-	if _, err := repo.Update(ctx, *instance); err != nil {
-		t.Fatalf("Update seed: %v", err)
+	if err := repo.SetConnectionState(ctx, instance.ID, "connected", "5511999999999@s.whatsapp.net", "previous failure", &connectedAt); err != nil {
+		t.Fatalf("SetConnectionState seed: %v", err)
 	}
 
 	if err := repo.SetConnection(ctx, instance.ID, "disconnected", ""); err != nil {
@@ -416,22 +439,19 @@ func TestInstanceRepositorySetConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get after SetConnection: %v", err)
 	}
-	if got.Status != "disconnected" {
-		t.Errorf("status = %q, want disconnected", got.Status)
+	if got.Connection.Status != "disconnected" {
+		t.Errorf("status = %q, want disconnected", got.Connection.Status)
 	}
-	if got.WhatsAppJID != "" {
-		t.Errorf("whatsapp_jid = %q, want empty", got.WhatsAppJID)
+	if got.Connection.DeviceJID != "" {
+		t.Errorf("device_jid = %q, want empty", got.Connection.DeviceJID)
 	}
 	if got.Name != "original" || got.ExternalRef != "original-ref" {
 		t.Errorf("SetConnection touched identity fields: %+v", got)
 	}
-	if got.LastError != "" {
-		t.Errorf("last_error = %q, want cleared when pairing is reset", got.LastError)
+	if got.Connection.LastError != nil {
+		t.Errorf("last_error = %+v, want cleared when pairing is reset", got.Connection.LastError)
 	}
-	if got.DeviceJID != "" {
-		t.Errorf("device_jid = %q, want empty", got.DeviceJID)
-	}
-	requireTimePtrNear(t, "SetConnection: LastConnectedAt", got.LastConnectedAt, connectedAt)
+	requireTimePtrNear(t, "SetConnection: LastConnectedAt", got.Connection.LastConnectedAt, connectedAt)
 
 	if err := repo.SetConnection(ctx, instance.ID, "connected", "5511888888888@s.whatsapp.net"); err != nil {
 		t.Fatalf("SetConnection(connected): %v", err)
@@ -440,7 +460,7 @@ func TestInstanceRepositorySetConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get after SetConnection(connected): %v", err)
 	}
-	if got.Status != "connected" || got.WhatsAppJID != "5511888888888@s.whatsapp.net" {
+	if got.Connection.Status != "connected" || got.Connection.DeviceJID != "5511888888888@s.whatsapp.net" {
 		t.Errorf("connected state = %+v, want the new status and JID", got)
 	}
 
@@ -456,11 +476,8 @@ func TestInstanceRepositorySetConnectionState(t *testing.T) {
 
 	instance := createTestInstance(t, repo, "original", "original-ref")
 	connectedAt := time.Now().Add(-time.Minute).UTC()
-	instance.Status = "connected"
-	instance.WhatsAppJID = "5511999999999@s.whatsapp.net"
-	instance.LastConnectedAt = &connectedAt
-	if _, err := repo.Update(ctx, *instance); err != nil {
-		t.Fatalf("Update seed: %v", err)
+	if err := repo.SetConnectionState(ctx, instance.ID, "connected", "5511999999999@s.whatsapp.net", "", &connectedAt); err != nil {
+		t.Fatalf("SetConnectionState seed: %v", err)
 	}
 
 	// An error transition with an empty JID keeps the stored JID and
@@ -472,16 +489,16 @@ func TestInstanceRepositorySetConnectionState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get after SetConnectionState: %v", err)
 	}
-	if got.Status != "error" || got.LastError != "temporary ban" {
+	if got.Connection.Status != "error" || got.LastErrorMessage() != "temporary ban" {
 		t.Errorf("state = %+v, want status error with the reason", got)
 	}
-	if got.WhatsAppJID != "5511999999999@s.whatsapp.net" {
-		t.Errorf("whatsapp_jid = %q, want the stored JID kept", got.WhatsAppJID)
+	if got.Connection.DeviceJID != "5511999999999@s.whatsapp.net" {
+		t.Errorf("device_jid = %q, want the stored JID kept", got.Connection.DeviceJID)
 	}
 	if got.Name != "original" || got.ExternalRef != "original-ref" {
 		t.Errorf("SetConnectionState touched identity fields: %+v", got)
 	}
-	requireTimePtrNear(t, "SetConnectionState: LastConnectedAt", got.LastConnectedAt, connectedAt)
+	requireTimePtrNear(t, "SetConnectionState: LastConnectedAt", got.Connection.LastConnectedAt, connectedAt)
 
 	// A connected transition stamps last_connected_at and clears last_error.
 	newConnectedAt := time.Now().UTC()
@@ -492,13 +509,13 @@ func TestInstanceRepositorySetConnectionState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get after SetConnectionState(connected): %v", err)
 	}
-	if got.Status != "connected" || got.WhatsAppJID != "5511888888888@s.whatsapp.net" {
+	if got.Connection.Status != "connected" || got.Connection.DeviceJID != "5511888888888@s.whatsapp.net" {
 		t.Errorf("connected state = %+v, want the new status and JID", got)
 	}
-	if got.LastError != "" {
-		t.Errorf("last_error = %q, want empty after a clean connect", got.LastError)
+	if got.Connection.LastError != nil {
+		t.Errorf("last_error = %+v, want nil after a clean connect", got.Connection.LastError)
 	}
-	requireTimePtrNear(t, "SetConnectionState(connected): LastConnectedAt", got.LastConnectedAt, newConnectedAt)
+	requireTimePtrNear(t, "SetConnectionState(connected): LastConnectedAt", got.Connection.LastConnectedAt, newConnectedAt)
 
 	if err := repo.SetConnectionState(ctx, uuid.New(), "disconnected", "", "", nil); !errors.Is(err, storage.ErrNotFound) {
 		t.Errorf("SetConnectionState(unknown) error = %v, want ErrNotFound", err)

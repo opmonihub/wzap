@@ -17,13 +17,24 @@ import (
 	"wzap/internal/webhook"
 )
 
-const instanceColumns = `id, name, COALESCE(external_ref, '') AS external_ref, status, ` +
-	`COALESCE(whatsapp_jid, '') AS whatsapp_jid, COALESCE(device_jid, '') AS device_jid, ` +
-	`last_connected_at, COALESCE(last_error, '') AS last_error, ` +
-	`owner_user_id, webhook_url, webhook_enabled, webhook_events, ` +
-	`created_at, updated_at`
+// instanceColumns reads the identity row joined with its connection and
+// webhook satellites. Both satellites are created with the identity, so the
+// LEFT JOINs always pair; the COALESCEs only defend against rows inserted by
+// direct SQL outside the repository (tests seeding minimal identities).
+const instanceColumns = `i.id, i.name, COALESCE(i.external_ref, '') AS external_ref, ` +
+	`COALESCE(c.device_jid, '') AS device_jid, COALESCE(c.status, 'disconnected') AS status, ` +
+	`c.last_connected_at, c.last_error_code, c.last_error_message, c.last_error_at, ` +
+	`i.owner_user_id, w.url AS webhook_url, ` +
+	`COALESCE(w.is_enabled, false) AS webhook_enabled, ` +
+	`COALESCE(w.events, '{message,receipt,connection,message.status}'::text[]) AS webhook_events, ` +
+	`i.created_at, i.updated_at`
 
-const listInstancesQuery = `SELECT ` + instanceColumns + ` FROM instances ORDER BY created_at DESC, id DESC`
+const instanceJoin = ` FROM instances i ` +
+	`LEFT JOIN instance_connections c ON c.instance_id = i.id ` +
+	`LEFT JOIN instance_webhooks w ON w.instance_id = i.id`
+
+const listInstancesQuery = `SELECT ` + instanceColumns + instanceJoin +
+	` ORDER BY i.created_at DESC, i.id DESC`
 
 // InstanceRepository is the pgx-backed storage.InstanceRepository.
 type InstanceRepository struct {
@@ -37,11 +48,12 @@ func NewInstanceRepository(pool *pgxpool.Pool) *InstanceRepository {
 	return &InstanceRepository{pool: pool}
 }
 
-// Create persists a new instance with its owner and webhook configuration and
-// returns it with database timestamps. A nil OwnerUserID stores NULL (legacy
-// rows); the service always supplies an owner for new rows. A nil WebhookURL
-// stores NULL (unset) and nil WebhookEvents fall back to the canonical
-// default, matching the migration defaults.
+// Create persists the identity row plus its connection and webhook
+// satellites in one transaction, and returns the aggregate with database
+// timestamps. A nil OwnerUserID stores NULL (legacy rows); the service always
+// supplies an owner for new rows. A nil Webhook.URL stores NULL (unset) and a
+// nil Events slice falls back to the canonical default, matching the
+// migration defaults.
 func (r *InstanceRepository) Create(ctx context.Context, instance model.Instance) (*model.Instance, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
@@ -51,19 +63,46 @@ func (r *InstanceRepository) Create(ctx context.Context, instance model.Instance
 	if err := claimInstanceName(ctx, tx, instance.Name, nil); err != nil {
 		return nil, mapInstanceError("create instance", err)
 	}
-	row := tx.QueryRow(ctx, `
-		INSERT INTO instances (id, name, external_ref, status, whatsapp_jid, device_jid, last_connected_at, last_error, owner_user_id,
-			webhook_url, webhook_enabled, webhook_events)
-		VALUES ($1, $2, NULLIF($3, ''), COALESCE(NULLIF($4, ''), 'disconnected'), NULLIF($5, ''), NULLIF($6, ''), $7, NULLIF($8, ''), $9,
-			NULLIF($10, ''), $11, $12)
-		RETURNING `+instanceColumns,
-		instance.ID, instance.Name, instance.ExternalRef, instance.Status,
-		instance.WhatsAppJID, instanceDeviceJIDParam(instance), instance.LastConnectedAt, instance.LastError,
-		instance.OwnerUserID, webhookURLParam(instance.WebhookURL),
-		instance.WebhookEnabled, webhookEventsParam(instance.WebhookEvents),
-	)
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO instances (id, name, external_ref, owner_user_id)
+		VALUES ($1, $2, NULLIF($3, ''), $4)`,
+		instance.ID, instance.Name, instance.ExternalRef, instance.OwnerUserID,
+	); err != nil {
+		return nil, mapInstanceError("create instance", err)
+	}
 
-	created, err := scanInstance(row)
+	status := instance.Connection.Status
+	if status == "" {
+		status = "disconnected"
+	}
+	var lastErrCode, lastErrMessage any
+	var lastErrAt *time.Time
+	if instance.Connection.LastError != nil {
+		lastErrCode = nullString(instance.Connection.LastError.Code)
+		lastErrMessage = nullString(instance.Connection.LastError.Message)
+		lastErrAt = instance.Connection.LastError.At
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO instance_connections
+			(instance_id, device_jid, status, last_connected_at,
+			 last_error_code, last_error_message, last_error_at)
+		VALUES ($1, NULLIF($2, ''), $3, $4, $5, $6, $7)`,
+		instance.ID, instance.Connection.DeviceJID, status,
+		instance.Connection.LastConnectedAt, lastErrCode, lastErrMessage, lastErrAt,
+	); err != nil {
+		return nil, mapInstanceError("create instance", err)
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO instance_webhooks (instance_id, url, is_enabled, events)
+		VALUES ($1, NULLIF($2, ''), $3, $4)`,
+		instance.ID, webhookURLParam(instance.Webhook.URL),
+		instance.Webhook.IsEnabled, webhookEventsParam(instance.Webhook.Events),
+	); err != nil {
+		return nil, mapInstanceError("create instance", err)
+	}
+
+	created, err := scanInstance(tx.QueryRow(ctx,
+		`SELECT `+instanceColumns+instanceJoin+` WHERE i.id = $1`, instance.ID))
 	if err != nil {
 		return nil, mapInstanceError("create instance", err)
 	}
@@ -73,9 +112,10 @@ func (r *InstanceRepository) Create(ctx context.Context, instance model.Instance
 	return created, nil
 }
 
-// Get returns the instance with the given id or storage.ErrNotFound.
+// Get returns the instance aggregate with the given id or storage.ErrNotFound.
 func (r *InstanceRepository) Get(ctx context.Context, id uuid.UUID) (*model.Instance, error) {
-	instance, err := scanInstance(r.pool.QueryRow(ctx, `SELECT `+instanceColumns+` FROM instances WHERE id = $1`, id))
+	instance, err := scanInstance(r.pool.QueryRow(ctx,
+		`SELECT `+instanceColumns+instanceJoin+` WHERE i.id = $1`, id))
 	if err != nil {
 		return nil, mapInstanceError("get instance", err)
 	}
@@ -84,7 +124,8 @@ func (r *InstanceRepository) Get(ctx context.Context, id uuid.UUID) (*model.Inst
 
 // GetByName returns the unique exact match, rejecting ambiguous legacy rows.
 func (r *InstanceRepository) GetByName(ctx context.Context, name string) (*model.Instance, error) {
-	rows, err := r.pool.Query(ctx, `SELECT `+instanceColumns+` FROM instances WHERE name = $1 LIMIT 2`, name)
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+instanceColumns+instanceJoin+` WHERE i.name = $1 LIMIT 2`, name)
 	if err != nil {
 		return nil, fmt.Errorf("get instance by name: %w", err)
 	}
@@ -116,7 +157,7 @@ func (r *InstanceRepository) GetByDeviceJID(ctx context.Context, deviceJID strin
 		return nil, fmt.Errorf("get instance by device jid: %w", storage.ErrNotFound)
 	}
 	instance, err := scanInstance(r.pool.QueryRow(ctx,
-		`SELECT `+instanceColumns+` FROM instances WHERE device_jid = $1`, deviceJID))
+		`SELECT `+instanceColumns+instanceJoin+` WHERE c.device_jid = $1`, deviceJID))
 	if err != nil {
 		return nil, mapInstanceError("get instance by device jid", err)
 	}
@@ -127,14 +168,15 @@ func (r *InstanceRepository) GetByDeviceJID(ctx context.Context, deviceJID strin
 // storage.ErrNotFound.
 func (r *InstanceRepository) GetByExternalRef(ctx context.Context, externalRef string) (*model.Instance, error) {
 	instance, err := scanInstance(r.pool.QueryRow(ctx,
-		`SELECT `+instanceColumns+` FROM instances WHERE external_ref = $1`, externalRef))
+		`SELECT `+instanceColumns+instanceJoin+` WHERE i.external_ref = $1`, externalRef))
 	if err != nil {
 		return nil, mapInstanceError("get instance by external ref", err)
 	}
 	return instance, nil
 }
 
-// List returns every instance ordered by created_at descending, then id descending.
+// List returns every instance aggregate ordered by created_at descending,
+// then id descending.
 func (r *InstanceRepository) List(ctx context.Context) ([]model.Instance, error) {
 	rows, err := r.pool.Query(ctx, listInstancesQuery)
 	if err != nil {
@@ -156,9 +198,11 @@ func (r *InstanceRepository) List(ctx context.Context) ([]model.Instance, error)
 	return instances, nil
 }
 
-// Update persists the mutable fields of instance, including its webhook
-// configuration, and returns the stored row.
-func (r *InstanceRepository) Update(ctx context.Context, instance model.Instance) (*model.Instance, error) {
+// UpdateIdentity rewrites only the identity columns (name, external_ref) of
+// the instance and returns the re-read aggregate. The name-claim protocol is
+// unchanged: the current name is read under a row lock so a stale caller
+// cannot bypass the claim after a concurrent rename.
+func (r *InstanceRepository) UpdateIdentity(ctx context.Context, id uuid.UUID, name, externalRef string) (*model.Instance, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return nil, mapInstanceError("update instance", err)
@@ -167,31 +211,27 @@ func (r *InstanceRepository) Update(ctx context.Context, instance model.Instance
 	// Read the current database name under a row lock: a stale caller must not
 	// bypass the claim after another update has renamed this same instance.
 	var currentName string
-	if err := tx.QueryRow(ctx, `SELECT name FROM instances WHERE id = $1 FOR UPDATE`, instance.ID).Scan(&currentName); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT name FROM instances WHERE id = $1 FOR UPDATE`, id).Scan(&currentName); err != nil {
 		return nil, mapInstanceError("update instance", err)
 	}
-	if instance.Name != currentName {
-		if !model.IsValidInstanceName(instance.Name) {
+	if name != currentName {
+		if !model.IsValidInstanceName(name) {
 			return nil, mapInstanceError("update instance", storage.ErrInvalidInstanceName)
 		}
-		if err := claimInstanceName(ctx, tx, instance.Name, &instance.ID); err != nil {
+		if err := claimInstanceName(ctx, tx, name, &id); err != nil {
 			return nil, mapInstanceError("update instance", err)
 		}
 	}
-	row := tx.QueryRow(ctx, `
+	if _, err := tx.Exec(ctx, `
 		UPDATE instances
-		SET name = $2, external_ref = NULLIF($3, ''), status = COALESCE(NULLIF($4, ''), status),
-		    whatsapp_jid = NULLIF($5, ''), device_jid = NULLIF($6, ''), last_connected_at = $7, last_error = NULLIF($8, ''),
-		    webhook_url = NULLIF($9, ''), webhook_enabled = $10, webhook_events = $11, updated_at = now()
-		WHERE id = $1
-		RETURNING `+instanceColumns,
-		instance.ID, instance.Name, instance.ExternalRef, instance.Status,
-		instance.WhatsAppJID, instanceDeviceJIDParam(instance), instance.LastConnectedAt, instance.LastError,
-		webhookURLParam(instance.WebhookURL), instance.WebhookEnabled,
-		webhookEventsParam(instance.WebhookEvents),
-	)
-
-	updated, err := scanInstance(row)
+		SET name = $2, external_ref = NULLIF($3, ''), updated_at = now()
+		WHERE id = $1`,
+		id, name, externalRef,
+	); err != nil {
+		return nil, mapInstanceError("update instance", err)
+	}
+	updated, err := scanInstance(tx.QueryRow(ctx,
+		`SELECT `+instanceColumns+instanceJoin+` WHERE i.id = $1`, id))
 	if err != nil {
 		return nil, mapInstanceError("update instance", err)
 	}
@@ -219,21 +259,23 @@ func claimInstanceName(ctx context.Context, tx pgx.Tx, name string, excludeID *u
 	return nil
 }
 
-// SetConnection updates the connection columns of an instance and clears the
-// stored JID when whatsappJID is empty. It leaves the other columns untouched.
-func (r *InstanceRepository) SetConnection(ctx context.Context, id uuid.UUID, status, whatsappJID string) error {
+// SetConnection updates the connection row of an instance and clears the
+// bound device JID when deviceJID is empty. It leaves the identity and
+// webhook tables untouched.
+func (r *InstanceRepository) SetConnection(ctx context.Context, id uuid.UUID, status, deviceJID string) error {
 	tag, err := r.pool.Exec(ctx, `
-		UPDATE instances
+		UPDATE instance_connections
 		SET status = $2,
-		    whatsapp_jid = NULLIF($3, ''),
 		    device_jid = NULLIF($3, ''),
-		    last_error = CASE WHEN NULLIF($3, '') IS NULL THEN NULL ELSE last_error END,
+		    last_error_code = CASE WHEN NULLIF($3, '') IS NULL THEN NULL ELSE last_error_code END,
+		    last_error_message = CASE WHEN NULLIF($3, '') IS NULL THEN NULL ELSE last_error_message END,
+		    last_error_at = CASE WHEN NULLIF($3, '') IS NULL THEN NULL ELSE last_error_at END,
 		    updated_at = now()
-		WHERE id = $1`,
-		id, status, whatsappJID,
+		WHERE instance_id = $1`,
+		id, status, deviceJID,
 	)
 	if err != nil {
-		return fmt.Errorf("set instance connection: %w", err)
+		return mapInstanceError("set instance connection", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("set instance connection: %w", storage.ErrNotFound)
@@ -241,27 +283,49 @@ func (r *InstanceRepository) SetConnection(ctx context.Context, id uuid.UUID, st
 	return nil
 }
 
-// SetConnectionState records a connection transition on an instance without
-// touching identity columns: status and last_error always, whatsapp_jid when
-// whatsappJID is not empty (keeping the stored one otherwise) and
-// last_connected_at when connectedAt is set.
-func (r *InstanceRepository) SetConnectionState(ctx context.Context, id uuid.UUID, status, whatsappJID, lastError string, connectedAt *time.Time) error {
+// SetConnectionState records a connection transition on the connection row of
+// an instance without touching identity columns: status and the error trio
+// always, device_jid when it is not empty (keeping the stored one otherwise)
+// and last_connected_at when connectedAt is set. An empty lastError clears
+// the trio; a non-empty one stores the classified code with the current
+// instant.
+func (r *InstanceRepository) SetConnectionState(ctx context.Context, id uuid.UUID, status, deviceJID, lastError string, connectedAt *time.Time) error {
 	tag, err := r.pool.Exec(ctx, `
-		UPDATE instances
+		UPDATE instance_connections
 		SET status = $2,
-		    whatsapp_jid = COALESCE(NULLIF($3, ''), whatsapp_jid),
 		    device_jid = COALESCE(NULLIF($3, ''), device_jid),
-		    last_error = NULLIF($4, ''),
-		    last_connected_at = COALESCE($5, last_connected_at),
+		    last_error_code = CASE WHEN $4 = '' THEN NULL ELSE $5 END,
+		    last_error_message = NULLIF($4, ''),
+		    last_error_at = CASE WHEN $4 = '' THEN NULL ELSE now() END,
+		    last_connected_at = COALESCE($6, last_connected_at),
 		    updated_at = now()
-		WHERE id = $1`,
-		id, status, whatsappJID, lastError, connectedAt,
+		WHERE instance_id = $1`,
+		id, status, deviceJID, lastError, connectionErrorCode(lastError), connectedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("set instance connection state: %w", err)
+		return mapInstanceError("set instance connection state", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("set instance connection state: %w", storage.ErrNotFound)
+	}
+	return nil
+}
+
+// SetWebhook replaces the webhook configuration of an instance, never
+// touching the identity or connection tables. A nil URL stores NULL (unset)
+// and a nil events slice falls back to the canonical default.
+func (r *InstanceRepository) SetWebhook(ctx context.Context, id uuid.UUID, url *string, enabled bool, events []string) error {
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE instance_webhooks
+		SET url = NULLIF($2, ''), is_enabled = $3, events = $4, updated_at = now()
+		WHERE instance_id = $1`,
+		id, webhookURLParam(url), enabled, webhookEventsParam(events),
+	)
+	if err != nil {
+		return fmt.Errorf("set instance webhook: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("set instance webhook: %w", storage.ErrNotFound)
 	}
 	return nil
 }
@@ -294,6 +358,29 @@ func (r *InstanceRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// connectionErrorCode classifies a free-text connection failure into the
+// catalog code stored alongside it. New writers always record the typed code
+// at the source; unrecognized reasons keep upstream_error instead of guessing.
+func connectionErrorCode(reason string) string {
+	if reason == "" {
+		return ""
+	}
+	switch {
+	case strings.Contains(reason, "logged out:"):
+		return "logged_out"
+	case strings.Contains(reason, "stream replaced"):
+		return "stream_replaced"
+	case strings.Contains(reason, "device jid mismatch"):
+		return "device_jid_mismatch"
+	case strings.Contains(reason, "device jid already bound"):
+		return "device_jid_taken"
+	case strings.Contains(reason, "the session was rejected"):
+		return "session_rejected"
+	default:
+		return "upstream_error"
+	}
+}
+
 type rowScanner interface {
 	Scan(dest ...any) error
 }
@@ -307,12 +394,60 @@ func scanInstance(scanner rowScanner) (*model.Instance, error) {
 }
 
 func scanInstanceRow(scanner rowScanner, instance *model.Instance) error {
-	return scanner.Scan(
-		&instance.ID, &instance.Name, &instance.ExternalRef, &instance.Status,
-		&instance.WhatsAppJID, &instance.DeviceJID, &instance.LastConnectedAt, &instance.LastError,
-		&instance.OwnerUserID, &instance.WebhookURL, &instance.WebhookEnabled, &instance.WebhookEvents,
-		&instance.CreatedAt, &instance.UpdatedAt,
+	var (
+		deviceJID       string
+		status          string
+		lastConnectedAt *time.Time
+		lastErrCode     *string
+		lastErrMessage  *string
+		lastErrAt       *time.Time
+		webhookURL      *string
+		webhookEnabled  bool
+		webhookEvents   []string
 	)
+	if err := scanner.Scan(
+		&instance.ID, &instance.Name, &instance.ExternalRef,
+		&deviceJID, &status, &lastConnectedAt, &lastErrCode, &lastErrMessage, &lastErrAt,
+		&instance.OwnerUserID, &webhookURL, &webhookEnabled, &webhookEvents,
+		&instance.CreatedAt, &instance.UpdatedAt,
+	); err != nil {
+		return err
+	}
+	instance.Connection = model.InstanceConnection{
+		InstanceID:      instance.ID,
+		DeviceJID:       deviceJID,
+		Status:          status,
+		LastConnectedAt: lastConnectedAt,
+	}
+	if lastErrCode != nil || lastErrMessage != nil {
+		instance.Connection.LastError = &model.InstanceError{
+			Code:    derefString(lastErrCode),
+			Message: derefString(lastErrMessage),
+			At:      lastErrAt,
+		}
+	}
+	instance.Webhook = model.InstanceWebhook{
+		InstanceID: instance.ID,
+		URL:        webhookURL,
+		IsEnabled:  webhookEnabled,
+		Events:     webhookEvents,
+	}
+	return nil
+}
+
+func derefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+// nullString maps an empty string to a SQL NULL parameter.
+func nullString(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }
 
 // webhookURLParam maps an unset webhook URL to NULL for the nullable column.
@@ -343,18 +478,11 @@ func mapInstanceError(op string, err error) error {
 		switch pgErr.ConstraintName {
 		case "instances_external_ref_key":
 			return fmt.Errorf("%s: %w", op, storage.ErrExternalRefTaken)
-		case "instances_device_jid_uidx":
+		case "instance_connections_device_jid_uidx":
 			return fmt.Errorf("%s: %w", op, storage.ErrDeviceJIDTaken)
 		}
 	}
 	return fmt.Errorf("%s: %w", op, err)
-}
-
-func instanceDeviceJIDParam(instance model.Instance) string {
-	if instance.DeviceJID != "" {
-		return instance.DeviceJID
-	}
-	return instance.WhatsAppJID
 }
 
 func stringsTrim(s string) string {

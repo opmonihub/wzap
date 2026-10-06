@@ -71,7 +71,7 @@ func TestChatwootImportReturnsCount(t *testing.T) {
 	}
 	srv := chatwootImportTestServer(t, &fakeInstanceService{
 		getFn: func(_ context.Context, got uuid.UUID) (*model.Instance, error) {
-			return &model.Instance{ID: got, Name: "loja", Status: "connected"}, nil
+			return &model.Instance{ID: got, Name: "loja", Connection: model.InstanceConnection{Status: "connected"}}, nil
 		},
 	}, cfgs, importer)
 

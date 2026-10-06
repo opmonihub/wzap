@@ -19,7 +19,7 @@ func backdateIdempotencyExpiry(t *testing.T, pool *pgxpool.Pool, instanceID uuid
 	t.Helper()
 
 	if _, err := pool.Exec(context.Background(),
-		`UPDATE idempotency_keys SET expires_at = $3 WHERE instance_id = $1 AND idempotency_key = $2`,
+		`UPDATE idempotency_keys SET expires_at = $3 WHERE instance_id = $1 AND key = $2`,
 		instanceID, key, at); err != nil {
 		t.Fatalf("backdate idempotency expiry: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestIdempotencyRepositoryAcquireOwnsNewKey(t *testing.T) {
 
 	var count int
 	if err := pool.QueryRow(ctx,
-		`SELECT count(*) FROM idempotency_keys WHERE instance_id = $1 AND idempotency_key = $2`,
+		`SELECT count(*) FROM idempotency_keys WHERE instance_id = $1 AND key = $2`,
 		instance.ID, "key-1").Scan(&count); err != nil {
 		t.Fatalf("count idempotency key: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestIdempotencyRepositoryAcquireRace(t *testing.T) {
 
 	var count int
 	if err := pool.QueryRow(ctx,
-		`SELECT count(*) FROM idempotency_keys WHERE instance_id = $1 AND idempotency_key = $2`,
+		`SELECT count(*) FROM idempotency_keys WHERE instance_id = $1 AND key = $2`,
 		instance.ID, "race-key").Scan(&count); err != nil {
 		t.Fatalf("count race key: %v", err)
 	}
@@ -268,7 +268,7 @@ func TestIdempotencyRepositoryAcquireExpiredKeyIsReusable(t *testing.T) {
 
 	var count int
 	if err := pool.QueryRow(ctx,
-		`SELECT count(*) FROM idempotency_keys WHERE instance_id = $1 AND idempotency_key = $2`,
+		`SELECT count(*) FROM idempotency_keys WHERE instance_id = $1 AND key = $2`,
 		instance.ID, "key-5").Scan(&count); err != nil {
 		t.Fatalf("count key-5: %v", err)
 	}

@@ -101,7 +101,8 @@ func TestRuntimeOnMessageWithoutRawOmitsEvent(t *testing.T) {
 func TestRuntimeOnConnectionCarriesNoEvent(t *testing.T) {
 	id := uuid.New()
 	repo := newRuntimeRepo(model.Instance{
-		ID: id, Name: "loja", Status: string(session.StatusDisconnected),
+		ID: id, Name: "loja",
+		Connection: model.InstanceConnection{Status: string(session.StatusDisconnected)},
 	})
 	writer := &fakeWriter{}
 	runtime := NewRuntime(repo, writer, nil, nil, "", 0, zerolog.Nop())

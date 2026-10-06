@@ -388,7 +388,7 @@ func (f *fakeInstanceService) Create(ctx context.Context, input instance.CreateI
 	if f.createFn != nil {
 		return f.createFn(ctx, input)
 	}
-	return &model.Instance{ID: uuid.New(), Name: input.Name, ExternalRef: input.ExternalRef, Status: "disconnected", OwnerUserID: input.OwnerUserID}, "", nil
+	return &model.Instance{ID: uuid.New(), Name: input.Name, ExternalRef: input.ExternalRef, OwnerUserID: input.OwnerUserID, Connection: model.InstanceConnection{Status: "disconnected"}}, "", nil
 }
 
 // OldestAdmin returns the configured oldest admin, defaulting to a fresh id.
@@ -407,7 +407,7 @@ func (f *fakeInstanceService) Get(ctx context.Context, id uuid.UUID) (*model.Ins
 	if f.getFn != nil {
 		return f.getFn(ctx, id)
 	}
-	return &model.Instance{ID: id, Name: "loja", Status: "disconnected"}, nil
+	return &model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}}, nil
 }
 
 func (f *fakeInstanceService) GetByName(ctx context.Context, name string) (*model.Instance, error) {
@@ -433,7 +433,7 @@ func (f *fakeInstanceService) Update(ctx context.Context, id uuid.UUID, input in
 	if f.updateFn != nil {
 		return f.updateFn(ctx, id, input)
 	}
-	return &model.Instance{ID: id, Name: "loja", Status: "disconnected"}, nil
+	return &model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}}, nil
 }
 
 // Delete records the id and returns the configured error.
@@ -965,7 +965,7 @@ func serveJSON(t *testing.T, srv *http.Server, method, path, body string) *httpt
 
 func TestInstancesCreate(t *testing.T) {
 	oldest := uuid.New()
-	created := &model.Instance{ID: uuid.New(), Name: "loja", ExternalRef: "crm-1", Status: "disconnected", OwnerUserID: &oldest}
+	created := &model.Instance{ID: uuid.New(), Name: "loja", ExternalRef: "crm-1", OwnerUserID: &oldest, Connection: model.InstanceConnection{Status: "disconnected"}}
 	svc := &fakeInstanceService{
 		oldestAdminFn: func(context.Context) (uuid.UUID, error) { return oldest, nil },
 		createFn: func(_ context.Context, input instance.CreateInput) (*model.Instance, string, error) {
@@ -1056,14 +1056,8 @@ func TestInstancesCreateRejectsOversizedBody(t *testing.T) {
 }
 
 func TestInstancesList(t *testing.T) {
-	first := model.Instance{
-		ID: uuid.New(), Name: "a", ExternalRef: "ref-a", Status: "disconnected",
-		WhatsAppJID: "5511@wa", CreatedAt: time.Now().UTC().Truncate(time.Second),
-	}
-	second := model.Instance{
-		ID: uuid.New(), Name: "b", ExternalRef: "ref-b", Status: "connected",
-		WhatsAppJID: "5522@wa", CreatedAt: time.Now().UTC().Truncate(time.Second),
-	}
+	first := model.Instance{ID: uuid.New(), Name: "a", ExternalRef: "ref-a", CreatedAt: time.Now().UTC().Truncate(time.Second), Connection: model.InstanceConnection{Status: "disconnected", DeviceJID: "5511@wa"}}
+	second := model.Instance{ID: uuid.New(), Name: "b", ExternalRef: "ref-b", CreatedAt: time.Now().UTC().Truncate(time.Second), Connection: model.InstanceConnection{Status: "connected", DeviceJID: "5522@wa"}}
 	svc := &fakeInstanceService{listFn: func(context.Context) ([]model.Instance, error) {
 		return []model.Instance{first, second}, nil
 	}}
@@ -1083,8 +1077,8 @@ func TestInstancesList(t *testing.T) {
 	if payload.Data.Items[0].ID != first.ID.String() {
 		t.Errorf("data.items[0].id = %q, want %q", payload.Data.Items[0].ID, first.ID)
 	}
-	if payload.Data.Items[1].WhatsAppJID != second.WhatsAppJID {
-		t.Errorf("data.items[1].whatsapp_jid = %q, want %q", payload.Data.Items[1].WhatsAppJID, second.WhatsAppJID)
+	if payload.Data.Items[1].WhatsAppJID != second.Connection.DeviceJID {
+		t.Errorf("data.items[1].whatsapp_jid = %q, want %q", payload.Data.Items[1].WhatsAppJID, second.Connection.DeviceJID)
 	}
 	if svc.listCalls != 1 {
 		t.Errorf("List calls = %d, want 1", svc.listCalls)
@@ -1107,7 +1101,7 @@ func TestInstancesListServiceError(t *testing.T) {
 }
 
 func TestInstancesGet(t *testing.T) {
-	want := &model.Instance{ID: uuid.New(), Name: "loja", ExternalRef: "crm-1", Status: "connected"}
+	want := &model.Instance{ID: uuid.New(), Name: "loja", ExternalRef: "crm-1", Connection: model.InstanceConnection{Status: "connected"}}
 	svc := &fakeInstanceService{getFn: func(_ context.Context, id uuid.UUID) (*model.Instance, error) {
 		if id != want.ID {
 			t.Errorf("Get id = %s, want %s", id, want.ID)
@@ -1162,7 +1156,7 @@ func TestInstancesGetRejectsMalformedID(t *testing.T) {
 
 func TestInstancesUpdate(t *testing.T) {
 	id := uuid.New()
-	updated := &model.Instance{ID: id, Name: "novo", ExternalRef: "ref-1", Status: "connected"}
+	updated := &model.Instance{ID: id, Name: "novo", ExternalRef: "ref-1", Connection: model.InstanceConnection{Status: "connected"}}
 	svc := &fakeInstanceService{updateFn: func(_ context.Context, gotID uuid.UUID, input instance.UpdateInput) (*model.Instance, error) {
 		if gotID != id {
 			t.Errorf("Update id = %s, want %s", gotID, id)
@@ -1196,7 +1190,7 @@ func TestInstancesUpdateClearsExternalRef(t *testing.T) {
 		if input.ExternalRef == nil || *input.ExternalRef != "" {
 			t.Errorf("Update external ref = %v, want a pointer to an empty string", input.ExternalRef)
 		}
-		return &model.Instance{ID: id, Name: "loja", Status: "disconnected"}, nil
+		return &model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}}, nil
 	}}
 
 	rec := serveJSON(t, instancesServer(t, svc), http.MethodPatch, "/instances/"+id.String(), `{"external_ref":""}`)

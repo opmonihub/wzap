@@ -206,8 +206,8 @@ func (s *Service) Enqueue(ctx context.Context, instanceID uuid.UUID, input Enque
 		}
 		return uuid.Nil, fmt.Errorf("enqueue message: get instance: %w", err)
 	}
-	if instance.Status != string(session.StatusConnected) {
-		return uuid.Nil, fmt.Errorf("enqueue message: instance %s is %s: %w", instanceID, instance.Status, ErrInstanceNotConnected)
+	if instance.Connection.Status != string(session.StatusConnected) {
+		return uuid.Nil, fmt.Errorf("enqueue message: instance %s is %s: %w", instanceID, instance.Connection.Status, ErrInstanceNotConnected)
 	}
 
 	payload, err := buildPayload(input)

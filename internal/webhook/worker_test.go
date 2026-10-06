@@ -98,14 +98,7 @@ func (l *stubLoader) getCalls() int {
 // webhookTestInstance builds an enabled instance subscribed to every event
 // type, pointed at url.
 func webhookTestInstance(url string) *model.Instance {
-	return &model.Instance{
-		ID:             uuid.New(),
-		Name:           "loja",
-		Status:         "connected",
-		WebhookURL:     &url,
-		WebhookEnabled: true,
-		WebhookEvents:  DefaultEvents(),
-	}
+	return &model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: "connected"}, Webhook: model.InstanceWebhook{URL: &url, IsEnabled: true, Events: DefaultEvents()}}
 }
 
 // stubWriter records the envelopes the fan-out delegates to the inner writer.
@@ -448,11 +441,11 @@ func TestWorkerSkipPaths(t *testing.T) {
 		mut(instance)
 		return instance
 	}
-	nilURL := newInstance(func(i *model.Instance) { i.WebhookURL = nil })
+	nilURL := newInstance(func(i *model.Instance) { i.Webhook.URL = nil })
 	emptyURL := ""
-	empty := newInstance(func(i *model.Instance) { i.WebhookURL = &emptyURL })
-	disabled := newInstance(func(i *model.Instance) { i.WebhookEnabled = false })
-	unsubscribed := newInstance(func(i *model.Instance) { i.WebhookEvents = []string{"receipt"} })
+	empty := newInstance(func(i *model.Instance) { i.Webhook.URL = &emptyURL })
+	disabled := newInstance(func(i *model.Instance) { i.Webhook.IsEnabled = false })
+	unsubscribed := newInstance(func(i *model.Instance) { i.Webhook.Events = []string{"receipt"} })
 
 	keys := NewKeyCache()
 	for _, instance := range []*model.Instance{nilURL, empty, disabled, unsubscribed} {

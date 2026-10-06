@@ -64,10 +64,7 @@ func rawString(t *testing.T, field json.RawMessage) string {
 // echoCreateFn returns a createFn echoing the resolved owner with key.
 func echoCreateFn(key string) func(context.Context, instance.CreateInput) (*model.Instance, string, error) {
 	return func(_ context.Context, input instance.CreateInput) (*model.Instance, string, error) {
-		return &model.Instance{
-			ID: uuid.New(), Name: input.Name, ExternalRef: input.ExternalRef,
-			Status: "disconnected", OwnerUserID: input.OwnerUserID,
-		}, key, nil
+		return &model.Instance{ID: uuid.New(), Name: input.Name, ExternalRef: input.ExternalRef, OwnerUserID: input.OwnerUserID, Connection: model.InstanceConnection{Status: "disconnected"}}, key, nil
 	}
 }
 
@@ -250,7 +247,7 @@ func TestInstancesCreateNoAdminInternalError(t *testing.T) {
 func TestInstancesCreateKeyShownOnce(t *testing.T) {
 	userID := uuid.New()
 	owned := func(id uuid.UUID) *model.Instance {
-		return &model.Instance{ID: id, Name: "loja", Status: "disconnected", OwnerUserID: &userID}
+		return &model.Instance{ID: id, Name: "loja", OwnerUserID: &userID, Connection: model.InstanceConnection{Status: "disconnected"}}
 	}
 	svc := &fakeInstanceService{
 		createFn: echoCreateFn("shown-once-key"),

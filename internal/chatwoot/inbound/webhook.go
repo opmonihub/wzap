@@ -528,9 +528,9 @@ func (h *Handler) handleOperational(ctx context.Context, instanceID uuid.UUID, c
 			h.postOperationalConfirm(ctx, cfg, convID, "Falha ao obter estado da instância.")
 			return 200, nil
 		}
-		reply := fmt.Sprintf("Instância %s: %s.", inst.Name, inst.Status)
-		if strings.TrimSpace(inst.WhatsAppJID) != "" {
-			reply += " JID: " + strings.TrimSpace(inst.WhatsAppJID)
+		reply := fmt.Sprintf("Instância %s: %s.", inst.Name, inst.Connection.Status)
+		if strings.TrimSpace(inst.Connection.DeviceJID) != "" {
+			reply += " JID: " + strings.TrimSpace(inst.Connection.DeviceJID)
 		}
 		h.postOperationalConfirm(ctx, cfg, convID, reply)
 		return 200, nil

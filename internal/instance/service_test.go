@@ -36,6 +36,7 @@ type fakeRepo struct {
 
 	createErr        error
 	updateErr        error
+	setWebhookErr    error
 	setConnectionErr error
 	deleteErr        error
 	listErr          error
@@ -45,11 +46,27 @@ type fakeRepo struct {
 	listCalls   int
 
 	createCalls        []model.Instance
-	updateCalls        []model.Instance
+	updateCalls        []updateIdentityCall
+	setWebhookCalls    []setWebhookCall
 	setConnectionCalls []setConnectionCall
 	deleteCalls        []uuid.UUID
 
 	order *[]string
+}
+
+// updateIdentityCall is one recorded UpdateIdentity invocation.
+type updateIdentityCall struct {
+	id          uuid.UUID
+	name        string
+	externalRef string
+}
+
+// setWebhookCall is one recorded SetWebhook invocation.
+type setWebhookCall struct {
+	id      uuid.UUID
+	url     *string
+	enabled bool
+	events  []string
 }
 
 // setConnectionCall is one recorded SetConnection invocation.
@@ -127,15 +144,40 @@ func (r *fakeRepo) List(ctx context.Context) ([]model.Instance, error) {
 	return r.listResult, nil
 }
 
-// Update stores instance and returns it, or the forced error when set.
-func (r *fakeRepo) Update(_ context.Context, instance model.Instance) (*model.Instance, error) {
-	r.updateCalls = append(r.updateCalls, instance)
+// UpdateIdentity rewrites the identity columns, or returns the forced error
+// when set.
+func (r *fakeRepo) UpdateIdentity(_ context.Context, id uuid.UUID, name, externalRef string) (*model.Instance, error) {
+	r.updateCalls = append(r.updateCalls, updateIdentityCall{id: id, name: name, externalRef: externalRef})
 	if r.updateErr != nil {
 		return nil, r.updateErr
 	}
-	r.instances[instance.ID] = instance
+	instance, ok := r.instances[id]
+	if !ok {
+		return nil, fmt.Errorf("update instance identity: %w", storage.ErrNotFound)
+	}
+	instance.Name = name
+	instance.ExternalRef = externalRef
+	r.instances[id] = instance
 	stored := instance
 	return &stored, nil
+}
+
+// SetWebhook replaces the webhook satellite of an instance, or returns the
+// forced error when set.
+func (r *fakeRepo) SetWebhook(_ context.Context, id uuid.UUID, url *string, enabled bool, events []string) error {
+	r.setWebhookCalls = append(r.setWebhookCalls, setWebhookCall{id: id, url: url, enabled: enabled, events: events})
+	if r.setWebhookErr != nil {
+		return r.setWebhookErr
+	}
+	instance, ok := r.instances[id]
+	if !ok {
+		return fmt.Errorf("set instance webhook: %w", storage.ErrNotFound)
+	}
+	instance.Webhook.URL = url
+	instance.Webhook.IsEnabled = enabled
+	instance.Webhook.Events = events
+	r.instances[id] = instance
+	return nil
 }
 
 // SetConnection applies the partial update, or returns the forced error when
@@ -149,11 +191,10 @@ func (r *fakeRepo) SetConnection(_ context.Context, id uuid.UUID, status, jid st
 	if !ok {
 		return fmt.Errorf("set instance connection: %w", storage.ErrNotFound)
 	}
-	instance.Status = status
-	instance.WhatsAppJID = jid
-	instance.DeviceJID = jid
+	instance.Connection.Status = status
+	instance.Connection.DeviceJID = jid
 	if jid == "" {
-		instance.LastError = ""
+		instance.Connection.LastError = nil
 	}
 	r.instances[id] = instance
 	return nil
@@ -247,7 +288,7 @@ func (m *stalePairingManager) Create(instance *model.Instance) (session.Session,
 	}
 	m.mu.Unlock()
 	if fail {
-		return nil, fmt.Errorf("create session: device %s: %w", instance.WhatsAppJID, session.ErrNoDevice)
+		return nil, fmt.Errorf("create session: device %s: %w", instance.BoundDeviceJID(), session.ErrNoDevice)
 	}
 	return m.Fake.Create(instance)
 }
@@ -317,8 +358,8 @@ func TestServiceCreate(t *testing.T) {
 	if created.ID == uuid.Nil {
 		t.Error("ID = nil, want a generated UUID")
 	}
-	if created.Status != string(session.StatusDisconnected) {
-		t.Errorf("Status = %q, want %q", created.Status, session.StatusDisconnected)
+	if created.Connection.Status != string(session.StatusDisconnected) {
+		t.Errorf("Status = %q, want %q", created.Connection.Status, session.StatusDisconnected)
 	}
 	if created.Name != "loja" || created.ExternalRef != "crm-1" {
 		t.Errorf("created = %+v, want name loja and external ref crm-1", created)
@@ -341,7 +382,7 @@ func TestServiceCreateExternalRefTaken(t *testing.T) {
 }
 
 func TestServiceGet(t *testing.T) {
-	want := model.Instance{ID: uuid.New(), Name: "loja", Status: "connected"}
+	want := model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: "connected"}}
 	svc := NewService(newFakeRepo(want), sessiontest.New(nil), &fakeMedia{}, nil, nil, zerolog.Nop())
 
 	got, err := svc.Get(context.Background(), want.ID)
@@ -403,29 +444,29 @@ func TestServiceUpdatePartial(t *testing.T) {
 		{
 			name:  "name only",
 			input: UpdateInput{Name: strptr("novo")},
-			want:  model.Instance{Name: "novo", ExternalRef: "ref-1", Status: "connected", WhatsAppJID: "5511@wa"},
+			want:  model.Instance{Name: "novo", ExternalRef: "ref-1", Connection: model.InstanceConnection{Status: "connected", DeviceJID: "5511@wa"}},
 		},
 		{
 			name:  "external ref only",
 			input: UpdateInput{ExternalRef: strptr("ref-2")},
-			want:  model.Instance{Name: "antigo", ExternalRef: "ref-2", Status: "connected", WhatsAppJID: "5511@wa"},
+			want:  model.Instance{Name: "antigo", ExternalRef: "ref-2", Connection: model.InstanceConnection{Status: "connected", DeviceJID: "5511@wa"}},
 		},
 		{
 			name:  "both fields",
 			input: UpdateInput{Name: strptr("novo"), ExternalRef: strptr("ref-2")},
-			want:  model.Instance{Name: "novo", ExternalRef: "ref-2", Status: "connected", WhatsAppJID: "5511@wa"},
+			want:  model.Instance{Name: "novo", ExternalRef: "ref-2", Connection: model.InstanceConnection{Status: "connected", DeviceJID: "5511@wa"}},
 		},
 		{
 			name:  "empty external ref clears it",
 			input: UpdateInput{ExternalRef: strptr("")},
-			want:  model.Instance{Name: "antigo", ExternalRef: "", Status: "connected", WhatsAppJID: "5511@wa"},
+			want:  model.Instance{Name: "antigo", ExternalRef: "", Connection: model.InstanceConnection{Status: "connected", DeviceJID: "5511@wa"}},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			id := uuid.New()
-			stored := model.Instance{ID: id, Name: "antigo", ExternalRef: "ref-1", Status: "connected", WhatsAppJID: "5511@wa"}
+			stored := model.Instance{ID: id, Name: "antigo", ExternalRef: "ref-1", Connection: model.InstanceConnection{Status: "connected", DeviceJID: "5511@wa"}}
 			repo := newFakeRepo(stored)
 			svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, zerolog.Nop())
 
@@ -437,8 +478,12 @@ func TestServiceUpdatePartial(t *testing.T) {
 			if !reflect.DeepEqual(*updated, tt.want) {
 				t.Errorf("Update = %+v, want %+v", *updated, tt.want)
 			}
-			if len(repo.updateCalls) != 1 || !reflect.DeepEqual(repo.updateCalls[0], tt.want) {
-				t.Errorf("repo Update calls = %+v, want %+v", repo.updateCalls, tt.want)
+			if len(repo.updateCalls) != 1 {
+				t.Fatalf("repo UpdateIdentity calls = %+v, want one", repo.updateCalls)
+			}
+			call := repo.updateCalls[0]
+			if call.id != id || call.name != tt.want.Name || call.externalRef != tt.want.ExternalRef {
+				t.Errorf("UpdateIdentity call = %+v, want id %s name %q ref %q", call, id, tt.want.Name, tt.want.ExternalRef)
 			}
 		})
 	}
@@ -559,7 +604,7 @@ func TestServiceDeleteStopsWhenMediaDeletionFails(t *testing.T) {
 
 func TestServiceConnectStartsPairing(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}})
 	sessions := sessiontest.New(nil)
 	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, zerolog.Nop())
 
@@ -583,8 +628,8 @@ func TestServiceConnectStartsPairing(t *testing.T) {
 	}
 
 	stored := repo.instances[id]
-	if stored.Status != string(session.StatusPairing) {
-		t.Errorf("stored status = %q, want %q", stored.Status, session.StatusPairing)
+	if stored.Connection.Status != string(session.StatusPairing) {
+		t.Errorf("stored status = %q, want %q", stored.Connection.Status, session.StatusPairing)
 	}
 	if len(repo.setConnectionCalls) != 1 || repo.setConnectionCalls[0].status != string(session.StatusPairing) {
 		t.Errorf("SetConnection calls = %+v, want one pairing update", repo.setConnectionCalls)
@@ -600,7 +645,7 @@ func TestServiceConnectStartsPairing(t *testing.T) {
 
 func TestServiceConnectAlreadyConnectedSkipsQR(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: string(session.StatusConnected)})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusConnected)}})
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sess.SetStatus(session.StatusConnected)
@@ -637,7 +682,7 @@ func TestServiceConnectAlreadyConnectedSkipsQR(t *testing.T) {
 // a resolução de números com "number resolution unavailable").
 func TestServiceConnectDeadSocketReconnects(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: string(session.StatusConnected)})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusConnected)}})
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sess.SetStatus(session.StatusConnected)
@@ -664,7 +709,7 @@ func TestServiceConnectDeadSocketReconnects(t *testing.T) {
 // socket morto o QR não é 409 imediato — tenta reabrir o websocket.
 func TestServiceQRDeadSocketReconnects(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: string(session.StatusConnected)})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusConnected)}})
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sess.SetStatus(session.StatusConnected)
@@ -680,7 +725,7 @@ func TestServiceQRDeadSocketReconnects(t *testing.T) {
 
 func TestServiceConnectWhilePairingReturnsCurrentQR(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: string(session.StatusPairing)})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusPairing)}})
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sessions.Put(id, sess)
@@ -717,7 +762,7 @@ func TestServiceConnectNotFound(t *testing.T) {
 
 func TestServiceConnectSessionFailure(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}})
 	sessions := sessiontest.New(nil)
 	sessions.CreateErr = errors.New("open device store failed")
 	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, zerolog.Nop())
@@ -733,7 +778,7 @@ func TestServiceConnectSessionFailure(t *testing.T) {
 
 func TestServiceQRReturnsCurrentCode(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: string(session.StatusPairing)})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusPairing)}})
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sessions.Put(id, sess)
@@ -764,7 +809,7 @@ func TestServiceQRReturnsCurrentCode(t *testing.T) {
 
 func TestServiceQRStartsPairingWhenNoCode(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}})
 	sessions := sessiontest.New(nil)
 	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, zerolog.Nop())
 
@@ -779,14 +824,14 @@ func TestServiceQRStartsPairingWhenNoCode(t *testing.T) {
 	if result.QRCode == "" {
 		t.Error("QRCode is empty, want a fresh code")
 	}
-	if stored := repo.instances[id]; stored.Status != string(session.StatusPairing) {
-		t.Errorf("stored status = %q, want %q", stored.Status, session.StatusPairing)
+	if stored := repo.instances[id]; stored.Connection.Status != string(session.StatusPairing) {
+		t.Errorf("stored status = %q, want %q", stored.Connection.Status, session.StatusPairing)
 	}
 }
 
 func TestServiceQRWhilePairingWithoutCodeFails(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: string(session.StatusPairing)})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusPairing)}})
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sess.SetStatus(session.StatusPairing)
@@ -804,7 +849,7 @@ func TestServiceQRWhilePairingWithoutCodeFails(t *testing.T) {
 
 func TestServiceQRAlreadyConnected(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: string(session.StatusConnected)})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusConnected)}})
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sess.SetStatus(session.StatusConnected)
@@ -855,10 +900,7 @@ func TestServiceRestorePropagatesFailure(t *testing.T) {
 
 func TestServiceDisconnectClearsIdentity(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{
-		ID: id, Name: "loja", Status: string(session.StatusConnected),
-		WhatsAppJID: "5511999999999@s.whatsapp.net",
-	})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusConnected), DeviceJID: "5511999999999@s.whatsapp.net"}})
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sess.SetStatus(session.StatusConnected)
@@ -877,11 +919,11 @@ func TestServiceDisconnectClearsIdentity(t *testing.T) {
 		t.Errorf("session Remove calls = %v, want [%s] (credentials deleted)", removed, id)
 	}
 	stored := repo.instances[id]
-	if stored.Status != string(session.StatusDisconnected) {
-		t.Errorf("stored status = %q, want %q", stored.Status, session.StatusDisconnected)
+	if stored.Connection.Status != string(session.StatusDisconnected) {
+		t.Errorf("stored status = %q, want %q", stored.Connection.Status, session.StatusDisconnected)
 	}
-	if stored.WhatsAppJID != "" {
-		t.Errorf("stored whatsapp_jid = %q, want empty", stored.WhatsAppJID)
+	if stored.Connection.DeviceJID != "" {
+		t.Errorf("stored device_jid = %q, want empty", stored.Connection.DeviceJID)
 	}
 	if len(repo.setConnectionCalls) != 1 {
 		t.Fatalf("SetConnection calls = %+v, want one", repo.setConnectionCalls)
@@ -909,10 +951,7 @@ func TestServiceDisconnectNotFound(t *testing.T) {
 
 func TestServiceDisconnectStopsOnStatusUpdateFailure(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{
-		ID: id, Status: string(session.StatusConnected),
-		WhatsAppJID: "5511999999999@s.whatsapp.net",
-	})
+	repo := newFakeRepo(model.Instance{ID: id, Connection: model.InstanceConnection{Status: string(session.StatusConnected), DeviceJID: "5511999999999@s.whatsapp.net"}})
 	repo.setConnectionErr = errors.New("database down")
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
@@ -923,8 +962,8 @@ func TestServiceDisconnectStopsOnStatusUpdateFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("Disconnect error = nil, want the status update failure")
 	}
-	if stored := repo.instances[id]; stored.Status != string(session.StatusConnected) {
-		t.Errorf("stored status = %q, want the unchanged %q", stored.Status, session.StatusConnected)
+	if stored := repo.instances[id]; stored.Connection.Status != string(session.StatusConnected) {
+		t.Errorf("stored status = %q, want the unchanged %q", stored.Connection.Status, session.StatusConnected)
 	}
 	if removed := sessions.RemoveCalls(); len(removed) != 0 {
 		t.Errorf("session Remove calls = %v, want none before the row is cleared", removed)
@@ -933,10 +972,7 @@ func TestServiceDisconnectStopsOnStatusUpdateFailure(t *testing.T) {
 
 func TestServiceDisconnectPropagatesCredentialRemovalFailure(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{
-		ID: id, Status: string(session.StatusConnected),
-		WhatsAppJID: "5511999999999@s.whatsapp.net",
-	})
+	repo := newFakeRepo(model.Instance{ID: id, Connection: model.InstanceConnection{Status: string(session.StatusConnected), DeviceJID: "5511999999999@s.whatsapp.net"}})
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sessions.Put(id, sess)
@@ -947,14 +983,14 @@ func TestServiceDisconnectPropagatesCredentialRemovalFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("Disconnect error = nil, want the credential removal failure")
 	}
-	if stored := repo.instances[id]; stored.Status != string(session.StatusDisconnected) || stored.WhatsAppJID != "" {
+	if stored := repo.instances[id]; stored.Connection.Status != string(session.StatusDisconnected) || stored.Connection.DeviceJID != "" {
 		t.Errorf("stored instance = %+v, want the cleared connection state", stored)
 	}
 }
 
 func TestServiceConnectStopsOnStatusUpdateFailure(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}})
 	repo.setConnectionErr = errors.New("database down")
 	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, zerolog.Nop())
 
@@ -966,10 +1002,7 @@ func TestServiceConnectStopsOnStatusUpdateFailure(t *testing.T) {
 
 func TestServiceDisconnectStopsOnSessionFailure(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{
-		ID: id, Status: string(session.StatusConnected),
-		WhatsAppJID: "5511999999999@s.whatsapp.net",
-	})
+	repo := newFakeRepo(model.Instance{ID: id, Connection: model.InstanceConnection{Status: string(session.StatusConnected), DeviceJID: "5511999999999@s.whatsapp.net"}})
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sess.SetStatus(session.StatusConnected)
@@ -988,17 +1021,14 @@ func TestServiceDisconnectStopsOnSessionFailure(t *testing.T) {
 	if removed := sessions.RemoveCalls(); len(removed) != 0 {
 		t.Errorf("session Remove calls = %v, want none after the session failure", removed)
 	}
-	if stored := repo.instances[id]; stored.WhatsAppJID != "5511999999999@s.whatsapp.net" {
-		t.Errorf("stored whatsapp_jid = %q, want it unchanged", stored.WhatsAppJID)
+	if stored := repo.instances[id]; stored.Connection.DeviceJID != "5511999999999@s.whatsapp.net" {
+		t.Errorf("stored device_jid = %q, want it unchanged", stored.Connection.DeviceJID)
 	}
 }
 
 func TestServiceDisconnectWithoutDeviceClearsPairing(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{
-		ID: id, Name: "loja", Status: string(session.StatusError),
-		WhatsAppJID: "5511999999999@s.whatsapp.net",
-	})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusError), DeviceJID: "5511999999999@s.whatsapp.net"}})
 	sessions := &stalePairingManager{Fake: sessiontest.New(nil), failures: 1}
 	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, zerolog.Nop())
 
@@ -1007,16 +1037,16 @@ func TestServiceDisconnectWithoutDeviceClearsPairing(t *testing.T) {
 	}
 
 	stored := repo.instances[id]
-	if stored.Status != string(session.StatusDisconnected) || stored.WhatsAppJID != "" {
+	if stored.Connection.Status != string(session.StatusDisconnected) || stored.Connection.DeviceJID != "" {
 		t.Errorf("stored instance = %+v, want disconnected without a JID", stored)
 	}
 	attempts := sessions.createAttempts()
 	if len(attempts) != 2 {
 		t.Fatalf("session Create attempts = %d, want 2 (stale then fresh)", len(attempts))
 	}
-	if attempts[0].WhatsAppJID != "5511999999999@s.whatsapp.net" || attempts[1].WhatsAppJID != "" {
+	if attempts[0].Connection.DeviceJID != "5511999999999@s.whatsapp.net" || attempts[1].Connection.DeviceJID != "" {
 		t.Errorf("Create attempts JIDs = %q/%q, want the stale JID then none",
-			attempts[0].WhatsAppJID, attempts[1].WhatsAppJID)
+			attempts[0].Connection.DeviceJID, attempts[1].Connection.DeviceJID)
 	}
 	if removed := sessions.RemoveCalls(); len(removed) != 2 || removed[1] != id {
 		t.Errorf("session Remove calls = %v, want the reset and the final removal of %s", removed, id)
@@ -1025,10 +1055,7 @@ func TestServiceDisconnectWithoutDeviceClearsPairing(t *testing.T) {
 
 func TestServiceConnectWithoutDeviceStartsFreshPairing(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{
-		ID: id, Name: "loja", Status: string(session.StatusError),
-		WhatsAppJID: "5511999999999@s.whatsapp.net",
-	})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusError), DeviceJID: "5511999999999@s.whatsapp.net"}})
 	sessions := &stalePairingManager{Fake: sessiontest.New(nil), failures: 1}
 	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, zerolog.Nop())
 
@@ -1040,21 +1067,18 @@ func TestServiceConnectWithoutDeviceStartsFreshPairing(t *testing.T) {
 		t.Errorf("Connect result = %+v, want a fresh pairing QR", result)
 	}
 	stored := repo.instances[id]
-	if stored.Status != string(session.StatusPairing) || stored.WhatsAppJID != "" {
+	if stored.Connection.Status != string(session.StatusPairing) || stored.Connection.DeviceJID != "" {
 		t.Errorf("stored instance = %+v, want pairing without a JID", stored)
 	}
 	attempts := sessions.createAttempts()
-	if len(attempts) != 2 || attempts[1].WhatsAppJID != "" {
+	if len(attempts) != 2 || attempts[1].Connection.DeviceJID != "" {
 		t.Errorf("Create attempts = %d, want the retry without a JID", len(attempts))
 	}
 }
 
 func TestServiceQRWithoutDeviceStartsFreshPairing(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{
-		ID: id, Name: "loja", Status: string(session.StatusError),
-		WhatsAppJID: "5511999999999@s.whatsapp.net",
-	})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusError), DeviceJID: "5511999999999@s.whatsapp.net"}})
 	sessions := &stalePairingManager{Fake: sessiontest.New(nil), failures: 1}
 	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, zerolog.Nop())
 
@@ -1065,18 +1089,23 @@ func TestServiceQRWithoutDeviceStartsFreshPairing(t *testing.T) {
 	if result.Status != session.StatusPairing || result.QRCode != "fake-qr-"+id.String() {
 		t.Errorf("QR result = %+v, want a fresh pairing QR", result)
 	}
-	if stored := repo.instances[id]; stored.WhatsAppJID != "" {
-		t.Errorf("stored whatsapp_jid = %q, want it cleared", stored.WhatsAppJID)
+	if stored := repo.instances[id]; stored.Connection.DeviceJID != "" {
+		t.Errorf("stored device_jid = %q, want it cleared", stored.Connection.DeviceJID)
 	}
 }
 
 func TestServiceConnectSessionRejectedResetsPairing(t *testing.T) {
 	id := uuid.New()
 	repo := newFakeRepo(model.Instance{
-		ID: id, Name: "loja", Status: string(session.StatusError),
-		WhatsAppJID: "5511999999999@s.whatsapp.net",
-		DeviceJID:   "5511999999999@s.whatsapp.net",
-		LastError:   session.SessionRejectedReason,
+		ID: id, Name: "loja",
+		Connection: model.InstanceConnection{
+			Status:    string(session.StatusError),
+			DeviceJID: "5511999999999@s.whatsapp.net",
+			LastError: &model.InstanceError{
+				Code:    "session_rejected",
+				Message: session.SessionRejectedReason,
+			},
+		},
 	})
 	sessions := sessiontest.New(nil)
 	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, zerolog.Nop())
@@ -1089,20 +1118,17 @@ func TestServiceConnectSessionRejectedResetsPairing(t *testing.T) {
 		t.Errorf("Connect status = %q, want pairing after reset", result.Status)
 	}
 	stored := repo.instances[id]
-	if stored.WhatsAppJID != "" || stored.DeviceJID != "" {
+	if stored.Connection.DeviceJID != "" {
 		t.Errorf("stored instance = %+v, want JIDs cleared", stored)
 	}
-	if stored.LastError != "" {
-		t.Errorf("last_error = %q, want cleared on reset", stored.LastError)
+	if stored.Connection.LastError != nil {
+		t.Errorf("last_error = %+v, want cleared on reset", stored.Connection.LastError)
 	}
 }
 
 func TestServiceConnectResetsSessionWithoutDevice(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{
-		ID: id, Name: "loja", Status: string(session.StatusDisconnected),
-		WhatsAppJID: "5511999999999@s.whatsapp.net",
-	})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusDisconnected), DeviceJID: "5511999999999@s.whatsapp.net"}})
 	sess := &oneShotNoDeviceSession{FakeSession: sessiontest.NewSession(id, nil), fails: 1}
 	sessions := &staleConnectManager{Fake: sessiontest.New(nil), sess: sess}
 	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, zerolog.Nop())
@@ -1117,7 +1143,7 @@ func TestServiceConnectResetsSessionWithoutDevice(t *testing.T) {
 	if got := sess.ConnectCalls(); got != 1 {
 		t.Errorf("successful session Connect calls = %d, want 1 (the retry)", got)
 	}
-	if stored := repo.instances[id]; stored.Status != string(session.StatusPairing) || stored.WhatsAppJID != "" {
+	if stored := repo.instances[id]; stored.Connection.Status != string(session.StatusPairing) || stored.Connection.DeviceJID != "" {
 		t.Errorf("stored instance = %+v, want pairing without a JID", stored)
 	}
 }

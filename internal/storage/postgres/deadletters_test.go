@@ -20,9 +20,9 @@ func TestDeadLetterRecordAndDedupe(t *testing.T) {
 
 	instances := NewInstanceRepository(pool)
 	instance, err := instances.Create(ctx, model.Instance{
-		ID:     uuid.New(),
-		Name:   "dead-letter",
-		Status: "disconnected",
+		ID:         uuid.New(),
+		Name:       "dead-letter",
+		Connection: model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
@@ -43,7 +43,7 @@ func TestDeadLetterRecordAndDedupe(t *testing.T) {
 	var eventType, lastError string
 	var attempts int
 	var stored []byte
-	if err := pool.QueryRow(ctx, `SELECT count(*), max(event_type), max(attempts), max(last_error), max(payload::text)::bytea FROM webhook_dead_letters WHERE instance_id = $1`,
+	if err := pool.QueryRow(ctx, `SELECT count(*), max(event_type), max(attempt_count), max(last_error_message), max(envelope::text)::bytea FROM webhook_dead_letters WHERE instance_id = $1`,
 		instance.ID).Scan(&count, &eventType, &attempts, &lastError, &stored); err != nil {
 		t.Fatalf("read dead letters: %v", err)
 	}

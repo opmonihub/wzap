@@ -41,8 +41,8 @@ func TestJIDCacheRepositoryPutAndGet(t *testing.T) {
 
 	var createdAt time.Time
 	if err := pool.QueryRow(ctx,
-		`SELECT created_at FROM contacts WHERE phone = $1`, "5511999999999").Scan(&createdAt); err != nil {
-		t.Fatalf("select contacts created_at: %v", err)
+		`SELECT created_at FROM jid_cache WHERE phone = $1`, "5511999999999").Scan(&createdAt); err != nil {
+		t.Fatalf("select jid_cache created_at: %v", err)
 	}
 	requireTimeBetween(t, "Put: CreatedAt", createdAt, start.Add(-time.Second), time.Now().Add(time.Second))
 }
@@ -70,11 +70,11 @@ func TestJIDCacheRepositoryPutOverwrites(t *testing.T) {
 
 	var count int
 	if err := pool.QueryRow(ctx,
-		`SELECT count(*) FROM contacts WHERE phone = $1`, "5511999999999").Scan(&count); err != nil {
-		t.Fatalf("count contacts rows: %v", err)
+		`SELECT count(*) FROM jid_cache WHERE phone = $1`, "5511999999999").Scan(&count); err != nil {
+		t.Fatalf("count jid_cache rows: %v", err)
 	}
 	if count != 1 {
-		t.Errorf("contacts rows = %d, want 1", count)
+		t.Errorf("jid_cache rows = %d, want 1", count)
 	}
 }
 
@@ -100,11 +100,11 @@ func TestJIDCacheRepositoryGetHidesExpired(t *testing.T) {
 
 	var count int
 	if err := pool.QueryRow(ctx,
-		`SELECT count(*) FROM contacts WHERE phone = $1`, "5511999999999").Scan(&count); err != nil {
-		t.Fatalf("count contacts rows: %v", err)
+		`SELECT count(*) FROM jid_cache WHERE phone = $1`, "5511999999999").Scan(&count); err != nil {
+		t.Fatalf("count jid_cache rows: %v", err)
 	}
 	if count != 1 {
-		t.Errorf("contacts rows with expired entry = %d, want 1 (Get must not delete)", count)
+		t.Errorf("jid_cache rows with expired entry = %d, want 1 (Get must not delete)", count)
 	}
 }
 

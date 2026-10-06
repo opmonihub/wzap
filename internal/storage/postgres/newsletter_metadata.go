@@ -33,7 +33,7 @@ func NewNewsletterMetadataRepository(pool *pgxpool.Pool) *NewsletterMetadataRepo
 // and returns the stored row.
 func (r *NewsletterMetadataRepository) Upsert(ctx context.Context, meta model.NewsletterMetadata) (model.NewsletterMetadata, error) {
 	row := r.pool.QueryRow(ctx, `
-		INSERT INTO newsletter_metadata (instance_id, channel_jid, title, description, follower_count, updated_at)
+		INSERT INTO channel_metadata (instance_id, channel_jid, title, description, follower_count, updated_at)
 		VALUES ($1, $2, $3, $4, $5, now())
 		ON CONFLICT (instance_id, channel_jid)
 		DO UPDATE SET title = EXCLUDED.title, description = EXCLUDED.description,
@@ -52,7 +52,7 @@ func (r *NewsletterMetadataRepository) Upsert(ctx context.Context, meta model.Ne
 // Get returns the cached metadata of a channel or storage.ErrNotFound.
 func (r *NewsletterMetadataRepository) Get(ctx context.Context, instanceID uuid.UUID, channelJID string) (model.NewsletterMetadata, error) {
 	stored, err := scanNewsletterMetadata(r.pool.QueryRow(ctx,
-		`SELECT `+newsletterMetadataColumns+` FROM newsletter_metadata WHERE instance_id = $1 AND channel_jid = $2`,
+		`SELECT `+newsletterMetadataColumns+` FROM channel_metadata WHERE instance_id = $1 AND channel_jid = $2`,
 		instanceID, channelJID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -67,7 +67,7 @@ func (r *NewsletterMetadataRepository) Get(ctx context.Context, instanceID uuid.
 // JID.
 func (r *NewsletterMetadataRepository) ListByInstance(ctx context.Context, instanceID uuid.UUID) ([]model.NewsletterMetadata, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT `+newsletterMetadataColumns+` FROM newsletter_metadata WHERE instance_id = $1 ORDER BY channel_jid ASC`,
+		`SELECT `+newsletterMetadataColumns+` FROM channel_metadata WHERE instance_id = $1 ORDER BY channel_jid ASC`,
 		instanceID)
 	if err != nil {
 		return nil, fmt.Errorf("list newsletter metadata: %w", err)
@@ -90,7 +90,7 @@ func (r *NewsletterMetadataRepository) ListByInstance(ctx context.Context, insta
 
 // DeleteByInstance removes every cached row of an instance.
 func (r *NewsletterMetadataRepository) DeleteByInstance(ctx context.Context, instanceID uuid.UUID) (int64, error) {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM newsletter_metadata WHERE instance_id = $1`, instanceID)
+	tag, err := r.pool.Exec(ctx, `DELETE FROM channel_metadata WHERE instance_id = $1`, instanceID)
 	if err != nil {
 		return 0, fmt.Errorf("delete newsletter metadata: %w", err)
 	}

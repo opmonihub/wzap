@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -127,9 +128,25 @@ func TestMessageRepositoryCreateWithMedia(t *testing.T) {
 	ctx := context.Background()
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
+	media := NewMediaRepository(pool)
 	messages := NewMessageRepository(pool)
 	instance := createTestInstance(t, instances, "messages", "")
-	mediaID := uuid.New()
+
+	// The media reference is validated against a real row of the same
+	// instance — the remodel turned the bare uuid into a checked relation.
+	stored, err := media.Create(ctx, model.Media{
+		ID:          uuid.New(),
+		InstanceID:  instance.ID,
+		Direction:   "outbound",
+		Mimetype:    "image/jpeg",
+		StoragePath: "outbound/foto.jpg",
+		SizeBytes:   10,
+		SHA256:      strings.Repeat("a", 64),
+	})
+	if err != nil {
+		t.Fatalf("seed media: %v", err)
+	}
+	mediaID := stored.ID
 
 	message, err := messages.Create(ctx, model.OutboundMessage{
 		ID:           uuid.New(),

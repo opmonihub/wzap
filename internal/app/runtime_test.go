@@ -78,8 +78,12 @@ func (r *runtimeRepo) List(context.Context) ([]model.Instance, error) {
 	return nil, errors.New("runtimeRepo.List: unexpected call")
 }
 
-func (r *runtimeRepo) Update(context.Context, model.Instance) (*model.Instance, error) {
-	return nil, errors.New("runtimeRepo.Update: unexpected call")
+func (r *runtimeRepo) UpdateIdentity(context.Context, uuid.UUID, string, string) (*model.Instance, error) {
+	return nil, errors.New("runtimeRepo.UpdateIdentity: unexpected call")
+}
+
+func (r *runtimeRepo) SetWebhook(context.Context, uuid.UUID, *string, bool, []string) error {
+	return errors.New("runtimeRepo.SetWebhook: unexpected call")
 }
 
 func (r *runtimeRepo) Delete(context.Context, uuid.UUID) error {
@@ -103,13 +107,17 @@ func (r *runtimeRepo) SetConnectionState(_ context.Context, id uuid.UUID, status
 	if !ok {
 		return storage.ErrNotFound
 	}
-	instance.Status = status
+	instance.Connection.Status = status
 	if jid != "" {
-		instance.WhatsAppJID = jid
+		instance.Connection.DeviceJID = jid
 	}
-	instance.LastError = lastError
+	if lastError != "" {
+		instance.Connection.LastError = &model.InstanceError{Code: "error", Message: lastError}
+	} else {
+		instance.Connection.LastError = nil
+	}
 	if connectedAt != nil {
-		instance.LastConnectedAt = connectedAt
+		instance.Connection.LastConnectedAt = connectedAt
 	}
 	r.instances[id] = instance
 	return nil
@@ -150,8 +158,9 @@ func decodeConnectionPayload(t *testing.T, env events.Envelope) decodedConnectio
 func TestRuntimeOnConnectionUpdatesInstanceAndEnqueuesEvent(t *testing.T) {
 	id := uuid.New()
 	repo := newRuntimeRepo(model.Instance{
-		ID: id, Name: "loja", Status: string(session.StatusDisconnected),
-		WhatsAppJID: "5511@wa", LastError: "old failure",
+		ID:         id,
+		Name:       "loja",
+		Connection: model.InstanceConnection{Status: string(session.StatusDisconnected), DeviceJID: "5511@wa", LastError: &model.InstanceError{Code: "legacy_error", Message: "old failure"}},
 	})
 	writer := &fakeWriter{}
 	runtime := NewRuntime(repo, writer, nil, nil, "", 0, zerolog.Nop())
@@ -159,16 +168,16 @@ func TestRuntimeOnConnectionUpdatesInstanceAndEnqueuesEvent(t *testing.T) {
 	runtime.OnConnection(context.Background(), id, session.StatusConnected, "5511999999999@s.whatsapp.net", "")
 
 	stored := repo.instances[id]
-	if stored.Status != string(session.StatusConnected) {
-		t.Errorf("stored status = %q, want %q", stored.Status, session.StatusConnected)
+	if stored.Connection.Status != string(session.StatusConnected) {
+		t.Errorf("stored status = %q, want %q", stored.Connection.Status, session.StatusConnected)
 	}
-	if stored.WhatsAppJID != "5511999999999@s.whatsapp.net" {
-		t.Errorf("stored whatsapp_jid = %q, want the connected JID", stored.WhatsAppJID)
+	if stored.Connection.DeviceJID != "5511999999999@s.whatsapp.net" {
+		t.Errorf("stored whatsapp_jid = %q, want the connected JID", stored.Connection.DeviceJID)
 	}
-	if stored.LastError != "" {
-		t.Errorf("stored last_error = %q, want empty after a clean connect", stored.LastError)
+	if stored.Connection.LastError != nil {
+		t.Errorf("stored last_error = %q, want empty after a clean connect", stored.Connection.LastError)
 	}
-	if stored.LastConnectedAt == nil {
+	if stored.Connection.LastConnectedAt == nil {
 		t.Error("stored last_connected_at = nil, want the connection time")
 	}
 	if len(repo.connections) != 1 {
@@ -209,8 +218,9 @@ func TestRuntimeOnConnectionFailureRecordsReason(t *testing.T) {
 	id := uuid.New()
 	connectedAt := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
 	repo := newRuntimeRepo(model.Instance{
-		ID: id, Name: "loja", Status: string(session.StatusConnected),
-		WhatsAppJID: "5511@wa", LastConnectedAt: &connectedAt,
+		ID:         id,
+		Name:       "loja",
+		Connection: model.InstanceConnection{Status: string(session.StatusConnected), DeviceJID: "5511@wa", LastConnectedAt: &connectedAt},
 	})
 	writer := &fakeWriter{}
 	runtime := NewRuntime(repo, writer, nil, nil, "", 0, zerolog.Nop())
@@ -218,17 +228,17 @@ func TestRuntimeOnConnectionFailureRecordsReason(t *testing.T) {
 	runtime.OnConnection(context.Background(), id, session.StatusError, "", "temporary ban")
 
 	stored := repo.instances[id]
-	if stored.Status != string(session.StatusError) {
-		t.Errorf("stored status = %q, want %q", stored.Status, session.StatusError)
+	if stored.Connection.Status != string(session.StatusError) {
+		t.Errorf("stored status = %q, want %q", stored.Connection.Status, session.StatusError)
 	}
-	if stored.WhatsAppJID != "5511@wa" {
-		t.Errorf("stored whatsapp_jid = %q, want the previous JID kept", stored.WhatsAppJID)
+	if stored.Connection.DeviceJID != "5511@wa" {
+		t.Errorf("stored whatsapp_jid = %q, want the previous JID kept", stored.Connection.DeviceJID)
 	}
-	if stored.LastError != "temporary ban" {
-		t.Errorf("stored last_error = %q, want %q", stored.LastError, "temporary ban")
+	if stored.LastErrorMessage() != "temporary ban" {
+		t.Errorf("stored last_error = %q, want %q", stored.LastErrorMessage(), "temporary ban")
 	}
-	if stored.LastConnectedAt == nil || !stored.LastConnectedAt.Equal(connectedAt) {
-		t.Errorf("stored last_connected_at = %v, want the previous %v", stored.LastConnectedAt, connectedAt)
+	if stored.Connection.LastConnectedAt == nil || !stored.Connection.LastConnectedAt.Equal(connectedAt) {
+		t.Errorf("stored last_connected_at = %v, want the previous %v", stored.Connection.LastConnectedAt, connectedAt)
 	}
 
 	if len(repo.connections) != 1 {
@@ -257,7 +267,10 @@ func TestRuntimeOnConnectionUnknownInstanceSkipsEvent(t *testing.T) {
 
 func TestRuntimeOnConnectionUpdateFailureSkipsEvent(t *testing.T) {
 	id := uuid.New()
-	repo := newRuntimeRepo(model.Instance{ID: id, Status: string(session.StatusDisconnected)})
+	repo := newRuntimeRepo(model.Instance{
+		ID:         id,
+		Connection: model.InstanceConnection{Status: string(session.StatusDisconnected)},
+	})
 	repo.updateErr = errors.New("database down")
 	writer := &fakeWriter{}
 	runtime := NewRuntime(repo, writer, nil, nil, "", 0, zerolog.Nop())
@@ -267,8 +280,8 @@ func TestRuntimeOnConnectionUpdateFailureSkipsEvent(t *testing.T) {
 	if len(writer.subjects) != 0 {
 		t.Errorf("event writes = %v, want none when the status update failed", writer.subjects)
 	}
-	if stored := repo.instances[id]; stored.Status != string(session.StatusDisconnected) {
-		t.Errorf("stored status = %q, want the unchanged %q", stored.Status, session.StatusDisconnected)
+	if stored := repo.instances[id]; stored.Connection.Status != string(session.StatusDisconnected) {
+		t.Errorf("stored status = %q, want the unchanged %q", stored.Connection.Status, session.StatusDisconnected)
 	}
 }
 
@@ -331,7 +344,9 @@ func debugLogBuffer() (zerolog.Logger, *bytes.Buffer) {
 func TestRuntimeOnConnectionLogsConnectedProjection(t *testing.T) {
 	id := uuid.New()
 	repo := newRuntimeRepo(model.Instance{
-		ID: id, Name: "loja", Status: string(session.StatusDisconnected),
+		ID:         id,
+		Name:       "loja",
+		Connection: model.InstanceConnection{Status: string(session.StatusDisconnected)},
 	})
 	writer := &fakeWriter{}
 	log, logs := debugLogBuffer()
@@ -364,8 +379,9 @@ func TestRuntimeOnConnectionLogsConnectedProjection(t *testing.T) {
 func TestRuntimeOnConnectionLogsFailureProjection(t *testing.T) {
 	id := uuid.New()
 	repo := newRuntimeRepo(model.Instance{
-		ID: id, Name: "loja", Status: string(session.StatusConnected),
-		WhatsAppJID: "5511@wa",
+		ID:         id,
+		Name:       "loja",
+		Connection: model.InstanceConnection{Status: string(session.StatusConnected), DeviceJID: "5511@wa"},
 	})
 	writer := &fakeWriter{}
 	log, logs := debugLogBuffer()

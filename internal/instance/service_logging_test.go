@@ -93,7 +93,7 @@ func (m *storedCredsManager) Create(*model.Instance) (session.Session, error) {
 
 func TestConnectLogsAlreadyConnectedBranch(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: string(session.StatusConnected)})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusConnected)}})
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sess.SetStatus(session.StatusConnected)
@@ -127,7 +127,7 @@ func TestConnectLogsAlreadyConnectedBranch(t *testing.T) {
 
 func TestConnectLogsAlreadyPairingBranch(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: string(session.StatusPairing)})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusPairing)}})
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sessions.Put(id, sess)
@@ -157,7 +157,7 @@ func TestConnectLogsAlreadyPairingBranch(t *testing.T) {
 
 func TestConnectLogsNewPairingBranch(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}})
 	logs, log := captureServiceLogs(t)
 	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, log)
 
@@ -184,7 +184,7 @@ func TestConnectLogsNewPairingBranch(t *testing.T) {
 
 func TestConnectLogsStoredCredentialsBranch(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}})
 	sess := &storedCredsSession{FakeSession: sessiontest.NewSession(id, nil)}
 	sessions := &storedCredsManager{Fake: sessiontest.New(nil), sess: sess}
 	logs, log := captureServiceLogs(t)
@@ -205,7 +205,7 @@ func TestConnectLogsStoredCredentialsBranch(t *testing.T) {
 
 func TestConnectLogsPairingError(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}})
 	sessions := sessiontest.New(nil)
 	sess := sessiontest.NewSession(id, nil)
 	sess.ConnectErr = errors.New("dial failed")
@@ -231,10 +231,7 @@ func TestConnectLogsPairingError(t *testing.T) {
 
 func TestConnectLogsStaleDeviceReset(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{
-		ID: id, Name: "loja", Status: string(session.StatusDisconnected),
-		WhatsAppJID: "5511999999999@s.whatsapp.net",
-	})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusDisconnected), DeviceJID: "5511999999999@s.whatsapp.net"}})
 	sess := &oneShotNoDeviceSession{FakeSession: sessiontest.NewSession(id, nil), fails: 1}
 	sessions := &staleConnectManager{Fake: sessiontest.New(nil), sess: sess}
 	logs, log := captureServiceLogs(t)
@@ -262,7 +259,7 @@ func TestConnectLogsStaleDeviceReset(t *testing.T) {
 
 func TestConnectLogsPersistPairingError(t *testing.T) {
 	id := uuid.New()
-	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
+	repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}})
 	repo.setConnectionErr = errors.New("database down")
 	logs, log := captureServiceLogs(t)
 	svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, log)
@@ -283,7 +280,7 @@ func TestConnectLogsPersistPairingError(t *testing.T) {
 func TestQRLogsBranches(t *testing.T) {
 	t.Run("already connected", func(t *testing.T) {
 		id := uuid.New()
-		repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: string(session.StatusConnected)})
+		repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusConnected)}})
 		sessions := sessiontest.New(nil)
 		sess := sessiontest.NewSession(id, nil)
 		sess.SetStatus(session.StatusConnected)
@@ -302,7 +299,7 @@ func TestQRLogsBranches(t *testing.T) {
 
 	t.Run("new pairing", func(t *testing.T) {
 		id := uuid.New()
-		repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
+		repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}})
 		logs, log := captureServiceLogs(t)
 		svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, log)
 
@@ -322,7 +319,7 @@ func TestQRLogsBranches(t *testing.T) {
 
 	t.Run("stored credentials", func(t *testing.T) {
 		id := uuid.New()
-		repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Status: "disconnected"})
+		repo := newFakeRepo(model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}})
 		sess := &storedCredsSession{FakeSession: sessiontest.NewSession(id, nil)}
 		sessions := &storedCredsManager{Fake: sessiontest.New(nil), sess: sess}
 		logs, log := captureServiceLogs(t)

@@ -37,15 +37,15 @@ func TestServiceCreateWebhookDefaults(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	if created.WebhookURL != nil {
-		t.Errorf("WebhookURL = %q, want nil (unset)", *created.WebhookURL)
+	if created.Webhook.URL != nil {
+		t.Errorf("WebhookURL = %q, want nil (unset)", *created.Webhook.URL)
 	}
-	if created.WebhookEnabled {
+	if created.Webhook.IsEnabled {
 		t.Error("WebhookEnabled = true, want false by default")
 	}
 	wantEvents := []string{"message", "receipt", "connection", "message.status"}
-	if !reflect.DeepEqual(created.WebhookEvents, wantEvents) {
-		t.Errorf("WebhookEvents = %v, want %v", created.WebhookEvents, wantEvents)
+	if !reflect.DeepEqual(created.Webhook.Events, wantEvents) {
+		t.Errorf("WebhookEvents = %v, want %v", created.Webhook.Events, wantEvents)
 	}
 }
 
@@ -65,14 +65,14 @@ func TestServiceCreateWithWebhook(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	if created.WebhookURL == nil || *created.WebhookURL != "https://hooks.example.com/wzap" {
-		t.Errorf("WebhookURL = %v, want the configured URL", created.WebhookURL)
+	if created.Webhook.URL == nil || *created.Webhook.URL != "https://hooks.example.com/wzap" {
+		t.Errorf("WebhookURL = %v, want the configured URL", created.Webhook.URL)
 	}
-	if !created.WebhookEnabled {
+	if !created.Webhook.IsEnabled {
 		t.Error("WebhookEnabled = false, want true")
 	}
-	if want := []string{"message", "message.status"}; !reflect.DeepEqual(created.WebhookEvents, want) {
-		t.Errorf("WebhookEvents = %v, want %v", created.WebhookEvents, want)
+	if want := []string{"message", "message.status"}; !reflect.DeepEqual(created.Webhook.Events, want) {
+		t.Errorf("WebhookEvents = %v, want %v", created.Webhook.Events, want)
 	}
 }
 
@@ -89,10 +89,10 @@ func TestServiceCreateEnabledWithoutURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	if created.WebhookURL != nil {
-		t.Errorf("WebhookURL = %q, want nil (unset)", *created.WebhookURL)
+	if created.Webhook.URL != nil {
+		t.Errorf("WebhookURL = %q, want nil (unset)", *created.Webhook.URL)
 	}
-	if !created.WebhookEnabled {
+	if !created.Webhook.IsEnabled {
 		t.Error("WebhookEnabled = false, want the explicit true stored")
 	}
 }
@@ -131,9 +131,12 @@ func TestServiceUpdateWebhookPartial(t *testing.T) {
 	url := "https://hooks.example.com/wzap"
 	id := uuid.New()
 	stored := model.Instance{
-		ID: id, Name: "loja", Status: "disconnected",
-		WebhookURL: &url, WebhookEnabled: true,
-		WebhookEvents: []string{"message", "receipt", "connection", "message.status"},
+		ID: id, Name: "loja",
+		Connection: model.InstanceConnection{Status: "disconnected"},
+		Webhook: model.InstanceWebhook{
+			URL: &url, IsEnabled: true,
+			Events: []string{"message", "receipt", "connection", "message.status"},
+		},
 	}
 
 	t.Run("absent fields keep stored config", func(t *testing.T) {
@@ -144,14 +147,14 @@ func TestServiceUpdateWebhookPartial(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Update: %v", err)
 		}
-		if updated.WebhookURL == nil || *updated.WebhookURL != url {
-			t.Errorf("WebhookURL = %v, want the stored %q", updated.WebhookURL, url)
+		if updated.Webhook.URL == nil || *updated.Webhook.URL != url {
+			t.Errorf("WebhookURL = %v, want the stored %q", updated.Webhook.URL, url)
 		}
-		if !updated.WebhookEnabled {
+		if !updated.Webhook.IsEnabled {
 			t.Error("WebhookEnabled = false, want the stored true")
 		}
-		if !reflect.DeepEqual(updated.WebhookEvents, stored.WebhookEvents) {
-			t.Errorf("WebhookEvents = %v, want the stored %v", updated.WebhookEvents, stored.WebhookEvents)
+		if !reflect.DeepEqual(updated.Webhook.Events, stored.Webhook.Events) {
+			t.Errorf("WebhookEvents = %v, want the stored %v", updated.Webhook.Events, stored.Webhook.Events)
 		}
 	})
 
@@ -167,14 +170,14 @@ func TestServiceUpdateWebhookPartial(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Update: %v", err)
 		}
-		if updated.WebhookURL == nil || *updated.WebhookURL != "http://127.0.0.1:8080/hook" {
-			t.Errorf("WebhookURL = %v, want the loopback replacement", updated.WebhookURL)
+		if updated.Webhook.URL == nil || *updated.Webhook.URL != "http://127.0.0.1:8080/hook" {
+			t.Errorf("WebhookURL = %v, want the loopback replacement", updated.Webhook.URL)
 		}
-		if updated.WebhookEnabled {
+		if updated.Webhook.IsEnabled {
 			t.Error("WebhookEnabled = true, want the explicit false")
 		}
-		if want := []string{"receipt"}; !reflect.DeepEqual(updated.WebhookEvents, want) {
-			t.Errorf("WebhookEvents = %v, want %v", updated.WebhookEvents, want)
+		if want := []string{"receipt"}; !reflect.DeepEqual(updated.Webhook.Events, want) {
+			t.Errorf("WebhookEvents = %v, want %v", updated.Webhook.Events, want)
 		}
 	})
 
@@ -188,13 +191,13 @@ func TestServiceUpdateWebhookPartial(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Update: %v", err)
 		}
-		if updated.WebhookURL != nil {
-			t.Errorf("WebhookURL = %q, want nil (unset)", *updated.WebhookURL)
+		if updated.Webhook.URL != nil {
+			t.Errorf("WebhookURL = %q, want nil (unset)", *updated.Webhook.URL)
 		}
-		if updated.WebhookEvents == nil || len(updated.WebhookEvents) != 0 {
-			t.Errorf("WebhookEvents = %v, want the explicit empty list", updated.WebhookEvents)
+		if updated.Webhook.Events == nil || len(updated.Webhook.Events) != 0 {
+			t.Errorf("WebhookEvents = %v, want the explicit empty list", updated.Webhook.Events)
 		}
-		if !updated.WebhookEnabled {
+		if !updated.Webhook.IsEnabled {
 			t.Error("WebhookEnabled = false, want the stored true kept")
 		}
 	})
@@ -215,9 +218,12 @@ func TestServiceUpdateInvalidWebhookKeepsPrevious(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			id := uuid.New()
 			stored := model.Instance{
-				ID: id, Name: "loja", Status: "disconnected",
-				WebhookURL: &url, WebhookEnabled: true,
-				WebhookEvents: []string{"message", "receipt", "connection", "message.status"},
+				ID: id, Name: "loja",
+				Connection: model.InstanceConnection{Status: "disconnected"},
+				Webhook: model.InstanceWebhook{
+					URL: &url, IsEnabled: true,
+					Events: []string{"message", "receipt", "connection", "message.status"},
+				},
 			}
 			repo := newFakeRepo(stored)
 			svc := NewService(repo, sessiontest.New(nil), &fakeMedia{}, nil, nil, zerolog.Nop())

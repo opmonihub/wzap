@@ -23,21 +23,18 @@ type webhookRoundTripFake struct {
 func newWebhookRoundTripFake() *webhookRoundTripFake {
 	f := &webhookRoundTripFake{}
 	f.createFn = func(_ context.Context, input instance.CreateInput) (*model.Instance, string, error) {
-		stored := &model.Instance{
-			ID: uuid.New(), Name: input.Name, ExternalRef: input.ExternalRef,
-			Status: "disconnected", OwnerUserID: input.OwnerUserID,
-		}
+		stored := &model.Instance{ID: uuid.New(), Name: input.Name, ExternalRef: input.ExternalRef, OwnerUserID: input.OwnerUserID, Connection: model.InstanceConnection{Status: "disconnected"}}
 		if input.WebhookURL != nil {
 			url := *input.WebhookURL
-			stored.WebhookURL = &url
+			stored.Webhook.URL = &url
 		}
 		if input.WebhookEnabled != nil {
-			stored.WebhookEnabled = *input.WebhookEnabled
+			stored.Webhook.IsEnabled = *input.WebhookEnabled
 		}
 		if input.WebhookEvents != nil {
-			stored.WebhookEvents = append([]string(nil), (*input.WebhookEvents)...)
+			stored.Webhook.Events = append([]string(nil), (*input.WebhookEvents)...)
 		} else {
-			stored.WebhookEvents = []string{"message", "receipt", "connection", "message.status"}
+			stored.Webhook.Events = []string{"message", "receipt", "connection", "message.status"}
 		}
 		f.stored = stored
 		return stored, "one-time-key", nil
@@ -54,17 +51,17 @@ func newWebhookRoundTripFake() *webhookRoundTripFake {
 		}
 		if input.WebhookURL != nil {
 			if *input.WebhookURL == "" {
-				f.stored.WebhookURL = nil
+				f.stored.Webhook.URL = nil
 			} else {
 				url := *input.WebhookURL
-				f.stored.WebhookURL = &url
+				f.stored.Webhook.URL = &url
 			}
 		}
 		if input.WebhookEnabled != nil {
-			f.stored.WebhookEnabled = *input.WebhookEnabled
+			f.stored.Webhook.IsEnabled = *input.WebhookEnabled
 		}
 		if input.WebhookEvents != nil {
-			f.stored.WebhookEvents = append([]string(nil), (*input.WebhookEvents)...)
+			f.stored.Webhook.Events = append([]string(nil), (*input.WebhookEvents)...)
 		}
 		return f.stored, nil
 	}

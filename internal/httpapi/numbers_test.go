@@ -56,7 +56,7 @@ func numbersServer(t *testing.T, instances InstanceService, numbers NumberResolv
 // stored instance.
 func existingInstanceService() *fakeInstanceService {
 	return &fakeInstanceService{getFn: func(_ context.Context, id uuid.UUID) (*model.Instance, error) {
-		return &model.Instance{ID: id, Name: "loja", Status: "connected"}, nil
+		return &model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: "connected"}}, nil
 	}}
 }
 

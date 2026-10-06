@@ -29,10 +29,10 @@ func statsTotals(t *testing.T, body []byte) (int, map[string]int) {
 func TestInstanceStatsGlobalCountsAllStatuses(t *testing.T) {
 	owner := uuid.New()
 	rows := []model.Instance{
-		{ID: uuid.New(), Name: "a", Status: "connected", OwnerUserID: &owner},
-		{ID: uuid.New(), Name: "b", Status: "disconnected"},
-		{ID: uuid.New(), Name: "c", Status: "pairing", OwnerUserID: &owner},
-		{ID: uuid.New(), Name: "d", Status: "error"},
+		{ID: uuid.New(), Name: "a", OwnerUserID: &owner, Connection: model.InstanceConnection{Status: "connected"}},
+		{ID: uuid.New(), Name: "b", Connection: model.InstanceConnection{Status: "disconnected"}},
+		{ID: uuid.New(), Name: "c", OwnerUserID: &owner, Connection: model.InstanceConnection{Status: "pairing"}},
+		{ID: uuid.New(), Name: "d", Connection: model.InstanceConnection{Status: "error"}},
 	}
 	svc := &fakeInstanceService{listFn: func(context.Context) ([]model.Instance, error) {
 		return rows, nil
@@ -55,9 +55,9 @@ func TestInstanceStatsGlobalCountsAllStatuses(t *testing.T) {
 
 func TestInstanceStatsAdminCountsAll(t *testing.T) {
 	f := newRBACFixture(t)
-	f.instA.Status = "connected"
-	f.instB.Status = "pairing"
-	f.legacy.Status = "error"
+	f.instA.Connection.Status = "connected"
+	f.instB.Connection.Status = "pairing"
+	f.legacy.Connection.Status = "error"
 	srv := f.rbacServer(t)
 
 	rec := serveRBAC(t, srv, http.MethodGet, "/instances/stats", "", rbacSessionCookie(f.adminTok), "", nil)
@@ -77,9 +77,9 @@ func TestInstanceStatsAdminCountsAll(t *testing.T) {
 
 func TestInstanceStatsUserCountsOwnOnly(t *testing.T) {
 	f := newRBACFixture(t)
-	f.instA.Status = "connected"
-	f.instB.Status = "pairing"
-	f.legacy.Status = "error"
+	f.instA.Connection.Status = "connected"
+	f.instB.Connection.Status = "pairing"
+	f.legacy.Connection.Status = "error"
 	srv := f.rbacServer(t)
 
 	rec := serveRBAC(t, srv, http.MethodGet, "/instances/stats", "", rbacSessionCookie(f.userATok), "", nil)
@@ -112,7 +112,7 @@ func TestInstanceStatsInstanceKeyForbidden(t *testing.T) {
 }
 
 func TestInstanceStatsUnknownStatusFoldsIntoDisconnected(t *testing.T) {
-	rows := []model.Instance{{ID: uuid.New(), Name: "a", Status: "mysterious"}}
+	rows := []model.Instance{{ID: uuid.New(), Name: "a", Connection: model.InstanceConnection{Status: "mysterious"}}}
 	svc := &fakeInstanceService{listFn: func(context.Context) ([]model.Instance, error) {
 		return rows, nil
 	}}
@@ -153,9 +153,9 @@ func TestInstanceStatsServiceErrorIsInternal(t *testing.T) {
 func TestInstanceStatsCountsCompleteCollection(t *testing.T) {
 	rows := make([]model.Instance, 0, 127)
 	for range 125 {
-		rows = append(rows, model.Instance{ID: uuid.New(), Status: "connected"})
+		rows = append(rows, model.Instance{ID: uuid.New(), Connection: model.InstanceConnection{Status: "connected"}})
 	}
-	rows = append(rows, model.Instance{ID: uuid.New(), Status: "pairing"}, model.Instance{ID: uuid.New(), Status: "unknown"})
+	rows = append(rows, model.Instance{ID: uuid.New(), Connection: model.InstanceConnection{Status: "pairing"}}, model.Instance{ID: uuid.New(), Connection: model.InstanceConnection{Status: "unknown"}})
 	svc := &fakeInstanceService{listFn: func(context.Context) ([]model.Instance, error) {
 		return rows, nil
 	}}

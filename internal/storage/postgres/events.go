@@ -12,10 +12,12 @@ import (
 	"wzap/internal/storage"
 )
 
-const outboxEventColumns = `id, subject, envelope, attempts, ` +
-	`COALESCE(last_error, '') AS last_error, created_at, published_at`
+const outboxEventColumns = `id, subject, envelope, attempt_count, ` +
+	`COALESCE(last_error_message, '') AS last_error_message, created_at`
 
-// EventOutboxRepository is the pgx-backed storage.EventOutboxRepository.
+// EventOutboxRepository is the pgx-backed storage.EventOutboxRepository. The
+// remodeled table holds pending events only: a confirmed publication deletes
+// the row instead of stamping published_at.
 type EventOutboxRepository struct {
 	pool *pgxpool.Pool
 }
@@ -37,10 +39,10 @@ func (r *EventOutboxRepository) Enqueue(ctx context.Context, id uuid.UUID, subje
 	return nil
 }
 
-// ClaimPending returns up to limit unpublished events, oldest first. The rows
-// are read with FOR UPDATE SKIP LOCKED so the single relay worker never blocks
-// on concurrent inserts or a competing claim. Claiming does not change the
-// rows: the relay publishes them and calls MarkPublished or MarkAttempt.
+// ClaimPending returns up to limit pending events, oldest first. The rows are
+// read with FOR UPDATE SKIP LOCKED so the single relay worker never blocks on
+// concurrent inserts or a competing claim. Claiming does not change the rows:
+// the relay publishes them and calls MarkPublished or MarkAttempt.
 func (r *EventOutboxRepository) ClaimPending(ctx context.Context, limit int) ([]model.OutboxEvent, error) {
 	if limit <= 0 {
 		return []model.OutboxEvent{}, nil
@@ -53,7 +55,7 @@ func (r *EventOutboxRepository) ClaimPending(ctx context.Context, limit int) ([]
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	rows, err := tx.Query(ctx, `SELECT `+outboxEventColumns+` FROM event_outbox `+
-		`WHERE published_at IS NULL ORDER BY created_at, id FOR UPDATE SKIP LOCKED LIMIT $1`, limit)
+		`ORDER BY created_at, id FOR UPDATE SKIP LOCKED LIMIT $1`, limit)
 	if err != nil {
 		return nil, fmt.Errorf("claim pending events: select: %w", err)
 	}
@@ -78,10 +80,11 @@ func (r *EventOutboxRepository) ClaimPending(ctx context.Context, limit int) ([]
 	return events, nil
 }
 
-// MarkPublished stamps the event as published and clears its last error.
+// MarkPublished confirms the event was published: the pending row is deleted
+// (the table stores pendings only). It returns storage.ErrNotFound when the
+// event does not exist.
 func (r *EventOutboxRepository) MarkPublished(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.pool.Exec(ctx,
-		`UPDATE event_outbox SET published_at = now(), last_error = NULL WHERE id = $1`, id)
+	tag, err := r.pool.Exec(ctx, `DELETE FROM event_outbox WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("mark event published: %w", err)
 	}
@@ -95,7 +98,11 @@ func (r *EventOutboxRepository) MarkPublished(ctx context.Context, id uuid.UUID)
 func (r *EventOutboxRepository) MarkAttempt(ctx context.Context, id uuid.UUID, errMsg string) error {
 	tag, err := r.pool.Exec(ctx, `
 		UPDATE event_outbox
-		SET attempts = attempts + 1, last_error = NULLIF($2, '')
+		SET attempt_count = attempt_count + 1,
+		    last_error_code = CASE WHEN NULLIF($2, '') IS NULL THEN NULL ELSE 'publish_failed' END,
+		    last_error_message = NULLIF($2, ''),
+		    last_error_at = CASE WHEN NULLIF($2, '') IS NULL THEN NULL ELSE now() END,
+		    updated_at = now()
 		WHERE id = $1`, id, errMsg)
 	if err != nil {
 		return fmt.Errorf("mark event attempt: %w", err)
@@ -106,20 +113,16 @@ func (r *EventOutboxRepository) MarkAttempt(ctx context.Context, id uuid.UUID, e
 	return nil
 }
 
-// DeletePublishedBefore removes published events stamped before t and returns
-// how many were removed.
+// DeletePublishedBefore is a no-op under the pending-only model: published
+// events are deleted by MarkPublished, so there is nothing left to sweep.
+// The method stays on the interface until the relay rework (task 4.1).
 func (r *EventOutboxRepository) DeletePublishedBefore(ctx context.Context, t time.Time) (int64, error) {
-	tag, err := r.pool.Exec(ctx,
-		`DELETE FROM event_outbox WHERE published_at IS NOT NULL AND published_at < $1`, t)
-	if err != nil {
-		return 0, fmt.Errorf("delete published events: %w", err)
-	}
-	return tag.RowsAffected(), nil
+	return 0, nil
 }
 
 func scanOutboxEventRow(scanner rowScanner, event *model.OutboxEvent) error {
 	return scanner.Scan(
 		&event.ID, &event.Subject, &event.Envelope, &event.Attempts,
-		&event.LastError, &event.CreatedAt, &event.PublishedAt,
+		&event.LastError, &event.CreatedAt,
 	)
 }

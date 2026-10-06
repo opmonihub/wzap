@@ -38,8 +38,12 @@ func (r *DeadLetterRepository) RecordDeadLetter(ctx context.Context, instanceID,
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO webhook_dead_letters (instance_id, event_id, event_type, payload, attempts, last_error)
-		VALUES ($1, $2, $3, $4::jsonb, $5, $6)
+		INSERT INTO webhook_dead_letters (instance_id, event_id, event_type, envelope, attempt_count,
+			last_error_code, last_error_message, last_error_at)
+		VALUES ($1, $2, $3, $4::jsonb, $5,
+			CASE WHEN NULLIF($6, '') IS NULL THEN NULL ELSE 'delivery_failed' END,
+			NULLIF($6, ''),
+			CASE WHEN NULLIF($6, '') IS NULL THEN NULL ELSE now() END)
 		ON CONFLICT (event_id) DO NOTHING`,
 		instanceID, eventID, eventType, string(payload), attempts, lastError,
 	); err != nil {

@@ -75,7 +75,7 @@ func TestChatwootSetBehindDualAuth(t *testing.T) {
 	cfgs := &fakeChatwootConfigs{}
 	srv := chatwootTestServer(t, &fakeInstanceService{
 		getFn: func(_ context.Context, got uuid.UUID) (*model.Instance, error) {
-			return &model.Instance{ID: got, Name: "loja", Status: "connected"}, nil
+			return &model.Instance{ID: got, Name: "loja", Connection: model.InstanceConnection{Status: "connected"}}, nil
 		},
 	}, cfgs, chatwootOn())
 
@@ -94,7 +94,7 @@ func TestChatwootSetValidation422(t *testing.T) {
 	cfgs := &fakeChatwootConfigs{}
 	srv := chatwootTestServer(t, &fakeInstanceService{
 		getFn: func(_ context.Context, got uuid.UUID) (*model.Instance, error) {
-			return &model.Instance{ID: got, Name: "loja", Status: "connected"}, nil
+			return &model.Instance{ID: got, Name: "loja", Connection: model.InstanceConnection{Status: "connected"}}, nil
 		},
 	}, cfgs, chatwootOn())
 
@@ -116,7 +116,7 @@ func TestChatwootSetAutoCreateReturnsWebhookURL(t *testing.T) {
 	cfgs := &fakeChatwootConfigs{}
 	srv := chatwootTestServer(t, &fakeInstanceService{
 		getFn: func(_ context.Context, got uuid.UUID) (*model.Instance, error) {
-			return &model.Instance{ID: got, Name: "loja", Status: "connected"}, nil
+			return &model.Instance{ID: got, Name: "loja", Connection: model.InstanceConnection{Status: "connected"}}, nil
 		},
 	}, cfgs, chatwootOn())
 
@@ -141,7 +141,7 @@ func TestChatwootGetWithoutConfigReturnsDisabled(t *testing.T) {
 	id := uuid.New()
 	srv := chatwootTestServer(t, &fakeInstanceService{
 		getFn: func(_ context.Context, got uuid.UUID) (*model.Instance, error) {
-			return &model.Instance{ID: got, Name: "loja", Status: "connected"}, nil
+			return &model.Instance{ID: got, Name: "loja", Connection: model.InstanceConnection{Status: "connected"}}, nil
 		},
 	}, &fakeChatwootConfigs{}, chatwootOn())
 
@@ -206,7 +206,7 @@ func TestChatwootTokenMasked(t *testing.T) {
 	cfgs := &fakeChatwootConfigs{}
 	srv := chatwootTestServer(t, &fakeInstanceService{
 		getFn: func(_ context.Context, got uuid.UUID) (*model.Instance, error) {
-			return &model.Instance{ID: got, Name: "loja", Status: "connected"}, nil
+			return &model.Instance{ID: got, Name: "loja", Connection: model.InstanceConnection{Status: "connected"}}, nil
 		},
 	}, cfgs, chatwootOn())
 
@@ -235,7 +235,7 @@ func TestChatwootTokenMasked(t *testing.T) {
 	}
 	getSrv := chatwootTestServer(t, &fakeInstanceService{
 		getFn: func(_ context.Context, got uuid.UUID) (*model.Instance, error) {
-			return &model.Instance{ID: got, Name: "loja", Status: "connected"}, nil
+			return &model.Instance{ID: got, Name: "loja", Connection: model.InstanceConnection{Status: "connected"}}, nil
 		},
 	}, getCfgs, chatwootOn())
 	rec = serveJSON(t, getSrv, http.MethodGet, "/instances/"+id.String()+"/chatwoot", "")
@@ -276,7 +276,7 @@ func TestChatwootWebhookKeepsHandlerStatusCodes(t *testing.T) {
 					ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 					Instances: &fakeInstanceService{
 						getFn: func(_ context.Context, got uuid.UUID) (*model.Instance, error) {
-							return &model.Instance{ID: got, Name: "loja", Status: "connected"}, nil
+							return &model.Instance{ID: got, Name: "loja", Connection: model.InstanceConnection{Status: "connected"}}, nil
 						},
 					},
 					ChatwootInbound: &fakeChatwootInbound{status: tc.status, err: tc.handlerErr},

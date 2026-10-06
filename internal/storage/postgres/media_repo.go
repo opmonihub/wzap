@@ -15,8 +15,13 @@ import (
 	"wzap/internal/storage"
 )
 
-const mediaColumns = `id, instance_id, direction, COALESCE(message_id, '') AS message_id, ` +
-	`mimetype, COALESCE(filename, '') AS filename, size_bytes, storage_path, sha256, created_at, expires_at`
+// mediaBucketDefault is the object bucket written for local-path media rows
+// during the transition window (MinIO wiring is a later task); it matches the
+// WZAP_S3_BUCKET default used by the remodel backfill.
+const mediaBucketDefault = "wzap-media"
+
+const mediaColumns = `id, instance_id, direction, COALESCE(wa_id, '') AS wa_id, ` +
+	`mime_type, COALESCE(file_name, '') AS file_name, size_bytes, object_key, sha256, created_at, expires_at`
 
 // MediaRepository is the pgx-backed storage.MediaRepository.
 type MediaRepository struct {
@@ -33,12 +38,12 @@ func NewMediaRepository(pool *pgxpool.Pool) *MediaRepository {
 // Create persists a new media row and returns it with the database created_at.
 func (r *MediaRepository) Create(ctx context.Context, media model.Media) (*model.Media, error) {
 	row := r.pool.QueryRow(ctx, `
-		INSERT INTO media (id, instance_id, direction, message_id, mimetype, filename,
-		                   size_bytes, storage_path, sha256, expires_at)
-		VALUES ($1, $2, $3, NULLIF($4, ''), $5, NULLIF($6, ''), $7, $8, $9, $10)
+		INSERT INTO media (id, instance_id, direction, wa_id, mime_type, file_name,
+		                   size_bytes, bucket, object_key, sha256, expires_at)
+		VALUES ($1, $2, $3, NULLIF($4, ''), $5, NULLIF($6, ''), $7, $8, $9, $10, $11)
 		RETURNING `+mediaColumns,
 		media.ID, media.InstanceID, media.Direction, media.MessageID, media.Mimetype,
-		media.Filename, media.SizeBytes, media.StoragePath, media.SHA256,
+		media.Filename, media.SizeBytes, mediaBucketDefault, media.StoragePath, media.SHA256,
 		media.ExpiresAt,
 	)
 
@@ -71,10 +76,11 @@ func (r *MediaRepository) ListByInstance(ctx context.Context, instanceID uuid.UU
 	return scanMediaRows(rows)
 }
 
-// ListExpired returns the media whose expiry is due, oldest first.
+// ListExpired returns the media whose expiry is due and whose object is not
+// yet confirmed deleted, oldest first.
 func (r *MediaRepository) ListExpired(ctx context.Context, now time.Time) ([]model.Media, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT `+mediaColumns+` FROM media WHERE expires_at <= $1 ORDER BY expires_at, id`, now)
+		`SELECT `+mediaColumns+` FROM media WHERE expires_at <= $1 AND object_deleted_at IS NULL ORDER BY expires_at, id`, now)
 	if err != nil {
 		return nil, fmt.Errorf("list expired media: %w", err)
 	}

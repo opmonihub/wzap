@@ -29,7 +29,7 @@ func NewJIDCacheRepository(pool *pgxpool.Pool) *JIDCacheRepository {
 func (r *JIDCacheRepository) Get(ctx context.Context, phone string) (string, bool, error) {
 	var jid string
 	err := r.pool.QueryRow(ctx,
-		`SELECT jid FROM contacts WHERE phone = $1 AND expires_at > now()`, phone).Scan(&jid)
+		`SELECT jid FROM jid_cache WHERE phone = $1 AND expires_at > now()`, phone).Scan(&jid)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", false, nil
 	}
@@ -42,9 +42,9 @@ func (r *JIDCacheRepository) Get(ctx context.Context, phone string) (string, boo
 // Put upserts the JID resolved for phone so refreshes replace stale entries.
 func (r *JIDCacheRepository) Put(ctx context.Context, phone, jid string, expiresAt time.Time) error {
 	if _, err := r.pool.Exec(ctx, `
-		INSERT INTO contacts (phone, jid, expires_at)
+		INSERT INTO jid_cache (phone, jid, expires_at)
 		VALUES ($1, $2, $3)
-		ON CONFLICT (phone) DO UPDATE SET jid = EXCLUDED.jid, expires_at = EXCLUDED.expires_at`,
+		ON CONFLICT (phone) DO UPDATE SET jid = EXCLUDED.jid, expires_at = EXCLUDED.expires_at, updated_at = now()`,
 		phone, jid, expiresAt); err != nil {
 		return fmt.Errorf("put jid cache: %w", err)
 	}
@@ -54,7 +54,7 @@ func (r *JIDCacheRepository) Put(ctx context.Context, phone, jid string, expires
 // DeleteExpired removes entries whose expiry is in the past and returns how
 // many were removed.
 func (r *JIDCacheRepository) DeleteExpired(ctx context.Context) (int64, error) {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM contacts WHERE expires_at < now()`)
+	tag, err := r.pool.Exec(ctx, `DELETE FROM jid_cache WHERE expires_at < now()`)
 	if err != nil {
 		return 0, fmt.Errorf("delete expired jid cache: %w", err)
 	}

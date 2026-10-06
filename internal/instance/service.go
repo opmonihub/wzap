@@ -220,14 +220,18 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*model.Instanc
 	}
 
 	instance := model.Instance{
-		ID:             uuid.New(),
-		Name:           input.Name,
-		ExternalRef:    input.ExternalRef,
-		Status:         string(session.StatusDisconnected),
-		OwnerUserID:    input.OwnerUserID,
-		WebhookURL:     webhookURL,
-		WebhookEnabled: webhookEnabled,
-		WebhookEvents:  webhookEvents,
+		ID:          uuid.New(),
+		Name:        input.Name,
+		ExternalRef: input.ExternalRef,
+		OwnerUserID: input.OwnerUserID,
+		Connection: model.InstanceConnection{
+			Status: string(session.StatusDisconnected),
+		},
+		Webhook: model.InstanceWebhook{
+			URL:       webhookURL,
+			IsEnabled: webhookEnabled,
+			Events:    webhookEvents,
+		},
 	}
 
 	created, err := s.repo.Create(ctx, instance)
@@ -300,7 +304,7 @@ func (s *Service) Health(ctx context.Context, id uuid.UUID) (HealthResult, error
 	if err != nil {
 		return HealthResult{}, mapError("health instance", err)
 	}
-	result := HealthResult{DBStatus: stored.Status, LiveStatus: session.StatusDisconnected}
+	result := HealthResult{DBStatus: stored.Connection.Status, LiveStatus: session.StatusDisconnected}
 	if sess, ok := s.sessions.Get(id); ok && sess != nil {
 		result.HasSession = true
 		result.LiveStatus = sess.Status()
@@ -319,46 +323,67 @@ func (s *Service) List(ctx context.Context) ([]model.Instance, error) {
 }
 
 // Update applies the fields present in input to the stored instance and
-// returns the stored row.
+// returns the stored aggregate. The write is split per concern: identity
+// fields go through UpdateIdentity and the webhook fields through
+// SetWebhook, so neither command can resurrect a stale connection state.
 func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (*model.Instance, error) {
 	instance, err := s.repo.Get(ctx, id)
 	if err != nil {
 		return nil, mapError("update instance", err)
 	}
 
+	name := instance.Name
 	if input.Name != nil && *input.Name != instance.Name {
 		if err := ValidateInstanceName(*input.Name); err != nil {
 			return nil, fmt.Errorf("update instance: %w", err)
 		}
-		instance.Name = *input.Name
+		name = *input.Name
 	}
+	externalRef := instance.ExternalRef
 	if input.ExternalRef != nil {
-		instance.ExternalRef = *input.ExternalRef
+		externalRef = *input.ExternalRef
 	}
+
 	// Only the webhook fields present in the patch are validated and applied;
-	// absent ones keep the stored configuration. Validation runs before the
+	// absent ones keep the stored configuration. Validation runs before any
 	// write, so a 422 keeps the previous configuration.
+	webhookChanged := input.WebhookURL != nil || input.WebhookEnabled != nil || input.WebhookEvents != nil
+	webhookURL := instance.Webhook.URL
+	webhookEnabled := instance.Webhook.IsEnabled
+	webhookEvents := instance.Webhook.Events
 	if input.WebhookURL != nil {
 		normalized, err := webhook.ValidateURL(*input.WebhookURL)
 		if err != nil {
 			return nil, fmt.Errorf("update instance: %w (%v)", ErrInvalidWebhook, err)
 		}
-		instance.WebhookURL = normalized
+		webhookURL = normalized
 	}
 	if input.WebhookEnabled != nil {
-		instance.WebhookEnabled = *input.WebhookEnabled
+		webhookEnabled = *input.WebhookEnabled
 	}
 	if input.WebhookEvents != nil {
 		normalized, err := webhook.ValidateEvents(*input.WebhookEvents)
 		if err != nil {
 			return nil, fmt.Errorf("update instance: %w (%v)", ErrInvalidWebhook, err)
 		}
-		instance.WebhookEvents = normalized
+		webhookEvents = normalized
 	}
 
-	updated, err := s.repo.Update(ctx, *instance)
+	// Identity first: a rejected rename (name taken/invalid) must not have a
+	// webhook side effect already committed. The reverse order would leave a
+	// half-applied patch; a webhook failure after a committed identity write
+	// still leaves a consistent aggregate (500, retry is safe).
+	updated, err := s.repo.UpdateIdentity(ctx, id, name, externalRef)
 	if err != nil {
 		return nil, mapError("update instance", err)
+	}
+	if webhookChanged {
+		if err := s.repo.SetWebhook(ctx, id, webhookURL, webhookEnabled, webhookEvents); err != nil {
+			return nil, mapError("update instance", err)
+		}
+		updated.Webhook.URL = webhookURL
+		updated.Webhook.IsEnabled = webhookEnabled
+		updated.Webhook.Events = webhookEvents
 	}
 	return updated, nil
 }
@@ -522,12 +547,12 @@ func pairingResult(ctx context.Context, sess session.Session) (ConnectResult, er
 // instance is treated as unpaired: the stale JID is cleared and a fresh device
 // is built so the caller can pair again instead of failing forever.
 func (s *Service) sessionFor(ctx context.Context, instance *model.Instance) (session.Session, error) {
-	if instance.BoundDeviceJID() != "" && session.NeedsFreshPairing(instance.LastError) {
+	if instance.BoundDeviceJID() != "" && session.NeedsFreshPairing(instance.LastErrorMessage()) {
 		return s.resetPairing(ctx, instance)
 	}
 	sess, err := s.sessions.Create(instance)
 	if err == nil {
-		if instance.BoundDeviceJID() != "" && sess.Status() == session.StatusError && session.NeedsFreshPairing(instance.LastError) {
+		if instance.BoundDeviceJID() != "" && sess.Status() == session.StatusError && session.NeedsFreshPairing(instance.LastErrorMessage()) {
 			return s.resetPairing(ctx, instance)
 		}
 		return sess, nil
@@ -552,8 +577,7 @@ func (s *Service) resetPairing(ctx context.Context, instance *model.Instance) (s
 	if err := s.repo.SetConnection(ctx, instance.ID, string(session.StatusDisconnected), ""); err != nil {
 		return nil, mapError("reset pairing", err)
 	}
-	instance.WhatsAppJID = ""
-	instance.DeviceJID = ""
+	instance.Connection.DeviceJID = ""
 	return s.sessions.Create(instance)
 }
 
@@ -582,7 +606,7 @@ func (s *Service) connectPairing(ctx context.Context, instance *model.Instance, 
 // connection columns: a full-row update could resurrect a stale last_error set
 // by a concurrent connection event.
 func (s *Service) markPairing(ctx context.Context, instance *model.Instance) error {
-	if err := s.repo.SetConnection(ctx, instance.ID, string(session.StatusPairing), instance.WhatsAppJID); err != nil {
+	if err := s.repo.SetConnection(ctx, instance.ID, string(session.StatusPairing), instance.BoundDeviceJID()); err != nil {
 		return mapError("update instance", err)
 	}
 	return nil

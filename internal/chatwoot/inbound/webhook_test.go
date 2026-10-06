@@ -193,7 +193,7 @@ func newFixture(t *testing.T, cfg *model.ChatwootConfig, global config.Chatwoot)
 		media:     &fakeMediaSaver{},
 		configs:   &fakeConfigs{cfg: cfg},
 		correls:   &fakeCorrelations{byChatwootID: map[int64]*model.ChatwootMessage{}},
-		instances: &fakeInstances{inst: &model.Instance{ID: instanceID, Name: "loja", Status: "connected"}},
+		instances: &fakeInstances{inst: &model.Instance{ID: instanceID, Name: "loja", Connection: model.InstanceConnection{Status: "connected"}}},
 		sessions:  sessions,
 		chats:     &fakeChats{},
 		down:      &fakeDownloader{data: []byte("fake-image-bytes"), mime: "image/jpeg"},

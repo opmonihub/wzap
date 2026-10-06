@@ -11,6 +11,8 @@ import (
 	"wzap/internal/storage"
 )
 
+func strPtr(s string) *string { return &s }
+
 func setInstanceOwner(t *testing.T, pool *pgxpool.Pool, instanceID, ownerID uuid.UUID) {
 	t.Helper()
 
@@ -188,29 +190,31 @@ func TestInstanceRepositoryReadsProductColumns(t *testing.T) {
 	if got.OwnerUserID != nil {
 		t.Errorf("OwnerUserID = %v, want nil for legacy instance", got.OwnerUserID)
 	}
-	if got.WebhookURL != nil {
-		t.Errorf("WebhookURL = %v, want nil for legacy instance", got.WebhookURL)
+	if got.Webhook.URL != nil {
+		t.Errorf("WebhookURL = %v, want nil for legacy instance", got.Webhook.URL)
 	}
-	if got.WebhookEnabled {
+	if got.Webhook.IsEnabled {
 		t.Error("WebhookEnabled = true, want false by default")
 	}
 	wantDefaultEvents := []string{"message", "receipt", "connection", "message.status"}
-	if len(got.WebhookEvents) != len(wantDefaultEvents) {
-		t.Fatalf("WebhookEvents = %v, want default %v", got.WebhookEvents, wantDefaultEvents)
+	if len(got.Webhook.Events) != len(wantDefaultEvents) {
+		t.Fatalf("WebhookEvents = %v, want default %v", got.Webhook.Events, wantDefaultEvents)
 	}
 	for i, want := range wantDefaultEvents {
-		if got.WebhookEvents[i] != want {
-			t.Errorf("WebhookEvents[%d] = %q, want %q", i, got.WebhookEvents[i], want)
+		if got.Webhook.Events[i] != want {
+			t.Errorf("WebhookEvents[%d] = %q, want %q", i, got.Webhook.Events[i], want)
 		}
 	}
 
 	owner := createTestUser(t, users, "webhook-owner@example.com", "user", 5)
 	owned := createTestInstance(t, instances, "owned", "owned-ref")
 	if _, err := pool.Exec(ctx,
-		`UPDATE instances SET owner_user_id = $2, webhook_url = $3, webhook_enabled = true,
-		 webhook_events = $4 WHERE id = $1`,
-		owned.ID, owner.ID, "https://example.com/hook", []string{"message"}); err != nil {
-		t.Fatalf("seed product columns: %v", err)
+		`UPDATE instances SET owner_user_id = $2 WHERE id = $1`,
+		owned.ID, owner.ID); err != nil {
+		t.Fatalf("seed owner: %v", err)
+	}
+	if err := instances.SetWebhook(ctx, owned.ID, strPtr("https://example.com/hook"), true, []string{"message"}); err != nil {
+		t.Fatalf("seed webhook: %v", err)
 	}
 
 	got, err = instances.Get(ctx, owned.ID)
@@ -220,13 +224,13 @@ func TestInstanceRepositoryReadsProductColumns(t *testing.T) {
 	if got.OwnerUserID == nil || *got.OwnerUserID != owner.ID {
 		t.Errorf("OwnerUserID = %v, want %s", got.OwnerUserID, owner.ID)
 	}
-	if got.WebhookURL == nil || *got.WebhookURL != "https://example.com/hook" {
-		t.Errorf("WebhookURL = %v, want https://example.com/hook", got.WebhookURL)
+	if got.Webhook.URL == nil || *got.Webhook.URL != "https://example.com/hook" {
+		t.Errorf("WebhookURL = %v, want https://example.com/hook", got.Webhook.URL)
 	}
-	if !got.WebhookEnabled {
+	if !got.Webhook.IsEnabled {
 		t.Error("WebhookEnabled = false, want true")
 	}
-	if len(got.WebhookEvents) != 1 || got.WebhookEvents[0] != "message" {
-		t.Errorf("WebhookEvents = %v, want [message]", got.WebhookEvents)
+	if len(got.Webhook.Events) != 1 || got.Webhook.Events[0] != "message" {
+		t.Errorf("WebhookEvents = %v, want [message]", got.Webhook.Events)
 	}
 }

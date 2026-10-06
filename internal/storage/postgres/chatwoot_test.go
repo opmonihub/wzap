@@ -22,9 +22,9 @@ func TestChatwootConfigPutAndGet(t *testing.T) {
 
 	instances := NewInstanceRepository(pool)
 	instance, err := instances.Create(ctx, model.Instance{
-		ID:     uuid.New(),
-		Name:   "chatwoot-cfg",
-		Status: "disconnected",
+		ID:         uuid.New(),
+		Name:       "chatwoot-cfg",
+		Connection: model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
@@ -149,9 +149,9 @@ func TestChatwootConfigPutNilAndEmptyIgnoreJIDs(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			instance, err := instances.Create(ctx, model.Instance{
-				ID:     uuid.New(),
-				Name:   "chatwoot-ignore-" + tc.name,
-				Status: "disconnected",
+				ID:         uuid.New(),
+				Name:       "chatwoot-ignore-" + tc.name,
+				Connection: model.InstanceConnection{Status: "disconnected"},
 			})
 			if err != nil {
 				t.Fatalf("create instance: %v", err)
@@ -188,9 +188,9 @@ func TestChatwootMessagePutGetDeleteByInstance(t *testing.T) {
 
 	instances := NewInstanceRepository(pool)
 	instance, err := instances.Create(ctx, model.Instance{
-		ID:     uuid.New(),
-		Name:   "chatwoot-msg",
-		Status: "disconnected",
+		ID:         uuid.New(),
+		Name:       "chatwoot-msg",
+		Connection: model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
@@ -258,7 +258,7 @@ func TestChatwootMessagePutGetDeleteByInstance(t *testing.T) {
 
 // TestLatestByConversationTiebreaksDeterministically pins migration 00004:
 // Migrate applies the covering index on a clean DB, and ties on created_at
-// resolve to the larger chatwoot_message_id instead of an arbitrary row.
+// resolve to the larger cw_id instead of an arbitrary row.
 func TestLatestByConversationTiebreaksDeterministically(t *testing.T) {
 	ctx := context.Background()
 	pool := postgrestest.NewPool(t)
@@ -276,9 +276,9 @@ func TestLatestByConversationTiebreaksDeterministically(t *testing.T) {
 
 	instances := NewInstanceRepository(pool)
 	instance, err := instances.Create(ctx, model.Instance{
-		ID:     uuid.New(),
-		Name:   "chatwoot-latest",
-		Status: "disconnected",
+		ID:         uuid.New(),
+		Name:       "chatwoot-latest",
+		Connection: model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
@@ -288,7 +288,7 @@ func TestLatestByConversationTiebreaksDeterministically(t *testing.T) {
 	// so the tie is seeded with explicit SQL.
 	stamp := time.Now().UTC().Truncate(time.Millisecond)
 	if _, err := pool.Exec(ctx,
-		`INSERT INTO chatwoot_messages (instance_id, wa_key, chatwoot_message_id, conversation_id, inbox_id, contact_source_id, created_at)
+		`INSERT INTO chatwoot_messages (instance_id, wa_key, cw_id, conversation_id, inbox_id, chat_jid, created_at)
 		 VALUES ($1, 'WA-TIE-1', 11, 55, 7, 'source', $2), ($1, 'WA-TIE-2', 22, 55, 7, 'source', $2)`,
 		instance.ID, stamp); err != nil {
 		t.Fatalf("seed tied rows: %v", err)
@@ -320,9 +320,9 @@ func TestChatwootConfigTokenSealedAtRest(t *testing.T) {
 
 	instances := NewInstanceRepository(pool)
 	instance, err := instances.Create(ctx, model.Instance{
-		ID:     uuid.New(),
-		Name:   "chatwoot-sealed",
-		Status: "disconnected",
+		ID:         uuid.New(),
+		Name:       "chatwoot-sealed",
+		Connection: model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
@@ -374,7 +374,7 @@ func TestChatwootConfigBackfillTokenSeal(t *testing.T) {
 	}
 
 	instances := NewInstanceRepository(pool)
-	legacy, err := instances.Create(ctx, model.Instance{ID: uuid.New(), Name: "chatwoot-legacy", Status: "disconnected"})
+	legacy, err := instances.Create(ctx, model.Instance{ID: uuid.New(), Name: "chatwoot-legacy", Connection: model.InstanceConnection{Status: "disconnected"}})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
 	}

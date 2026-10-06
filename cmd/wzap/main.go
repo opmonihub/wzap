@@ -70,10 +70,12 @@ func run(args []string) error {
 		return serve()
 	case "migrate":
 		return migrate()
+	case "media-migrate":
+		return mediaMigrate()
 	case "healthcheck":
 		return healthcheck()
 	default:
-		return fmt.Errorf("unknown command %q, want serve, migrate or healthcheck", command)
+		return fmt.Errorf("unknown command %q, want serve, migrate, media-migrate or healthcheck", command)
 	}
 }
 
@@ -162,6 +164,30 @@ func serve() error {
 	outbox := postgres.NewEventOutboxRepository(pool)
 	mediaStorage := media.NewStorage(cfg.DataDir, postgres.NewMediaRepository(pool),
 		cfg.MaxMediaBytes, time.Duration(cfg.MediaTTLSeconds)*time.Second)
+	// Object backend: bytes live in the S3-compatible store (MinIO); the
+	// data dir becomes a disposable cache for consumers that need a real
+	// file. An unreachable or unprovisionable bucket aborts the boot —
+	// media writes would fail anyway and the misconfiguration must not go
+	// unnoticed. With WZAP_S3_ENDPOINT empty the storage keeps the
+	// filesystem mode (mid-migration deployments).
+	if cfg.S3.Endpoint != "" {
+		objectStore := media.NewObjectStore(media.S3Config{
+			Endpoint:  cfg.S3.Endpoint,
+			Bucket:    cfg.S3.Bucket,
+			Region:    cfg.S3.Region,
+			AccessKey: cfg.S3.AccessKey,
+			SecretKey: cfg.S3.SecretKey,
+			UseTLS:    cfg.S3.UseTLS,
+		})
+		bucketCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		bucketErr := objectStore.EnsureBucket(bucketCtx)
+		cancel()
+		if bucketErr != nil {
+			return fmt.Errorf("media object store: %w", bucketErr)
+		}
+		mediaStorage.SetObjects(objectStore)
+		log.Info().Str("bucket", cfg.S3.Bucket).Msg("media object store ready")
+	}
 	relay := events.NewRelay(outbox, publisher, log, cfg.EventRetentionDays)
 	checker := httpapi.NewChecker(pool, httpapi.NamedProbe{Name: "nats", Run: publisher.Ready})
 
@@ -630,6 +656,55 @@ func migrate() error {
 	}
 
 	fmt.Println("migrations applied")
+	return nil
+}
+
+// mediaMigrate copies every local media file into the configured object
+// store, verifying SHA-256 before upload. It is the verifiable half of the
+// file→object cutover: local files are left in place as the rollback path
+// and objects that already exist are skipped, so the command is safe to
+// re-run until the rehearsed cleanup removes the local copies.
+func mediaMigrate() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	if cfg.S3.Endpoint == "" {
+		return fmt.Errorf("media-migrate requires WZAP_S3_ENDPOINT")
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	pool, err := postgres.Connect(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return fmt.Errorf("connect database: %w", err)
+	}
+	defer pool.Close()
+
+	objectStore := media.NewObjectStore(media.S3Config{
+		Endpoint:  cfg.S3.Endpoint,
+		Bucket:    cfg.S3.Bucket,
+		Region:    cfg.S3.Region,
+		AccessKey: cfg.S3.AccessKey,
+		SecretKey: cfg.S3.SecretKey,
+		UseTLS:    cfg.S3.UseTLS,
+	})
+	if err := objectStore.EnsureBucket(ctx); err != nil {
+		return fmt.Errorf("media object store: %w", err)
+	}
+
+	store := media.NewStorage(cfg.DataDir, postgres.NewMediaRepository(pool),
+		cfg.MaxMediaBytes, time.Duration(cfg.MediaTTLSeconds)*time.Second)
+	store.SetObjects(objectStore)
+
+	migrated, err := store.MigrateLocalFiles(ctx, func(done, total int) {
+		fmt.Printf("media migration: %d/%d\n", done, total)
+	})
+	if err != nil {
+		return fmt.Errorf("media migration incomplete: %w", err)
+	}
+	fmt.Printf("media migration: %d object(s) uploaded\n", migrated)
 	return nil
 }
 

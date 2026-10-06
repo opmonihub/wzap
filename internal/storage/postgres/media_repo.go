@@ -15,13 +15,9 @@ import (
 	"wzap/internal/storage"
 )
 
-// mediaBucketDefault is the object bucket written for local-path media rows
-// during the transition window (MinIO wiring is a later task); it matches the
-// WZAP_S3_BUCKET default used by the remodel backfill.
-const mediaBucketDefault = "wzap-media"
-
 const mediaColumns = `id, instance_id, direction, COALESCE(wa_id, '') AS wa_id, ` +
-	`mime_type, COALESCE(file_name, '') AS file_name, size_bytes, object_key, sha256, created_at, expires_at`
+	`mime_type, COALESCE(file_name, '') AS file_name, size_bytes, bucket, object_key, sha256, ` +
+	`created_at, expires_at, object_deleted_at`
 
 // MediaRepository is the pgx-backed storage.MediaRepository.
 type MediaRepository struct {
@@ -43,7 +39,7 @@ func (r *MediaRepository) Create(ctx context.Context, media model.Media) (*model
 		VALUES ($1, $2, $3, NULLIF($4, ''), $5, NULLIF($6, ''), $7, $8, $9, $10, $11)
 		RETURNING `+mediaColumns,
 		media.ID, media.InstanceID, media.Direction, media.MessageID, media.Mimetype,
-		media.Filename, media.SizeBytes, mediaBucketDefault, media.StoragePath, media.SHA256,
+		media.Filename, media.SizeBytes, media.Bucket, media.ObjectKey, media.SHA256,
 		media.ExpiresAt,
 	)
 
@@ -87,6 +83,41 @@ func (r *MediaRepository) ListExpired(ctx context.Context, now time.Time) ([]mod
 	defer rows.Close()
 
 	return scanMediaRows(rows)
+}
+
+// MarkObjectDeleted sets object_deleted_at on the row, confirming the remote
+// object removal while preserving the metadata. Returns storage.ErrNotFound
+// when the row is absent.
+func (r *MediaRepository) MarkObjectDeleted(ctx context.Context, id uuid.UUID, at time.Time) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE media SET object_deleted_at = $2 WHERE id = $1`, id, at)
+	if err != nil {
+		return fmt.Errorf("mark media deleted: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("mark media deleted: %w", storage.ErrNotFound)
+	}
+	return nil
+}
+
+// ListInstancesWithMedia returns the distinct instance ids that own at least
+// one media row.
+func (r *MediaRepository) ListInstancesWithMedia(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := r.pool.Query(ctx, `SELECT DISTINCT instance_id FROM media ORDER BY instance_id`)
+	if err != nil {
+		return nil, fmt.Errorf("list media instances: %w", err)
+	}
+	defer rows.Close()
+
+	ids := []uuid.UUID{}
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan media instance: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 // Delete removes one media row or returns storage.ErrNotFound.
@@ -137,8 +168,9 @@ func scanMedia(scanner rowScanner) (*model.Media, error) {
 func scanMediaRow(scanner rowScanner, record *model.Media) error {
 	return scanner.Scan(
 		&record.ID, &record.InstanceID, &record.Direction, &record.MessageID,
-		&record.Mimetype, &record.Filename, &record.SizeBytes, &record.StoragePath,
-		&record.SHA256, &record.CreatedAt, &record.ExpiresAt,
+		&record.Mimetype, &record.Filename, &record.SizeBytes, &record.Bucket,
+		&record.ObjectKey, &record.SHA256, &record.CreatedAt, &record.ExpiresAt,
+		&record.ObjectDeletedAt,
 	)
 }
 

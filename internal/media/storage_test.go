@@ -68,7 +68,7 @@ func (f *fakeMediaRepo) ListExpired(_ context.Context, now time.Time) ([]model.M
 	}
 	records := []model.Media{}
 	for _, record := range f.records {
-		if !record.ExpiresAt.After(now) {
+		if !record.ExpiresAt.After(now) && record.ObjectDeletedAt == nil {
 			records = append(records, record)
 		}
 	}
@@ -84,6 +84,32 @@ func (f *fakeMediaRepo) Delete(_ context.Context, id uuid.UUID) error {
 	}
 	delete(f.records, id)
 	return nil
+}
+
+func (f *fakeMediaRepo) MarkObjectDeleted(_ context.Context, id uuid.UUID, at time.Time) error {
+	if f.deleteErr != nil {
+		return f.deleteErr
+	}
+	record, ok := f.records[id]
+	if !ok {
+		return storage.ErrNotFound
+	}
+	record.ObjectDeletedAt = &at
+	f.records[id] = record
+	return nil
+}
+
+func (f *fakeMediaRepo) ListInstancesWithMedia(context.Context) ([]uuid.UUID, error) {
+	seen := map[uuid.UUID]struct{}{}
+	ids := []uuid.UUID{}
+	for _, record := range f.records {
+		if _, ok := seen[record.InstanceID]; ok {
+			continue
+		}
+		seen[record.InstanceID] = struct{}{}
+		ids = append(ids, record.InstanceID)
+	}
+	return ids, nil
 }
 
 func (f *fakeMediaRepo) DeleteByInstance(_ context.Context, instanceID uuid.UUID) (int64, error) {
@@ -183,8 +209,8 @@ func TestStorageSaveAndOpen(t *testing.T) {
 	}
 
 	wantPath := filepath.Join("media", instanceID.String(), saved.ID.String())
-	if saved.StoragePath != wantPath {
-		t.Errorf("Save: StoragePath = %q, want %q", saved.StoragePath, wantPath)
+	if saved.ObjectKey != wantPath {
+		t.Errorf("Save: StoragePath = %q, want %q", saved.ObjectKey, wantPath)
 	}
 	onDisk, err := os.ReadFile(filepath.Join(dir, wantPath))
 	if err != nil {
@@ -330,12 +356,12 @@ func TestStorageOpenErrors(t *testing.T) {
 
 	t.Run("expired", func(t *testing.T) {
 		expired := model.Media{
-			ID:          uuid.New(),
-			InstanceID:  instanceID,
-			ExpiresAt:   time.Now().Add(-time.Minute),
-			StoragePath: filepath.Join("media", instanceID.String(), "expired"),
+			ID:         uuid.New(),
+			InstanceID: instanceID,
+			ExpiresAt:  time.Now().Add(-time.Minute),
+			ObjectKey:  filepath.Join("media", instanceID.String(), "expired"),
 		}
-		seedFile(t, dir, expired.StoragePath, []byte("old"))
+		seedFile(t, dir, expired.ObjectKey, []byte("old"))
 		if _, err := repo.Create(ctx, expired); err != nil {
 			t.Fatalf("seed expired record: %v", err)
 		}
@@ -345,7 +371,7 @@ func TestStorageOpenErrors(t *testing.T) {
 	})
 
 	t.Run("missing file", func(t *testing.T) {
-		if err := os.Remove(filepath.Join(dir, saved.StoragePath)); err != nil {
+		if err := os.Remove(filepath.Join(dir, saved.ObjectKey)); err != nil {
 			t.Fatalf("remove stored file: %v", err)
 		}
 		if _, _, err := store.Open(ctx, saved.ID); !errors.Is(err, ErrNotFound) {
@@ -355,10 +381,10 @@ func TestStorageOpenErrors(t *testing.T) {
 
 	t.Run("path escapes the data dir", func(t *testing.T) {
 		escape := model.Media{
-			ID:          uuid.New(),
-			InstanceID:  instanceID,
-			ExpiresAt:   time.Now().Add(time.Hour),
-			StoragePath: filepath.Join("..", "etc", "passwd"),
+			ID:         uuid.New(),
+			InstanceID: instanceID,
+			ExpiresAt:  time.Now().Add(time.Hour),
+			ObjectKey:  filepath.Join("..", "etc", "passwd"),
 		}
 		if _, err := repo.Create(ctx, escape); err != nil {
 			t.Fatalf("seed escaping record: %v", err)
@@ -378,25 +404,25 @@ func TestStorageDeleteExpiredRemovesFileAndRow(t *testing.T) {
 	now := time.Now()
 
 	expired := model.Media{
-		ID:          uuid.New(),
-		InstanceID:  instanceID,
-		Direction:   "inbound",
-		Mimetype:    "image/png",
-		SizeBytes:   3,
-		StoragePath: filepath.Join("media", instanceID.String(), "expired"),
-		ExpiresAt:   now.Add(-time.Minute),
+		ID:         uuid.New(),
+		InstanceID: instanceID,
+		Direction:  "inbound",
+		Mimetype:   "image/png",
+		SizeBytes:  3,
+		ObjectKey:  filepath.Join("media", instanceID.String(), "expired"),
+		ExpiresAt:  now.Add(-time.Minute),
 	}
 	fresh := model.Media{
-		ID:          uuid.New(),
-		InstanceID:  instanceID,
-		Direction:   "inbound",
-		Mimetype:    "image/png",
-		SizeBytes:   3,
-		StoragePath: filepath.Join("media", instanceID.String(), "fresh"),
-		ExpiresAt:   now.Add(time.Hour),
+		ID:         uuid.New(),
+		InstanceID: instanceID,
+		Direction:  "inbound",
+		Mimetype:   "image/png",
+		SizeBytes:  3,
+		ObjectKey:  filepath.Join("media", instanceID.String(), "fresh"),
+		ExpiresAt:  now.Add(time.Hour),
 	}
-	seedFile(t, dir, expired.StoragePath, []byte("old"))
-	seedFile(t, dir, fresh.StoragePath, []byte("new"))
+	seedFile(t, dir, expired.ObjectKey, []byte("old"))
+	seedFile(t, dir, fresh.ObjectKey, []byte("new"))
 	for _, record := range []model.Media{expired, fresh} {
 		if _, err := repo.Create(ctx, record); err != nil {
 			t.Fatalf("seed record: %v", err)
@@ -411,13 +437,16 @@ func TestStorageDeleteExpiredRemovesFileAndRow(t *testing.T) {
 		t.Errorf("DeleteExpired removed = %d, want 1", removed)
 	}
 
-	if _, err := os.Stat(filepath.Join(dir, expired.StoragePath)); !errors.Is(err, fs.ErrNotExist) {
+	if _, err := os.Stat(filepath.Join(dir, expired.ObjectKey)); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("expired file still present: %v", err)
 	}
-	if _, ok := repo.records[expired.ID]; ok {
-		t.Error("expired record still stored")
+	record, ok := repo.records[expired.ID]
+	if !ok {
+		t.Error("expired metadata row was deleted instead of preserved")
+	} else if record.ObjectDeletedAt == nil {
+		t.Error("expired record missing object_deleted_at after confirmed removal")
 	}
-	if _, err := os.Stat(filepath.Join(dir, fresh.StoragePath)); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, fresh.ObjectKey)); err != nil {
 		t.Errorf("fresh file missing: %v", err)
 	}
 	if _, ok := repo.records[fresh.ID]; !ok {
@@ -433,10 +462,10 @@ func TestStorageDeleteExpiredKeepsRowWhenFileRemovalFails(t *testing.T) {
 	now := time.Now()
 
 	escaping := model.Media{
-		ID:          uuid.New(),
-		InstanceID:  uuid.New(),
-		StoragePath: filepath.Join("..", "outside"),
-		ExpiresAt:   now.Add(-time.Minute),
+		ID:         uuid.New(),
+		InstanceID: uuid.New(),
+		ObjectKey:  filepath.Join("..", "outside"),
+		ExpiresAt:  now.Add(-time.Minute),
 	}
 	if _, err := repo.Create(ctx, escaping); err != nil {
 		t.Fatalf("seed record: %v", err)
@@ -479,14 +508,14 @@ func TestStorageDeleteByInstanceRemovesFilesAndRows(t *testing.T) {
 	}
 
 	for _, record := range []*model.Media{first, second} {
-		if _, err := os.Stat(filepath.Join(dir, record.StoragePath)); !errors.Is(err, fs.ErrNotExist) {
-			t.Errorf("file %s still present: %v", record.StoragePath, err)
+		if _, err := os.Stat(filepath.Join(dir, record.ObjectKey)); !errors.Is(err, fs.ErrNotExist) {
+			t.Errorf("file %s still present: %v", record.ObjectKey, err)
 		}
 		if _, ok := repo.records[record.ID]; ok {
 			t.Errorf("record %s still stored", record.ID)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(dir, kept.StoragePath)); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, kept.ObjectKey)); err != nil {
 		t.Errorf("other instance file missing: %v", err)
 	}
 	if _, ok := repo.records[kept.ID]; !ok {
@@ -513,7 +542,7 @@ func TestStoragePathReturnsStoredFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Path: %v", err)
 	}
-	if want := filepath.Join(dir, saved.StoragePath); path != want {
+	if want := filepath.Join(dir, saved.ObjectKey); path != want {
 		t.Errorf("Path = %q, want %q", path, want)
 	}
 	if !filepath.IsAbs(path) {
@@ -551,12 +580,12 @@ func TestStoragePathErrors(t *testing.T) {
 
 	t.Run("expired", func(t *testing.T) {
 		expired := model.Media{
-			ID:          uuid.New(),
-			InstanceID:  instanceID,
-			ExpiresAt:   time.Now().Add(-time.Minute),
-			StoragePath: filepath.Join("media", instanceID.String(), "expired"),
+			ID:         uuid.New(),
+			InstanceID: instanceID,
+			ExpiresAt:  time.Now().Add(-time.Minute),
+			ObjectKey:  filepath.Join("media", instanceID.String(), "expired"),
 		}
-		seedFile(t, dir, expired.StoragePath, []byte("old"))
+		seedFile(t, dir, expired.ObjectKey, []byte("old"))
 		if _, err := repo.Create(ctx, expired); err != nil {
 			t.Fatalf("seed expired record: %v", err)
 		}
@@ -566,7 +595,7 @@ func TestStoragePathErrors(t *testing.T) {
 	})
 
 	t.Run("missing file", func(t *testing.T) {
-		if err := os.Remove(filepath.Join(dir, saved.StoragePath)); err != nil {
+		if err := os.Remove(filepath.Join(dir, saved.ObjectKey)); err != nil {
 			t.Fatalf("remove stored file: %v", err)
 		}
 		if _, _, err := store.Path(ctx, saved.ID); !errors.Is(err, ErrNotFound) {

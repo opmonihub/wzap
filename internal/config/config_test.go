@@ -81,6 +81,12 @@ func TestLoadFullConfig(t *testing.T) {
 		"WZAP_CHATWOOT_MESSAGE_DELETE":     "true",
 		"WZAP_CHATWOOT_IMPORT_DB_URL":      "postgres://chatwoot:secret@db:5432/chatwoot",
 		"WZAP_CHATWOOT_IMPORT_PLACEHOLDER": "true",
+		"WZAP_S3_ENDPOINT":                 "http://minio:9000",
+		"WZAP_S3_BUCKET":                   "media-bucket",
+		"WZAP_S3_REGION":                   "br-east-1",
+		"WZAP_S3_ACCESS_KEY":               "minio-user",
+		"WZAP_S3_SECRET_KEY":               "minio-pass",
+		"WZAP_S3_USE_TLS":                  "true",
 	} {
 		t.Setenv(key, value)
 	}
@@ -119,6 +125,14 @@ func TestLoadFullConfig(t *testing.T) {
 			ImportDBURL:       "postgres://chatwoot:secret@db:5432/chatwoot",
 			ImportPlaceholder: true,
 		},
+		S3: S3{
+			Endpoint:  "http://minio:9000",
+			Bucket:    "media-bucket",
+			Region:    "br-east-1",
+			AccessKey: "minio-user",
+			SecretKey: "minio-pass",
+			UseTLS:    true,
+		},
 	}
 	if got != want {
 		t.Errorf("Load() = %+v, want %+v", got, want)
@@ -156,6 +170,7 @@ func TestLoadDefaults(t *testing.T) {
 		LogFormat:          "json",
 		AutoMigrate:        true,
 		Chatwoot:           Chatwoot{},
+		S3:                 S3{Bucket: "wzap-media", Region: "us-east-1"},
 	}
 	if got != want {
 		t.Errorf("Load() = %+v, want %+v", got, want)
@@ -516,5 +531,29 @@ func TestLoadChatwootImportDBURL(t *testing.T) {
 	}
 	if got.Chatwoot.ImportDBURL != "postgres://chatwoot:secret@db:5432/chatwoot" {
 		t.Errorf("Load().Chatwoot.ImportDBURL = %q, want the configured URI", got.Chatwoot.ImportDBURL)
+	}
+}
+
+func TestLoadS3RequiresCredentialsWhenEndpointSet(t *testing.T) {
+	clearWZAPEnv(t)
+	setRequiredEnv(t)
+	t.Setenv("WZAP_S3_ENDPOINT", "http://minio:9000")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("Load() error = nil, want error naming the S3 credentials")
+	}
+	if !strings.Contains(err.Error(), "WZAP_S3_ACCESS_KEY") || !strings.Contains(err.Error(), "WZAP_S3_SECRET_KEY") {
+		t.Errorf("Load() error = %q, want it to mention WZAP_S3_ACCESS_KEY and WZAP_S3_SECRET_KEY", err)
+	}
+
+	t.Setenv("WZAP_S3_ACCESS_KEY", "u")
+	t.Setenv("WZAP_S3_SECRET_KEY", "p")
+	got, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if got.S3.Bucket != "wzap-media" || got.S3.Region != "us-east-1" || got.S3.UseTLS {
+		t.Errorf("S3 defaults = %+v, want bucket wzap-media, region us-east-1, TLS off", got.S3)
 	}
 }

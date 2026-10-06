@@ -100,10 +100,10 @@ type MessageRepository interface {
 	RequeueStuck(ctx context.Context, olderThan time.Time) (int64, error)
 }
 
-// MediaRepository persists media metadata. The content itself lives on the
-// filesystem: StoragePath locates it relative to the configured data dir.
-// ListByInstance and ListExpired return the rows so the caller can delete the
-// files before removing the records.
+// MediaRepository persists media metadata. The content itself lives in an
+// object store addressed by the row's Bucket and ObjectKey; ObjectDeletedAt
+// marks the confirmed remote removal. ListByInstance and ListExpired return
+// the rows so the caller can delete the objects first.
 type MediaRepository interface {
 	// Create persists media with the provided ExpiresAt and returns the stored
 	// row with the database created_at. It returns ErrNotFound when the
@@ -113,8 +113,16 @@ type MediaRepository interface {
 	Get(ctx context.Context, id uuid.UUID) (*model.Media, error)
 	// ListByInstance returns every media of instanceID ordered by created_at.
 	ListByInstance(ctx context.Context, instanceID uuid.UUID) ([]model.Media, error)
-	// ListExpired returns the media whose expires_at is due, oldest first.
+	// ListExpired returns the media whose expires_at is due and whose object
+	// is not yet confirmed deleted, oldest first.
 	ListExpired(ctx context.Context, now time.Time) ([]model.Media, error)
+	// MarkObjectDeleted sets object_deleted_at on the row after the remote
+	// removal is confirmed, preserving the metadata. It returns ErrNotFound
+	// when the row is absent.
+	MarkObjectDeleted(ctx context.Context, id uuid.UUID, at time.Time) error
+	// ListInstancesWithMedia returns the distinct instance ids owning at
+	// least one media row, for migrations and reconciliations.
+	ListInstancesWithMedia(ctx context.Context) ([]uuid.UUID, error)
 	// Delete removes one media row. It returns ErrNotFound when it is absent.
 	Delete(ctx context.Context, id uuid.UUID) error
 	// DeleteByInstance removes every media row of instanceID.

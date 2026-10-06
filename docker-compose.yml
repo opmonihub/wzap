@@ -34,6 +34,43 @@ services:
       timeout: 5s
       retries: 10
 
+  minio:
+    image: docker.io/cccs/minio:latest
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-wzap}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-wzap-secret-key}
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Provisions the media bucket once MinIO is healthy. The application also
+  # ensures the bucket at boot, so this is an accelerator for first-run
+  # environments, not the only provisioning path.
+  minio-init:
+    image: docker.io/cccs/minio:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} &&
+      mc mb --ignore-existing local/$${WZAP_S3_BUCKET} &&
+      mc anonymous set none local/$${WZAP_S3_BUCKET}
+      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-wzap}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-wzap-secret-key}
+      WZAP_S3_BUCKET: ${WZAP_S3_BUCKET:-wzap-media}
+
   wzap:
     image: wzap:dev
     build: .
@@ -48,6 +85,12 @@ services:
       WZAP_PUBLIC_URL: http://127.0.0.1:8081
       WZAP_AUTO_MIGRATE: "true"
       WZAP_DATA_DIR: /data
+      WZAP_S3_ENDPOINT: http://minio:9000
+      WZAP_S3_BUCKET: ${WZAP_S3_BUCKET:-wzap-media}
+      WZAP_S3_REGION: us-east-1
+      WZAP_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-wzap}
+      WZAP_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-wzap-secret-key}
+      WZAP_S3_USE_TLS: "false"
     ports:
       - "127.0.0.1:8081:8080"
     volumes:
@@ -56,6 +99,8 @@ services:
       postgres:
         condition: service_healthy
       nats:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "/wzap", "healthcheck"]
@@ -68,3 +113,4 @@ volumes:
   pgdata:
   natsdata:
   media:
+  miniodata:

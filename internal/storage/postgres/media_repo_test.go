@@ -12,23 +12,23 @@ import (
 	"wzap/internal/storage"
 )
 
-func createTestMedia(t *testing.T, repo storage.MediaRepository, instanceID uuid.UUID, messageID, storagePath string, expiresAt time.Time) *model.Media {
+func createTestMedia(t *testing.T, repo storage.MediaRepository, instanceID uuid.UUID, messageID, objectKey string, expiresAt time.Time) *model.Media {
 	t.Helper()
 
 	record, err := repo.Create(context.Background(), model.Media{
-		ID:          uuid.New(),
-		InstanceID:  instanceID,
-		Direction:   "inbound",
-		MessageID:   messageID,
-		Mimetype:    "image/jpeg",
-		Filename:    "foto.jpg",
-		SizeBytes:   1234,
-		StoragePath: storagePath,
-		SHA256:      "c0ffee",
-		ExpiresAt:   expiresAt,
+		ID:         uuid.New(),
+		InstanceID: instanceID,
+		Direction:  "inbound",
+		MessageID:  messageID,
+		Mimetype:   "image/jpeg",
+		Filename:   "foto.jpg",
+		SizeBytes:  1234,
+		ObjectKey:  objectKey,
+		SHA256:     "c0ffee",
+		ExpiresAt:  expiresAt,
 	})
 	if err != nil {
-		t.Fatalf("create media %s: %v", storagePath, err)
+		t.Fatalf("create media %s: %v", objectKey, err)
 	}
 	return record
 }
@@ -44,16 +44,16 @@ func TestMediaRepositoryCreateAndGet(t *testing.T) {
 	messageID := uuid.NewString()
 
 	created, err := media.Create(ctx, model.Media{
-		ID:          uuid.New(),
-		InstanceID:  instance.ID,
-		Direction:   "inbound",
-		MessageID:   messageID,
-		Mimetype:    "image/jpeg",
-		Filename:    "foto.jpg",
-		SizeBytes:   1234,
-		StoragePath: "media/" + instance.ID.String() + "/1",
-		SHA256:      "abc123",
-		ExpiresAt:   expiresAt,
+		ID:         uuid.New(),
+		InstanceID: instance.ID,
+		Direction:  "inbound",
+		MessageID:  messageID,
+		Mimetype:   "image/jpeg",
+		Filename:   "foto.jpg",
+		SizeBytes:  1234,
+		ObjectKey:  "media/" + instance.ID.String() + "/1",
+		SHA256:     "abc123",
+		ExpiresAt:  expiresAt,
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -74,8 +74,8 @@ func TestMediaRepositoryCreateAndGet(t *testing.T) {
 	if created.SizeBytes != 1234 || created.SHA256 != "abc123" {
 		t.Errorf("Create: size/sha256 = %d/%q, want 1234/abc123", created.SizeBytes, created.SHA256)
 	}
-	if created.StoragePath != "media/"+instance.ID.String()+"/1" {
-		t.Errorf("Create: StoragePath = %q", created.StoragePath)
+	if created.ObjectKey != "media/"+instance.ID.String()+"/1" {
+		t.Errorf("Create: StoragePath = %q", created.ObjectKey)
 	}
 	requireTimeBetween(t, "Create: CreatedAt", created.CreatedAt, start.Add(-time.Second), time.Now().Add(time.Second))
 	requireTimeNear(t, "Create: ExpiresAt", created.ExpiresAt, expiresAt)
@@ -87,8 +87,8 @@ func TestMediaRepositoryCreateAndGet(t *testing.T) {
 	if got.ID != created.ID || got.InstanceID != instance.ID || got.MessageID != messageID {
 		t.Errorf("Get: %+v, want the created record %s", got, created.ID)
 	}
-	if got.StoragePath != created.StoragePath || got.SHA256 != created.SHA256 {
-		t.Errorf("Get: path/sha256 = %q/%q, want %q/%q", got.StoragePath, got.SHA256, created.StoragePath, created.SHA256)
+	if got.ObjectKey != created.ObjectKey || got.SHA256 != created.SHA256 {
+		t.Errorf("Get: path/sha256 = %q/%q, want %q/%q", got.ObjectKey, got.SHA256, created.ObjectKey, created.SHA256)
 	}
 	requireTimeNear(t, "Get: ExpiresAt", got.ExpiresAt, expiresAt)
 }
@@ -101,14 +101,14 @@ func TestMediaRepositoryCreateEmptyOptionals(t *testing.T) {
 	instance := createTestInstance(t, instances, "media-nullable", "")
 
 	created, err := media.Create(ctx, model.Media{
-		ID:          uuid.New(),
-		InstanceID:  instance.ID,
-		Direction:   "outbound",
-		Mimetype:    "application/pdf",
-		SizeBytes:   8,
-		StoragePath: "media/" + instance.ID.String() + "/2",
-		SHA256:      "def456",
-		ExpiresAt:   time.Now().Add(time.Hour),
+		ID:         uuid.New(),
+		InstanceID: instance.ID,
+		Direction:  "outbound",
+		Mimetype:   "application/pdf",
+		SizeBytes:  8,
+		ObjectKey:  "media/" + instance.ID.String() + "/2",
+		SHA256:     "def456",
+		ExpiresAt:  time.Now().Add(time.Hour),
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -143,14 +143,14 @@ func TestMediaRepositoryCreateUnknownInstance(t *testing.T) {
 	media := NewMediaRepository(pool)
 
 	_, err := media.Create(context.Background(), model.Media{
-		ID:          uuid.New(),
-		InstanceID:  uuid.New(),
-		Direction:   "inbound",
-		Mimetype:    "image/jpeg",
-		SizeBytes:   1,
-		StoragePath: "media/unknown/1",
-		SHA256:      "abc",
-		ExpiresAt:   time.Now().Add(time.Hour),
+		ID:         uuid.New(),
+		InstanceID: uuid.New(),
+		Direction:  "inbound",
+		Mimetype:   "image/jpeg",
+		SizeBytes:  1,
+		ObjectKey:  "media/unknown/1",
+		SHA256:     "abc",
+		ExpiresAt:  time.Now().Add(time.Hour),
 	})
 	if !errors.Is(err, storage.ErrNotFound) {
 		t.Errorf("Create error = %v, want ErrNotFound", err)

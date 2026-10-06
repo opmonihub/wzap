@@ -729,7 +729,7 @@ func TestHandleAttachmentsTotalFailureWithoutTextSkipsMarkRead(t *testing.T) {
 	}
 }
 
-func TestHandleTwoAttachmentsUseDistinctMediaIDs(t *testing.T) {
+func TestHandleAttachmentsNeverSaveChatwootMarkersAsWAID(t *testing.T) {
 	fx := newFixture(t, enabledConnector(), globalOn())
 	fx.correls.latestErr = storage.ErrNotFound
 	payload := outgoingPayload(87, "duas fotos")
@@ -748,8 +748,16 @@ func TestHandleTwoAttachmentsUseDistinctMediaIDs(t *testing.T) {
 	if len(fx.media.saves) != 2 {
 		t.Fatalf("Save calls = %d, want 2", len(fx.media.saves))
 	}
-	if fx.media.saves[0].messageID == fx.media.saves[1].messageID {
-		t.Errorf("Save messageIDs collide = %q, want one unique id per attachment", fx.media.saves[0].messageID)
+	// Attachment saves never write a wa_id: the legacy chatwoot-{id}-{idx}
+	// marker is a local correlation hint, not a WhatsApp message id, and
+	// must not circulate as one (read/reply/revoke would misuse it).
+	for i, saved := range fx.media.saves {
+		if saved.messageID != "" {
+			t.Errorf("Save[%d] messageID = %q, want empty — chatwoot markers are not WA ids", i, saved.messageID)
+		}
+		if strings.HasPrefix(saved.messageID, "chatwoot-") {
+			t.Errorf("Save[%d] messageID = %q, a synthetic marker", i, saved.messageID)
+		}
 	}
 	if len(fx.enqueuer.inputs) != 2 {
 		t.Fatalf("Enqueue calls = %d, want 2 media", len(fx.enqueuer.inputs))

@@ -1,5 +1,7 @@
-// Package media stores message media on the local filesystem with its
-// metadata in the database, serving the content until its TTL expires.
+// Package media stores message media bytes in an object store (MinIO) with
+// metadata in the database, serving the content until its TTL expires. The
+// local data dir keeps a disposable cache of fetched objects for callers
+// that need a filesystem path (the whatsmeow session store).
 package media
 
 import (
@@ -94,26 +96,52 @@ func Kind(mimetype string) (string, bool) {
 	}
 }
 
-// Storage stores media files under a data dir and records their metadata
-// through a repository. A file is written before its row exists and removed
-// when the row cannot be created, so a failed save leaves nothing behind.
+// Storage stores media objects in an object store and records their metadata
+// through a repository. The data dir keeps a cache of fetched objects so a
+// consumer that needs a real file (the whatsmeow session store) gets one;
+// the cache is disposable and never the authority.
+//
+// Ordering rules: the object is uploaded before its row exists and removed
+// when the row cannot be created; the row's object_deleted_at is marked only
+// after the remote deletion is confirmed, so metadata survives expiration.
 type Storage struct {
 	dir      string
 	repo     storage.MediaRepository
+	objects  Objects
 	maxBytes int64
 	ttl      time.Duration
 	now      func() time.Time
 }
 
 // NewStorage returns a storage rooted at dir that accepts up to maxBytes per
-// media and expires every saved media after ttl.
+// media and expires every saved media after ttl. With objects nil the
+// storage serves a filesystem-only mode: objects are written under dir and
+// reads come from it — used by tests and deployments still mid-migration.
 func NewStorage(dir string, repo storage.MediaRepository, maxBytes int64, ttl time.Duration) *Storage {
 	return &Storage{dir: dir, repo: repo, maxBytes: maxBytes, ttl: ttl, now: time.Now}
 }
 
-// Save writes data under media/<instance_id>/<media_id>, records its metadata
-// and returns the stored row. Empty and over-limit content is rejected before
-// anything is written.
+// SetObjects points the storage at the configured object store. The bucket
+// the store reports becomes the bucket written on every new media row.
+func (s *Storage) SetObjects(objects Objects) {
+	s.objects = objects
+}
+
+// Objects returns the configured object store, or nil in filesystem mode.
+func (s *Storage) Objects() Objects {
+	return s.objects
+}
+
+// objectKey builds the stable remote key for a media id, identical to the
+// relative cache path under the data dir.
+func objectKey(instanceID, id uuid.UUID) string {
+	return filepath.Join("media", instanceID.String(), id.String())
+}
+
+// Save uploads data under media/<instance_id>/<media_id>, records its
+// metadata and returns the stored row. Empty and over-limit content is
+// rejected before anything is written; when the row cannot be created the
+// uploaded object is removed, so a failed save leaves nothing behind.
 func (s *Storage) Save(
 	ctx context.Context, instanceID uuid.UUID, direction, messageID, mimetype, filename string, data []byte,
 ) (*model.Media, error) {
@@ -125,88 +153,156 @@ func (s *Storage) Save(
 	}
 
 	id := uuid.New()
-	relPath := filepath.Join("media", instanceID.String(), id.String())
-	fullPath := filepath.Join(s.dir, relPath)
-	if err := writeMediaFile(fullPath, data); err != nil {
-		return nil, fmt.Errorf("save media: %w", err)
+	key := objectKey(instanceID, id)
+	bucket := ""
+
+	if s.objects != nil {
+		bucket = s.objects.Bucket()
+		if err := s.objects.Put(ctx, key, data, mimetype); err != nil {
+			return nil, fmt.Errorf("save media: %w", err)
+		}
+	} else {
+		if err := writeMediaFile(filepath.Join(s.dir, key), data); err != nil {
+			return nil, fmt.Errorf("save media: %w", err)
+		}
+		bucket = "local"
 	}
 
 	now := s.now()
 	sum := sha256.Sum256(data)
 	created, err := s.repo.Create(ctx, model.Media{
-		ID:          id,
-		InstanceID:  instanceID,
-		Direction:   direction,
-		MessageID:   messageID,
-		Mimetype:    mimetype,
-		Filename:    sanitizeFilename(filename),
-		SizeBytes:   int64(len(data)),
-		StoragePath: relPath,
-		SHA256:      hex.EncodeToString(sum[:]),
-		CreatedAt:   now,
-		ExpiresAt:   now.Add(s.ttl),
+		ID:         id,
+		InstanceID: instanceID,
+		Direction:  direction,
+		MessageID:  messageID,
+		Mimetype:   mimetype,
+		Filename:   sanitizeFilename(filename),
+		SizeBytes:  int64(len(data)),
+		Bucket:     bucket,
+		ObjectKey:  key,
+		SHA256:     hex.EncodeToString(sum[:]),
+		CreatedAt:  now,
+		ExpiresAt:  now.Add(s.ttl),
 	})
 	if err != nil {
-		// The row is the only reference to the file: drop the orphan.
-		_ = os.Remove(fullPath)
+		// The row is the only reference to the content: drop the orphan.
+		s.discardContent(ctx, model.Media{Bucket: bucket, ObjectKey: key})
 		return nil, fmt.Errorf("save media: %w", mapRepoError(err))
 	}
 	return created, nil
 }
 
 // Open returns the content of the media with the given id along with its
-// metadata. An unknown id reports ErrNotFound; a media whose TTL ended reports
-// ErrExpired; a row whose file is gone reports ErrNotFound.
+// metadata. An unknown id, an expired TTL, a confirmed-deleted object or a
+// missing object report ErrNotFound/ErrExpired.
 func (s *Storage) Open(ctx context.Context, id uuid.UUID) (io.ReadCloser, *model.Media, error) {
-	path, record, err := s.Path(ctx, id)
+	record, err := s.fetchable(ctx, id)
 	if err != nil {
 		return nil, nil, err
 	}
+	return s.openRecord(ctx, record)
+}
 
+// openRecord streams the content of an already validated record.
+func (s *Storage) openRecord(ctx context.Context, record *model.Media) (io.ReadCloser, *model.Media, error) {
+	if s.objects != nil {
+		body, err := s.objects.Get(ctx, record.ObjectKey)
+		if err != nil {
+			if errors.Is(err, ErrNotFound) {
+				return nil, nil, fmt.Errorf("open media %s: %w", record.ID, ErrNotFound)
+			}
+			return nil, nil, fmt.Errorf("open media %s: %w", record.ID, err)
+		}
+		return body, record, nil
+	}
+
+	path, err := s.path(record.ObjectKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("open media %s: %w", record.ID, err)
+	}
 	file, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return nil, nil, fmt.Errorf("open media %s: %w", id, ErrNotFound)
+			return nil, nil, fmt.Errorf("open media %s: %w", record.ID, ErrNotFound)
 		}
-		return nil, nil, fmt.Errorf("open media %s: %w", id, err)
+		return nil, nil, fmt.Errorf("open media %s: %w", record.ID, err)
 	}
 	return file, record, nil
 }
 
 // Path returns the absolute filesystem path of the media with the given id
-// along with its metadata, with the same presence, expiry and path-safety
-// checks as Open. It lets a consumer hand the file to something that reads it
-// directly instead of streaming it through this storage.
+// along with its metadata, materializing the object into the data-dir cache
+// when the storage is object-backed. It lets a consumer hand the file to
+// something that reads it directly (the whatsmeow session store) instead of
+// streaming it through this storage.
 //
-// TOCTOU note: the existence Stat below is a best-effort fast-fail only —
-// the file can still vanish before the consumer reads it. Callers must
-// handle that: Open maps a raced disappearance back to ErrNotFound, and the
-// media sender surfaces a session read failure that the outbox retries.
+// The cached file is disposable: it can be recreated from the object at any
+// time while the row is alive and unexpired. The expiry and deleted checks
+// match Open.
+//
+// TOCTOU note: the object can still vanish between this call and the
+// consumer's read; the media sender surfaces a session read failure that the
+// outbox retries.
 func (s *Storage) Path(ctx context.Context, id uuid.UUID) (string, *model.Media, error) {
-	record, err := s.repo.Get(ctx, id)
+	record, err := s.fetchable(ctx, id)
 	if err != nil {
-		return "", nil, fmt.Errorf("open media %s: %w", id, mapRepoError(err))
-	}
-	if !s.now().Before(record.ExpiresAt) {
-		return "", nil, fmt.Errorf("open media %s: %w", id, ErrExpired)
+		return "", nil, err
 	}
 
-	path, err := s.path(record.StoragePath)
+	cachePath, err := s.path(record.ObjectKey)
 	if err != nil {
 		return "", nil, fmt.Errorf("open media %s: %w", id, err)
 	}
-	if _, err := os.Stat(path); err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return "", nil, fmt.Errorf("open media %s: %w", id, ErrNotFound)
+
+	if s.objects == nil {
+		// Filesystem mode: the stored file is already the path.
+		if _, err := os.Stat(cachePath); err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return "", nil, fmt.Errorf("open media %s: %w", id, ErrNotFound)
+			}
+			return "", nil, fmt.Errorf("open media %s: %w", id, err)
 		}
+		return cachePath, record, nil
+	}
+
+	if _, err := os.Stat(cachePath); err == nil {
+		return cachePath, record, nil
+	}
+
+	body, rec, err := s.openRecord(ctx, record)
+	if err != nil {
+		return "", nil, err
+	}
+	defer body.Close()
+	data, err := io.ReadAll(body)
+	if err != nil {
 		return "", nil, fmt.Errorf("open media %s: %w", id, err)
 	}
-	return path, record, nil
+	if err := writeMediaFile(cachePath, data); err != nil {
+		return "", nil, fmt.Errorf("cache media %s: %w", id, err)
+	}
+	return cachePath, rec, nil
 }
 
-// DeleteByInstance removes every media of an instance, files first: when a
-// file cannot be removed its row is kept, so a retry can finish the job
-// instead of leaking the content.
+// fetchable returns the record when it exists, is unexpired and its object
+// is not confirmed deleted.
+func (s *Storage) fetchable(ctx context.Context, id uuid.UUID) (*model.Media, error) {
+	record, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("open media %s: %w", id, mapRepoError(err))
+	}
+	if record.ObjectDeletedAt != nil {
+		return nil, fmt.Errorf("open media %s: %w", id, ErrNotFound)
+	}
+	if !s.now().Before(record.ExpiresAt) {
+		return nil, fmt.Errorf("open media %s: %w", id, ErrExpired)
+	}
+	return record, nil
+}
+
+// DeleteByInstance removes every media of an instance: remote objects first,
+// then the rows, then the cache directory. When an object cannot be removed
+// its row is kept, so a retry can finish the job instead of leaking content.
 func (s *Storage) DeleteByInstance(ctx context.Context, instanceID uuid.UUID) error {
 	records, err := s.repo.ListByInstance(ctx, instanceID)
 	if err != nil {
@@ -215,29 +311,31 @@ func (s *Storage) DeleteByInstance(ctx context.Context, instanceID uuid.UUID) er
 
 	var failures []error
 	for _, record := range records {
-		if err := s.removeFile(record.StoragePath); err != nil {
+		if err := s.removeContent(ctx, record); err != nil {
 			failures = append(failures, err)
 		}
 	}
 	if err := errors.Join(failures...); err != nil {
-		return fmt.Errorf("delete instance media %s: remove files: %w", instanceID, err)
+		return fmt.Errorf("delete instance media %s: remove objects: %w", instanceID, err)
 	}
 
 	if _, err := s.repo.DeleteByInstance(ctx, instanceID); err != nil {
 		return fmt.Errorf("delete instance media %s: delete rows: %w", instanceID, err)
 	}
 
-	// Drop the instance directory, including empty parents, temp files left
-	// by a crash and any file no row referenced.
+	// Drop the instance cache directory, including empty parents and temp
+	// files left by a crash.
 	if err := os.RemoveAll(filepath.Join(s.dir, "media", instanceID.String())); err != nil {
 		return fmt.Errorf("delete instance media %s: remove directory: %w", instanceID, err)
 	}
 	return nil
 }
 
-// DeleteExpired removes the media whose expiry is due and returns how many
-// records were removed. A file that cannot be removed keeps its row, so a
-// later pass retries it.
+// DeleteExpired deletes the remote objects of expired media and marks each
+// row's object_deleted_at after the removal is confirmed, preserving the
+// metadata row. An already absent object counts as confirmed (remote delete
+// is idempotent); a failed deletion keeps the row unmarked so a later pass
+// retries. Returns how many rows were marked.
 func (s *Storage) DeleteExpired(ctx context.Context, now time.Time) (int, error) {
 	records, err := s.repo.ListExpired(ctx, now)
 	if err != nil {
@@ -247,14 +345,16 @@ func (s *Storage) DeleteExpired(ctx context.Context, now time.Time) (int, error)
 	removed := 0
 	var failures []error
 	for _, record := range records {
-		if err := s.removeFile(record.StoragePath); err != nil {
+		if err := s.removeContent(ctx, record); err != nil {
 			failures = append(failures, err)
 			continue
 		}
-		if err := s.repo.Delete(ctx, record.ID); err != nil && !errors.Is(err, storage.ErrNotFound) {
-			failures = append(failures, fmt.Errorf("delete media %s: %w", record.ID, err))
+		markedAt := s.now()
+		if err := s.repo.MarkObjectDeleted(ctx, record.ID, markedAt); err != nil && !errors.Is(err, storage.ErrNotFound) {
+			failures = append(failures, fmt.Errorf("mark media %s deleted: %w", record.ID, err))
 			continue
 		}
+		s.removeCacheFile(record.ObjectKey)
 		removed++
 	}
 	if err := errors.Join(failures...); err != nil {
@@ -263,19 +363,28 @@ func (s *Storage) DeleteExpired(ctx context.Context, now time.Time) (int, error)
 	return removed, nil
 }
 
-// path resolves a stored relative path, refusing one that escapes the data
-// dir. Paths come from our own rows, so an escaping value means corruption and
-// is reported as not found instead of touching the filesystem.
-func (s *Storage) path(rel string) (string, error) {
-	clean := filepath.Clean(rel)
-	if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
-		return "", ErrNotFound
+// discardContent removes an orphan object/file after a failed row create;
+// removal failures are best-effort here because nothing references it yet.
+func (s *Storage) discardContent(ctx context.Context, record model.Media) {
+	if err := s.removeContent(ctx, record); err != nil {
+		// Orphan object left behind; the object store's own lifecycle is the
+		// backstop and the caller already got the create error.
+		_ = err
 	}
-	return filepath.Join(s.dir, clean), nil
 }
 
-// removeFile drops one stored file. An already missing file is not an error.
-func (s *Storage) removeFile(rel string) error {
+// removeContent deletes the remote object (or, in filesystem mode, the
+// stored file). An already absent object is a confirmed removal.
+func (s *Storage) removeContent(ctx context.Context, record model.Media) error {
+	if s.objects != nil {
+		return s.objects.Delete(ctx, record.ObjectKey)
+	}
+	return s.removeCacheFile(record.ObjectKey)
+}
+
+// removeCacheFile drops one cached file under the data dir; a missing file
+// is not an error.
+func (s *Storage) removeCacheFile(rel string) error {
 	path, err := s.path(rel)
 	if err != nil {
 		return fmt.Errorf("remove media file %q: %w", rel, err)
@@ -284,6 +393,87 @@ func (s *Storage) removeFile(rel string) error {
 		return fmt.Errorf("remove media file %q: %w", rel, err)
 	}
 	return nil
+}
+
+// MigrateLocalFiles uploads every media whose local file exists under the
+// data dir and whose object is absent from the store, verifying the SHA-256
+// of the local content before accepting it. The local file stays in place:
+// it is the recovery path until the cutover is rehearsed and the cleanup
+// step of the deployment removes it. Returns the count of uploaded objects.
+// It is a no-op in filesystem mode (nothing to migrate).
+func (s *Storage) MigrateLocalFiles(ctx context.Context, onProgress func(done, total int)) (int, error) {
+	if s.objects == nil {
+		return 0, nil
+	}
+	instances, err := s.repo.ListInstancesWithMedia(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("media migration: list instances: %w", err)
+	}
+
+	var pending []model.Media
+	for _, instanceID := range instances {
+		records, err := s.repo.ListByInstance(ctx, instanceID)
+		if err != nil {
+			return 0, fmt.Errorf("media migration: list instance %s: %w", instanceID, err)
+		}
+		pending = append(pending, records...)
+	}
+
+	migrated := 0
+	var failures []error
+	for i, record := range pending {
+		if onProgress != nil {
+			onProgress(i, len(pending))
+		}
+		if record.ObjectDeletedAt != nil {
+			continue
+		}
+		localPath, err := s.path(record.ObjectKey)
+		if err != nil {
+			continue
+		}
+		data, err := os.ReadFile(localPath)
+		if err != nil {
+			// No local copy: either already migrated (file removed) or never
+			// stored locally. Nothing to do.
+			continue
+		}
+		if record.SHA256 != "" {
+			sum := sha256.Sum256(data)
+			if hex.EncodeToString(sum[:]) != record.SHA256 {
+				failures = append(failures, fmt.Errorf("media %s: local checksum mismatch, skipping", record.ID))
+				continue
+			}
+		}
+		exists, err := s.objects.Exists(ctx, record.ObjectKey)
+		if err != nil {
+			failures = append(failures, fmt.Errorf("media %s: %w", record.ID, err))
+			continue
+		}
+		if exists {
+			continue
+		}
+		if err := s.objects.Put(ctx, record.ObjectKey, data, record.Mimetype); err != nil {
+			failures = append(failures, fmt.Errorf("media %s: %w", record.ID, err))
+			continue
+		}
+		migrated++
+	}
+	if err := errors.Join(failures...); err != nil {
+		return migrated, fmt.Errorf("media migration: %w", err)
+	}
+	return migrated, nil
+}
+
+// path resolves an object key against the data dir, refusing one that
+// escapes it. Keys come from our own rows, so an escaping value means
+// corruption and is reported as not found instead of touching the disk.
+func (s *Storage) path(key string) (string, error) {
+	clean := filepath.Clean(key)
+	if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return "", ErrNotFound
+	}
+	return filepath.Join(s.dir, clean), nil
 }
 
 // writeMediaFile writes data at path atomically, so a crash never leaves a
@@ -317,7 +507,7 @@ func writeMediaFile(path string, data []byte) error {
 }
 
 // sanitizeFilename keeps only the base name so a hostile name cannot smuggle
-// a path into the metadata; the content path never uses it.
+// a path into the metadata; the object key never uses it.
 func sanitizeFilename(filename string) string {
 	name := strings.TrimSpace(filename)
 	if name == "" {

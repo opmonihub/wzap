@@ -73,7 +73,13 @@ inicialização com mensagem nomeando a variável.
 | `WZAP_PUBLIC_URL` | não | vazio | Base das URLs de download de mídia embutidas nos eventos (`media.url`). Sem ela a URL sai relativa (`/media/<id>`); na operação local use `http://127.0.0.1:8081`. |
 | `WZAP_NATS_STREAM` | não | `WZAP` | Nome do stream JetStream. O stream cobre `wzap.>`. |
 | `WZAP_EVENT_RETENTION_DAYS` | não | `7` | Retenção dos eventos no stream, em dias. |
-| `WZAP_DATA_DIR` | não | `/data` | Raiz dos arquivos de mídia (o volume `wzap-media` no compose). |
+| `WZAP_DATA_DIR` | não | `/data` | Raiz do cache local de mídia e do armazenamento legado em filesystem (modo sem `WZAP_S3_ENDPOINT`). |
+| `WZAP_S3_ENDPOINT` | não | vazio | Endpoint S3/MinIO (ex. `http://minio:9000`). Com ele configurado os bytes de mídia vivem no object store e o data dir vira cache descartável; sem ele o backend de filesystem permanece ativo (janela de migração). Exige `WZAP_S3_ACCESS_KEY` e `WZAP_S3_SECRET_KEY`. |
+| `WZAP_S3_BUCKET` | não | `wzap-media` | Bucket dos objetos de mídia, criado no boot quando ausente. |
+| `WZAP_S3_REGION` | não | `us-east-1` | Região declarada ao cliente S3. |
+| `WZAP_S3_ACCESS_KEY` | condicional | — | Access key do object store; obrigatória quando `WZAP_S3_ENDPOINT` está definido. |
+| `WZAP_S3_SECRET_KEY` | condicional | — | Secret key do object store; obrigatória quando `WZAP_S3_ENDPOINT` está definido. |
+| `WZAP_S3_USE_TLS` | não | `false` | Usa HTTPS quando o endpoint não traz scheme próprio. |
 | `WZAP_MEDIA_TTL_SECONDS` | não | `7200` | TTL da mídia armazenada, em segundos (2 h). |
 | `WZAP_MAX_MEDIA_BYTES` | não | `16777216` | Tamanho máximo de mídia recebida/enviada, em bytes (16 MiB). |
 | `WZAP_OUTBOX_WORKERS` | não | `4` | Goroutines de envio do outbox. |

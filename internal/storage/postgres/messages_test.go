@@ -135,13 +135,13 @@ func TestMessageRepositoryCreateWithMedia(t *testing.T) {
 	// The media reference is validated against a real row of the same
 	// instance — the remodel turned the bare uuid into a checked relation.
 	stored, err := media.Create(ctx, model.Media{
-		ID:          uuid.New(),
-		InstanceID:  instance.ID,
-		Direction:   "outbound",
-		Mimetype:    "image/jpeg",
-		StoragePath: "outbound/foto.jpg",
-		SizeBytes:   10,
-		SHA256:      strings.Repeat("a", 64),
+		ID:         uuid.New(),
+		InstanceID: instance.ID,
+		Direction:  "outbound",
+		Mimetype:   "image/jpeg",
+		ObjectKey:  "outbound/foto.jpg",
+		SizeBytes:  10,
+		SHA256:     strings.Repeat("a", 64),
 	})
 	if err != nil {
 		t.Fatalf("seed media: %v", err)
@@ -187,13 +187,13 @@ func TestMessageRepositoryCreateRejectsCrossInstanceMedia(t *testing.T) {
 	owner := createTestInstance(t, instances, "owner", "")
 	stranger := createTestInstance(t, instances, "stranger", "")
 	stored, err := media.Create(ctx, model.Media{
-		ID:          uuid.New(),
-		InstanceID:  owner.ID,
-		Direction:   "outbound",
-		Mimetype:    "image/jpeg",
-		StoragePath: "outbound/foto.jpg",
-		SizeBytes:   10,
-		SHA256:      strings.Repeat("b", 64),
+		ID:         uuid.New(),
+		InstanceID: owner.ID,
+		Direction:  "outbound",
+		Mimetype:   "image/jpeg",
+		ObjectKey:  "outbound/foto.jpg",
+		SizeBytes:  10,
+		SHA256:     strings.Repeat("b", 64),
 	})
 	if err != nil {
 		t.Fatalf("seed media: %v", err)
@@ -241,13 +241,13 @@ func TestMessageRepositoryCreateSharedMediaWithinInstance(t *testing.T) {
 	instance := createTestInstance(t, instances, "shared", "")
 
 	stored, err := media.Create(ctx, model.Media{
-		ID:          uuid.New(),
-		InstanceID:  instance.ID,
-		Direction:   "outbound",
-		Mimetype:    "image/jpeg",
-		StoragePath: "outbound/compartilhada.jpg",
-		SizeBytes:   10,
-		SHA256:      strings.Repeat("c", 64),
+		ID:         uuid.New(),
+		InstanceID: instance.ID,
+		Direction:  "outbound",
+		Mimetype:   "image/jpeg",
+		ObjectKey:  "outbound/compartilhada.jpg",
+		SizeBytes:  10,
+		SHA256:     strings.Repeat("c", 64),
 	})
 	if err != nil {
 		t.Fatalf("seed media: %v", err)

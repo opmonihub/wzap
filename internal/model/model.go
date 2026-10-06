@@ -124,21 +124,25 @@ type OutboundMessage struct {
 	UpdatedAt         time.Time
 }
 
-// Media is a stored media object. Its bytes live on the filesystem at
-// StoragePath, relative to the configured data dir; the row keeps the metadata
-// and the checksum of the content.
+// Media is a stored media object. Its bytes live in the object store at
+// (Bucket, ObjectKey); the row keeps the metadata and the checksum of the
+// content. ObjectDeletedAt marks the confirmed remote removal: a non-nil
+// value means the object is gone even if the row still exists.
 type Media struct {
-	ID          uuid.UUID
-	InstanceID  uuid.UUID
-	Direction   string
-	MessageID   string
-	Mimetype    string
-	Filename    string
-	SizeBytes   int64
-	StoragePath string
-	SHA256      string
-	CreatedAt   time.Time
-	ExpiresAt   time.Time
+	ID         uuid.UUID
+	InstanceID uuid.UUID
+	Direction  string
+	MessageID  string
+	Mimetype   string
+	Filename   string
+	SizeBytes  int64
+	Bucket     string
+	ObjectKey  string
+	SHA256     string
+	CreatedAt  time.Time
+	ExpiresAt  time.Time
+	// ObjectDeletedAt is set once the remote object removal is confirmed.
+	ObjectDeletedAt *time.Time
 }
 
 // IdempotencyRecord is the stored outcome of a request accepted under an

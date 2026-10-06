@@ -365,7 +365,7 @@ func (h *Handler) handleOutgoing(ctx context.Context, instanceID uuid.UUID, cfg 
 	text := h.signedText(cfg, msg)
 	if len(msg.Attachments) > 0 {
 		enqueued := 0
-		for i, att := range msg.Attachments {
+		for _, att := range msg.Attachments {
 			if strings.TrimSpace(att.DataURL) == "" {
 				continue
 			}
@@ -379,7 +379,10 @@ func (h *Handler) handleOutgoing(ctx context.Context, instanceID uuid.UUID, cfg 
 			if filename == "" {
 				filename = "attachment"
 			}
-			stored, err := h.media.Save(ctx, instanceID, mediaDirectionOutbound, fmt.Sprintf("chatwoot-%d-%d", msg.ID, i), mime, filename, data)
+			// Attachments leave the wa_id empty: the legacy chatwoot-{id}-{idx}
+			// marker was a local correlation hint, not a WhatsApp message id,
+			// and the remodeled media.wa_id carries real WA ids only.
+			stored, err := h.media.Save(ctx, instanceID, mediaDirectionOutbound, "", mime, filename, data)
 			if err != nil {
 				h.log.Warn().Str("instance_id", instanceID.String()).Err(err).Msg("attachment store failed")
 				h.postPrivateNote(ctx, cfg, conversationIDOf(payload), fmt.Sprintf("Falha ao armazenar anexo: %v", err))

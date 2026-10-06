@@ -33,6 +33,20 @@ type Config struct {
 	LogFormat          string
 	AutoMigrate        bool
 	Chatwoot           Chatwoot
+	S3                 S3
+}
+
+// S3 holds the WZAP_S3_* object-store settings. Endpoint empty means the
+// object backend is disabled and media falls back to the data dir (the
+// mid-migration filesystem mode); the Compose environment always sets it.
+// When Endpoint is set, AccessKey and SecretKey are required.
+type S3 struct {
+	Endpoint  string
+	Bucket    string
+	Region    string
+	AccessKey string
+	SecretKey string
+	UseTLS    bool
 }
 
 // Chatwoot holds the global Chatwoot connector switches. BotContact is the
@@ -63,6 +77,8 @@ const (
 	defaultLogLevel           = "info"
 	defaultLogFormat          = "json"
 	defaultAutoMigrate        = true
+	defaultS3Bucket           = "wzap-media"
+	defaultS3Region           = "us-east-1"
 	// minJWTSecretLength is the minimum HMAC key size for manager session
 	// tokens: 32 characters (256 bits), the floor for HS256.
 	minJWTSecretLength = 32
@@ -125,6 +141,21 @@ func Load() (Config, error) {
 		raw, err := base64.StdEncoding.DecodeString(cfg.Chatwoot.TokenKey)
 		if err != nil || len(raw) != 32 {
 			problems = append(problems, "WZAP_CHATWOOT_TOKEN_KEY must be base64-encoded 32 bytes")
+		}
+	}
+
+	cfg.S3.Endpoint = os.Getenv("WZAP_S3_ENDPOINT")
+	cfg.S3.Bucket = envOrDefault("WZAP_S3_BUCKET", defaultS3Bucket)
+	cfg.S3.Region = envOrDefault("WZAP_S3_REGION", defaultS3Region)
+	cfg.S3.AccessKey = os.Getenv("WZAP_S3_ACCESS_KEY")
+	cfg.S3.SecretKey = os.Getenv("WZAP_S3_SECRET_KEY")
+	cfg.S3.UseTLS = boolValue("WZAP_S3_USE_TLS", false, &problems)
+	if cfg.S3.Endpoint != "" {
+		if cfg.S3.AccessKey == "" {
+			problems = append(problems, "WZAP_S3_ACCESS_KEY is required when WZAP_S3_ENDPOINT is set")
+		}
+		if cfg.S3.SecretKey == "" {
+			problems = append(problems, "WZAP_S3_SECRET_KEY is required when WZAP_S3_ENDPOINT is set")
 		}
 	}
 

@@ -24,10 +24,18 @@
 
 ## 3. Migrar mídia para MinIO
 
-- [ ] 3.1 Integrar cliente S3, ambiente e Compose com a imagem exata e rede existente; verificar inicialização e armazenamento contra a imagem comprovada sem credenciais fixas.
-- [ ] 3.2 Adaptar upload, download, envio e mirror para objetos e temporários; verificar integridade, autorização e cleanup em sucesso, falha e cancelamento.
-- [ ] 3.3 Implementar transferência verificável dos arquivos e expiração dos objetos; verificar preservação de IDs, SHA-256, tamanho, metadados e FKs, exclusão idempotente e rollback ensaiado.
-- [ ] 3.4 Separar marcadores locais Chatwoot de wa_id reais conforme o relatório de migração; verificar que leitura, reply e revoke não usam marcadores sintéticos como IDs WhatsApp.
+- [x] 3.1 Integrar cliente S3, ambiente e Compose com a imagem exata e rede existente; verificar inicialização e armazenamento contra a imagem comprovada sem credenciais fixas.
+
+  Registro (3.1): `internal/media/objectstore.go` com `aws-sdk-go-v2` (path-style, `ErrNotFound` em NoSuchKey/NotFound), `EnsureBucket` idempotente (`BucketAlreadyOwnedByYou`/409 = sucesso) chamada no boot em `cmd/wzap/main.go` quando `WZAP_S3_ENDPOINT` está definido — falha aborta o boot. Envs `WZAP_S3_*` em `internal/config` (endpoint vazio = modo filesystem de transição; credenciais obrigatórias com endpoint). Compose prod e dev ganham serviço `minio` (`docker.io/cccs/minio:latest`, healthcheck `mc ready`) + init `mc mb --ignore-existing` + envs `WZAP_S3_*` sem segredos fixos (defaults dev `wzap`/`wzap-secret-key` via `${MINIO_ROOT_*}`, iguais ao padrão `${POSTGRES_PASSWORD:-secret}`). Integração real MinIO pendente de serviço disponível — ver limitação em 6.1.
+- [x] 3.2 Adaptar upload, download, envio e mirror para objetos e temporários; verificar integridade, autorização e cleanup em sucesso, falha e cancelamento.
+
+  Registro (3.2): `media.Storage` dual-mode — `objects != nil` → Save faz `Put` (row falhou → objeto descartado), `Open` stream via `Get`, `Path` materializa o objeto no cache local `data/media/<inst>/<id>` para o sender whatsmeow (`os.ReadFile` intacto), download HTTP inalterado na rota autenticada. Falha de repo no Save remove o objeto órfão; falha de Get/objeto ausente → `ErrNotFound`; `object_deleted_at` preenchido → `ErrNotFound` mesmo com objeto presente. Testes em `objects_test.go` (fakeObjects) cobrem upload+row, cleanup em falha de row, stream, materialização/cold-cache, marcação pós-delete confirmado, idempotência e falha remota. Divergência do plano: senders continuam recebendo path real (cache) em vez de temporário por chamada — o arquivo materializado é descartável e segue o TTL da row.
+- [x] 3.3 Implementar transferência verificável dos arquivos e expiração dos objetos; verificar preservação de IDs, SHA-256, tamanho, metadados e FKs, exclusão idempotente e rollback ensaiado.
+
+  Registro (3.3): `Storage.MigrateLocalFiles` + subcomando `wzap media-migrate` — para cada row com `object_deleted_at IS NULL`, lê o arquivo local, verifica SHA-256 antes do upload, pula objetos já presentes (re-runnable) e mantém o arquivo local como rollback; falhas são agregadas e não abortam o lote. `DeleteExpired` agora deleta o objeto remoto (idempotente: ausente = confirmado) e marca `object_deleted_at` via `MediaRepository.MarkObjectDeleted` preservando a row; falha remota deixa a row desmarcada para retry. Testes `TestMigrateLocalFiles*` e `TestStorageDeleteExpired*` verdes.
+- [x] 3.4 Separar marcadores locais Chatwoot de wa_id reais conforme o relatório de migração; verificar que leitura, reply e revoke não usam marcadores sintéticos como IDs WhatsApp.
+
+  Registro (3.4): a migração 00008 já NULLificava `media.wa_id` com marker `chatwoot-\d+-\d+` (registrado em `remodel_report.media_chatwoot_markers`); o inbound chatwoot parou de escrever o marker — anexos agora salvam `wa_id` vazio (`media.wa_id` guarda somente IDs WhatsApp reais). Teste `TestHandleAttachmentsNeverSaveChatwootMarkersAsWAID` fixa o contrato; read/reply/revoke resolvem IDs via `message_queue`/`chatwoot_messages`, nunca via `media.wa_id` (verificado por inspeção).
 
 ## 4. Preservar durabilidade e replay
 

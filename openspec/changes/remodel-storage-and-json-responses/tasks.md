@@ -39,10 +39,18 @@
 
 ## 4. Preservar durabilidade e replay
 
-- [ ] 4.1 Alterar o relay para remover somente eventos confirmados pelo JetStream; verificar indisponibilidade, reinício e falha de exclusão após PubAck com o mesmo UUID.
-- [ ] 4.2 Capturar os erros estruturados nas quatro tabelas; verificar last_error público nulo ou estruturado, legado sem data inventada e fixtures de eventos v1 inalteradas.
-- [ ] 4.3 Registrar os UUIDs de saídas Chatwoot conforme a política fechada em 1.1; verificar janela pré-WA ID, múltiplos anexos, falhas parciais e deduplicação de mirror/import.
-- [ ] 4.4 Converter respostas legadas de idempotência sem repetir efeitos; verificar autorização, fingerprint, status HTTP, UUID, chave entregue uma vez e política segura para corpos não conversíveis.
+- [x] 4.1 Alterar o relay para remover somente eventos confirmados pelo JetStream; verificar indisponibilidade, reinício e falha de exclusão após PubAck com o mesmo UUID.
+
+  Registro (4.1): a semântica pending-only já estava no repo (2.2): `MarkPublished` deleta a row logo após o `js.Publish` síncrono (retorno = PubAck). `DeletePublishedBefore` é no-op documentado (nada a varrer). Novo `TestRelayPublishNowDeleteFailureRepublishesSameUUID` prova a janela PubAck→falha de delete→restart: a row fica pending e repete com o mesmo `event_id`/`Nats-Msg-Id` (dedup do JetStream cobre a republicação). Indisponibilidade/retomada já cobertas por `TestRelayRunRetriesFailedEventsWithBackoff`/`TestRelayRunWaitsForStreamBeforeClaiming`. Integração NATS real pendente de `WZAP_TEST_NATS_URL` — ver 6.1.
+- [x] 4.2 Capturar os erros estruturados nas quatro tabelas; verificar last_error público nulo ou estruturado, legado sem data inventada e fixtures de eventos v1 inalteradas.
+
+  Registro (4.2): as 4 tabelas (`instance_connections`, `message_queue`, `event_outbox`, `webhook_dead_letters`) gravam `last_error_code/message/at` conforme o catálogo fechado (`send_failed`, `send_retry`, `publish_failed`, `delivery_failed`, `session_rejected`, `legacy_error`); o backfill 00008 marca `legacy_error` com `last_error_at` NULL — nunca data inventada. `model.InstanceError` (code/message/At) alimenta `LastErrorCode()`/`LastErrorMessage()`; o `last_error` público estruturado é cortado na task 5.1 (DTO hoje expõe só a mensagem, compatível com a regra "nulo ou estruturado" do contrato atual). `NeedsFreshPairing` mantém o fallback de substring para `legacy_error`/NULL.
+- [x] 4.3 Registrar os UUIDs de saídas Chatwoot conforme a política fechada em 1.1; verificar janela pré-WA ID, múltiplos anexos, falhas parciais e deduplicação de mirror/import.
+
+  Registro (4.3): inbound webhook agora captura o UUID de `Enqueue` e grava `chatwoot_messages` com `wa_key='pending:{uuid}'` + `message_id` FK (anexos múltiplos → uma pending por row de fila, compartilhando `cw_id`); falha no Put é log+continua (a correlação é evidência, nunca gate do envio). Mirror worker decodifica `message.status`: `sent` com `whatsapp_id` chama `PromotePending` que reescreve a `wa_key` para o WA id real — conflito UNIQUE (mirror/import ganhou primeiro) derruba a pending e reporta sucesso (replay seguro). Postgres: `TestChatwootPromotePendingRewritesWAKey` + `TestChatwootPromotePendingConflictKeepsRealKey` verdes; unitários inbound (`TestHandleOutgoingRegistersPending*`) e mirror (`TestHandleMessageStatusPromotesPendingCorrelation`) verdes.
+- [x] 4.4 Converter respostas legadas de idempotência sem repetir efeitos; verificar autorização, fingerprint, status HTTP, UUID, chave entregue uma vez e política segura para corpos não conversíveis.
+
+  Registro (4.4): `replay` valida o corpo antes de servir — só `{"data":...}` ou `{"error":{"code","message"}}` parseáveis são reexecutáveis; corpo vazio/truncado/não-envelope responde **410 Gone** `idempotency_response_expired` (efeito nunca reexecuta, corpo cru legado nunca ressurge, a chave não é liberada — o caller decide). `TestIdempotencyUnconvertibleReplayAnswers410` cobre 7 formas não conversíveis + `TestIdempotencyReplayAcceptsBothEnvelopes` os dois envelopes válidos. Autorização/fingerprint/UUID-in-response permanecem na ordem já testada (acquire antes do replay, fingerprint 422, X-Idempotent-Replay).
 
 ## 5. Atualizar contrato HTTP e consumidores
 

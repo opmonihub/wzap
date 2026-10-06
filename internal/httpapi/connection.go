@@ -225,11 +225,10 @@ func handleDisconnectInstance(instances InstanceService, log zerolog.Logger) htt
 // newConnectResponse maps a pairing result to its JSON representation: the
 // connection block with the QR fields while pairing.
 func newConnectResponse(result instance.ConnectResult) connectResponse {
-	return connectResponse{
-		Connection: pairingConnection{
-			Status:      string(result.Status),
-			QRCode:      result.QRCode,
-			QRExpiresAt: result.QRExpiresAt,
-		},
+	response := connectResponse{Connection: pairingConnection{Status: string(result.Status)}}
+	if result.Status == "pairing" {
+		response.Connection.QRCode = result.QRCode
+		response.Connection.QRExpiresAt = result.QRExpiresAt
 	}
+	return response
 }

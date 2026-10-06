@@ -285,7 +285,6 @@ func TestUsersPatchQuotaInvalid(t *testing.T) {
 		"string":       `{"instance_limit":"many"}`,
 		"float":        `{"instance_limit":1.5}`,
 		"bool":         `{"instance_limit":true}`,
-		"null":         `{"instance_limit":null}`,
 		"missing":      `{}`,
 		"empty object": `{"other":1}`,
 	}

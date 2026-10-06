@@ -337,11 +337,10 @@ func isForeignKeyViolation(err error) bool {
 	return errors.As(err, &pgErr) && pgErr.Code == "23503"
 }
 
-// patchQuotaRequest is the PATCH /users/{id} payload. The limit arrives as a
-// raw message so a non-integer value (string, float, boolean, null) can be
-// rejected with 422 instead of the generic 400 of a body decoding failure.
+// patchQuotaRequest distinguishes an omitted limit from an explicit null,
+// which clears the limit to unlimited. Other non-integer values answer 422.
 type patchQuotaRequest struct {
-	InstanceLimit *json.RawMessage `json:"instance_limit" swaggertype:"integer" minimum:"0"`
+	InstanceLimit optionalQuota `json:"instance_limit" swaggertype:"integer" minimum:"0"`
 }
 
 // handleUpdateUserQuota edits the per-user instance quota and answers 200
@@ -386,12 +385,12 @@ func handleUpdateUserQuota(users storage.UserRepository, keys storage.APIKeyRepo
 			writeJSONBodyError(w, r, err)
 			return
 		}
-		if request.InstanceLimit == nil {
+		if !request.InstanceLimit.Present {
 			Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "invalid instance_limit")
 			return
 		}
 		var limit *int
-		if err := json.Unmarshal(*request.InstanceLimit, &limit); err != nil || limit == nil || *limit < 0 {
+		if err := json.Unmarshal(request.InstanceLimit.Raw, &limit); err != nil || (limit != nil && *limit < 0) {
 			Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "invalid instance_limit")
 			return
 		}
@@ -400,7 +399,11 @@ func handleUpdateUserQuota(users storage.UserRepository, keys storage.APIKeyRepo
 			Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
 			return
 		}
-		if err := users.UpdateQuota(r.Context(), id, *limit); err != nil {
+		quota := 0
+		if limit != nil {
+			quota = *limit
+		}
+		if err := users.UpdateQuota(r.Context(), id, quota); err != nil {
 			if errors.Is(err, storage.ErrNotFound) {
 				Error(w, r, http.StatusNotFound, "not_found", "user not found")
 				return

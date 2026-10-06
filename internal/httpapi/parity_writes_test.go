@@ -76,7 +76,7 @@ func TestDisappearingRejectsBadDuration(t *testing.T) {
 }
 
 func TestSetDisappearing(t *testing.T) {
-	t.Run("24h answers the timer", func(t *testing.T) {
+	t.Run("24h acknowledges the updated timer", func(t *testing.T) {
 		id := uuid.New()
 		svc := &fakeInstanceService{}
 		rec := serveJSON(t, parityWritesServer(t, svc), http.MethodPut,
@@ -87,18 +87,18 @@ func TestSetDisappearing(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data disappearingResponse `json:"data"`
+			Data disappearingUpdatedResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if !payload.Data.Found || payload.Data.DurationSeconds != 86400 {
-			t.Errorf("data = %+v, want found with 86400s", payload.Data)
+		if !payload.Data.Updated {
+			t.Errorf("data = %+v, want updated", payload.Data)
 		}
 		if len(svc.setDisappearingTimerCalls) != 1 {
 			t.Fatalf("SetDisappearingTimer calls = %d, want 1", len(svc.setDisappearingTimerCalls))
 		}
 	})
 
-	t.Run("default answers the duration", func(t *testing.T) {
+	t.Run("default acknowledges the updated timer", func(t *testing.T) {
 		svc := &fakeInstanceService{}
 		rec := serveJSON(t, parityWritesServer(t, svc), http.MethodPut,
 			"/instances/"+uuid.NewString()+"/chats/default-disappearing",

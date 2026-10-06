@@ -190,7 +190,8 @@ func replay(w http.ResponseWriter, r *http.Request, record *model.IdempotencyRec
 	if status == 0 {
 		status = http.StatusOK
 	}
-	if !convertibleBody(record.ResponseBody) {
+	body, ok := convertReplayBody(r, record.ResponseBody)
+	if !ok {
 		Error(w, r, http.StatusGone, "idempotency_response_expired",
 			"cached response predates the current contract; retry without the idempotency key or with a new one")
 		return
@@ -198,7 +199,76 @@ func replay(w http.ResponseWriter, r *http.Request, record *model.IdempotencyRec
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set(idempotentReplayHeader, "true")
 	w.WriteHeader(status)
-	_, _ = w.Write(record.ResponseBody)
+	_, _ = w.Write(body)
+}
+
+// convertReplayBody upgrades only operations whose cached success shape changed.
+// Status publishing and edits return upstream IDs, so they must never be mapped
+// as queue messages. Conversion uses the stored result, without fetching a
+// resource whose state may have changed or repeating the original operation.
+func convertReplayBody(r *http.Request, body []byte) ([]byte, bool) {
+	if !convertibleBody(body) {
+		return nil, false
+	}
+	var stored struct {
+		Data  json.RawMessage `json:"data"`
+		Error json.RawMessage `json:"error"`
+	}
+	if err := json.Unmarshal(body, &stored); err != nil {
+		return nil, false
+	}
+	if len(stored.Error) > 0 {
+		return body, true
+	}
+	// URL may still contain the authorized instance name; PathValue carries
+	// its resolved UUID. Split on the route segment rather than the UUID.
+	parts := strings.SplitN(r.URL.Path, "/", 4)
+	if r.Method != http.MethodPost || len(parts) != 4 || parts[1] != "instances" {
+		return body, true
+	}
+	switch parts[3] {
+	case "messages", "messages/text", "messages/location", "messages/contact", "messages/media":
+		var data struct {
+			Message   *messageResponse `json:"message"`
+			MessageID string           `json:"message_id"`
+			Status    string           `json:"status"`
+		}
+		if err := json.Unmarshal(stored.Data, &data); err != nil {
+			return nil, false
+		}
+		if data.Message != nil {
+			if _, err := uuid.Parse(data.Message.ID); err != nil || data.Message.SendStatus != "queued" {
+				return nil, false
+			}
+			return body, true
+		}
+		id, err := uuid.Parse(data.MessageID)
+		if err != nil || data.Status != "queued" {
+			return nil, false
+		}
+		instanceID, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			return nil, false
+		}
+		converted, err := json.Marshal(envelope{Data: newMessageAcceptedResponse(id, instanceID)})
+		return converted, err == nil
+	case "newsletters":
+		var data map[string]json.RawMessage
+		if err := json.Unmarshal(stored.Data, &data); err != nil {
+			return nil, false
+		}
+		var channel newsletterResponse
+		if err := json.Unmarshal(data["channel"], &channel); err == nil && channel.Channel != "" {
+			return body, true
+		}
+		if err := json.Unmarshal(stored.Data, &channel); err != nil || channel.Channel == "" {
+			return nil, false
+		}
+		converted, err := json.Marshal(envelope{Data: channelEnvelope{Channel: channel}})
+		return converted, err == nil
+	default:
+		return body, true
+	}
 }
 
 // convertibleBody reports whether a stored response body is safe to replay:

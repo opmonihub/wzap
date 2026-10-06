@@ -26,6 +26,12 @@ type disappearingRequest struct {
 	Duration string `json:"duration"`
 }
 
+// disappearingUpdatedResponse acknowledges a timer command. Reading the
+// applied duration remains the responsibility of the disappearing GET route.
+type disappearingUpdatedResponse struct {
+	Updated bool `json:"updated"`
+}
+
 // subscribePresenceResponse answers a single presence subscription signal.
 type subscribePresenceResponse struct {
 	Subscribed bool `json:"subscribed"`
@@ -150,7 +156,7 @@ func handleUpdateBlocklist(instances InstanceService, log zerolog.Logger) http.H
 }
 
 // handleSetDisappearing sets the disappearing timer of a chat and answers 200
-// with the applied timer. A duration outside the 0/24h/168h/2160h allowlist
+// with the command acknowledgement. A duration outside the 0/24h/168h/2160h allowlist
 // answers 422 before the session is touched.
 //
 // @Summary Set the disappearing timer of a chat
@@ -161,7 +167,7 @@ func handleUpdateBlocklist(instances InstanceService, log zerolog.Logger) http.H
 // @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param chat path string true "Chat JID"
 // @Param request body disappearingRequest true "Timer payload, one of 0, 24h, 168h, 2160h"
-// @Success 200 {object} envelope{data=disappearingResponse} "Applied timer, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=disappearingUpdatedResponse} "Timer updated, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -200,16 +206,12 @@ func handleSetDisappearing(instances InstanceService, log zerolog.Logger) http.H
 			writeInstanceError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusOK, disappearingResponse{
-			Chat:            chat,
-			DurationSeconds: int64(duration / time.Second),
-			Found:           true,
-		})
+		JSON(w, r, http.StatusOK, disappearingUpdatedResponse{Updated: true})
 	}
 }
 
 // handleSetDefaultDisappearing sets the default disappearing timer for new
-// chats and answers 200 with the applied duration. A duration outside the
+// chats and answers 200 with the command acknowledgement. A duration outside the
 // 0/24h/168h/2160h allowlist answers 422 before the session is touched.
 //
 // @Summary Set the default disappearing timer
@@ -219,7 +221,7 @@ func handleSetDisappearing(instances InstanceService, log zerolog.Logger) http.H
 // @Security apikey
 // @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body disappearingRequest true "Timer payload, one of 0, 24h, 168h, 2160h"
-// @Success 200 {object} envelope{data=disappearingResponse} "Applied duration, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=disappearingUpdatedResponse} "Default timer updated, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -253,10 +255,7 @@ func handleSetDefaultDisappearing(instances InstanceService, log zerolog.Logger)
 			writeInstanceError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusOK, disappearingResponse{
-			DurationSeconds: int64(duration / time.Second),
-			Found:           true,
-		})
+		JSON(w, r, http.StatusOK, disappearingUpdatedResponse{Updated: true})
 	}
 }
 

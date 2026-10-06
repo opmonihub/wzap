@@ -155,7 +155,8 @@ func serveIdempotency(repo storage.IdempotencyRepository, next http.Handler, req
 func countingHandler(calls *int, status int, body string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		*calls++
-		JSON(w, r, status, map[string]string{"message_id": body})
+		id, _ := uuid.Parse(r.PathValue("id"))
+		JSON(w, r, status, newMessageAcceptedResponse(uuid.NewSHA1(uuid.Nil, []byte(body)), id))
 	})
 }
 
@@ -979,7 +980,7 @@ func TestIdempotencyReplayAcceptsBothEnvelopes(t *testing.T) {
 	}
 
 	for _, body := range [][]byte{
-		[]byte(`{"data":{"message_id":"m1"}}`),
+		[]byte(`{"data":{"message":{"id":"22222222-2222-4222-8222-222222222222","send_status":"queued"}}}`),
 		[]byte(`{"error":{"code":"upstream_error","message":"wa down"}}`),
 	} {
 		repo := newFakeIdempotency()

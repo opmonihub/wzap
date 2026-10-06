@@ -64,13 +64,13 @@ func (f *fakeObjects) drop(bucket, key string) {
 
 func (f *fakeObjects) EnsureBucket(context.Context) error { return nil }
 
-func (f *fakeObjects) Put(_ context.Context, key string, data []byte, _ string) error {
+func (f *fakeObjects) Put(_ context.Context, bucket, key string, data []byte, _ string) error {
 	if f.putErr != nil {
 		return f.putErr
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.data[f.fullKey("", key)] = append([]byte(nil), data...)
+	f.data[f.fullKey(bucket, key)] = append([]byte(nil), data...)
 	return nil
 }
 
@@ -611,6 +611,132 @@ func TestMigrateLocalFilesUploadsMissingObjectsWithChecksum(t *testing.T) {
 	// The local file is the recovery path and survives the migration.
 	if _, err := os.Stat(filepath.Join(dir, legacy.ObjectKey)); err != nil {
 		t.Errorf("local file removed by migration: %v", err)
+	}
+}
+
+// TestMigrateLocalFilesUploadsIntoRowBucket pins the bucket consistency of
+// the migration: the upload lands in the bucket recorded on the row (the row
+// is the metadata authority, like every other store call), never in the
+// currently configured one. A filesystem-era row (bucket "local") migrated
+// under a different WZAP_S3_BUCKET must end up reachable through the same
+// bucket that Get/Delete later target — uploading elsewhere orphans the
+// object while every read and delete keeps probing the row bucket. Get and
+// Delete through the storage must resolve that same bucket.
+func TestMigrateLocalFilesUploadsIntoRowBucket(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo := newFakeMediaRepo()
+	objects := newFakeObjects()
+	store := NewStorage(dir, repo, 1<<20, time.Hour)
+	store.SetObjects(objects)
+	instanceID := uuid.New()
+
+	// Filesystem-era row: file on disk, bucket "local" ≠ configured
+	// "wzap-media", object absent from every bucket.
+	content := []byte("legacy bytes")
+	sum := sha256.Sum256(content)
+	legacy := model.Media{
+		ID:         uuid.New(),
+		InstanceID: instanceID,
+		Direction:  "inbound",
+		Mimetype:   "image/png",
+		SizeBytes:  int64(len(content)),
+		Bucket:     "local",
+		ObjectKey:  filepath.Join("media", instanceID.String(), "legacy-row-bucket"),
+		SHA256:     hex.EncodeToString(sum[:]),
+		ExpiresAt:  time.Now().Add(time.Hour),
+	}
+	if _, err := repo.Create(ctx, legacy); err != nil {
+		t.Fatalf("seed legacy: %v", err)
+	}
+	seedFile(t, dir, legacy.ObjectKey, content)
+
+	migrated, err := store.MigrateLocalFiles(ctx, nil)
+	if err != nil {
+		t.Fatalf("MigrateLocalFiles: %v", err)
+	}
+	if migrated != 1 {
+		t.Errorf("migrated = %d, want 1", migrated)
+	}
+	if !objects.hasIn("local", legacy.ObjectKey) {
+		t.Error("upload did not land in the row bucket 'local'")
+	}
+	if objects.hasIn("", legacy.ObjectKey) {
+		t.Error("upload leaked into the configured bucket")
+	}
+
+	// Get resolves the row bucket: Open serves the migrated object.
+	rc, _, err := store.Open(ctx, legacy.ID)
+	if err != nil {
+		t.Fatalf("Open after migration: %v", err)
+	}
+	got, _ := io.ReadAll(rc)
+	rc.Close()
+	if string(got) != string(content) {
+		t.Errorf("Open content = %q, want %q", got, content)
+	}
+
+	// Delete resolves the row bucket: the expiry sweep removes the object
+	// from 'local' and never issues a delete against the configured bucket.
+	expired := repo.records[legacy.ID]
+	expired.ExpiresAt = time.Now().Add(-time.Minute)
+	repo.records[legacy.ID] = expired
+	if removed, err := store.DeleteExpired(ctx, time.Now()); err != nil || removed != 1 {
+		t.Fatalf("DeleteExpired = (%d, %v), want (1, nil)", removed, err)
+	}
+	if objects.hasIn("local", legacy.ObjectKey) {
+		t.Error("object still present in the row bucket after DeleteExpired")
+	}
+	if !objects.deletedFrom("local", legacy.ObjectKey) {
+		t.Error("delete did not target the row bucket 'local'")
+	}
+	if objects.deletedFrom("", legacy.ObjectKey) {
+		t.Error("a delete was issued against the configured bucket for the row-bucket key")
+	}
+}
+
+// TestMigrateLocalFilesSkipsWhenRowBucketAlreadyHasObject pins the Exists
+// probe of the migration to the row bucket: an object already uploaded to
+// the bucket recorded on the row is recognized (no re-upload), and nothing
+// is ever written to the configured bucket for that row.
+func TestMigrateLocalFilesSkipsWhenRowBucketAlreadyHasObject(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo := newFakeMediaRepo()
+	objects := newFakeObjects()
+	store := NewStorage(dir, repo, 1<<20, time.Hour)
+	store.SetObjects(objects)
+	instanceID := uuid.New()
+
+	content := []byte("already there")
+	sum := sha256.Sum256(content)
+	legacy := model.Media{
+		ID:         uuid.New(),
+		InstanceID: instanceID,
+		Direction:  "inbound",
+		Mimetype:   "image/png",
+		SizeBytes:  int64(len(content)),
+		Bucket:     "local",
+		ObjectKey:  filepath.Join("media", instanceID.String(), "already-migrated"),
+		SHA256:     hex.EncodeToString(sum[:]),
+		ExpiresAt:  time.Now().Add(time.Hour),
+	}
+	if _, err := repo.Create(ctx, legacy); err != nil {
+		t.Fatalf("seed legacy: %v", err)
+	}
+	seedFile(t, dir, legacy.ObjectKey, content)
+	// The object already lives in the row bucket.
+	objects.seed("local", legacy.ObjectKey, content)
+
+	migrated, err := store.MigrateLocalFiles(ctx, nil)
+	if err != nil {
+		t.Fatalf("MigrateLocalFiles: %v", err)
+	}
+	if migrated != 0 {
+		t.Errorf("migrated = %d, want 0 (object already present in the row bucket)", migrated)
+	}
+	if objects.hasIn("", legacy.ObjectKey) {
+		t.Error("configured bucket received a write for a row-bucket key")
 	}
 }
 

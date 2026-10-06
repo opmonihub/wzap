@@ -54,7 +54,7 @@ func TestObjectStoreS3Integration(t *testing.T) {
 
 	key := "test/" + uuid.NewString() + ".bin"
 	payload := []byte("wzap integration payload \x00\x01\x02")
-	if err := store.Put(ctx, key, payload, "application/octet-stream"); err != nil {
+	if err := store.Put(ctx, "", key, payload, "application/octet-stream"); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
 	t.Cleanup(func() {

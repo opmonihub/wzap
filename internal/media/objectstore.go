@@ -30,8 +30,9 @@ type Objects interface {
 	// EnsureBucket creates the bucket when absent; an existing bucket is a
 	// success and any other failure must abort the boot.
 	EnsureBucket(ctx context.Context) error
-	// Put uploads data under objectKey, overwriting any previous object.
-	Put(ctx context.Context, objectKey string, data []byte, mimeType string) error
+	// Put uploads data into bucket under objectKey, overwriting any previous
+	// object.
+	Put(ctx context.Context, bucket, objectKey string, data []byte, mimeType string) error
 	// Get streams the object from bucket; a missing key wraps ErrNotFound.
 	Get(ctx context.Context, bucket, objectKey string) (io.ReadCloser, error)
 	// Delete removes the object from bucket; deleting an absent key is a
@@ -110,11 +111,13 @@ func (s *ObjectStore) EnsureBucket(ctx context.Context) error {
 	return fmt.Errorf("ensure media bucket %q: %w", s.bucket, err)
 }
 
-// Put uploads data under objectKey. A re-put overwrites the object, which is
-// safe because object keys embed a fresh media UUID.
-func (s *ObjectStore) Put(ctx context.Context, objectKey string, data []byte, mimeType string) error {
+// Put uploads data into bucket under objectKey. A re-put overwrites the
+// object, which is safe because object keys embed a fresh media UUID. The
+// bucket follows the same rule as Get/Delete/Exists: the row value wins and
+// an empty one falls back to the configured bucket.
+func (s *ObjectStore) Put(ctx context.Context, bucket, objectKey string, data []byte, mimeType string) error {
 	input := &s3.PutObjectInput{
-		Bucket: aws.String(s.bucket),
+		Bucket: aws.String(s.bucketOf(bucket)),
 		Key:    aws.String(objectKey),
 		Body:   bytes.NewReader(data),
 	}

@@ -158,7 +158,7 @@ func (s *Storage) Save(
 
 	if s.objects != nil {
 		bucket = s.objects.Bucket()
-		if err := s.objects.Put(ctx, key, data, mimetype); err != nil {
+		if err := s.objects.Put(ctx, bucket, key, data, mimetype); err != nil {
 			return nil, fmt.Errorf("save media: %w", err)
 		}
 	} else {
@@ -404,6 +404,21 @@ func (s *Storage) removeCacheFile(rel string) error {
 // it is the recovery path until the cutover is rehearsed and the cleanup
 // step of the deployment removes it. Returns the count of uploaded objects.
 // It is a no-op in filesystem mode (nothing to migrate).
+//
+// The bucket of every store call — the existence probe and the upload — is
+// the one recorded on the row (the metadata authority, same rule as
+// Get/Delete): a migration that wrote elsewhere would leave media
+// unreachable on read and orphan objects under the sweep, the exact
+// wrong-bucket failure the row bucket prevents. Error behavior, per row: a
+// probe that reports the object absent (404/NotFound) triggers the upload
+// into the row bucket; any other error — an absent or unreachable bucket,
+// access denial, a failed upload — is aggregated as a per-row failure,
+// returned joined with the partial count, while the loop always continues
+// to the remaining rows. One stuck row can therefore neither abort the
+// batch nor trap the migration in a re-upload loop. Reruns are idempotent
+// and converge: uploaded rows are recognized by the probe and skipped, and
+// a deferred row is retried as-is because its local file is kept as the
+// recovery path.
 func (s *Storage) MigrateLocalFiles(ctx context.Context, onProgress func(done, total int)) (int, error) {
 	if s.objects == nil {
 		return 0, nil
@@ -448,6 +463,11 @@ func (s *Storage) MigrateLocalFiles(ctx context.Context, onProgress func(done, t
 				continue
 			}
 		}
+		// The probe and the upload share one target: the bucket recorded on
+		// the row. A missing object (404/NotFound) is uploaded there, so the
+		// next run's probe finds it and the migration converges instead of
+		// re-uploading; any other error defers the row to a rerun without
+		// aborting the batch (see the doc comment above).
 		exists, err := s.objects.Exists(ctx, record.Bucket, record.ObjectKey)
 		if err != nil {
 			failures = append(failures, fmt.Errorf("media %s: %w", record.ID, err))
@@ -456,7 +476,7 @@ func (s *Storage) MigrateLocalFiles(ctx context.Context, onProgress func(done, t
 		if exists {
 			continue
 		}
-		if err := s.objects.Put(ctx, record.ObjectKey, data, record.Mimetype); err != nil {
+		if err := s.objects.Put(ctx, record.Bucket, record.ObjectKey, data, record.Mimetype); err != nil {
 			failures = append(failures, fmt.Errorf("media %s: %w", record.ID, err))
 			continue
 		}

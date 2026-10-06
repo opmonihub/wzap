@@ -173,6 +173,101 @@ func TestMessageRepositoryCreateWithMedia(t *testing.T) {
 	}
 }
 
+// TestMessageRepositoryCreateRejectsCrossInstanceMedia proves the
+// same-instance rule on the optional media FK: a media row belonging to
+// another instance is rejected like a missing one — no cross-instance media
+// sharing sneaks through the bare uuid relation.
+func TestMessageRepositoryCreateRejectsCrossInstanceMedia(t *testing.T) {
+	ctx := context.Background()
+	pool := newTestPool(t)
+	instances := NewInstanceRepository(pool)
+	media := NewMediaRepository(pool)
+	messages := NewMessageRepository(pool)
+
+	owner := createTestInstance(t, instances, "owner", "")
+	stranger := createTestInstance(t, instances, "stranger", "")
+	stored, err := media.Create(ctx, model.Media{
+		ID:          uuid.New(),
+		InstanceID:  owner.ID,
+		Direction:   "outbound",
+		Mimetype:    "image/jpeg",
+		StoragePath: "outbound/foto.jpg",
+		SizeBytes:   10,
+		SHA256:      strings.Repeat("b", 64),
+	})
+	if err != nil {
+		t.Fatalf("seed media: %v", err)
+	}
+
+	_, err = messages.Create(ctx, model.OutboundMessage{
+		ID:           uuid.New(),
+		InstanceID:   stranger.ID,
+		Type:         "image",
+		RecipientJID: "5511999999999@s.whatsapp.net",
+		Payload:      []byte(`{"caption":"roubo"}`),
+		MediaID:      &stored.ID,
+		Status:       "queued",
+	})
+	if !errors.Is(err, storage.ErrNotFound) {
+		t.Fatalf("Create(cross-instance media) error = %v, want ErrNotFound", err)
+	}
+
+	// A missing media row is rejected the same way — both collapse to
+	// ErrNotFound so the caller cannot probe existence across instances.
+	ghost := uuid.New()
+	_, err = messages.Create(ctx, model.OutboundMessage{
+		ID:           uuid.New(),
+		InstanceID:   owner.ID,
+		Type:         "image",
+		RecipientJID: "5511999999999@s.whatsapp.net",
+		Payload:      []byte(`{"caption":"ghost"}`),
+		MediaID:      &ghost,
+		Status:       "queued",
+	})
+	if !errors.Is(err, storage.ErrNotFound) {
+		t.Fatalf("Create(ghost media) error = %v, want ErrNotFound", err)
+	}
+}
+
+// TestMessageRepositoryCreateSharedMediaWithinInstance proves the positive
+// side of the rule: two queued messages of the same instance may share one
+// media row (e.g. a caption resend).
+func TestMessageRepositoryCreateSharedMediaWithinInstance(t *testing.T) {
+	ctx := context.Background()
+	pool := newTestPool(t)
+	instances := NewInstanceRepository(pool)
+	media := NewMediaRepository(pool)
+	messages := NewMessageRepository(pool)
+	instance := createTestInstance(t, instances, "shared", "")
+
+	stored, err := media.Create(ctx, model.Media{
+		ID:          uuid.New(),
+		InstanceID:  instance.ID,
+		Direction:   "outbound",
+		Mimetype:    "image/jpeg",
+		StoragePath: "outbound/compartilhada.jpg",
+		SizeBytes:   10,
+		SHA256:      strings.Repeat("c", 64),
+	})
+	if err != nil {
+		t.Fatalf("seed media: %v", err)
+	}
+
+	for i := 0; i < 2; i++ {
+		if _, err := messages.Create(ctx, model.OutboundMessage{
+			ID:           uuid.New(),
+			InstanceID:   instance.ID,
+			Type:         "image",
+			RecipientJID: "5511999999999@s.whatsapp.net",
+			Payload:      []byte(`{"caption":"mesmo arquivo"}`),
+			MediaID:      &stored.ID,
+			Status:       "queued",
+		}); err != nil {
+			t.Fatalf("Create(%d) with shared media: %v", i, err)
+		}
+	}
+}
+
 func TestMessageRepositoryCreateUnknownInstance(t *testing.T) {
 	ctx := context.Background()
 	pool := newTestPool(t)

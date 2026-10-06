@@ -409,3 +409,126 @@ func TestChatwootConfigBackfillTokenSeal(t *testing.T) {
 		t.Errorf("BackfillTokenSeal again = %d, want 0 (idempotent)", again)
 	}
 }
+
+// TestChatwootMessagesMultipleSendsShareChatwootID proves the N:1 relation
+// the remodel kept: two distinct wa_keys of one instance may hold the same
+// cw_id (a forwarded message mirrored as two sends). UNIQUE stays on
+// (instance_id, wa_key), never on cw_id.
+func TestChatwootMessagesMultipleSendsShareChatwootID(t *testing.T) {
+	ctx := context.Background()
+	pool := postgrestest.NewPool(t)
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatalf("migrate test schema: %v", err)
+	}
+
+	instances := NewInstanceRepository(pool)
+	instance, err := instances.Create(ctx, model.Instance{
+		ID:         uuid.New(),
+		Name:       "chatwoot-shared",
+		Connection: model.InstanceConnection{Status: "disconnected"},
+	})
+	if err != nil {
+		t.Fatalf("create instance: %v", err)
+	}
+
+	_, msgRepo := NewChatwootRepositories(pool, nil)
+	for _, waKey := range []string{"WAID:FIRST", "WAID:SECOND"} {
+		if _, err := msgRepo.Put(ctx, model.ChatwootMessage{
+			InstanceID:        instance.ID,
+			WAKey:             waKey,
+			ChatwootMessageID: 4242,
+			ConversationID:    7,
+			InboxID:           3,
+			ContactSourceID:   "src",
+		}); err != nil {
+			t.Fatalf("Put(%s) with shared cw_id: %v", waKey, err)
+		}
+	}
+
+	// A third send for a different conversation must also store the same
+	// cw_id without conflict.
+	if _, err := msgRepo.Put(ctx, model.ChatwootMessage{
+		InstanceID:        instance.ID,
+		WAKey:             "WAID:THIRD",
+		ChatwootMessageID: 4242,
+		ConversationID:    8,
+		InboxID:           3,
+		ContactSourceID:   "src",
+	}); err != nil {
+		t.Fatalf("Put(third) with shared cw_id: %v", err)
+	}
+}
+
+// TestChatwootMessageKeepsCorrelationWhenQueueRowDies proves the
+// message_id SET NULL policy: deleting the queue row referenced by a
+// correlation clears the FK but keeps the wa_key → cw_id mapping (the
+// mirror evidence survives the queue purge).
+func TestChatwootMessageKeepsCorrelationWhenQueueRowDies(t *testing.T) {
+	ctx := context.Background()
+	pool := postgrestest.NewPool(t)
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatalf("migrate test schema: %v", err)
+	}
+
+	instances := NewInstanceRepository(pool)
+	messages := NewMessageRepository(pool)
+	instance, err := instances.Create(ctx, model.Instance{
+		ID:         uuid.New(),
+		Name:       "chatwoot-correl",
+		Connection: model.InstanceConnection{Status: "disconnected"},
+	})
+	if err != nil {
+		t.Fatalf("create instance: %v", err)
+	}
+
+	queue, err := messages.Create(ctx, model.OutboundMessage{
+		ID:           uuid.New(),
+		InstanceID:   instance.ID,
+		Type:         "text",
+		RecipientJID: "5511999999999@s.whatsapp.net",
+		Payload:      []byte(`{"text":"espelhado"}`),
+		Status:       "sent",
+	})
+	if err != nil {
+		t.Fatalf("create queue row: %v", err)
+	}
+
+	_, msgRepo := NewChatwootRepositories(pool, nil)
+	if _, err := msgRepo.Put(ctx, model.ChatwootMessage{
+		InstanceID:        instance.ID,
+		WAKey:             "WAID:LINKED",
+		ChatwootMessageID: 777,
+		ConversationID:    5,
+		InboxID:           3,
+		ContactSourceID:   "src",
+	}); err != nil {
+		t.Fatalf("Put correlation: %v", err)
+	}
+	if _, err := pool.Exec(ctx,
+		`UPDATE chatwoot_messages SET message_id = $1 WHERE instance_id = $2 AND wa_key = 'WAID:LINKED'`,
+		queue.ID, instance.ID); err != nil {
+		t.Fatalf("link message_id: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx, `DELETE FROM message_queue WHERE id = $1`, queue.ID); err != nil {
+		t.Fatalf("delete queue row: %v", err)
+	}
+
+	var linked *uuid.UUID
+	if err := pool.QueryRow(ctx,
+		`SELECT message_id FROM chatwoot_messages WHERE instance_id = $1 AND wa_key = 'WAID:LINKED'`,
+		instance.ID).Scan(&linked); err != nil {
+		t.Fatalf("read linked message_id: %v", err)
+	}
+	if linked != nil {
+		t.Errorf("message_id = %v, want NULL after queue delete (SET NULL)", *linked)
+	}
+
+	got, err := msgRepo.GetByWAKey(ctx, instance.ID, "WAID:LINKED")
+	if err != nil {
+		t.Fatalf("GetByWAKey after queue delete: %v", err)
+	}
+	if got.ChatwootMessageID != 777 {
+		t.Errorf("cw_id = %d, want the mirror evidence 777 kept", got.ChatwootMessageID)
+	}
+}

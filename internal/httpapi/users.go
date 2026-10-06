@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -15,15 +16,17 @@ import (
 )
 
 // userResponse is the public representation of a manager user (matrix §5):
-// identity, role, the per-user instance limit (0 = unlimited) and the
-// backend-computed count of owned instances. Password hashes never leave
-// the storage boundary.
+// identity, role, the per-user instance limit (0 = unlimited), the
+// backend-computed count of owned instances and the timestamps. Password
+// hashes never leave the storage boundary.
 type userResponse struct {
-	ID            string `json:"id"`
-	Email         string `json:"email"`
-	Role          string `json:"role"`
-	InstanceLimit int    `json:"instance_limit"`
-	InstancesUsed int    `json:"instances_used"`
+	ID            string    `json:"id"`
+	Email         string    `json:"email"`
+	Role          string    `json:"role"`
+	InstanceLimit int       `json:"instance_limit"`
+	InstancesUsed int       `json:"instances_used"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 // userResponseEnvelope wraps a user under data.user (matrix §1) and nests
@@ -46,6 +49,8 @@ func newUserResponse(user *model.User, instancesUsed int) userResponse {
 		Role:          user.Role,
 		InstanceLimit: user.InstanceQuota,
 		InstancesUsed: instancesUsed,
+		CreatedAt:     user.CreatedAt,
+		UpdatedAt:     user.UpdatedAt,
 	}
 }
 

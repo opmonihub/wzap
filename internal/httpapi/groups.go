@@ -160,7 +160,7 @@ func cleanJIDs(raw []string) ([]string, bool) {
 // @Security apikey
 // @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body createGroupRequest true "Group payload"
-// @Success 201 {object} envelope{data=groupResponse} "Created, wrapped in the data envelope (invite_code empty when the post-create invite lookup fails; reconcile via GET .../invite, do not retry the create)"
+// @Success 201 {object} envelope{data=groupEnvelope} "Created, wrapped in the data envelope (invite_code empty when the post-create invite lookup fails; reconcile via GET .../invite, do not retry the create)"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -238,7 +238,7 @@ func handleCreateGroup(instances InstanceService, log zerolog.Logger) http.Handl
 // @Security apikey
 // @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param group_id path string true "Group JID"
-// @Success 200 {object} envelope{data=groupResponse} "Group, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=groupEnvelope} "Group, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance or group not found"

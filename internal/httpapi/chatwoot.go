@@ -109,14 +109,14 @@ type chatwootConfigResponse struct {
 // without persisting.
 //
 // @Summary Configure the Chatwoot connector
-// @Description Accepts a global key, own instance key or wzap_session cookie; user sessions are limited to owned instances and admin/global scope can access every instance. Token is write-only: GET and PUT responses always carry token as an empty string. Enabled configuration is validated before persistence; auto_create attempts inbox provisioning.
+// @Description Accepts a global key, own instance key or wzap_session cookie; user sessions are limited to owned instances and admin/global scope can access every instance. Token is write-only: it is accepted on PUT and never appears in GET or PUT responses. Enabled configuration is validated before persistence; is_auto_create attempts inbox provisioning.
 // @Tags chatwoot
 // @Produce json
 // @Security apikey
 // @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Accept json
 // @Param request body chatwootSetRequest true "Connector configuration; token is accepted only on write"
-// @Success 200 {object} envelope{data=chatwootConfigResponse} "Saved connector config; token is always empty"
+// @Success 200 {object} envelope{data=chatwootConfigEnvelope} "Saved connector config under data.chatwoot_config; token is absent"
 // @Failure 400 {object} errorEnvelope "Connector disabled, malformed request or invalid instance ID"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
@@ -239,12 +239,12 @@ func ensureChatwootInbox(ctx context.Context, clientFor ChatwootClientFor, cfg m
 // instance that was never configured answers 200 disabled with empty fields.
 //
 // @Summary Get the Chatwoot connector
-// @Description Accepts a global key, own instance key or wzap_session cookie; user sessions are limited to owned instances and admin/global scope can access every instance. A never-configured instance returns a disabled config with empty fields. Token is write-only and the response token is always an empty string.
+// @Description Accepts a global key, own instance key or wzap_session cookie; user sessions are limited to owned instances and admin/global scope can access every instance. A never-configured instance returns a disabled config with empty fields. Token is write-only and absent from the response.
 // @Tags chatwoot
 // @Produce json
 // @Security apikey
 // @Param id path string true "Instance UUID or name (exact, case-sensitive)"
-// @Success 200 {object} envelope{data=chatwootConfigResponse} "Connector config; token is always empty"
+// @Success 200 {object} envelope{data=chatwootConfigEnvelope} "Connector config under data.chatwoot_config; token is absent"
 // @Failure 400 {object} errorEnvelope "Connector disabled, malformed request or invalid instance ID"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"

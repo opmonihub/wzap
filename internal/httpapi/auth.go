@@ -54,7 +54,7 @@ const dummyPasswordHash = "$2a$10$Q2IcRv3W7hJBMOYy5JOOU.3qrWu7zjQhOp9LqZzrTVLIZv
 // @Accept json
 // @Produce json
 // @Param request body loginRequest true "Credentials"
-// @Success 200 {object} envelope{data=identityResponse} "Identity, wrapped in the data envelope; the wzap_session cookie is set"
+// @Success 200 {object} envelope{data=meEnvelope} "Identity, wrapped in the data envelope; the wzap_session cookie is set"
 // @Header 200 {string} Set-Cookie "Sets the httpOnly wzap_session cookie"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Invalid credentials"
@@ -124,7 +124,7 @@ func handleLogout(secure bool) http.HandlerFunc {
 // @Description Answers the identity of the wzap_session cookie holder, 401 without a valid session.
 // @Tags auth
 // @Produce json
-// @Success 200 {object} envelope{data=identityResponse} "Identity, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=meEnvelope} "Identity, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid session"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"

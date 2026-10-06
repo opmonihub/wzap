@@ -219,7 +219,7 @@ func handleListJoinedGroups(instances InstanceService, log zerolog.Logger) http.
 // @Security apikey
 // @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param code query string true "Invite code or link"
-// @Success 200 {object} envelope{data=groupResponse} "Preview, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=groupEnvelope} "Preview, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"

@@ -380,7 +380,7 @@ func handleListInstances(instances InstanceService) http.HandlerFunc {
 // @Produce json
 // @Security apikey
 // @Param instance query string false "Optional instance UUID or name (exact, case-sensitive); omitted counts the authorized collection"
-// @Success 200 {object} envelope{data=instanceStatsResponse} "Totals in scope, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=statsEnvelope} "Totals in scope, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Instance keys own no collection view, or target not owned"
 // @Failure 404 {object} errorEnvelope "Target instance not found"
@@ -446,7 +446,7 @@ func handleInstanceStats(instances InstanceService) http.HandlerFunc {
 // @Produce json
 // @Security apikey
 // @Param id path string true "Instance UUID or name (exact, case-sensitive)"
-// @Success 200 {object} envelope{data=instanceResponse} "Instance, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=instanceEnvelope} "Instance, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
@@ -488,7 +488,7 @@ func handleGetInstance(instances InstanceService) http.HandlerFunc {
 // @Security apikey
 // @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body updateInstanceRequest true "Partial update payload"
-// @Success 200 {object} envelope{data=instanceResponse} "Updated instance, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=instanceEnvelope} "Updated instance, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body or invalid cursor"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"

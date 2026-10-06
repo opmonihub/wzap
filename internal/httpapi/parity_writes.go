@@ -346,7 +346,7 @@ func handleContactLink(instances InstanceService, log zerolog.Logger) http.Handl
 // @Security apikey
 // @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param request body createNewsletterRequest true "Channel payload, title 1..100, description 0..500"
-// @Success 201 {object} envelope{data=newsletterResponse} "Created channel, wrapped in the data envelope"
+// @Success 201 {object} envelope{data=channelEnvelope} "Created channel, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"

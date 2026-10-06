@@ -103,10 +103,6 @@ type channelEnvelope struct {
 	Channel newsletterResponse `json:"channel"`
 }
 
-type userEnvelope struct {
-	User userResponse `json:"user"`
-}
-
 // instanceResponse is the public representation of an instance: identity,
 // the nested connection and webhook blocks and the timestamps. Internal
 // fields (device_jid, external_ref, owner_user_id, key hashes) never

@@ -190,7 +190,7 @@ func handleUnfollowNewsletter(instances InstanceService, log zerolog.Logger) htt
 // @Security apikey
 // @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param channel path string true "Channel JID"
-// @Success 200 {object} envelope{data=newsletterResponse} "Channel, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=channelEnvelope} "Channel, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found, or unknown channel"

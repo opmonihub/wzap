@@ -279,7 +279,7 @@ func TestUsersListGet(t *testing.T) {
 				payload.Data.Items[0].User["email"], payload.Data.Items[1].User["email"], payload.Data.Items[2].User["email"])
 		}
 		for i, item := range payload.Data.Items {
-			for _, field := range []string{"id", "email", "role", "instance_limit", "instances_used"} {
+			for _, field := range []string{"id", "email", "role", "instance_limit", "instances_used", "created_at", "updated_at"} {
 				if _, ok := item.User[field]; !ok {
 					t.Errorf("items[%d].user is missing %q", i, field)
 				}
@@ -298,6 +298,9 @@ func TestUsersListGet(t *testing.T) {
 		data := decodeUserData(t, rec.Body.Bytes())
 		if got := userDataString(t, data, "email"); got != "older@example.com" {
 			t.Errorf("data.email = %q, want %q", got, "older@example.com")
+		}
+		if got := userDataString(t, data, "created_at"); got != "2026-01-01T00:00:00Z" {
+			t.Errorf("data.created_at = %q, want the stored timestamp", got)
 		}
 	})
 }

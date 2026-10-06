@@ -661,7 +661,7 @@ func writeMediaUploadError(w http.ResponseWriter, r *http.Request, err error) {
 // @Security apikey
 // @Param id path string true "Instance UUID or name (exact, case-sensitive)"
 // @Param message_id path string true "Message ID (UUID)"
-// @Success 200 {object} envelope{data=messageResponse} "Message, wrapped in the data envelope"
+// @Success 200 {object} envelope{data=messageEnvelope} "Message, wrapped in the data envelope"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance or message not found"

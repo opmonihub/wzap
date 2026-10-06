@@ -151,8 +151,23 @@ func (r *fakeRepo) SetConnection(_ context.Context, id uuid.UUID, status, jid st
 	}
 	instance.Status = status
 	instance.WhatsAppJID = jid
+	instance.DeviceJID = jid
+	if jid == "" {
+		instance.LastError = ""
+	}
 	r.instances[id] = instance
 	return nil
+}
+
+// GetByDeviceJID returns the instance bound to deviceJID or storage.ErrNotFound.
+func (r *fakeRepo) GetByDeviceJID(_ context.Context, deviceJID string) (*model.Instance, error) {
+	for _, instance := range r.instances {
+		if instance.BoundDeviceJID() == deviceJID {
+			stored := instance
+			return &stored, nil
+		}
+	}
+	return nil, fmt.Errorf("get instance by device jid: %w", storage.ErrNotFound)
 }
 
 // SetConnectionState is only exercised by the session runtime, not this service.
@@ -1052,6 +1067,33 @@ func TestServiceQRWithoutDeviceStartsFreshPairing(t *testing.T) {
 	}
 	if stored := repo.instances[id]; stored.WhatsAppJID != "" {
 		t.Errorf("stored whatsapp_jid = %q, want it cleared", stored.WhatsAppJID)
+	}
+}
+
+func TestServiceConnectSessionRejectedResetsPairing(t *testing.T) {
+	id := uuid.New()
+	repo := newFakeRepo(model.Instance{
+		ID: id, Name: "loja", Status: string(session.StatusError),
+		WhatsAppJID: "5511999999999@s.whatsapp.net",
+		DeviceJID:   "5511999999999@s.whatsapp.net",
+		LastError:   session.SessionRejectedReason,
+	})
+	sessions := sessiontest.New(nil)
+	svc := NewService(repo, sessions, &fakeMedia{}, nil, nil, zerolog.Nop())
+
+	result, err := svc.Connect(context.Background(), id)
+	if err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+	if result.Status != session.StatusPairing {
+		t.Errorf("Connect status = %q, want pairing after reset", result.Status)
+	}
+	stored := repo.instances[id]
+	if stored.WhatsAppJID != "" || stored.DeviceJID != "" {
+		t.Errorf("stored instance = %+v, want JIDs cleared", stored)
+	}
+	if stored.LastError != "" {
+		t.Errorf("last_error = %q, want cleared on reset", stored.LastError)
 	}
 }
 

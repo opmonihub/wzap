@@ -97,8 +97,26 @@ func TestInviteCodeFromLink(t *testing.T) {
 	}
 }
 
+func TestSetGroupPhoto(t *testing.T) {
+	t.Run("invalid image is invalid input", func(t *testing.T) {
+		sess := actionSession(t)
+		sess.isConnectedFn = func() bool { return true }
+		sess.setGroupPhotoFn = func(context.Context, types.JID, []byte) (string, error) {
+			return "", errors.New("not a valid image")
+		}
+		err := sess.SetGroupPhoto(context.Background(), "120363000000000000@g.us", []byte{0xff, 0xd8})
+		if !errors.Is(err, session.ErrInvalidRecipient) {
+			t.Fatalf("SetGroupPhoto error = %v, want %v", err, session.ErrInvalidRecipient)
+		}
+		if errors.Is(err, session.ErrTransient) {
+			t.Fatalf("SetGroupPhoto error = %v, want not transient", err)
+		}
+	})
+}
+
 func TestClassifyRemoteError(t *testing.T) {
 	for err, want := range map[error]error{
+		errors.New("not a valid image"):          session.ErrInvalidRecipient,
 		whatsmeow.ErrGroupNotFound:               session.ErrNotFound,
 		whatsmeow.ErrIQNotFound:                  session.ErrNotFound,
 		whatsmeow.ErrNotInGroup:                  session.ErrForbidden,

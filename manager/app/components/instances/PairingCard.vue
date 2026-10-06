@@ -117,6 +117,35 @@ function markConnected(notifyParent: boolean) {
   }
 }
 
+// POST connect can answer "connected" with no QR while the persisted row is
+// still catching up (or the socket drops right after). Only flip the card and
+// notify the parent when the status endpoint agrees.
+async function confirmConnected(notifyParent: boolean): Promise<boolean> {
+  try {
+    const current = await getConnectionStatus(props.instanceId)
+    if (disposed) {
+      return false
+    }
+    if (current.status === 'connected') {
+      markConnected(notifyParent)
+      return true
+    }
+  } catch {
+    // Fall through to polling below.
+  }
+  return false
+}
+
+async function waitForConnected(notifyParent: boolean) {
+  phase.value = 'pairing'
+  lastStatusPoll = 0
+  startTicker()
+  await pollStatus()
+  if (!disposed && phase.value === 'pairing') {
+    await confirmConnected(notifyParent)
+  }
+}
+
 async function start() {
   if (starting || disposed) {
     return
@@ -130,10 +159,19 @@ async function start() {
     if (disposed) {
       return
     }
-    // No QR payload means there is nothing to scan: stored credentials or
-    // an already-connected session.
+    // No QR payload means stored credentials or an already-connected session.
+    // Confirm against GET status before notifying the parent — otherwise a
+    // silent refresh remounts this card and POST connect loops forever.
     if (result.status === 'connected' || !result.qr_code) {
-      markConnected(true)
+      if (await confirmConnected(true)) {
+        return
+      }
+      if (result.qr_code) {
+        applyPairing(result)
+        await drawQR(result.qr_code)
+        return
+      }
+      await waitForConnected(true)
       return
     }
     applyPairing(result)
@@ -165,7 +203,15 @@ async function reissue() {
       return
     }
     if (result.status === 'connected' || !result.qr_code) {
-      markConnected(true)
+      if (await confirmConnected(true)) {
+        return
+      }
+      if (result.qr_code) {
+        applyPairing(result)
+        await drawQR(result.qr_code)
+        return
+      }
+      await waitForConnected(true)
       return
     }
     applyPairing(result)
@@ -175,7 +221,10 @@ async function reissue() {
       return
     }
     if (error instanceof ApiError && error.status === 409) {
-      markConnected(true)
+      if (await confirmConnected(true)) {
+        return
+      }
+      await waitForConnected(true)
       return
     }
     retryAt = Date.now() + REISSUE_RETRY_MS

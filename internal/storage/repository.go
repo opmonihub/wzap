@@ -23,6 +23,9 @@ var (
 	ErrNotFound = errors.New("record not found")
 	// ErrExternalRefTaken reports that an instance external_ref is already in use.
 	ErrExternalRefTaken = errors.New("external ref already taken")
+	// ErrDeviceJIDTaken reports that a whatsmeow device JID is already bound to
+	// another instance.
+	ErrDeviceJIDTaken = errors.New("device jid already taken")
 	// ErrEmailTaken reports that a user email is already in use
 	// (case-insensitive, matching the lower(email) unique index).
 	ErrEmailTaken = errors.New("email already taken")
@@ -43,6 +46,8 @@ type InstanceRepository interface {
 	Get(ctx context.Context, id uuid.UUID) (*model.Instance, error)
 	GetByName(ctx context.Context, name string) (*model.Instance, error)
 	GetByExternalRef(ctx context.Context, externalRef string) (*model.Instance, error)
+	// GetByDeviceJID returns the instance bound to deviceJID or ErrNotFound.
+	GetByDeviceJID(ctx context.Context, deviceJID string) (*model.Instance, error)
 	List(ctx context.Context) ([]model.Instance, error)
 	Update(ctx context.Context, instance model.Instance) (*model.Instance, error)
 	// SetConnection updates the status and whatsapp_jid of an instance in

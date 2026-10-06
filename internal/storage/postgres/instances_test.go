@@ -425,8 +425,11 @@ func TestInstanceRepositorySetConnection(t *testing.T) {
 	if got.Name != "original" || got.ExternalRef != "original-ref" {
 		t.Errorf("SetConnection touched identity fields: %+v", got)
 	}
-	if got.LastError != "previous failure" {
-		t.Errorf("last_error = %q, want the stored previous failure", got.LastError)
+	if got.LastError != "" {
+		t.Errorf("last_error = %q, want cleared when pairing is reset", got.LastError)
+	}
+	if got.DeviceJID != "" {
+		t.Errorf("device_jid = %q, want empty", got.DeviceJID)
 	}
 	requireTimePtrNear(t, "SetConnection: LastConnectedAt", got.LastConnectedAt, connectedAt)
 
@@ -499,6 +502,45 @@ func TestInstanceRepositorySetConnectionState(t *testing.T) {
 
 	if err := repo.SetConnectionState(ctx, uuid.New(), "disconnected", "", "", nil); !errors.Is(err, storage.ErrNotFound) {
 		t.Errorf("SetConnectionState(unknown) error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestInstanceRepositoryGetByDeviceJID(t *testing.T) {
+	ctx := context.Background()
+	pool := newTestPool(t)
+	repo := NewInstanceRepository(pool)
+
+	instance := createTestInstance(t, repo, "bound", "bound-ref")
+	if err := repo.SetConnection(ctx, instance.ID, "connected", "5511777777777@s.whatsapp.net"); err != nil {
+		t.Fatalf("SetConnection: %v", err)
+	}
+
+	got, err := repo.GetByDeviceJID(ctx, "5511777777777@s.whatsapp.net")
+	if err != nil {
+		t.Fatalf("GetByDeviceJID: %v", err)
+	}
+	if got.ID != instance.ID {
+		t.Errorf("id = %s, want %s", got.ID, instance.ID)
+	}
+
+	if _, err := repo.GetByDeviceJID(ctx, "missing@s.whatsapp.net"); !errors.Is(err, storage.ErrNotFound) {
+		t.Errorf("GetByDeviceJID(missing) = %v, want ErrNotFound", err)
+	}
+}
+
+func TestInstanceRepositoryDeviceJIDUnique(t *testing.T) {
+	ctx := context.Background()
+	pool := newTestPool(t)
+	repo := NewInstanceRepository(pool)
+
+	first := createTestInstance(t, repo, "first", "first-ref")
+	second := createTestInstance(t, repo, "second", "second-ref")
+	jid := "5511666666666@s.whatsapp.net"
+	if err := repo.SetConnection(ctx, first.ID, "connected", jid); err != nil {
+		t.Fatalf("SetConnection(first): %v", err)
+	}
+	if err := repo.SetConnection(ctx, second.ID, "connected", jid); !errors.Is(err, storage.ErrDeviceJIDTaken) {
+		t.Fatalf("SetConnection(second) = %v, want ErrDeviceJIDTaken", err)
 	}
 }
 

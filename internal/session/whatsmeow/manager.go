@@ -166,7 +166,7 @@ func (m *Manager) RestoreAll(ctx context.Context) error {
 	sem := make(chan struct{}, restoreConcurrency)
 	var wg sync.WaitGroup
 	for _, instance := range instances {
-		if instance.WhatsAppJID == "" {
+		if instance.BoundDeviceJID() == "" {
 			m.log.Debug().Str("instance_id", instance.ID.String()).Str("reason", "no-jid").Msg("restore skipped")
 			continue
 		}
@@ -219,21 +219,12 @@ func (m *Manager) restoreAborted(instance model.Instance, err error) {
 
 // restore attaches the persisted device of instance and brings it online.
 func (m *Manager) restore(ctx context.Context, instance model.Instance) error {
-	jid, err := types.ParseJID(instance.WhatsAppJID)
+	device, err := m.loadBoundDevice(ctx, &instance)
 	if err != nil {
-		m.log.Warn().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).Err(err).Msg("restore parse jid failed")
-		return fmt.Errorf("parse jid %q: %w", instance.WhatsAppJID, err)
+		m.log.Warn().Str("instance_id", instance.ID.String()).Str("jid", instance.BoundDeviceJID()).Err(err).Msg("restore load device failed")
+		return err
 	}
-	device, err := m.devices.GetDevice(ctx, jid)
-	if err != nil {
-		m.log.Warn().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).Err(err).Msg("restore load device failed")
-		return fmt.Errorf("load device %s: %w", jid, err)
-	}
-	if device == nil {
-		m.log.Warn().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).Msg("restore device missing")
-		return fmt.Errorf("device %s: %w", jid, session.ErrNoDevice)
-	}
-	m.log.Debug().Str("instance_id", instance.ID.String()).Str("jid", instance.WhatsAppJID).Bool("deleted", device.ID == nil).Msg("restore device loaded")
+	m.log.Debug().Str("instance_id", instance.ID.String()).Str("jid", instance.BoundDeviceJID()).Bool("deleted", device.ID == nil).Msg("restore device loaded")
 	return m.attachAndConnect(ctx, instance.ID, device)
 }
 
@@ -301,12 +292,32 @@ func (m *Manager) listInstances(ctx context.Context) ([]model.Instance, error) {
 // deviceFor returns the device store of instance, creating a fresh one when
 // the instance was never paired.
 func (m *Manager) deviceFor(ctx context.Context, instance *model.Instance) (*store.Device, error) {
-	if instance.WhatsAppJID == "" {
+	bound := instance.BoundDeviceJID()
+	if bound == "" {
 		return m.devices.NewDevice(), nil
 	}
-	jid, err := types.ParseJID(instance.WhatsAppJID)
+	return m.loadBoundDevice(ctx, instance)
+}
+
+// loadBoundDevice loads the whatsmeow store for the device JID bound to
+// instance, rejecting cross-instance reuse and store mismatches.
+func (m *Manager) loadBoundDevice(ctx context.Context, instance *model.Instance) (*store.Device, error) {
+	bound := instance.BoundDeviceJID()
+	if bound == "" {
+		return nil, fmt.Errorf("load bound device: empty jid")
+	}
+	if m.instances != nil {
+		owner, err := m.instances.GetByDeviceJID(ctx, bound)
+		if err == nil && owner.ID != instance.ID {
+			return nil, fmt.Errorf("create session: device jid already bound to instance %s: %w", owner.ID, session.ErrDeviceJIDTaken)
+		}
+		if err != nil && !errors.Is(err, storage.ErrNotFound) {
+			return nil, fmt.Errorf("create session: lookup device jid: %w", err)
+		}
+	}
+	jid, err := types.ParseJID(bound)
 	if err != nil {
-		return nil, fmt.Errorf("create session: parse jid %q: %w", instance.WhatsAppJID, err)
+		return nil, fmt.Errorf("create session: parse jid %q: %w", bound, err)
 	}
 	device, err := m.devices.GetDevice(ctx, jid)
 	if err != nil {
@@ -314,6 +325,9 @@ func (m *Manager) deviceFor(ctx context.Context, instance *model.Instance) (*sto
 	}
 	if device == nil {
 		return nil, fmt.Errorf("create session: device %s: %w", jid, session.ErrNoDevice)
+	}
+	if device.ID != nil && device.ID.String() != bound {
+		return nil, fmt.Errorf("create session: device jid mismatch (store %s, instance %s): %w", device.ID, bound, session.ErrNoDevice)
 	}
 	return device, nil
 }
@@ -384,6 +398,18 @@ type instanceSession struct {
 	// statusUploadFn uploads status media bytes. It defaults to the client
 	// Upload and is replaced in the tests to avoid the media handshake.
 	statusUploadFn func(ctx context.Context, data []byte, mediaType whatsmeow.MediaType) (whatsmeow.UploadResponse, error)
+	// setGroupPhotoFn replaces the group picture upstream. It defaults to the
+	// client SetGroupPhoto and is replaced in tests to assert classification.
+	setGroupPhotoFn func(ctx context.Context, jid types.JID, image []byte) (string, error)
+	// getUserInfoFn fetches user metadata. It defaults to the client GetUserInfo
+	// and is replaced in profile tests.
+	getUserInfoFn func(ctx context.Context, jids []types.JID) (map[types.JID]types.UserInfo, error)
+	// getProfilePictureInfoFn fetches a profile picture. It defaults to the
+	// client GetProfilePictureInfo and is replaced in profile tests.
+	getProfilePictureInfoFn func(ctx context.Context, jid types.JID, params *whatsmeow.GetProfilePictureParams) (*types.ProfilePictureInfo, error)
+	// isConnectedFn reports socket liveness. It defaults to the client and is
+	// replaced in tests that exercise connected-only session methods.
+	isConnectedFn func() bool
 
 	// history accumulates the per-instance history-sync feed the Import plan
 	// consumes. Each session owns one, so feeds never cross instance
@@ -484,16 +510,11 @@ func (s *instanceSession) IsConnected() bool {
 	if s == nil || s.client == nil {
 		return false
 	}
+	if s.isConnectedFn != nil {
+		return s.isConnectedFn()
+	}
 	return s.client.IsConnected()
 }
-
-// errSessionRejected is the actionable reason recorded when WhatsApp drops
-// the connection immediately after it was opened, before any Connected event
-// arrives. The socket handshake succeeded but the session was rejected, so
-// retrying the same device cannot recover it: the device is stale (the phone
-// logged out this device) or another client took over the session, and the
-// instance needs a fresh pairing. It surfaces as last_error in GET /status.
-const errSessionRejected = "connection dropped by WhatsApp before login completed (socket opened but the session was rejected): the device is stale (the phone logged out this device) or another client took over the session; pair again with POST /instances/{id}/connect"
 
 // setStatus updates the lifecycle state, reports it to the sink when it
 // changed and applies the reconnect policy of the transition. A paired JID
@@ -515,7 +536,7 @@ func (s *instanceSession) setStatus(status session.Status, jid, reason string) {
 	}
 	if status == session.StatusDisconnected && reason == "" && s.dialed {
 		status = session.StatusError
-		reason = errSessionRejected
+		reason = session.SessionRejectedReason
 	}
 	if s.status == status && s.lastReason == reason {
 		s.mu.Unlock()

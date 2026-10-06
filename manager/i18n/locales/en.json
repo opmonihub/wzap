@@ -371,6 +371,7 @@
     "groups": {
       "cardTitle": "Groups",
       "search": "Search by JID or name",
+      "jidRequired": "Enter a group JID before looking it up.",
       "lookup": "Look up group",
       "jidPlaceholder": "Group JID",
       "name": "Name",

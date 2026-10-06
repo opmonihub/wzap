@@ -2,6 +2,7 @@ package whatsmeow
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.mau.fi/whatsmeow/types"
@@ -14,7 +15,7 @@ import (
 // from the user info and the photo URL (empty when the instance carries no
 // photo or the upstream reports none).
 func (s *instanceSession) GetProfile(ctx context.Context) (session.Profile, error) {
-	if !s.client.IsConnected() {
+	if !s.IsConnected() {
 		return session.Profile{}, fmt.Errorf("%w: get profile", session.ErrNotConnected)
 	}
 	profile := session.Profile{Name: s.client.Store.PushName}
@@ -23,18 +24,33 @@ func (s *instanceSession) GetProfile(ctx context.Context) (session.Profile, erro
 	if err != nil || own.IsEmpty() {
 		return profile, nil
 	}
-	info, err := s.client.GetUserInfo(ctx, []types.JID{own})
+	user := own.ToNonAD()
+
+	getUserInfo := s.client.GetUserInfo
+	if s.getUserInfoFn != nil {
+		getUserInfo = s.getUserInfoFn
+	}
+	info, err := getUserInfo(ctx, []types.JID{user})
 	if err != nil {
-		return session.Profile{}, classifySessionError(err)
+		if mapped := classifySessionError(err); errors.Is(mapped, session.ErrNotConnected) {
+			return session.Profile{}, mapped
+		}
+		s.log.Warn().Str("instance_id", s.instanceID.String()).Str("op", "get-profile-user-info").Err(err).Msg("get profile user info failed")
+	} else if userInfo, ok := info[user]; ok {
+		profile.StatusText = userInfo.Status
 	}
-	if user, ok := info[own]; ok {
-		profile.StatusText = user.Status
+
+	getPicture := s.client.GetProfilePictureInfo
+	if s.getProfilePictureInfoFn != nil {
+		getPicture = s.getProfilePictureInfoFn
 	}
-	picture, err := s.client.GetProfilePictureInfo(ctx, own, nil)
+	picture, err := getPicture(ctx, user, nil)
 	if err != nil {
-		return session.Profile{}, classifySessionError(err)
-	}
-	if picture != nil {
+		if mapped := classifySessionError(err); errors.Is(mapped, session.ErrNotConnected) {
+			return session.Profile{}, mapped
+		}
+		s.log.Warn().Str("instance_id", s.instanceID.String()).Str("op", "get-profile-picture").Err(err).Msg("get profile picture failed")
+	} else if picture != nil {
 		profile.PhotoURL = picture.URL
 	}
 	return profile, nil

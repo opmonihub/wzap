@@ -47,6 +47,41 @@ func serveProfile(t *testing.T, srv *http.Server, method, path, body, contentTyp
 	return rec
 }
 
+func TestGetProfile(t *testing.T) {
+	t.Run("connected instance answers profile", func(t *testing.T) {
+		id := uuid.New()
+		svc := &fakeInstanceService{
+			getProfileFn: func(_ context.Context, instanceID uuid.UUID) (session.Profile, error) {
+				if instanceID != id {
+					t.Errorf("GetProfile instance = %s, want %s", instanceID, id)
+				}
+				return session.Profile{Name: "Loja", StatusText: "aberto"}, nil
+			},
+		}
+		rec := serveProfile(t, profileServer(t, svc, 0), http.MethodGet,
+			"/instances/"+id.String()+"/profile", "", "")
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
+		}
+	})
+
+	t.Run("disconnected instance answers conflict", func(t *testing.T) {
+		id := uuid.New()
+		svc := &fakeInstanceService{
+			getProfileFn: func(context.Context, uuid.UUID) (session.Profile, error) {
+				return session.Profile{}, instance.ErrNotConnected
+			},
+		}
+		rec := serveProfile(t, profileServer(t, svc, 0), http.MethodGet,
+			"/instances/"+id.String()+"/profile", "", "")
+
+		if rec.Code != http.StatusConflict {
+			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusConflict, rec.Body.String())
+		}
+	})
+}
+
 func TestProfileGet(t *testing.T) {
 	t.Run("own profile answers its fields", func(t *testing.T) {
 		id := uuid.New()

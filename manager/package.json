@@ -8,6 +8,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
+    "test": "vitest run",
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
@@ -31,6 +32,7 @@
     "@types/node": "^24.0.0",
     "eslint": "^10.10.0",
     "typescript": "^6.0.3",
+    "vitest": "^3.2.4",
     "vue-tsc": "^3.3.11"
   },
   "packageManager": "pnpm@11.22.0"

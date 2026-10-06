@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ApiError } from '~/composables/useApi'
+import { groupLookupJIDOrNull } from '~/utils/groupLookup'
 import type { Group, InstanceStatus } from '~/types/api'
 
 // Group lookup/create/join plus the loaded-group detail: rename/description
@@ -41,8 +42,13 @@ const participantActions = computed(() => [
 async function onLookup() {
   failure.value = null
   notice.value = null
+  const lookupJID = groupLookupJIDOrNull(jid.value)
+  if (lookupJID === null) {
+    failure.value = t('instances.groups.jidRequired')
+    return
+  }
   try {
-    group.value = await getGroup(props.instanceId, jid.value.trim())
+    group.value = await getGroup(props.instanceId, lookupJID)
     editName.value = group.value.name
     editDescription.value = group.value.description ?? ''
     invite.value = group.value.invite_code ?? null

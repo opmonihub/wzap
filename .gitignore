@@ -1,13 +1,20 @@
 .worktrees/
+# Portas desta máquina (5432/4222/8222 já pertencem a outros apps).
+docker-compose.override.yml
 .env
 .env.*
 !.env.example
-# Local-only impeccable UI-polish assets (project skills stay tracked).
+# Local-only impeccable UI-polish assets.
 .github/agents/
 .github/hooks/
 .github/skills/
-.opencode/commands/
-.opencode/skills/impeccable/
+.impeccable/
+
+# Codex e Factory: skills e droids instalados na máquina, não versionados.
+# `.codex/skills` aponta para `../.factory/skills`.
+.codex/
+.factory/
+.opencode/
 # Air live-reload output (Dockerfile.dev + .air.toml).
 tmp/
 build-errors.log

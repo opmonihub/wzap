@@ -34,8 +34,10 @@ useSeoMeta({
   title: 'Instance details'
 })
 
-async function load() {
-  pending.value = true
+async function load(options?: { silent?: boolean }) {
+  if (!options?.silent) {
+    pending.value = true
+  }
   notFound.value = false
   failure.value = null
   try {
@@ -47,8 +49,14 @@ async function load() {
       failure.value = error instanceof ApiError ? error.message : t('instances.detail.loadFailed')
     }
   } finally {
-    pending.value = false
+    if (!options?.silent) {
+      pending.value = false
+    }
   }
+}
+
+function refreshInstance() {
+  return load({ silent: true })
 }
 
 function onDeleted() {
@@ -116,7 +124,7 @@ await load()
             <InstanceOverviewSection
               v-if="section === 'overview'"
               :instance="instance"
-              @paired="load"
+              @paired="refreshInstance"
               @updated="(value: Instance) => { instance = value }"
               @changed="load"
             />

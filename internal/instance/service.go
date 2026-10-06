@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -521,14 +522,23 @@ func pairingResult(ctx context.Context, sess session.Session) (ConnectResult, er
 // instance is treated as unpaired: the stale JID is cleared and a fresh device
 // is built so the caller can pair again instead of failing forever.
 func (s *Service) sessionFor(ctx context.Context, instance *model.Instance) (session.Session, error) {
+	if instance.BoundDeviceJID() != "" && session.NeedsFreshPairing(instance.LastError) {
+		return s.resetPairing(ctx, instance)
+	}
 	sess, err := s.sessions.Create(instance)
 	if err == nil {
+		if instance.BoundDeviceJID() != "" && sess.Status() == session.StatusError && session.NeedsFreshPairing(instance.LastError) {
+			return s.resetPairing(ctx, instance)
+		}
 		return sess, nil
 	}
-	if !errors.Is(err, session.ErrNoDevice) {
-		return nil, err
+	if errors.Is(err, session.ErrNoDevice) || errors.Is(err, session.ErrDeviceJIDTaken) {
+		return s.resetPairing(ctx, instance)
 	}
-	return s.resetPairing(ctx, instance)
+	if strings.Contains(err.Error(), "device jid mismatch") {
+		return s.resetPairing(ctx, instance)
+	}
+	return nil, err
 }
 
 // resetPairing forgets the unrecoverable pairing of instance and returns a
@@ -543,6 +553,7 @@ func (s *Service) resetPairing(ctx context.Context, instance *model.Instance) (s
 		return nil, mapError("reset pairing", err)
 	}
 	instance.WhatsAppJID = ""
+	instance.DeviceJID = ""
 	return s.sessions.Create(instance)
 }
 

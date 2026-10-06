@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -418,6 +419,27 @@ func TestGroupInvite(t *testing.T) {
 		}
 		if len(svc.leaveGroupCalls) != 1 || svc.leaveGroupCalls[0].GroupJID != testChatGroup {
 			t.Errorf("LeaveGroup calls = %+v, want the group", svc.leaveGroupCalls)
+		}
+	})
+}
+
+func TestSetGroupPhoto(t *testing.T) {
+	t.Run("invalid image bytes answer unprocessable", func(t *testing.T) {
+		id := uuid.New()
+		svc := &fakeInstanceService{
+			setGroupPhotoFn: func(context.Context, uuid.UUID, string, []byte) error {
+				return fmt.Errorf("set group photo: %w", instance.ErrInvalidInput)
+			},
+		}
+		rec := serveGroupPhoto(t, instancesServer(t, svc), http.MethodPut,
+			"/instances/"+id.String()+"/groups/"+escapeJID(testChatGroup)+"/photo",
+			[]byte{0xff, 0xd8, 0xff, 0x00, 0x01}, "image/jpeg")
+
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusUnprocessableEntity, rec.Body.String())
+		}
+		if len(svc.setGroupPhotoCalls) != 1 {
+			t.Errorf("SetGroupPhoto calls = %d, want 1", len(svc.setGroupPhotoCalls))
 		}
 	})
 }

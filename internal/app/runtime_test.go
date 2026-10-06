@@ -70,6 +70,10 @@ func (r *runtimeRepo) GetByExternalRef(context.Context, string) (*model.Instance
 	return nil, errors.New("runtimeRepo.GetByExternalRef: unexpected call")
 }
 
+func (r *runtimeRepo) GetByDeviceJID(context.Context, string) (*model.Instance, error) {
+	return nil, errors.New("runtimeRepo.GetByDeviceJID: unexpected call")
+}
+
 func (r *runtimeRepo) List(context.Context) ([]model.Instance, error) {
 	return nil, errors.New("runtimeRepo.List: unexpected call")
 }

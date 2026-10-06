@@ -47,6 +47,9 @@ var (
 	// example after an external logout or a device removal. The pairing cannot
 	// be resumed and the instance must be paired again.
 	ErrNoDevice = errors.New("session device not found")
+	// ErrDeviceJIDTaken marks a whatsmeow device identity already bound to
+	// another instance.
+	ErrDeviceJIDTaken = errors.New("session device jid already bound")
 	// ErrUnsupported marks an operation the upstream protocol does not
 	// support on this session (for example setting the profile name or
 	// photo, which the companion library exposes no setter for). The

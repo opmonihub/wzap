@@ -25,6 +25,7 @@ import (
 
 	"wzap/internal/model"
 	"wzap/internal/session"
+	"wzap/internal/storage"
 )
 
 // testMediaLimit is the inbound media cap used by the translation tests.
@@ -607,6 +608,10 @@ func (r *fakeInstanceRepo) GetByName(context.Context, string) (*model.Instance, 
 
 func (r *fakeInstanceRepo) GetByExternalRef(context.Context, string) (*model.Instance, error) {
 	return nil, errors.New("fakeInstanceRepo.GetByExternalRef: unexpected call")
+}
+
+func (r *fakeInstanceRepo) GetByDeviceJID(context.Context, string) (*model.Instance, error) {
+	return nil, storage.ErrNotFound
 }
 
 func (r *fakeInstanceRepo) List(context.Context) ([]model.Instance, error) {

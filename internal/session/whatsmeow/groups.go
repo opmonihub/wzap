@@ -108,10 +108,14 @@ func (s *instanceSession) SetGroupPhoto(ctx context.Context, groupJID string, im
 	if len(image) == 0 {
 		return fmt.Errorf("%w: empty group photo", session.ErrInvalidRecipient)
 	}
-	if !s.client.IsConnected() {
+	if !s.IsConnected() {
 		return fmt.Errorf("%w: set group photo", session.ErrNotConnected)
 	}
-	if _, err := s.client.SetGroupPhoto(ctx, jid, image); err != nil {
+	setPhoto := s.client.SetGroupPhoto
+	if s.setGroupPhotoFn != nil {
+		setPhoto = s.setGroupPhotoFn
+	}
+	if _, err := setPhoto(ctx, jid, image); err != nil {
 		return classifyRemoteError(err)
 	}
 	return nil
@@ -322,11 +326,25 @@ func inviteCodeFromLink(raw string) string {
 	return code
 }
 
+// invalidGroupPhotoError reports the upstream rejection when group photo bytes
+// are not a decodable image. The match is exact on the error text only.
+func invalidGroupPhotoError(err error) bool {
+	for e := err; e != nil; e = errors.Unwrap(e) {
+		if e.Error() == "not a valid image" {
+			return true
+		}
+	}
+	return false
+}
+
 // classifyRemoteError translates an upstream group/channel failure into the
 // session sentinel the service maps to a status code, without leaking the
 // upstream cause. Unknown failures fall through to the shared connectivity
 // classifier.
 func classifyRemoteError(err error) error {
+	if invalidGroupPhotoError(err) {
+		return fmt.Errorf("%w: %v", session.ErrInvalidRecipient, err)
+	}
 	switch {
 	case errors.Is(err, whatsmeow.ErrGroupNotFound), errors.Is(err, whatsmeow.ErrIQNotFound):
 		return fmt.Errorf("%w: %v", session.ErrNotFound, err)

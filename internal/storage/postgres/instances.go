@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,7 +18,8 @@ import (
 )
 
 const instanceColumns = `id, name, COALESCE(external_ref, '') AS external_ref, status, ` +
-	`COALESCE(whatsapp_jid, '') AS whatsapp_jid, last_connected_at, COALESCE(last_error, '') AS last_error, ` +
+	`COALESCE(whatsapp_jid, '') AS whatsapp_jid, COALESCE(device_jid, '') AS device_jid, ` +
+	`last_connected_at, COALESCE(last_error, '') AS last_error, ` +
 	`owner_user_id, webhook_url, webhook_enabled, webhook_events, ` +
 	`created_at, updated_at`
 
@@ -50,13 +52,13 @@ func (r *InstanceRepository) Create(ctx context.Context, instance model.Instance
 		return nil, mapInstanceError("create instance", err)
 	}
 	row := tx.QueryRow(ctx, `
-		INSERT INTO instances (id, name, external_ref, status, whatsapp_jid, last_connected_at, last_error, owner_user_id,
+		INSERT INTO instances (id, name, external_ref, status, whatsapp_jid, device_jid, last_connected_at, last_error, owner_user_id,
 			webhook_url, webhook_enabled, webhook_events)
-		VALUES ($1, $2, NULLIF($3, ''), COALESCE(NULLIF($4, ''), 'disconnected'), NULLIF($5, ''), $6, NULLIF($7, ''), $8,
-			NULLIF($9, ''), $10, $11)
+		VALUES ($1, $2, NULLIF($3, ''), COALESCE(NULLIF($4, ''), 'disconnected'), NULLIF($5, ''), NULLIF($6, ''), $7, NULLIF($8, ''), $9,
+			NULLIF($10, ''), $11, $12)
 		RETURNING `+instanceColumns,
 		instance.ID, instance.Name, instance.ExternalRef, instance.Status,
-		instance.WhatsAppJID, instance.LastConnectedAt, instance.LastError,
+		instance.WhatsAppJID, instanceDeviceJIDParam(instance), instance.LastConnectedAt, instance.LastError,
 		instance.OwnerUserID, webhookURLParam(instance.WebhookURL),
 		instance.WebhookEnabled, webhookEventsParam(instance.WebhookEvents),
 	)
@@ -105,6 +107,20 @@ func (r *InstanceRepository) GetByName(ctx context.Context, name string) (*model
 		return nil, fmt.Errorf("get instance by name: %w", storage.ErrNotFound)
 	}
 	return found, nil
+}
+
+// GetByDeviceJID returns the instance bound to deviceJID or storage.ErrNotFound.
+func (r *InstanceRepository) GetByDeviceJID(ctx context.Context, deviceJID string) (*model.Instance, error) {
+	deviceJID = stringsTrim(deviceJID)
+	if deviceJID == "" {
+		return nil, fmt.Errorf("get instance by device jid: %w", storage.ErrNotFound)
+	}
+	instance, err := scanInstance(r.pool.QueryRow(ctx,
+		`SELECT `+instanceColumns+` FROM instances WHERE device_jid = $1`, deviceJID))
+	if err != nil {
+		return nil, mapInstanceError("get instance by device jid", err)
+	}
+	return instance, nil
 }
 
 // GetByExternalRef returns the instance with the given external_ref or
@@ -165,12 +181,12 @@ func (r *InstanceRepository) Update(ctx context.Context, instance model.Instance
 	row := tx.QueryRow(ctx, `
 		UPDATE instances
 		SET name = $2, external_ref = NULLIF($3, ''), status = COALESCE(NULLIF($4, ''), status),
-		    whatsapp_jid = NULLIF($5, ''), last_connected_at = $6, last_error = NULLIF($7, ''),
-		    webhook_url = NULLIF($8, ''), webhook_enabled = $9, webhook_events = $10, updated_at = now()
+		    whatsapp_jid = NULLIF($5, ''), device_jid = NULLIF($6, ''), last_connected_at = $7, last_error = NULLIF($8, ''),
+		    webhook_url = NULLIF($9, ''), webhook_enabled = $10, webhook_events = $11, updated_at = now()
 		WHERE id = $1
 		RETURNING `+instanceColumns,
 		instance.ID, instance.Name, instance.ExternalRef, instance.Status,
-		instance.WhatsAppJID, instance.LastConnectedAt, instance.LastError,
+		instance.WhatsAppJID, instanceDeviceJIDParam(instance), instance.LastConnectedAt, instance.LastError,
 		webhookURLParam(instance.WebhookURL), instance.WebhookEnabled,
 		webhookEventsParam(instance.WebhookEvents),
 	)
@@ -208,7 +224,11 @@ func claimInstanceName(ctx context.Context, tx pgx.Tx, name string, excludeID *u
 func (r *InstanceRepository) SetConnection(ctx context.Context, id uuid.UUID, status, whatsappJID string) error {
 	tag, err := r.pool.Exec(ctx, `
 		UPDATE instances
-		SET status = $2, whatsapp_jid = NULLIF($3, ''), updated_at = now()
+		SET status = $2,
+		    whatsapp_jid = NULLIF($3, ''),
+		    device_jid = NULLIF($3, ''),
+		    last_error = CASE WHEN NULLIF($3, '') IS NULL THEN NULL ELSE last_error END,
+		    updated_at = now()
 		WHERE id = $1`,
 		id, status, whatsappJID,
 	)
@@ -230,6 +250,7 @@ func (r *InstanceRepository) SetConnectionState(ctx context.Context, id uuid.UUI
 		UPDATE instances
 		SET status = $2,
 		    whatsapp_jid = COALESCE(NULLIF($3, ''), whatsapp_jid),
+		    device_jid = COALESCE(NULLIF($3, ''), device_jid),
 		    last_error = NULLIF($4, ''),
 		    last_connected_at = COALESCE($5, last_connected_at),
 		    updated_at = now()
@@ -288,7 +309,7 @@ func scanInstance(scanner rowScanner) (*model.Instance, error) {
 func scanInstanceRow(scanner rowScanner, instance *model.Instance) error {
 	return scanner.Scan(
 		&instance.ID, &instance.Name, &instance.ExternalRef, &instance.Status,
-		&instance.WhatsAppJID, &instance.LastConnectedAt, &instance.LastError,
+		&instance.WhatsAppJID, &instance.DeviceJID, &instance.LastConnectedAt, &instance.LastError,
 		&instance.OwnerUserID, &instance.WebhookURL, &instance.WebhookEnabled, &instance.WebhookEvents,
 		&instance.CreatedAt, &instance.UpdatedAt,
 	)
@@ -318,8 +339,24 @@ func mapInstanceError(op string, err error) error {
 		return fmt.Errorf("%s: %w", op, storage.ErrNotFound)
 	}
 	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "instances_external_ref_key" {
-		return fmt.Errorf("%s: %w", op, storage.ErrExternalRefTaken)
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		switch pgErr.ConstraintName {
+		case "instances_external_ref_key":
+			return fmt.Errorf("%s: %w", op, storage.ErrExternalRefTaken)
+		case "instances_device_jid_uidx":
+			return fmt.Errorf("%s: %w", op, storage.ErrDeviceJIDTaken)
+		}
 	}
 	return fmt.Errorf("%s: %w", op, err)
+}
+
+func instanceDeviceJIDParam(instance model.Instance) string {
+	if instance.DeviceJID != "" {
+		return instance.DeviceJID
+	}
+	return instance.WhatsAppJID
+}
+
+func stringsTrim(s string) string {
+	return strings.TrimSpace(s)
 }

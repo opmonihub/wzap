@@ -143,3 +143,34 @@ direct Chatwoot Postgres SQL (`internal/chatwoot/import`, inert without
   change directory.
 - Treat `tasks.md` as the scope contract. Mark an item complete only after its
   specified verification succeeds.
+
+## Local Agents (Codex + Factory)
+
+Skills and droids are installed on the machine and are not committed. Codex and
+Factory share one skill directory:
+
+- `.factory/skills/` holds the OpenSpec skills and any other local skills.
+- `.codex/skills` is a symlink to `../.factory/skills`.
+- `.factory/droids/` holds `explorer` (read-only), `log-detective` (running
+  stack, read-only), `implementer` (writes inside a briefed scope), and
+  `griller` (design interview).
+- OpenCode, Cursor project config, and `.agents/` are not part of this repo.
+
+Orchestration:
+
+- Delegate independent work, mainly reading: exploration, diagnosis, and
+  review. Sequential work that needs judgment between steps stays on the main
+  thread.
+- Isolate each agent by write scope. The brief names the paths it may edit,
+  and it leaves the rest alone. Reading is unrestricted.
+- Never run two agents writing the same files at the same time.
+- A feature that crosses the Go service and `manager/` does not start as two
+  parallel agents. Fix the contract first (route, payload, status, event
+  shape) in the spec or design, then give each side an `implementer` with its
+  own scope.
+- Every brief includes the goal, context already gathered, write scope, what
+  not to touch, how to verify, and the return format.
+- The return is a summary with `file:line` evidence, separating fact from
+  inference and listing what was checked and what was left out.
+- The main thread decides and talks to the user. A subagent report is the
+  source; do not redo the search it already did.

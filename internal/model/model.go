@@ -10,11 +10,15 @@ import (
 
 // Instance is a WhatsApp instance registered with the wzap service.
 type Instance struct {
-	ID              uuid.UUID
-	Name            string
-	ExternalRef     string
-	Status          string
-	WhatsAppJID     string
+	ID          uuid.UUID
+	Name        string
+	ExternalRef string
+	Status      string
+	WhatsAppJID string
+	// DeviceJID is the whatsmeow linked-device identity persisted in the
+	// session store. It matches WhatsAppJID once paired and is unique across
+	// instances (see instances_device_jid_uidx).
+	DeviceJID       string
 	LastError       string
 	LastConnectedAt *time.Time
 	// OwnerUserID is the manager user owning the instance. It stays nil for
@@ -29,6 +33,15 @@ type Instance struct {
 	WebhookEvents  []string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+}
+
+// BoundDeviceJID returns the whatsmeow device identity bound to the instance,
+// preferring DeviceJID when set.
+func (i Instance) BoundDeviceJID() string {
+	if i.DeviceJID != "" {
+		return i.DeviceJID
+	}
+	return i.WhatsAppJID
 }
 
 // User is a manager account. PasswordHash is a repo-level credential detail and

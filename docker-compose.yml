@@ -35,7 +35,7 @@ services:
       retries: 10
 
   minio:
-    image: docker.io/cccs/minio:latest
+    image: docker.io/cccs/minio@sha256:68eefa6a5ccd82178a872b2d1012687d0ac9b1afa848a1e56f55fa5f1efcb081
     restart: unless-stopped
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
@@ -56,7 +56,7 @@ services:
   # ensures the bucket at boot, so this is an accelerator for first-run
   # environments, not the only provisioning path.
   minio-init:
-    image: docker.io/cccs/minio:latest
+    image: docker.io/cccs/minio@sha256:68eefa6a5ccd82178a872b2d1012687d0ac9b1afa848a1e56f55fa5f1efcb081
     depends_on:
       minio:
         condition: service_healthy

@@ -19,7 +19,9 @@ import (
 	"wzap/internal/model"
 )
 
-// fakeObjects is an in-memory Objects for object-store tests.
+// fakeObjects is an in-memory Objects for object-store tests. Objects are
+// keyed by (bucket, objectKey); an empty bucket argument resolves to the
+// configured bucket, mirroring the real store's row-value fallback.
 type fakeObjects struct {
 	mu        sync.Mutex
 	bucket    string
@@ -37,6 +39,29 @@ func newFakeObjects() *fakeObjects {
 
 func (f *fakeObjects) Bucket() string { return f.bucket }
 
+// fullKey composes the internal (bucket, key) identity, resolving an empty
+// bucket to the configured one exactly like the real store.
+func (f *fakeObjects) fullKey(bucket, key string) string {
+	if bucket == "" {
+		bucket = f.bucket
+	}
+	return bucket + "\x00" + key
+}
+
+// seed writes bytes directly into the store, bypassing Put error injection.
+func (f *fakeObjects) seed(bucket, key string, data []byte) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.data[f.fullKey(bucket, key)] = append([]byte(nil), data...)
+}
+
+// drop removes one object directly, bypassing Delete error injection.
+func (f *fakeObjects) drop(bucket, key string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.data, f.fullKey(bucket, key))
+}
+
 func (f *fakeObjects) EnsureBucket(context.Context) error { return nil }
 
 func (f *fakeObjects) Put(_ context.Context, key string, data []byte, _ string) error {
@@ -45,49 +70,68 @@ func (f *fakeObjects) Put(_ context.Context, key string, data []byte, _ string) 
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.data[key] = append([]byte(nil), data...)
+	f.data[f.fullKey("", key)] = append([]byte(nil), data...)
 	return nil
 }
 
-func (f *fakeObjects) Get(_ context.Context, key string) (io.ReadCloser, error) {
+func (f *fakeObjects) Get(_ context.Context, bucket, key string) (io.ReadCloser, error) {
 	if f.getErr != nil {
 		return nil, f.getErr
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	data, ok := f.data[key]
+	data, ok := f.data[f.fullKey(bucket, key)]
 	if !ok {
 		return nil, ErrNotFound
 	}
 	return io.NopCloser(bytes.NewReader(data)), nil
 }
 
-func (f *fakeObjects) Delete(_ context.Context, key string) error {
+func (f *fakeObjects) Delete(_ context.Context, bucket, key string) error {
 	if f.deleteErr != nil {
 		return f.deleteErr
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	delete(f.data, key)
-	f.deleted = append(f.deleted, key)
+	delete(f.data, f.fullKey(bucket, key))
+	f.deleted = append(f.deleted, f.fullKey(bucket, key))
 	return nil
 }
 
-func (f *fakeObjects) Exists(_ context.Context, key string) (bool, error) {
+func (f *fakeObjects) Exists(_ context.Context, bucket, key string) (bool, error) {
 	if f.existsErr != nil {
 		return false, f.existsErr
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	_, ok := f.data[key]
+	_, ok := f.data[f.fullKey(bucket, key)]
 	return ok, nil
 }
 
 func (f *fakeObjects) has(key string) bool {
+	return f.hasIn("", key)
+}
+
+// hasIn reports whether (bucket, key) exists, with the same empty-bucket
+// fallback as the store operations.
+func (f *fakeObjects) hasIn(bucket, key string) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	_, ok := f.data[key]
+	_, ok := f.data[f.fullKey(bucket, key)]
 	return ok
+}
+
+// deletedFrom reports whether a delete operation recorded (bucket, key).
+func (f *fakeObjects) deletedFrom(bucket, key string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	want := f.fullKey(bucket, key)
+	for _, got := range f.deleted {
+		if got == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestStorageSaveUploadsObjectAndRow(t *testing.T) {
@@ -227,7 +271,7 @@ func TestStoragePathMaterializesCacheFile(t *testing.T) {
 	}
 	// A second call serves the cache without a fresh object fetch: drop the
 	// object and confirm Path still resolves from the cache.
-	delete(objects.data, saved.ObjectKey)
+	objects.drop("", saved.ObjectKey)
 	if _, _, err := store.Path(ctx, saved.ID); err != nil {
 		t.Errorf("Path with missing object but warm cache: %v", err)
 	}
@@ -342,7 +386,7 @@ func TestStorageDeleteExpiredIdempotentWhenObjectAlreadyGone(t *testing.T) {
 	record.ExpiresAt = now.Add(-time.Minute)
 	repo.records[saved.ID] = record
 	// The object vanished out of band: delete still counts as confirmed.
-	delete(objects.data, saved.ObjectKey)
+	objects.drop("", saved.ObjectKey)
 
 	removed, err := store.DeleteExpired(ctx, now)
 	if err != nil {
@@ -353,6 +397,106 @@ func TestStorageDeleteExpiredIdempotentWhenObjectAlreadyGone(t *testing.T) {
 	}
 	if repo.records[saved.ID].ObjectDeletedAt == nil {
 		t.Error("row missing object_deleted_at for an already absent object")
+	}
+}
+
+// TestStorageDeleteExpiredUsesRowBucket pins the row-truth rule: the delete
+// targets the bucket recorded on the media row, never the currently
+// configured one. An upgrade running with a different WZAP_S3_BUCKET must
+// not delete objects out of the bucket they were written to — deleting from
+// the wrong bucket orphans real objects while stamping the rows as gone.
+// A row with an empty bucket (pre-remodel legacy) falls back to the
+// configured bucket.
+func TestStorageDeleteExpiredUsesRowBucket(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo := newFakeMediaRepo()
+	objects := newFakeObjects()
+	store := NewStorage(dir, repo, 1<<20, time.Hour)
+	store.SetObjects(objects)
+	now := time.Now()
+
+	// Row written by a deployment with a different bucket name.
+	legacyKey := filepath.Join("media", uuid.NewString(), "legacy")
+	legacy := model.Media{
+		ID:         uuid.New(),
+		InstanceID: uuid.New(),
+		Direction:  "inbound",
+		Mimetype:   "image/png",
+		SizeBytes:  1,
+		Bucket:     "wzap-media-legacy",
+		ObjectKey:  legacyKey,
+		ExpiresAt:  now.Add(-time.Minute),
+	}
+	if _, err := repo.Create(ctx, legacy); err != nil {
+		t.Fatalf("seed legacy row: %v", err)
+	}
+	objects.seed("wzap-media-legacy", legacyKey, []byte("real object"))
+	// Same key in the currently configured bucket: must survive untouched.
+	objects.seed("", legacyKey, []byte("innocent neighbor"))
+
+	// Pre-remodel row with an empty bucket: falls back to the configured one.
+	emptyKey := filepath.Join("media", uuid.NewString(), "empty-bucket")
+	empty := model.Media{
+		ID:         uuid.New(),
+		InstanceID: uuid.New(),
+		Direction:  "inbound",
+		Mimetype:   "image/png",
+		SizeBytes:  1,
+		Bucket:     "",
+		ObjectKey:  emptyKey,
+		ExpiresAt:  now.Add(-time.Minute),
+	}
+	if _, err := repo.Create(ctx, empty); err != nil {
+		t.Fatalf("seed empty-bucket row: %v", err)
+	}
+	objects.seed("", emptyKey, []byte("configured bucket object"))
+
+	// Current row saved through the storage itself.
+	fresh, err := store.Save(ctx, empty.InstanceID, "inbound", "", "image/png", "f.png", []byte("z"))
+	if err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	freshRow := repo.records[fresh.ID]
+	freshRow.ExpiresAt = now.Add(-time.Minute)
+	repo.records[fresh.ID] = freshRow
+
+	removed, err := store.DeleteExpired(ctx, now)
+	if err != nil {
+		t.Fatalf("DeleteExpired: %v", err)
+	}
+	if removed != 3 {
+		t.Errorf("removed = %d, want 3", removed)
+	}
+
+	// The legacy object was deleted from its own row bucket.
+	if objects.hasIn("wzap-media-legacy", legacyKey) {
+		t.Error("legacy object still present in its row bucket")
+	}
+	if !objects.deletedFrom("wzap-media-legacy", legacyKey) {
+		t.Error("delete did not target the row bucket wzap-media-legacy")
+	}
+	// The configured bucket never saw a delete for that key.
+	if !objects.hasIn("", legacyKey) {
+		t.Error("object in the configured bucket was deleted by the legacy row")
+	}
+	if objects.deletedFrom("", legacyKey) {
+		t.Error("a delete was issued against the configured bucket for the legacy row key")
+	}
+
+	// The empty-bucket row fell back to the configured bucket.
+	if objects.hasIn("", emptyKey) {
+		t.Error("empty-bucket row object still present in the configured bucket")
+	}
+	if !objects.deletedFrom("", emptyKey) {
+		t.Error("delete did not fall back to the configured bucket for the empty bucket")
+	}
+
+	// Every processed row is marked deleted exactly against its real object.
+	for _, row := range []model.Media{legacy, empty, repo.records[fresh.ID]} {
+		if repo.records[row.ID].ObjectDeletedAt == nil {
+			t.Errorf("row %s missing object_deleted_at", row.ID)
+		}
 	}
 }
 
@@ -447,7 +591,7 @@ func TestMigrateLocalFilesUploadsMissingObjectsWithChecksum(t *testing.T) {
 	if _, err := repo.Create(ctx, migrated); err != nil {
 		t.Fatalf("seed migrated: %v", err)
 	}
-	objects.data[migrated.ObjectKey] = []byte("x")
+	objects.seed("", migrated.ObjectKey, []byte("x"))
 
 	done, err := store.MigrateLocalFiles(ctx, nil)
 	if err != nil {
@@ -459,7 +603,7 @@ func TestMigrateLocalFilesUploadsMissingObjectsWithChecksum(t *testing.T) {
 	if !objects.has(legacy.ObjectKey) {
 		t.Error("legacy object was not uploaded")
 	}
-	got, _ := objects.Get(ctx, legacy.ObjectKey)
+	got, _ := objects.Get(ctx, "", legacy.ObjectKey)
 	body, _ := io.ReadAll(got)
 	if string(body) != "legacy" {
 		t.Errorf("uploaded content = %q", body)

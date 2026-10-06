@@ -206,7 +206,7 @@ func (s *Storage) Open(ctx context.Context, id uuid.UUID) (io.ReadCloser, *model
 // openRecord streams the content of an already validated record.
 func (s *Storage) openRecord(ctx context.Context, record *model.Media) (io.ReadCloser, *model.Media, error) {
 	if s.objects != nil {
-		body, err := s.objects.Get(ctx, record.ObjectKey)
+		body, err := s.objects.Get(ctx, record.Bucket, record.ObjectKey)
 		if err != nil {
 			if errors.Is(err, ErrNotFound) {
 				return nil, nil, fmt.Errorf("open media %s: %w", record.ID, ErrNotFound)
@@ -374,10 +374,13 @@ func (s *Storage) discardContent(ctx context.Context, record model.Media) {
 }
 
 // removeContent deletes the remote object (or, in filesystem mode, the
-// stored file). An already absent object is a confirmed removal.
+// stored file). The object lives in the row's bucket: the row is the
+// metadata authority, so a deployment whose WZAP_S3_BUCKET changed never
+// deletes from (and corrupts) the wrong bucket. An already absent object is
+// a confirmed removal.
 func (s *Storage) removeContent(ctx context.Context, record model.Media) error {
 	if s.objects != nil {
-		return s.objects.Delete(ctx, record.ObjectKey)
+		return s.objects.Delete(ctx, record.Bucket, record.ObjectKey)
 	}
 	return s.removeCacheFile(record.ObjectKey)
 }
@@ -445,7 +448,7 @@ func (s *Storage) MigrateLocalFiles(ctx context.Context, onProgress func(done, t
 				continue
 			}
 		}
-		exists, err := s.objects.Exists(ctx, record.ObjectKey)
+		exists, err := s.objects.Exists(ctx, record.Bucket, record.ObjectKey)
 		if err != nil {
 			failures = append(failures, fmt.Errorf("media %s: %w", record.ID, err))
 			continue

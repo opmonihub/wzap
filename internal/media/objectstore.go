@@ -18,6 +18,12 @@ import (
 // Objects is the object-store contract the media storage depends on. The
 // concrete implementation talks S3/MinIO; tests substitute an in-memory
 // fake. All errors wrap ErrNotFound for absent keys.
+//
+// The bucket of an operation comes from the media row: the row is the
+// metadata authority, so reads and deletes must target the bucket recorded
+// when the object was written, never whatever bucket the service is
+// configured with today. An empty bucket falls back to the configured one
+// (legacy rows that predate the bucket column).
 type Objects interface {
 	// Bucket returns the configured bucket name stored on every media row.
 	Bucket() string
@@ -26,12 +32,13 @@ type Objects interface {
 	EnsureBucket(ctx context.Context) error
 	// Put uploads data under objectKey, overwriting any previous object.
 	Put(ctx context.Context, objectKey string, data []byte, mimeType string) error
-	// Get streams the object; a missing key wraps ErrNotFound.
-	Get(ctx context.Context, objectKey string) (io.ReadCloser, error)
-	// Delete removes the object; deleting an absent key is a success.
-	Delete(ctx context.Context, objectKey string) error
-	// Exists reports whether objectKey is present in the bucket.
-	Exists(ctx context.Context, objectKey string) (bool, error)
+	// Get streams the object from bucket; a missing key wraps ErrNotFound.
+	Get(ctx context.Context, bucket, objectKey string) (io.ReadCloser, error)
+	// Delete removes the object from bucket; deleting an absent key is a
+	// success.
+	Delete(ctx context.Context, bucket, objectKey string) error
+	// Exists reports whether objectKey is present in bucket.
+	Exists(ctx context.Context, bucket, objectKey string) (bool, error)
 }
 
 // ObjectStore keeps media bytes in an S3-compatible object store (MinIO). The
@@ -120,11 +127,20 @@ func (s *ObjectStore) Put(ctx context.Context, objectKey string, data []byte, mi
 	return nil
 }
 
-// Get streams the object. A missing key reports ErrNotFound so callers map it
-// the same way a missing file did.
-func (s *ObjectStore) Get(ctx context.Context, objectKey string) (io.ReadCloser, error) {
+// bucketOf resolves the target bucket of a row-carried operation: the row
+// value wins and an empty one falls back to the configured bucket.
+func (s *ObjectStore) bucketOf(bucket string) string {
+	if bucket != "" {
+		return bucket
+	}
+	return s.bucket
+}
+
+// Get streams the object from bucket. A missing key reports ErrNotFound so
+// callers map it the same way a missing file did.
+func (s *ObjectStore) Get(ctx context.Context, bucket, objectKey string) (io.ReadCloser, error) {
 	out, err := s.client.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(s.bucket),
+		Bucket: aws.String(s.bucketOf(bucket)),
 		Key:    aws.String(objectKey),
 	})
 	if err != nil {
@@ -139,11 +155,11 @@ func (s *ObjectStore) Get(ctx context.Context, objectKey string) (io.ReadCloser,
 	return out.Body, nil
 }
 
-// Delete removes the object. S3 delete is idempotent: a missing key is a
-// success, matching the "already gone file is not an error" policy.
-func (s *ObjectStore) Delete(ctx context.Context, objectKey string) error {
+// Delete removes the object from bucket. S3 delete is idempotent: a missing
+// key is a success, matching the "already gone file is not an error" policy.
+func (s *ObjectStore) Delete(ctx context.Context, bucket, objectKey string) error {
 	if _, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
-		Bucket: aws.String(s.bucket),
+		Bucket: aws.String(s.bucketOf(bucket)),
 		Key:    aws.String(objectKey),
 	}); err != nil {
 		return fmt.Errorf("delete media object %q: %w", objectKey, err)
@@ -151,10 +167,10 @@ func (s *ObjectStore) Delete(ctx context.Context, objectKey string) error {
 	return nil
 }
 
-// Exists reports whether objectKey is present in the bucket.
-func (s *ObjectStore) Exists(ctx context.Context, objectKey string) (bool, error) {
+// Exists reports whether objectKey is present in bucket.
+func (s *ObjectStore) Exists(ctx context.Context, bucket, objectKey string) (bool, error) {
 	_, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
-		Bucket: aws.String(s.bucket),
+		Bucket: aws.String(s.bucketOf(bucket)),
 		Key:    aws.String(objectKey),
 	})
 	if err != nil {

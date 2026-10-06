@@ -43,7 +43,7 @@ services:
       retries: 10
 
   minio:
-    image: docker.io/cccs/minio:latest
+    image: docker.io/cccs/minio@sha256:68eefa6a5ccd82178a872b2d1012687d0ac9b1afa848a1e56f55fa5f1efcb081
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-wzap}

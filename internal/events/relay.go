@@ -77,7 +77,8 @@ type Relay struct {
 }
 
 // NewRelay returns a relay that publishes outbox pending events through
-// publisher and drops published events older than retentionDays days.
+// publisher. The outbox is pending-only: MarkPublished deletes the row on
+// success, so the published retention sweep has nothing left to remove.
 func NewRelay(outbox storage.EventOutboxRepository, publisher Publisher, log zerolog.Logger, retentionDays int) *Relay {
 	return &Relay{
 		outbox:          outbox,
@@ -192,8 +193,9 @@ func (r *Relay) Run(ctx context.Context) {
 }
 
 // PublishNow publishes the given pending outbox events. Every event is
-// attempted even after a failure. Failed events keep their published_at empty
-// and get their attempt recorded, so a later claim retries them.
+// attempted even after a failure. A successful publish deletes the pending
+// row (MarkPublished); a failed one stays pending with its attempt recorded,
+// so a later claim retries it.
 func (r *Relay) PublishNow(ctx context.Context, pending []model.OutboxEvent) error {
 	var failures []error
 	for _, event := range pending {

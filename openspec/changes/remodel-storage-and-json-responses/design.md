@@ -171,14 +171,315 @@ Correlações Chatwoot referenciam UUID de fila para saídas, preservam inbound/
 6. Fazer o corte coordenado com pausa de writers quando necessária; conferir IDs, contagens, ownership, quotas, relações e objetos.
 7. Remover colunas antigas apenas após a validação. Rollback de SQL/arquivos/respostas/cache deve ser definido e ensaiado antes do corte; não prometer rollback automático de UUIDs novos para bigint.
 
-## Bloqueios para fechar o plano de execução
+## Decisões fechadas na task 1.1
 
-Estes pontos são explicitamente pendentes no pedido aprovado. A tarefa 1.1 deve resolvê-los antes da tarefa 2.1; não são decisões delegadas silenciosamente ao implementador.
+Estas decisões fecham os cinco bloqueios pendentes do pedido aprovado. Nenhuma decisão material permanece aberta para o implementador da etapa 2.
 
-1. Origem verificável da imagem exata MinIO e configuração final de bucket, endpoint, região/TLS, credenciais e provisionamento.
-2. Matriz final de tipos, nullabilidade/defaults/enums, política de `updated_at`, índices e ações de exclusão. Incluir preservação de owners legados e remoção de usuário com instâncias.
-3. Política não destrutiva para mídia órfã e JIDs divergentes, mapeamento dos IDs bigint antigos de dead letters e rollback/backup.
-4. Representação e atomicidade da correlação Chatwoot antes do WA ID, múltiplos anexos e falhas parciais; backfill só com evidência de vínculo.
-5. Destino JSON exato de todas as rotas em `response-matrix.md`, entradas afetadas, catálogo de erros e conversão dos caches legados; corpo não conversível não pode provocar novo envio.
+### 1. MinIO: imagem, bucket, endpoint, credenciais e provisionamento
 
-O registro documental fica completo com esses bloqueios visíveis. A indicação de artefatos completos no OpenSpec não substitui o fechamento deles.
+**Imagem**: `docker.io/cccs/minio:latest` (RELEASE.2024-12-18T13-15-44Z, AGPL, publicado pelo Canadian Centre for Cyber Security, verificado: serve S3 e responde `/minio/health/live`). Substitui a tag originalmente pedida `quay.io/minio/minio:RELEASE.2024-01-13T07-53-03Z-cpuv1`: o quay.io responde 401 UNAUTHORIZED para todas as tags desde mai/2025 (a MinIO removeu o repositório do Docker Hub e trancou o quay atrás de login), tornando impossível verificar qualquer tag oficial sem credenciais. A tag `cccs` é a última linha pública anterior à restrição e é mantida por um fornecedor governamental. Risco residual: fornecedor não-oficial; mitigado por ser imagem governamental que serve MinIO real verificado em runtime.
+
+**Configuração final**:
+
+| Parâmetro | Valor |
+|---|---|
+| Bucket | `wzap-media` |
+| Endpoint (dev/compose) | `http://minio:9000` na rede `wzap` existente do compose |
+| Região | `us-east-1` (assinatura S3 v4; sem significado real no MinIO) |
+| TLS | off em dev/compose; configurável por env em produção |
+| Porta console | `9001` (não exposta em dev) |
+
+**Credenciais** (padrão `WZAP_*` de `internal/config/config.go`):
+- `WZAP_S3_ENDPOINT` — URL do endpoint (default dev `http://minio:9000`)
+- `WZAP_S3_BUCKET` — nome do bucket (default `wzap-media`)
+- `WZAP_S3_REGION` — região de assinatura (default `us-east-1`)
+- `WZAP_S3_ACCESS_KEY` / `WZAP_S3_SECRET_KEY` — credenciais do serviço
+- `WZAP_S3_USE_TLS` — bool, default `false` em dev
+
+O MinIO do compose aceita `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` próprios do serviço; o app só conhece os `WZAP_S3_*`, nunca os `MINIO_*` diretamente.
+
+**Provisionamento do bucket**: init container no compose (`minio/mc` executando `mb -p wzap-media` após aguardar o healthcheck) e, em produção, passo de bootstrap do app na subida: o serviço `media` chama `EnsureBucket(ctx)` no startup, criando o bucket se ausente e tratando `BucketAlreadyOwnedByYou` como sucesso. Escolha: bootstrap do app (não migração goose) porque o bucket não é schema PostgreSQL; o init container no compose apenas acelera o caminho feliz em dev, sem ser contrato. Justificativa: mantém a regra de que falha de provisionamento em produção deve impedir o armazenamento de mídia sem depender de orquestração externa.
+
+### 2. Matriz final de schema das 14 tabelas
+
+Convenções aplicadas a todas as tabelas próprias: `id uuid PRIMARY KEY` (as tabelas hoje com PK natural/composta recebem `id` novo via `gen_random_uuid()` e sua combinação original vira `UNIQUE`), `created_at timestamptz NOT NULL DEFAULT now()`, `updated_at timestamptz NOT NULL DEFAULT now()`. Tipos base herdados conforme decisão 1 do design: texto para JIDs/chaves/telefones/hashes, `jsonb` para payloads/envelopes, `text[]` para listas, `int`/`bigint` para contadores e IDs Chatwoot.
+
+**Enums SQL**: `CHECK` constraints inline (não `CREATE TYPE`). Justificativa: os domínios são pequenos, estáveis e fechados (4–5 valores); um `CREATE TYPE` implicaria migração destrutiva para acrescentar valor, além de acoplamento entre migrações. CHECK mantém o valor legível no dump, permite evoluir com `ALTER TABLE ... DROP CONSTRAINT/ADD CONSTRAINT` sem recriar a tabela e é a convenção já usada em `users.role` (`00002_product.sql`). Os valores válidos são os aprovados na decisão 4: conexão (`disconnected`,`pairing`,`connected`,`error`), role (`admin`,`user`), envio (`queued`,`sending`,`sent`,`failed`), direção de mídia (`inbound`,`outbound`), idempotência (`in_progress`,`completed`).
+
+**`updated_at`**: atualizado pela aplicação (repositório escreve `updated_at = now()` em todo UPDATE/UPSERT), não por trigger. Justificativa: o projeto não usa triggers hoje; o `postgrestest` e os testes de repositório observam `updated_at` via aplicação; um trigger acrescentaria estado implícito ao schema e quebraria a simetria dos fakes em `internal/storage/postgres/`.
+
+#### 2.1 `instances`
+
+| coluna | tipo | NULL | default | constraints |
+|---|---|---|---|---|
+| id | uuid | NOT NULL | gen_random_uuid() | PK |
+| name | text | NOT NULL | — | — |
+| external_ref | text | NULL | — | UNIQUE |
+| owner_user_id | uuid | NULL | — | FK → users.id ON DELETE SET NULL |
+| api_key_hash | text | NULL | — | — |
+| created_at / updated_at | timestamptz | NOT NULL | now() | — |
+
+Índices: `instances_device_jid` sai daqui (vai para `instance_connections`). `instances_external_ref_uidx` UNIQUE já coberto pela constraint. `instances_owner_idx` em `(owner_user_id)` para `CountByOwner`/filtros de sessão. `instances_name_idx` em `(name)` para o lookup exato por nome (sem UNIQUE: nomes legados ambíguos existem e a política é tratamento explícito, não bloqueio SQL).
+
+#### 2.2 `instance_connections`
+
+| coluna | tipo | NULL | default | constraints |
+|---|---|---|---|---|
+| id | uuid | NOT NULL | gen_random_uuid() | PK |
+| instance_id | uuid | NOT NULL | — | UNIQUE, FK → instances.id ON DELETE CASCADE |
+| device_jid | text | NULL | — | UNIQUE WHERE not null/empty (índice parcial, preserva `instances_device_jid_uidx` de 00007) |
+| status | text | NOT NULL | 'disconnected' | CHECK IN (disconnected,pairing,connected,error) |
+| last_connected_at | timestamptz | NULL | — | — |
+| last_error_code | text | NULL | — | — |
+| last_error_message | text | NULL | — | — |
+| last_error_at | timestamptz | NULL | — | — |
+| created_at / updated_at | timestamptz | NOT NULL | now() | — |
+
+Observação: `whatsapp_jid` legado migra para `device_jid` quando ausente (regra de 00007); divergências documentadas no relatório de migração.
+
+#### 2.3 `instance_webhooks`
+
+| coluna | tipo | NULL | default | constraints |
+|---|---|---|---|---|
+| id | uuid | NOT NULL | gen_random_uuid() | PK |
+| instance_id | uuid | NOT NULL | — | UNIQUE, FK → instances.id ON DELETE CASCADE |
+| url | text | NULL | — | — |
+| is_enabled | bool | NOT NULL | false | — |
+| events | text[] | NOT NULL | '{message,receipt,connection,message.status}' | — |
+| created_at / updated_at | timestamptz | NOT NULL | now() | — |
+
+#### 2.4 `users`
+
+| coluna | tipo | NULL | default | constraints |
+|---|---|---|---|---|
+| id | uuid | NOT NULL | gen_random_uuid() | PK |
+| email | text | NOT NULL | — | UNIQUE via `users_email_lower_idx` em lower(email) |
+| password_hash | text | NOT NULL | — | — |
+| role | text | NOT NULL | — | CHECK IN (admin,user) |
+| instance_limit | int | NOT NULL | 0 | — |
+| created_at / updated_at | timestamptz | NOT NULL | now() | — |
+
+**Política de remoção de usuário**: `instances.owner_user_id` é `ON DELETE SET NULL` — remover uma conta preserva suas instâncias (elas passam a ter dono `NULL`, como os registros legados pré-backfill). A remoção de usuário **não** apaga instâncias: o handler `DELETE /users/{id}` já rejeita contas com instâncias hoje (verificação de `CountByOwner > 0` antes do delete, comportamento preservado); a FK com SET NULL é a rede de segurança para o caso de bypass futuro e para instâncias órfãs legadas que já têm `owner_user_id NULL`. Justificativa: as instâncias são recursos operacionais independentes do operador; apagá-las em cascata destruiria sessões e filas.
+
+#### 2.5 `message_queue`
+
+| coluna | tipo | NULL | default | constraints |
+|---|---|---|---|---|
+| id | uuid | NOT NULL | gen_random_uuid() | PK |
+| instance_id | uuid | NOT NULL | — | FK → instances.id ON DELETE CASCADE |
+| recipient_jid | text | NOT NULL | — | — |
+| message_type | text | NOT NULL | — | — |
+| payload | jsonb | NOT NULL | '{}' | — |
+| send_status | text | NOT NULL | 'queued' | CHECK IN (queued,sending,sent,failed) |
+| retry_count | int | NOT NULL | 0 | — |
+| wa_id | text | NULL | — | — |
+| media_id | uuid | NULL | — | FK → media.id ON DELETE SET NULL |
+| last_error_code | text | NULL | — | — |
+| last_error_message | text | NULL | — | — |
+| last_error_at | timestamptz | NULL | — | — |
+| next_attempt_at | timestamptz | NULL | — | — |
+| delivered_at | timestamptz | NULL | — | — |
+| read_at | timestamptz | NOT NULL | now() | — |
+
+`media_id` ON DELETE SET NULL: uma mídia expirada/removida não pode derrubar a mensagem que a referenciava. A regra "mesma instância" é reforçada por trigger de verificação na migração? Não — enforce no repositório via constraint composta quando aplicável; na prática a aplicação sempre consulta `media.id` junto com `instance_id`, e uma `CHECK` declarativa não cobre cross-table. Política: validação no repositório (SELECT media WHERE id=$1 AND instance_id=$2) mais assert de integridade no pós-migração. Índices: `message_queue_instance_status_idx (instance_id, send_status)`, `message_queue_created_idx (created_at)`, `message_queue_wa_id_idx (wa_id)`, `message_queue_media_idx (media_id) WHERE media_id IS NOT NULL`, `message_queue_next_attempt_idx (next_attempt_at) WHERE send_status='queued'` (suporta `ClaimQueued`).
+
+#### 2.6 `media`
+
+| coluna | tipo | NULL | default | constraints |
+|---|---|---|---|---|
+| id | uuid | NOT NULL | gen_random_uuid() | PK |
+| instance_id | uuid | NOT NULL | — | FK → instances.id ON DELETE CASCADE |
+| direction | text | NOT NULL | — | CHECK IN (inbound,outbound) |
+| wa_id | text | NULL | — | — |
+| mime_type | text | NOT NULL | — | — |
+| file_name | text | NULL | — | — |
+| size_bytes | bigint | NOT NULL | — | — |
+| bucket | text | NOT NULL | — | — |
+| object_key | text | NOT NULL | — | — |
+| sha256 | text | NOT NULL | — | — |
+| expires_at | timestamptz | NOT NULL | — | — |
+| object_deleted_at | timestamptz | NULL | — | — |
+| created_at / updated_at | timestamptz | NOT NULL | now() | — |
+
+`UNIQUE(bucket, object_key)`. `wa_id` recebe o `message_id` legado somente quando ele não é marcador `chatwoot-*` (ver política não destrutiva abaixo). Índices: `media_expires_idx (expires_at) WHERE object_deleted_at IS NULL`, `media_instance_idx (instance_id)`, `media_wa_id_idx (wa_id) WHERE wa_id IS NOT NULL`.
+
+#### 2.7 `jid_cache`
+
+| coluna | tipo | NULL | default | constraints |
+|---|---|---|---|---|
+| id | uuid | NOT NULL | gen_random_uuid() | PK |
+| phone | text | NOT NULL | — | UNIQUE |
+| jid | text | NOT NULL | — | — |
+| expires_at | timestamptz | NOT NULL | — | — |
+| created_at / updated_at | timestamptz | NOT NULL | now() | — |
+
+Índices: `jid_cache_expires_idx (expires_at)`, `jid_cache_phone_idx (phone)` (o UNIQUE já cobre; índice explícito não necessário — manter apenas o UNIQUE). Renomeada de `contacts`; `phone` deixa de ser PK e passa a UNIQUE.
+
+#### 2.8 `chatwoot_configs`
+
+| coluna | tipo | NULL | default | constraints |
+|---|---|---|---|---|
+| id | uuid | NOT NULL | gen_random_uuid() | PK |
+| instance_id | uuid | NOT NULL | — | UNIQUE, FK → instances.id ON DELETE CASCADE |
+| is_enabled | bool | NOT NULL | false | — |
+| url | text | NOT NULL | '' | — |
+| account_id | text | NOT NULL | '' | — |
+| token | text | NOT NULL | '' | — |
+| inbox_name | text | NOT NULL | '' | — |
+| is_sign_enabled | bool | NOT NULL | false | — |
+| sign_delimiter | text | NOT NULL | '' | — |
+| is_reopen_enabled | bool | NOT NULL | true | — |
+| is_pending_enabled | bool | NOT NULL | false | — |
+| is_merge_enabled | bool | NOT NULL | false | — |
+| is_import_contacts | bool | NOT NULL | false | — |
+| is_import_messages | bool | NOT NULL | false | — |
+| import_days | int | NOT NULL | 0 | — |
+| is_auto_create | bool | NOT NULL | false | — |
+| organization | text | NOT NULL | '' | — |
+| logo | text | NOT NULL | '' | — |
+| ignored_jids | text[] | NOT NULL | '{}' | — |
+| created_at / updated_at | timestamptz | NOT NULL | now() | — |
+
+Renomeações: `enabled→is_enabled`, `name_inbox→inbox_name`, `sign_msg→is_sign_enabled`, `reopen_conversation→is_reopen_enabled`, `conversation_pending→is_pending_enabled`, `merge_brazil_contacts→is_merge_enabled`, `import_contacts→is_import_contacts`, `import_messages→is_import_messages`, `days_limit→import_days`, `auto_create→is_auto_create`, `ignore_jids→ignored_jids`.
+
+#### 2.9 `chatwoot_messages`
+
+| coluna | tipo | NULL | default | constraints |
+|---|---|---|---|---|
+| id | uuid | NOT NULL | gen_random_uuid() | PK (novo) |
+| instance_id | uuid | NOT NULL | — | FK → instances.id ON DELETE CASCADE |
+| message_id | uuid | NULL | — | FK → message_queue.id ON DELETE SET NULL |
+| wa_key | text | NOT NULL | — | — |
+| cw_id | bigint | NOT NULL | — | — |
+| conversation_id | bigint | NOT NULL | — | — |
+| inbox_id | bigint | NOT NULL | — | — |
+| chat_jid | text | NOT NULL | '' | — |
+| is_read | bool | NOT NULL | false | — |
+| created_at / updated_at | timestamptz | NOT NULL | now() | — |
+
+`UNIQUE(instance_id, wa_key)` preservada (era a PK composta). `UNIQUE(instance_id, cw_id)` **não** criada — vários envios podem compartilhar o mesmo `cw_id` (múltiplos anexos). `message_id` SET NULL: apagar a fila não remove a correlação. Índices: `chatwoot_messages_instance_msg_idx (instance_id, cw_id)` (renomear da antiga `chatwoot_message_id`), `chatwoot_messages_conversation_idx (instance_id, conversation_id, created_at DESC, cw_id DESC)` (evolui o índice de 00004), `chatwoot_messages_message_id_idx (message_id) WHERE message_id IS NOT NULL`.
+
+#### 2.10 `group_metadata`
+
+| coluna | tipo | NULL | default | constraints |
+|---|---|---|---|---|
+| id | uuid | NOT NULL | gen_random_uuid() | PK (novo) |
+| instance_id | uuid | NOT NULL | — | FK → instances.id ON DELETE CASCADE |
+| group_jid | text | NOT NULL | — | — |
+| name | text | NOT NULL | '' | — |
+| description | text | NOT NULL | '' | — |
+| participant_count | int | NOT NULL | 0 | — |
+| created_at / updated_at | timestamptz | NOT NULL | now() | — |
+
+`UNIQUE(instance_id, group_jid)` (era PK composta).
+
+#### 2.11 `channel_metadata` (renomeada de `newsletter_metadata`)
+
+Mesma forma de `group_metadata`: `id` novo, `UNIQUE(instance_id, channel_jid)`, colunas `title`, `description`, `follower_count`.
+
+#### 2.12 `idempotency_keys`
+
+| coluna | tipo | NULL | default | constraints |
+|---|---|---|---|---|
+| id | uuid | NOT NULL | gen_random_uuid() | PK (novo) |
+| instance_id | uuid | NOT NULL | — | FK → instances.id ON DELETE CASCADE |
+| key | text | NOT NULL | — | — |
+| request_hash | text | NOT NULL | — | — |
+| status | text | NOT NULL | — | CHECK IN (in_progress,completed) |
+| http_status | int | NULL | — | — |
+| response_body | jsonb | NULL | — | — |
+| expires_at | timestamptz | NOT NULL | — | — |
+| created_at / updated_at | timestamptz | NOT NULL | now() | — |
+
+`UNIQUE(instance_id, key)` (era PK composta). Índice `idempotency_keys_expires_idx (expires_at)` preservado.
+
+#### 2.13 `event_outbox`
+
+| coluna | tipo | NULL | default | constraints |
+|---|---|---|---|---|
+| id | uuid | NOT NULL | gen_random_uuid() | PK |
+| subject | text | NOT NULL | — | — |
+| envelope | jsonb | NOT NULL | — | — |
+| attempt_count | int | NOT NULL | 0 | — |
+| last_error_code | text | NULL | — | — |
+| last_error_message | text | NULL | — | — |
+| last_error_at | timestamptz | NULL | — | — |
+| created_at / updated_at | timestamptz | NOT NULL | now() | — |
+
+`published_at` eliminado: registros confirmados são removidos no corte; a tabela só guarda pendentes. Índice `event_outbox_pending_idx (created_at)` (não precisa mais de filtro `published_at IS NULL` — tudo é pendente).
+
+#### 2.14 `webhook_dead_letters`
+
+| coluna | tipo | NULL | default | constraints |
+|---|---|---|---|---|
+| id | uuid | NOT NULL | gen_random_uuid() | PK (novo, substitui bigserial) |
+| instance_id | uuid | NOT NULL | — | FK → instances.id ON DELETE CASCADE |
+| event_id | uuid | NOT NULL | — | UNIQUE |
+| event_type | text | NOT NULL | '' | — |
+| envelope | jsonb | NOT NULL | '{}' | — |
+| attempt_count | int | NOT NULL | 0 | — |
+| last_error_code | text | NULL | — | — |
+| last_error_message | text | NULL | — | — |
+| last_error_at | timestamptz | NULL | — | — |
+| created_at / updated_at | timestamptz | NOT NULL | now() | — |
+
+Mapeamento do `id` bigint antigo: ver política não destrutiva abaixo. Índice `webhook_dead_letters_instance_idx (instance_id, created_at DESC, id DESC)` preservado (ordenação por `created_at`+`id` uuid agora).
+
+**Resumo das ações ON DELETE**: CASCADE para tudo que pertence estritamente à instância (conexão, webhook, fila, mídia, config/correlações chatwoot, metadados, idempotência, dead letters, cache JID não tem FK). SET NULL para `instances.owner_user_id` e `chatwoot_messages.message_id` e `message_queue.media_id`. `event_outbox` não tem FK por instância (pendentes sobrevivem à exclusão da instância — decisão já registrada).
+
+### 3. Política não destrutiva
+
+**Preflight obrigatório antes do DDL** (executado no banco origem, saída em relatório):
+- auditoria de `message_queue.media_id` → `media.id` inexistente;
+- auditoria de `instances.whatsapp_jid` vs `device_jid` divergentes (campos legados);
+- auditoria de `chatwoot_messages` sem `wa_key` válida;
+- contagem de duplicatas de `instances.name` e `external_ref`;
+- verificação de estados fora dos enums.
+
+**Mídia órfã** (`message_queue.media_id` aponta para `media.id` inexistente): a linha de `message_queue` é preservada e seu `media_id` é anulado durante a migração, com a linha registrada no relatório (`orphan_media_refs` listando `message_queue.id`, `instance_id`, `media_id` antigo). Nenhum arquivo/checksum/metadado fictício é criado. A FK nova só é criada após o cleanup, então o corte não falha por órfãos. Justificativa: o objeto já se foi (limpeza anterior ou falha); anular a referência preserva a mensagem e seus dados de envio — o que era recuperável já não estava acessível.
+
+**Mídia com marcador `chatwoot-*` em `message_id` legado**: o `media.message_id` atual mistura WA IDs reais e marcadores `chatwoot-{msgID}-{idx}` gerados pelo inbound. Na migração para `media.wa_id`: valores que satisfaçam o padrão `chatwoot-\d+-\d+` **não** são copiados para `wa_id` (ficam `NULL`); são registrados no relatório de migração (`media_chatwoot_markers` com `media.id`, marcador original). Nenhum marcador sintético pode circular como `wa_id` — leitura/reply/revoke dependem de `wa_id` real.
+
+**JIDs divergentes em `jid_cache`**: `phone` é UNIQUE no novo schema; se o preflight encontrar duplicatas de `phone` (impossível hoje, PK natural — mas defensivo) ou `jid` vazio/malformado, a linha é preservada, o `phone` afetado é registrado no relatório e a constraint UNIQUE só é aplicada após resolução manual. `instances.whatsapp_jid` vs `device_jid` divergentes: ambos são copiados para `instance_connections.device_jid` preferindo `device_jid` (regra de 00007); divergências entram no relatório (`device_jid_conflicts`) e bloqueiam o corte até resolução explícita — nunca escolher silenciosamente.
+
+**Mapeamento bigint→UUID em `webhook_dead_letters`**: nova coluna `id uuid DEFAULT gen_random_uuid()`; o bigint antigo é descartado **após** confirmar que `event_id` (o identificador estável, já UNIQUE) permanece idêntico. Consumidores deduplicam por `event_id`, então o `id` interno bigint não tem significado externo — a substituição é segura. `attempt_count` e `envelope` (ex-`payload`) preservados; `last_error` → `last_error_code='legacy_error'`, `last_error_message=texto`, `last_error_at=NULL`.
+
+**Rollback/backup**: antes de qualquer DDL de corte, `pg_dump` completo do schema `public` (14 tabelas + WhatsMeow) + dump apenas-dados das 14 tabelas próprias para restauração seletiva; cópia do diretório `WZAP_DATA_DIR` de mídia para o volume de staging. Rollback: restaurar o dump em banco paralelo, repontar o app, validar contagens/UUIDs; não há downgrade de schema in-app (o DDL é expansão+renomeação com colunas novas; o corte remove as antigas só após validação). Para mídia: arquivos locais permanecem intocados durante a janela de migração MinIO — só são removidos depois de confirmada a cópia+checksum e após o corte SQL validado.
+
+### 4. Correlação Chatwoot pré-WA ID
+
+**Janela**: `POST /instances/{id}/messages*` responde 202 com `data.message.id` (UUID da fila) no ato do enfileiramento; `wa_id` só chega depois, via MarkSent. Nessa janela `chatwoot_messages` precisa registrar a correlação de uma saída que ainda não tem `wa_key` real.
+
+**Regra fechada**: o webhook Chatwoot (`inbound/webhook.go`) passa a capturar o UUID retornado por `Enqueue` (hoje descartado nas chamadas `_, err := h.enqueuer.Enqueue(...)`, linhas ~388, ~407, ~427). Para cada envio enfileirado a serviço de uma mensagem Chatwoot `cw_id`, é criada/atualizada uma linha em `chatwoot_messages` com `message_id = <uuid da fila>`, `cw_id = <id da mensagem Chatwoot>`, `conversation_id`/`inbox_id` do payload e `wa_key` **sintética provisória** `pending:{uuid}` — prefixo reservado que nunca é um WA ID real e nunca é usado como argumento em comandos de leitura, reply ou revoke.
+
+Quando o `MarkSent` da fila grava o `wa_id` real, o worker de mirror (que consome os eventos de saída) atualiza a linha: `wa_key = wa_id real`. A `UNIQUE(instance_id, wa_key)` é preservada: duas saídas de uma mesma mensagem Chatwoot têm `pending:{uuid1}` e `pending:{uuid2}` distintos, e depois `wa_id` distintos.
+
+**Múltiplos anexos**: uma mensagem Chatwoot com N anexos gera N `Enqueue` (um por anexo que baixou com sucesso), cada um com sua própria linha `chatwoot_messages` — `message_id` distinto, mesmo `cw_id`. Por isso `UNIQUE(instance_id, cw_id)` foi explicitamente rejeitada: a cardinalidade é N:1. Isolamento por instância garantido por `instance_id` em todas as buscas.
+
+**Falhas parciais**: o loop de anexos já é best-effort hoje (falha em download/armazenamento/enqueue → nota privada + `continue`). A política fecha: cada anexo enfileirado com sucesso recebe sua correlação; anexos que falharam não recebem linha — não há placeholder. Se zero anexos enfileirarem e houver texto, o fallback de texto já existente corre; sua correlação segue a mesma regra.
+
+**Backfill**: correlações legadas (pré-mudança) têm `wa_key` real e `message_id NULL`. Backfill de `message_id` **somente com evidência**: junção por `wa_key = message_queue.wa_id` e `instance_id` iguais. Nenhuma heurística por tempo/destinatário. Correlações inbound e de edições (`wa_key` de edição, sem linha na fila) permanecem com `message_id NULL` — nunca recebem mensagem artificial na fila.
+
+**Atomicidade**: `Enqueue` + `INSERT chatwoot_messages` são duas escritas; não são transação única (fila e correlação em repositórios distintos). A ordem é: Enqueue primeiro, depois PUT da correlação com o UUID retornado — se o PUT falhar, a mensagem existe na fila sem correlação (recuperável pelo backfill com evidência assim que `wa_id` chegar); nunca correlação antes do enqueue (não existe UUID ainda).
+
+### 5. Catálogo de erros e idempotência legada
+
+**Códigos de `last_error_code`** (domínio fechado, CHECK não aplicado — texto livre com catálogo de domínio, pois códigos novos surgem na fonte sem migração de schema):
+
+| código | quando | tabelas |
+|---|---|---|
+| `legacy_error` | texto legado migrado sem código estruturado | as 4 |
+| `session_rejected` | `session.SessionRejectedReason` gravado em conexão | instance_connections |
+| `logged_out` | last_error contém "logged out:" | instance_connections |
+| `stream_replaced` | "stream replaced" | instance_connections |
+| `device_jid_mismatch` | "device jid mismatch" | instance_connections |
+| `device_jid_taken` | "device jid already bound" / `ErrDeviceJIDTaken` | instance_connections |
+| `send_failed` | falha de envio ao upstream (MarkFailed) | message_queue |
+| `send_retry` | retentativa agendada (MarkRetrying) | message_queue |
+| `publish_failed` | `MarkAttempt` do outbox | event_outbox |
+| `delivery_failed` | tentativa de webhook esgotada | webhook_dead_letters |
+| `upstream_error` | erro tipado do whatsmeow sem código próprio | as 4 |
+
+**Fallback `NeedsFreshPairing`**: hoje `session.NeedsFreshPairing(lastError)` testa substrings do texto (`pairing.go`). Com o código estruturado, a verificação passa a preferir `last_error_code IN ('session_rejected','logged_out','stream_replaced','device_jid_mismatch','device_jid_taken')`; quando o código é `legacy_error` ou `NULL`, mantém o teste de substring sobre `last_error_message` como fallback — as strings v1 existentes continuam sendo reconhecidas. Assim a transição legado→novo não quebra a recuperação de pareamento. Os eventos v1 conservam as strings de motivo/erro já publicadas (contrato separado dos DTOs HTTP).
+
+**Resposta legada de idempotência não conversível**: uma resposta armazenada em `idempotency_keys.response_body` que não pode ser convertida ao contrato novo (ex.: corpo de operação cuja forma mudou sem mapeamento, ou corpo truncado/inválido) responde **410 Gone** com `{"error":{"code":"idempotency_response_expired","message":"cached response predates the current contract; retry without the idempotency key or with a new one"}}`. Nunca reexecuta o efeito (sem novo envio), nunca devolve o corpo cru legado (campos removidos poderiam reaparecer), nunca invalida a chave para reaproveitamento automático (o fingerprint já validou — o caller decide conscientemente). Justificativa: a alternativa de "solta a chave e reprocessa" enviaria a mensagem duas vezes; a alternativa de servir o corpo cru violaria o contrato público. 410 é semântico: o recurso existiu e não existe mais naquela representação. Status `in_progress` legado nunca é não-conversível (não há corpo).

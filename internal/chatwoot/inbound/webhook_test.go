@@ -1126,3 +1126,95 @@ func TestHandleOutgoingPendingCorrelationFailureKeepsSend(t *testing.T) {
 		t.Fatalf("Enqueue calls = %d, want the send to proceed", len(fx.enqueuer.inputs))
 	}
 }
+
+// TestHandleQuotedPendingCorrelationIgnored pins the pending guard on the
+// quoted lookup: a correlation still holding the provisional pending:{uuid}
+// key is treated as no correlation, so the pending key never becomes
+// ContextInfo.StanzaID upstream.
+func TestHandleQuotedPendingCorrelationIgnored(t *testing.T) {
+	fx := newFixture(t, enabledConnector(), globalOn())
+	fx.correls.latestErr = storage.ErrNotFound
+	quotedID := int64(203)
+	fx.correls.byChatwootID[quotedID] = &model.ChatwootMessage{
+		InstanceID: fx.instance, WAKey: "pending:11111111-1111-1111-1111-111111111111",
+		ChatwootMessageID: quotedID,
+		ConversationID:    79, ContactSourceID: "5511999999999@s.whatsapp.net",
+	}
+	payload := outgoingPayload(79, "replying a pending send")
+	inReply := quotedID
+	payload.Message.InReplyTo = &inReply
+
+	status, err := fx.handler.Handle(context.Background(), fx.instance, payload)
+	if err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	if status != 200 {
+		t.Fatalf("status = %d, want 200", status)
+	}
+	if len(fx.enqueuer.inputs) != 1 {
+		t.Fatalf("Enqueue calls = %d, want 1", len(fx.enqueuer.inputs))
+	}
+	if got := fx.enqueuer.inputs[0].QuotedID; got != "" {
+		t.Errorf("Enqueue QuotedID = %q, want empty for a pending correlation", got)
+	}
+}
+
+// TestHandleReverseDeleteSkipsPendingCorrelation pins the pending guard on
+// the reverse delete: a pending correlation has no WhatsApp id, so the
+// session must never be asked to delete the synthetic key.
+func TestHandleReverseDeleteSkipsPendingCorrelation(t *testing.T) {
+	fx := newFixture(t, enabledConnector(), globalOn())
+	deletedID := int64(304)
+	fx.correls.byChatwootID[deletedID] = &model.ChatwootMessage{
+		InstanceID: fx.instance, WAKey: "pending:22222222-2222-2222-2222-222222222222",
+		ChatwootMessageID: deletedID,
+		ConversationID:    80, ContactSourceID: "5511999999999@s.whatsapp.net",
+	}
+	payload := Payload{
+		Event: EventMessageUpdated,
+		Message: &Message{
+			ID: deletedID, MessageType: MessageTypeOutgoing,
+			ConversationID: 80, Deleted: true,
+			ContentAttributes: map[string]any{"deleted": true},
+		},
+		Conversation: &Conversation{ID: 80},
+	}
+
+	status, err := fx.handler.Handle(context.Background(), fx.instance, payload)
+	if err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	if status != 200 {
+		t.Fatalf("status = %d, want 200", status)
+	}
+	sess, _ := fx.sessions.Get(fx.instance)
+	if calls := sess.(*sessiontest.FakeSession).DeleteCalls(); len(calls) != 0 {
+		t.Errorf("DeleteMessage calls = %d, want 0 (pending key is not a real id)", len(calls))
+	}
+}
+
+// TestHandleMessageReadSkipsPendingLatest pins the pending guard on the
+// read marker: when the latest correlation of the conversation is still the
+// provisional pending:{uuid} row, MarkRead is not called at all — never with
+// the synthetic key.
+func TestHandleMessageReadSkipsPendingLatest(t *testing.T) {
+	fx := newFixture(t, enabledConnector(), globalOn())
+	fx.correls.latest = &model.ChatwootMessage{
+		InstanceID: fx.instance, WAKey: "pending:33333333-3333-3333-3333-333333333333",
+		ChatwootMessageID: 405,
+		ConversationID:    82, ContactSourceID: "5511999999999@s.whatsapp.net",
+	}
+	payload := outgoingPayload(82, "hello pending read")
+
+	status, err := fx.handler.Handle(context.Background(), fx.instance, payload)
+	if err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	if status != 200 {
+		t.Fatalf("status = %d, want 200", status)
+	}
+	sess, _ := fx.sessions.Get(fx.instance)
+	if calls := sess.(*sessiontest.FakeSession).MarkReadCalls(); len(calls) != 0 {
+		t.Errorf("MarkRead calls = %d, want 0 for a pending latest row", len(calls))
+	}
+}

@@ -311,6 +311,68 @@ func TestLatestByConversationTiebreaksDeterministically(t *testing.T) {
 	}
 }
 
+// TestLatestByConversationSkipsPendingRows pins the pending guard: the
+// provisional "pending:{uuid}" row of a queued send is never returned as the
+// latest correlation, so read markers resolve the last real row instead of a
+// synthetic key. A conversation holding only pending rows reports
+// ErrNotFound.
+func TestLatestByConversationSkipsPendingRows(t *testing.T) {
+	ctx := context.Background()
+	pool := postgrestest.NewPool(t)
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatalf("migrate test schema: %v", err)
+	}
+
+	instances := NewInstanceRepository(pool)
+	instance, err := instances.Create(ctx, model.Instance{
+		ID:         uuid.New(),
+		Name:       "chatwoot-latest-pending",
+		Connection: model.InstanceConnection{Status: "disconnected"},
+	})
+	if err != nil {
+		t.Fatalf("create instance: %v", err)
+	}
+
+	// The real row is older; the pending row is the newest of the
+	// conversation. Timestamps are seeded explicitly because Put stamps
+	// now() per row and two rows can share the instant.
+	realStamp := time.Now().UTC().Add(-time.Hour)
+	pendingStamp := time.Now().UTC()
+	pendingKey := "pending:44444444-4444-4444-4444-444444444444"
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO chatwoot_messages (instance_id, wa_key, cw_id, conversation_id, inbox_id, chat_jid, created_at)
+		 VALUES ($1, 'WA-REAL-9', 41, 56, 7, '5511999999999@s.whatsapp.net', $2),
+		        ($1, $3, 42, 56, 7, '5511999999999@s.whatsapp.net', $4)`,
+		instance.ID, realStamp, pendingKey, pendingStamp); err != nil {
+		t.Fatalf("seed rows: %v", err)
+	}
+	// A second conversation holds only the pending row.
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO chatwoot_messages (instance_id, wa_key, cw_id, conversation_id, inbox_id, chat_jid, created_at)
+		 VALUES ($1, 'pending:55555555-5555-5555-5555-555555555555', 43, 57, 7, '5511999999999@s.whatsapp.net', $2)`,
+		instance.ID, pendingStamp); err != nil {
+		t.Fatalf("seed pending-only conversation: %v", err)
+	}
+
+	_, msgRepo := NewChatwootRepositories(pool, nil)
+	got, err := msgRepo.LatestByConversation(ctx, instance.ID, 56)
+	if err != nil {
+		t.Fatalf("LatestByConversation: %v", err)
+	}
+	if got.WAKey != "WA-REAL-9" {
+		t.Errorf("LatestByConversation WAKey = %q, want WA-REAL-9 (pending row ignored)", got.WAKey)
+	}
+	if got.ChatwootMessageID != 41 {
+		t.Errorf("LatestByConversation ChatwootMessageID = %d, want 41", got.ChatwootMessageID)
+	}
+
+	// A conversation with no real row yet reports ErrNotFound instead of the
+	// pending key.
+	if _, err := msgRepo.LatestByConversation(ctx, instance.ID, 57); !errors.Is(err, storage.ErrNotFound) {
+		t.Errorf("LatestByConversation(pending-only) err = %v, want %v", err, storage.ErrNotFound)
+	}
+}
+
 func TestChatwootConfigTokenSealedAtRest(t *testing.T) {
 	ctx := context.Background()
 	pool := postgrestest.NewPool(t)

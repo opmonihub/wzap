@@ -60,6 +60,17 @@ const OperationalContactIdentifier = "123456"
 // A webhook whose source_id carries it is our own echo and is discarded.
 const sourceEchoPrefix = "WAID:"
 
+// pendingKeyPrefix namespaces the provisional wa_key of an attendant reply
+// queued but not yet confirmed by WhatsApp (recordPending). A pending row is
+// never a real WhatsApp id: the session calls below must never receive it as
+// a quoted stanza id, a delete target or a read marker.
+const pendingKeyPrefix = "pending:"
+
+// isPendingWAKey reports whether wa_key is a provisional pending key.
+func isPendingWAKey(waKey string) bool {
+	return strings.HasPrefix(waKey, pendingKeyPrefix)
+}
+
 // mediaDirectionOutbound labels media downloaded from Chatwoot for a send.
 const mediaDirectionOutbound = "outbound"
 
@@ -326,6 +337,12 @@ func (h *Handler) handleMessageUpdated(ctx context.Context, instanceID uuid.UUID
 		}
 		return 500, err
 	}
+	// A pending correlation has no WhatsApp id yet: there is nothing real to
+	// delete, and the pending key must never reach the session.
+	if isPendingWAKey(corr.WAKey) {
+		h.log.Debug().Str("instance_id", instanceID.String()).Int64("chatwoot_message_id", msg.ID).Str("reason", "pending_correlation").Msg("skipping reverse delete of a pending correlation")
+		return 200, nil
+	}
 	sess, ok := h.sessions.Get(instanceID)
 	if !ok {
 		h.log.Debug().Str("instance_id", instanceID.String()).Str("reason", "missing_session").Msg("skipping reverse delete without session")
@@ -354,7 +371,9 @@ func (h *Handler) handleOutgoing(ctx context.Context, instanceID uuid.UUID, cfg 
 		return 200, nil
 	}
 	// Quoted replies resolve best-effort: without correlation the quote is
-	// ignored and the send proceeds unquoted.
+	// ignored and the send proceeds unquoted. A pending correlation has no
+	// real WhatsApp id yet, so it is treated as no correlation as well — the
+	// pending key must never become ContextInfo.StanzaID.
 	var quotedID string
 	if msg.InReplyTo != nil {
 		corr, err := h.correlations.GetByChatwootID(ctx, instanceID, *msg.InReplyTo)
@@ -362,7 +381,7 @@ func (h *Handler) handleOutgoing(ctx context.Context, instanceID uuid.UUID, cfg 
 			if !errors.Is(err, storage.ErrNotFound) {
 				return 500, err
 			}
-		} else if corr != nil {
+		} else if corr != nil && !isPendingWAKey(corr.WAKey) {
 			quotedID = corr.WAKey
 		}
 	}
@@ -479,7 +498,7 @@ func (h *Handler) recordPending(ctx context.Context, instanceID, queueID uuid.UU
 	pending := model.ChatwootMessage{
 		InstanceID:        instanceID,
 		MessageID:         &queueID,
-		WAKey:             "pending:" + queueID.String(),
+		WAKey:             pendingKeyPrefix + queueID.String(),
 		ChatwootMessageID: cwID,
 		ConversationID:    convID,
 		InboxID:           inboxID,
@@ -642,13 +661,16 @@ func (h *Handler) handleOperational(ctx context.Context, instanceID uuid.UUID, c
 
 // markReadBestEffort marks the latest received message of the conversation
 // as read when MESSAGE_READ is on. Without correlation or session it skips
-// silently; failures only warn.
+// silently; a pending correlation is skipped too — the repository resolves
+// the last non-pending row, and the guard keeps the synthetic key from ever
+// reaching the session even with a repository that has not caught up.
+// Failures only warn.
 func (h *Handler) markReadBestEffort(ctx context.Context, instanceID uuid.UUID, conversationID int64) {
 	if !h.global.MessageRead || conversationID == 0 {
 		return
 	}
 	corr, err := h.correlations.LatestByConversation(ctx, instanceID, conversationID)
-	if err != nil || corr == nil {
+	if err != nil || corr == nil || isPendingWAKey(corr.WAKey) {
 		return
 	}
 	sess, ok := h.sessions.Get(instanceID)

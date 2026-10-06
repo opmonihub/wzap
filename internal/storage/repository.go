@@ -226,7 +226,9 @@ type ChatwootMessageRepository interface {
 	// without a correlation.
 	GetByChatwootID(ctx context.Context, instanceID uuid.UUID, chatwootID int64) (*model.ChatwootMessage, error)
 	// LatestByConversation returns the newest correlation of a conversation,
-	// backing recipient resolution and mark-read. It reports ErrNotFound
+	// skipping the provisional "pending:{uuid}" rows of sends that have no
+	// WhatsApp id yet, so a pending key is never handed back as a real id. It
+	// backs recipient resolution and mark-read. It reports ErrNotFound
 	// without one.
 	LatestByConversation(ctx context.Context, instanceID uuid.UUID, conversationID int64) (*model.ChatwootMessage, error)
 	// PromotePending rewrites the provisional wa_key "pending:{queueID}" of an

@@ -272,14 +272,17 @@ func (r *ChatwootMessageRepository) GetByChatwootID(ctx context.Context, instanc
 }
 
 // LatestByConversation returns the newest correlation of a conversation or
-// storage.ErrNotFound. It backs the inbound MESSAGE_READ marking of the last
-// received message. The tiebreak on cw_id keeps the choice
-// deterministic when two rows share created_at (same instant), matching the
-// (instance_id, conversation_id, created_at DESC, cw_id DESC)
+// storage.ErrNotFound, skipping the provisional "pending:{uuid}" rows of
+// sends that still have no WhatsApp id: a pending key is never a real id,
+// so handing it back would send read markers (and quotes/deletes resolved
+// through this lookup) at a synthetic key. It backs the inbound MESSAGE_READ
+// marking of the last received message. The tiebreak on cw_id keeps the
+// choice deterministic when two rows share created_at (same instant),
+// matching the (instance_id, conversation_id, created_at DESC, cw_id DESC)
 // covering index from migration 00004.
 func (r *ChatwootMessageRepository) LatestByConversation(ctx context.Context, instanceID uuid.UUID, conversationID int64) (*model.ChatwootMessage, error) {
 	msg, err := scanChatwootMessage(r.pool.QueryRow(ctx,
-		`SELECT `+chatwootMessageColumns+` FROM chatwoot_messages WHERE instance_id = $1 AND conversation_id = $2 ORDER BY created_at DESC, cw_id DESC LIMIT 1`,
+		`SELECT `+chatwootMessageColumns+` FROM chatwoot_messages WHERE instance_id = $1 AND conversation_id = $2 AND wa_key NOT LIKE 'pending:%' ORDER BY created_at DESC, cw_id DESC LIMIT 1`,
 		instanceID, conversationID))
 	if err != nil {
 		return nil, mapChatwootError("get latest chatwoot message", err)

@@ -154,7 +154,7 @@ func TestStorageOpenStreamsObject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 	got, err := io.ReadAll(body)
 	if err != nil {
 		t.Fatalf("read body: %v", err)

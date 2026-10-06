@@ -210,15 +210,15 @@ func TestSwaggerResponseEnvelopes(t *testing.T) {
 func TestSwaggerTypedPayloadsAndExceptions(t *testing.T) {
 	doc := servedSwagger(t)
 	for _, test := range []struct {
-		path, method, status, field, fieldType string
+		path, method, status, via, field, fieldType string
 	}{
-		{"/healthz", "get", "200", "status", "string"},
-		{"/readyz", "get", "503", "checks", "object"},
-		{"/instances/{id}", "get", "200", "id", "string"},
-		{"/instances/{id}/messages/text", "post", "202", "message_id", "string"},
-		{"/instances/{id}/chatwoot/import", "post", "202", "imported", "integer"},
-		{"/instances/{id}/chatwoot/command", "post", "200", "ok", "boolean"},
-		{"/instances/{id}/chatwoot", "get", "200", "token", "string"},
+		{"/healthz", "get", "200", "", "status", "string"},
+		{"/readyz", "get", "503", "", "checks", "object"},
+		{"/instances/{id}", "get", "200", "instance", "id", "string"},
+		{"/instances/{id}/messages/text", "post", "202", "message", "id", "string"},
+		{"/instances/{id}/chatwoot/import", "post", "202", "", "imported", "integer"},
+		{"/instances/{id}/chatwoot/command", "post", "200", "", "ok", "boolean"},
+		{"/instances/{id}/chatwoot", "get", "200", "chatwoot_config", "webhook_url", "string"},
 	} {
 		t.Run(test.method+" "+test.path, func(t *testing.T) {
 			response := doc.Paths[test.path][test.method].Responses[test.status]
@@ -227,16 +227,32 @@ func TestSwaggerTypedPayloadsAndExceptions(t *testing.T) {
 			}
 			envelope := resolveSwaggerSchema(t, doc, *response.Schema)
 			payload := resolveSwaggerSchema(t, doc, envelope.Properties["data"])
+			if test.via != "" {
+				payload = resolveSwaggerSchema(t, doc, payload.Properties[test.via])
+			}
 			if payload.Properties[test.field].Type != test.fieldType {
-				t.Errorf("data.%s type = %q, want %q", test.field, payload.Properties[test.field].Type, test.fieldType)
+				t.Errorf("data.%s.%s type = %q, want %q", test.via, test.field, payload.Properties[test.field].Type, test.fieldType)
 			}
 		})
 	}
-	for _, test := range []struct{ path, itemField string }{
-		{"/users", "email"},
-		{"/instances", "id"},
-		{"/instances/{id}/messages", "id"},
-		{"/instances/{id}/groups", "jid"},
+	// The Chatwoot token is write-only: reads must never document it.
+	t.Run("chatwoot token hidden", func(t *testing.T) {
+		response := doc.Paths["/instances/{id}/chatwoot"]["get"].Responses["200"]
+		if response.Schema == nil {
+			t.Fatal("missing response schema")
+		}
+		envelope := resolveSwaggerSchema(t, doc, *response.Schema)
+		payload := resolveSwaggerSchema(t, doc, envelope.Properties["data"])
+		config := resolveSwaggerSchema(t, doc, payload.Properties["chatwoot_config"])
+		if _, ok := config.Properties["token"]; ok {
+			t.Error("GET chatwoot must not expose the token")
+		}
+	})
+	for _, test := range []struct{ path, entity, itemField string }{
+		{"/users", "user", "email"},
+		{"/instances", "instance", "id"},
+		{"/instances/{id}/messages", "message", "id"},
+		{"/instances/{id}/groups", "group", "jid"},
 	} {
 		t.Run("collection "+test.path, func(t *testing.T) {
 			response := doc.Paths[test.path]["get"].Responses["200"]
@@ -244,16 +260,15 @@ func TestSwaggerTypedPayloadsAndExceptions(t *testing.T) {
 				t.Fatal("missing response schema")
 			}
 			envelope := resolveSwaggerSchema(t, doc, *response.Schema)
-			collection := resolveSwaggerSchema(t, doc, envelope.Properties["data"])
-			if test.path != "/users" {
-				collection = resolveSwaggerSchema(t, doc, collection.Properties["items"])
-			}
+			payload := resolveSwaggerSchema(t, doc, envelope.Properties["data"])
+			collection := resolveSwaggerSchema(t, doc, payload.Properties["items"])
 			if collection.Type != "array" || collection.Items == nil {
 				t.Fatal("missing typed collection")
 			}
-			item := resolveSwaggerSchema(t, doc, *collection.Items)
+			wrapper := resolveSwaggerSchema(t, doc, *collection.Items)
+			item := resolveSwaggerSchema(t, doc, wrapper.Properties[test.entity])
 			if item.Properties[test.itemField].Type != "string" {
-				t.Errorf("collection item missing string %s", test.itemField)
+				t.Errorf("collection item missing string %s.%s", test.entity, test.itemField)
 			}
 		})
 	}
@@ -373,7 +388,8 @@ func TestSwaggerInstanceListingWithoutPagination(t *testing.T) {
 	if items.Type != "array" || items.Items == nil {
 		t.Fatal("GET /instances data.items must be a typed array")
 	}
-	item := resolveSwaggerSchema(t, doc, *items.Items)
+	wrapper := resolveSwaggerSchema(t, doc, *items.Items)
+	item := resolveSwaggerSchema(t, doc, wrapper.Properties["instance"])
 	if item.Properties["id"].Type != "string" {
 		t.Error("GET /instances data.items must retain the instance schema")
 	}
@@ -422,8 +438,8 @@ func TestSwaggerQuotaRequestSchemas(t *testing.T) {
 					t.Fatal("missing body schema")
 				}
 				schema := resolveSwaggerSchema(t, doc, *parameter.Schema)
-				if schema.Properties["instance_quota"].Type != "integer" {
-					t.Error("instance_quota must be documented as an integer")
+				if schema.Properties["instance_limit"].Type != "integer" {
+					t.Error("instance_limit must be documented as an integer")
 				}
 				return
 			}

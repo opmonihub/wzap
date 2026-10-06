@@ -273,7 +273,7 @@ func (s *Storage) Path(ctx context.Context, id uuid.UUID) (string, *model.Media,
 	if err != nil {
 		return "", nil, err
 	}
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 	data, err := io.ReadAll(body)
 	if err != nil {
 		return "", nil, fmt.Errorf("open media %s: %w", id, err)
@@ -354,7 +354,7 @@ func (s *Storage) DeleteExpired(ctx context.Context, now time.Time) (int, error)
 			failures = append(failures, fmt.Errorf("mark media %s deleted: %w", record.ID, err))
 			continue
 		}
-		s.removeCacheFile(record.ObjectKey)
+		_ = s.removeCacheFile(record.ObjectKey)
 		removed++
 	}
 	if err := errors.Join(failures...); err != nil {

@@ -20,16 +20,16 @@ function formatDateTime(value: string | null): string {
 <template>
   <div v-if="props.message" data-testid="message-detail" class="flex flex-col gap-4 p-4 sm:px-6">
     <div class="flex items-center gap-3">
-      <UAvatar :alt="props.message.recipient" />
+      <UAvatar :alt="props.message.recipient_jid" />
       <div class="min-w-0 flex-1">
         <p class="truncate font-mono text-sm text-highlighted">
-          {{ props.message.recipient }}
+          {{ props.message.recipient_jid }}
         </p>
         <p class="text-xs text-muted">
           {{ formatDateTime(props.message.created_at) }}
         </p>
       </div>
-      <MessageStatusBadge :status="props.message.status" />
+      <MessageStatusBadge :status="props.message.send_status" />
     </div>
     <dl class="flex flex-col gap-3 text-sm sm:gap-2">
       <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
@@ -37,7 +37,7 @@ function formatDateTime(value: string | null): string {
           {{ t('instances.messages.type') }}
         </dt>
         <dd class="min-w-0 font-mono break-all text-highlighted sm:text-right">
-          {{ props.message.type }}
+          {{ props.message.message_type }}
         </dd>
       </div>
       <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
@@ -45,7 +45,7 @@ function formatDateTime(value: string | null): string {
           {{ t('instances.messages.whatsappId') }}
         </dt>
         <dd class="min-w-0 font-mono break-all text-highlighted sm:text-right">
-          {{ props.message.whatsapp_message_id || t('common.notSet') }}
+          {{ props.message.wa_id || t('common.notSet') }}
         </dd>
       </div>
       <div v-if="props.message.last_error" class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
@@ -53,7 +53,7 @@ function formatDateTime(value: string | null): string {
           {{ t('instances.messages.lastError') }}
         </dt>
         <dd class="min-w-0 break-all text-highlighted sm:text-right">
-          {{ props.message.last_error }}
+          {{ props.message.last_error.message }}
         </dd>
       </div>
       <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
@@ -61,7 +61,7 @@ function formatDateTime(value: string | null): string {
           {{ t('instances.messages.attempts') }}
         </dt>
         <dd class="min-w-0 text-highlighted sm:text-right">
-          {{ props.message.attempts }}
+          {{ props.message.retry_count }}
         </dd>
       </div>
       <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">

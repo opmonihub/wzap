@@ -5,8 +5,10 @@ import MessageDetail from '~/components/instances/MessageDetail.vue'
 import type { OutboundMessage } from '~/types/api'
 
 // Message history for one instance: first page on mount, manual refresh and
-// load-more through the opaque next cursor. The parent bumps refreshKey after
-// a test send is accepted and settled so the new message shows up.
+// load-more through the opaque next cursor. Every page item nests the
+// message under items[].message since the remodel. The parent bumps
+// refreshKey after a test send is accepted and settled so the new message
+// shows up.
 const props = defineProps<{
   instanceId: string
   refreshKey?: number
@@ -30,7 +32,7 @@ async function loadFirst() {
   failure.value = null
   try {
     const page = await listMessages(props.instanceId)
-    items.value = page.items
+    items.value = page.items.map(item => item.message)
     nextCursor.value = page.next_cursor
   } catch (error) {
     failure.value = error instanceof ApiError ? error.message : t('instances.messages.loadFailed')
@@ -47,7 +49,7 @@ async function onRefresh() {
   failure.value = null
   try {
     const page = await listMessages(props.instanceId)
-    items.value = page.items
+    items.value = page.items.map(item => item.message)
     nextCursor.value = page.next_cursor
   } catch (error) {
     failure.value = error instanceof ApiError ? error.message : t('instances.messages.loadFailed')
@@ -63,7 +65,7 @@ async function loadMore() {
   loadingMore.value = true
   try {
     const page = await listMessages(props.instanceId, nextCursor.value)
-    items.value = [...items.value, ...page.items]
+    items.value = [...items.value, ...page.items.map(item => item.message)]
     nextCursor.value = page.next_cursor
   } catch (error) {
     if (error instanceof ApiError && error.status === 400) {

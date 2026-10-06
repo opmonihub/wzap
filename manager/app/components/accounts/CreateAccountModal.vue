@@ -18,10 +18,10 @@ const createSchema = z.object({
   email: z.string().min(1, t('accounts.create.emailRequired')).max(255),
   password: z.string().min(1, t('accounts.create.passwordRequired')),
   role: z.enum(['admin', 'user']),
-  instance_quota: z.string()
+  instance_limit: z.string()
 })
 type CreateSchema = z.output<typeof createSchema>
-const createState = reactive<Partial<CreateSchema>>({ email: '', password: '', role: 'user', instance_quota: '' })
+const createState = reactive<Partial<CreateSchema>>({ email: '', password: '', role: 'user', instance_limit: '' })
 const creating = ref(false)
 const createFailure = ref<string | null>(null)
 
@@ -29,7 +29,7 @@ function resetCreate() {
   createState.email = ''
   createState.password = ''
   createState.role = 'user'
-  createState.instance_quota = ''
+  createState.instance_limit = ''
   creating.value = false
   createFailure.value = null
 }
@@ -53,7 +53,7 @@ async function onCreate(event: FormSubmitEvent<CreateSchema>) {
     createFailure.value = t('accounts.create.passwordRequired')
     return
   }
-  const quota = parseQuota(event.data.instance_quota ?? '')
+  const quota = parseQuota(event.data.instance_limit ?? '')
   if (quota === null) {
     createFailure.value = t('accounts.create.quotaInvalid')
     return
@@ -61,7 +61,7 @@ async function onCreate(event: FormSubmitEvent<CreateSchema>) {
   creating.value = true
   createFailure.value = null
   try {
-    const created = await createUser({ email, password: event.data.password ?? '', role: event.data.role ?? 'user', instance_quota: quota })
+    const created = await createUser({ email, password: event.data.password ?? '', role: event.data.role ?? 'user', instance_limit: quota })
     emit('created', created)
     open.value = false
     toast.add({ title: t('accounts.create.createdToast'), icon: 'i-lucide-check', color: 'success' })
@@ -122,9 +122,9 @@ function friendlyCreateError(error: ApiError): string {
           />
         </UFormField>
 
-        <UFormField :label="t('accounts.quotaLabel')" :hint="t('accounts.create.quotaHint')" name="instance_quota">
+        <UFormField :label="t('accounts.quotaLabel')" :hint="t('accounts.create.quotaHint')" name="instance_limit">
           <UInput
-            v-model="createState.instance_quota"
+            v-model="createState.instance_limit"
             type="number"
             step="1"
             class="w-full"

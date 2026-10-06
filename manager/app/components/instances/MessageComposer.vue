@@ -92,7 +92,7 @@ async function settle(messageId: string) {
     await new Promise(resolve => setTimeout(resolve, 2000))
     try {
       const current = await getMessage(props.instanceId, messageId)
-      if (current.status === 'sent' || current.status === 'failed') {
+      if (current.send_status === 'sent' || current.send_status === 'failed') {
         emit('settled', messageId)
         return
       }
@@ -119,7 +119,7 @@ async function onSend() {
           failure.value = t('instances.send.textRequired')
           return
         }
-        await accepted((await sendText(props.instanceId, target, text.value)).message_id)
+        await accepted((await sendText(props.instanceId, target, text.value)).message.id)
         break
       }
       case 'media': {
@@ -137,7 +137,7 @@ async function onSend() {
           type: kind,
           caption: mediaCaption.value,
           file: mediaFile.value
-        })).message_id)
+        })).message.id)
         break
       }
       case 'location': {
@@ -147,7 +147,7 @@ async function onSend() {
           failure.value = t('instances.send.invalidLocation')
           return
         }
-        await accepted((await sendLocation(props.instanceId, { to: target, latitude: lat, longitude: lng })).message_id)
+        await accepted((await sendLocation(props.instanceId, { to: target, latitude: lat, longitude: lng })).message.id)
         break
       }
       case 'contact': {
@@ -159,7 +159,7 @@ async function onSend() {
           to: target,
           display_name: displayName.value.trim(),
           vcard: vcard.value
-        })).message_id)
+        })).message.id)
         break
       }
       case 'poll': {
@@ -174,7 +174,7 @@ async function onSend() {
           question: question.value.trim(),
           options: choices,
           selectable_count: Math.max(1, Number(selectableCount.value) || 1)
-        })).message_id)
+        })).message.id)
         break
       }
       case 'reaction': {
@@ -188,7 +188,7 @@ async function onSend() {
           to: target,
           target: reactionTarget.value.trim(),
           emoji: emoji.value
-        })).message_id)
+        })).message.id)
         break
       }
       case 'list': {
@@ -205,7 +205,7 @@ async function onSend() {
           button_text: listButton.value.trim(),
           sections: [{ title: listSection.value.trim() || listTitle.value.trim(), rows }],
           footer: listFooter.value.trim()
-        })).message_id)
+        })).message.id)
         break
       }
       case 'buttons': {
@@ -220,7 +220,7 @@ async function onSend() {
           text: buttonsText.value.trim(),
           buttons: rows.map(row => ({ id: row.id, title: row.title })),
           footer: buttonsFooter.value.trim()
-        })).message_id)
+        })).message.id)
         break
       }
     }

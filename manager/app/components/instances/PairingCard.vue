@@ -8,11 +8,12 @@ import type { ConnectResult, InstanceStatus } from '~/types/api'
 // until the phone scan flips it to connected, and re-issues the QR
 // automatically when qr_expires_at passes (GET qr replaces an expired code).
 // A connected instance shows its linked state and never asks for a new
-// pairing; the parent reloads the instance on the paired event.
+// pairing; the parent reloads the instance on the paired event. Connect/qr
+// answer the pairing subset under data.connection; status answers the full
+// connection block under data.connection.
 const props = defineProps<{
   instanceId: string
   status: InstanceStatus
-  whatsappJid: string
 }>()
 
 const emit = defineEmits<{
@@ -100,7 +101,7 @@ async function drawQR(data: string) {
 }
 
 function applyPairing(result: ConnectResult) {
-  qrExpiresAt.value = result.qr_expires_at ?? null
+  qrExpiresAt.value = result.connection.qr_expires_at ?? null
   retryAt = 0
   reissueFailure.value = null
   phase.value = 'pairing'
@@ -126,7 +127,7 @@ async function confirmConnected(notifyParent: boolean): Promise<boolean> {
     if (disposed) {
       return false
     }
-    if (current.status === 'connected') {
+    if (current.connection.status === 'connected') {
       markConnected(notifyParent)
       return true
     }
@@ -162,20 +163,20 @@ async function start() {
     // No QR payload means stored credentials or an already-connected session.
     // Confirm against GET status before notifying the parent — otherwise a
     // silent refresh remounts this card and POST connect loops forever.
-    if (result.status === 'connected' || !result.qr_code) {
+    if (result.connection.status === 'connected' || !result.connection.qr_code) {
       if (await confirmConnected(true)) {
         return
       }
-      if (result.qr_code) {
+      if (result.connection.qr_code) {
         applyPairing(result)
-        await drawQR(result.qr_code)
+        await drawQR(result.connection.qr_code)
         return
       }
       await waitForConnected(true)
       return
     }
     applyPairing(result)
-    await drawQR(result.qr_code)
+    await drawQR(result.connection.qr_code)
   } catch (error) {
     if (disposed) {
       return
@@ -202,20 +203,20 @@ async function reissue() {
     if (disposed) {
       return
     }
-    if (result.status === 'connected' || !result.qr_code) {
+    if (result.connection.status === 'connected' || !result.connection.qr_code) {
       if (await confirmConnected(true)) {
         return
       }
-      if (result.qr_code) {
+      if (result.connection.qr_code) {
         applyPairing(result)
-        await drawQR(result.qr_code)
+        await drawQR(result.connection.qr_code)
         return
       }
       await waitForConnected(true)
       return
     }
     applyPairing(result)
-    await drawQR(result.qr_code)
+    await drawQR(result.connection.qr_code)
   } catch (error) {
     if (disposed) {
       return
@@ -243,7 +244,7 @@ async function pollStatus() {
   polling = true
   try {
     const current = await getConnectionStatus(props.instanceId)
-    if (!disposed && phase.value === 'pairing' && current.status === 'connected') {
+    if (!disposed && phase.value === 'pairing' && current.connection.status === 'connected') {
       markConnected(true)
     }
   } catch {
@@ -364,7 +365,7 @@ onUnmounted(() => {
         variant="subtle"
         data-testid="pairing-connected"
         :title="t('instances.pairing.connectedTitle')"
-        :description="whatsappJid ? t('instances.pairing.connectedBody', { jid: whatsappJid }) : t('instances.pairing.connectedBodyNoJid')"
+        :description="t('instances.pairing.connectedBodyNoJid')"
       />
     </div>
 

@@ -54,7 +54,9 @@
 
 ## 5. Atualizar contrato HTTP e consumidores
 
-- [ ] 5.1 Implementar DTOs e mapeadores de todas as operações da matriz fechada; verificar envelopes, coleções vazias, ocultação de campos, comandos e exceções com fixtures por rota.
+- [x] 5.1 Implementar DTOs e mapeadores de todas as operações da matriz fechada; verificar envelopes, coleções vazias, ocultação de campos, comandos e exceções com fixtures por rota.
+
+  Registro (5.1): DTOs de transporte explícitos em `internal/httpapi/dto.go` com mapeadores dedicados (sem reuso de tags de `model`); instância aninhada `connection`/`webhook`, `last_error` estruturado `{code,message,occurred_at}|null` (legado vira `legacy_error` com `occurred_at` nulo), `instance_api_key` só em criação/rotação, token Chatwoot removido de toda leitura, `instances_used` computado via `CountByOwner`, coleções `data.items[].<entity>` com `[]` em vazios. Suíte de contrato com 89 fixtures por operação da matriz (`response_contract_test.go`) contra o router de produção, cobrindo chaves exatas, ocultação recursiva de segredos, 401 com `X-Request-Id` e exceções (204, mídia bytes, HTML). Replay converte corpos legados com mesmo UUID e responde 410 a corpos não conversíveis. Review inicial reprovou a resposta 202 (campos zerados e `media_id` nulo); corrigido em `94ff091` com DTO dedicado `{id,instance_id,send_status,media_id}` e re-review aprovado. Swagger (5.3) e Manager (5.2) ficam para as tasks seguintes. Detalhes em `.superpowers/sdd/plan/task-15-report.md`.
 - [ ] 5.2 Atualizar tipos e fluxos do Manager, incluindo instances_used e flags Chatwoot; verificar quotas, formulários sem apagar campos ocultos, opções de webhook e executar testes, typecheck e build.
 - [ ] 5.3 Atualizar anotações dos handlers e regenerar Swagger; verificar cobertura de rotas, exemplos e segurança global sem campo apikey duplicado.
 

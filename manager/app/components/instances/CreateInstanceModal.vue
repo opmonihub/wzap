@@ -54,7 +54,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   failure.value = null
   try {
     created.value = await createInstance({ name, external_ref: event.data.external_ref ?? '' })
-    markInstanceKeySeen(created.value.id)
+    markInstanceKeySeen(created.value.instance.id)
     emit('created', created.value)
   } catch (error) {
     failure.value = error instanceof ApiError ? friendlyCreateError(error) : t('instances.create.failed')

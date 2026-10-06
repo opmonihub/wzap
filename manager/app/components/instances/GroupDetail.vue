@@ -115,10 +115,11 @@ async function onUpdate() {
     return
   }
   try {
-    group.value = await updateGroup(props.instanceId, group.value.jid, {
+    await updateGroup(props.instanceId, group.value.jid, {
       name,
       description: editDescription.value
     })
+    group.value = await getGroup(props.instanceId, group.value.jid)
   } catch (error) {
     failure.value = error instanceof ApiError ? error.message : t('instances.groups.updateFailed')
   }

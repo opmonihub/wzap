@@ -34,7 +34,7 @@ async function refresh() {
   failure.value = null
   try {
     const page = await channels.listNewsletters(props.instanceId)
-    followed.value = page.items
+    followed.value = page.items.map(item => item.channel)
     const listed = await channels.listStatuses(props.instanceId)
     statuses.value = listed.items
   } catch (error) {

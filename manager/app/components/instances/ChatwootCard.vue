@@ -3,11 +3,13 @@ import { ApiError } from '~/composables/useApi'
 import type { ChatwootConfig, ChatwootSetInput } from '~/types/api'
 
 // Chatwoot connector card: config get/put, history import, operator command
-// and the server-computed webhook URL. The token is write-only — GET answers
-// always mask it, so the form keeps a separate password field that starts
-// empty and is only sent when the operator typed a value; saving without a
-// token is blocked so an empty string never wipes the stored secret. A 400
-// chatwoot_disabled disables every form.
+// and the server-computed webhook URL. The token is write-only — it never
+// appears in any response, so the form keeps a separate password field that
+// starts empty and is only sent when the operator typed a value; saving
+// without a token is blocked so an empty string never wipes the stored
+// secret. Every field the card does not edit round-trips from the loaded
+// config on save, so hidden flags are never wiped. A 400 chatwoot_disabled
+// disables every form.
 const props = defineProps<{
   instanceId: string
 }>()
@@ -38,11 +40,11 @@ async function load() {
   failure.value = null
   try {
     config.value = await getChatwoot(props.instanceId)
-    enabled.value = config.value.enabled
+    enabled.value = config.value.is_enabled
     url.value = config.value.url
     accountId.value = config.value.account_id
-    nameInbox.value = config.value.name_inbox
-    daysLimit.value = String(config.value.days_limit)
+    nameInbox.value = config.value.inbox_name
+    daysLimit.value = String(config.value.import_days)
   } catch (error) {
     if (isChatwootDisabled(error)) {
       disabled.value = true
@@ -59,29 +61,32 @@ async function onSave() {
   saving.value = true
   failure.value = null
   const previous = config.value
+  // The card edits only enabled/url/account_id/inbox_name/import_days plus
+  // the write-only token: every other flag round-trips from the loaded
+  // config so hidden fields are preserved.
   const body: ChatwootSetInput = {
-    enabled: enabled.value,
+    is_enabled: enabled.value,
     url: url.value.trim(),
     account_id: accountId.value.trim(),
     token: tokenInput.value,
-    name_inbox: nameInbox.value.trim(),
-    sign_msg: previous.sign_msg,
+    inbox_name: nameInbox.value.trim(),
+    is_sign_enabled: previous.is_sign_enabled,
     sign_delimiter: previous.sign_delimiter,
-    reopen_conversation: previous.reopen_conversation,
-    conversation_pending: previous.conversation_pending,
-    merge_brazil_contacts: previous.merge_brazil_contacts,
-    import_contacts: previous.import_contacts,
-    import_messages: previous.import_messages,
-    days_limit: Number(daysLimit.value) || 0,
-    auto_create: previous.auto_create,
+    is_reopen_enabled: previous.is_reopen_enabled,
+    is_pending_enabled: previous.is_pending_enabled,
+    is_merge_enabled: previous.is_merge_enabled,
+    is_import_contacts: previous.is_import_contacts,
+    is_import_messages: previous.is_import_messages,
+    import_days: Number(daysLimit.value) || 0,
+    is_auto_create: previous.is_auto_create,
     organization: previous.organization,
     logo: previous.logo,
-    ignore_jids: previous.ignore_jids
+    ignored_jids: previous.ignored_jids
   }
   try {
     config.value = await setChatwoot(props.instanceId, body)
     tokenInput.value = ''
-    enabled.value = config.value.enabled
+    enabled.value = config.value.is_enabled
     toast.add({ title: t('instances.chatwoot.saved'), icon: 'i-lucide-check', color: 'success' })
   } catch (error) {
     if (isChatwootDisabled(error)) {

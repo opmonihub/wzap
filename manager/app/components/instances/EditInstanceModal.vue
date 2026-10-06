@@ -3,7 +3,7 @@ import * as z from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
 import { ApiError } from '~/composables/useApi'
 import { instanceNameErrorKey, instanceNameUpdate, isValidInstanceName } from '~/utils/instanceName'
-import type { Instance } from '~/types/api'
+import type { Instance, UpdateInstanceInput } from '~/types/api'
 
 // Inline edit dialog for the instances table: renames the instance or edits
 // its external reference without leaving the list. The detail screen keeps
@@ -21,6 +21,9 @@ const { updateInstance } = useInstances()
 
 const open = defineModel<boolean>('open', { default: false })
 
+// external_ref is write-only in the public DTO (reads never echo it), so the
+// field always starts empty; an omitted field keeps the stored value and
+// hidden fields are never wiped.
 const schema = z.object({
   name: z.string().refine(name => isValidInstanceName(name, props.target?.name), t('instances.fields.nameHint')),
   external_ref: z.string().max(255)
@@ -33,7 +36,7 @@ const failure = ref<string | null>(null)
 watch([open, () => props.target], ([isOpen]) => {
   if (isOpen && props.target) {
     state.name = props.target.name
-    state.external_ref = props.target.external_ref
+    state.external_ref = ''
     saving.value = false
     failure.value = null
   }
@@ -51,10 +54,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   saving.value = true
   failure.value = null
   try {
-    const updated = await updateInstance(props.target.id, {
-      ...instanceNameUpdate(name, props.target.name),
-      external_ref: (event.data.external_ref ?? '').trim()
-    })
+    const patch: UpdateInstanceInput = instanceNameUpdate(name, props.target.name)
+    const externalRef = (event.data.external_ref ?? '').trim()
+    if (externalRef !== '') {
+      patch.external_ref = externalRef
+    }
+    const updated = await updateInstance(props.target.id, patch)
     open.value = false
     emit('updated', updated)
   } catch (error) {
@@ -105,7 +110,7 @@ function friendlySaveError(error: ApiError): string {
           />
         </UFormField>
 
-        <UFormField :label="t('instances.fields.externalRef')" :hint="t('instances.fields.externalRefHint')" name="external_ref">
+        <UFormField :label="t('instances.fields.externalRef')" :hint="t('instances.fields.externalRefWriteOnlyHint')" name="external_ref">
           <UInput v-model="state.external_ref" maxlength="255" class="w-full" />
         </UFormField>
       </UForm>

@@ -1,5 +1,6 @@
 import type {
   Newsletter,
+  NewsletterEnvelope,
   NewsletterFollowResult,
   NewsletterListPage,
   StatusDeleteResult,
@@ -28,8 +29,10 @@ export function useInstanceChannels() {
     })
   }
 
+  // GET /instances/{id}/newsletters/{channel} nests the channel under
+  // data.channel; the list nests every element under data.items[].channel.
   async function getNewsletter(instanceId: string, channel: string): Promise<Newsletter> {
-    return await api<Newsletter>(`/instances/${instanceId}/newsletters/${encodeURIComponent(channel.trim())}`)
+    return (await api<NewsletterEnvelope>(`/instances/${instanceId}/newsletters/${encodeURIComponent(channel.trim())}`)).channel
   }
 
   async function listNewsletters(instanceId: string, cursor?: string): Promise<NewsletterListPage> {

@@ -3,6 +3,7 @@ import type {
   MessageListPage,
   NumberCheckResult,
   OutboundMessage,
+  OutboundMessageEnvelope,
   SendMediaInput
 } from '~/types/api'
 
@@ -25,8 +26,9 @@ export function useMessages() {
   }
 
   // POST /instances/{id}/messages/text answers 202 with the queued message
-  // id. A disconnected instance answers 409 and an unknown number 422, both
-  // without enqueueing anything.
+  // under data.message (id plus send_status "queued"). A disconnected
+  // instance answers 409 and an unknown number 422, both without enqueueing
+  // anything.
   async function sendText(instanceId: string, to: string, text: string): Promise<AcceptedMessage> {
     return await api<AcceptedMessage>(`/instances/${instanceId}/messages/text`, {
       method: 'POST',
@@ -36,8 +38,8 @@ export function useMessages() {
   }
 
   // POST /instances/{id}/messages/media answers 202 with the queued message
-  // id. The declared type must match the file content type or the server
-  // answers 422 before storing or enqueueing anything.
+  // under data.message. The declared type must match the file content type or
+  // the server answers 422 before storing or enqueueing anything.
   async function sendMedia(instanceId: string, input: SendMediaInput): Promise<AcceptedMessage> {
     const form = new FormData()
     form.append('to', input.to)
@@ -60,9 +62,10 @@ export function useMessages() {
   }
 
   // GET /instances/{id}/messages/{message_id} reports the current delivery
-  // state; the test-send card polls it until sent or failed.
+  // state under data.message; the test-send card polls it until sent or
+  // failed.
   async function getMessage(instanceId: string, messageId: string): Promise<OutboundMessage> {
-    return await api<OutboundMessage>(`/instances/${instanceId}/messages/${messageId}`)
+    return (await api<OutboundMessageEnvelope>(`/instances/${instanceId}/messages/${messageId}`)).message
   }
 
   // GET /instances/{id}/messages answers one page with its next cursor. An

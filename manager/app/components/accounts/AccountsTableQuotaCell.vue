@@ -3,28 +3,29 @@ import type { AccountUser } from '~/types/api'
 
 const props = defineProps<{
   user: AccountUser
-  // Instances owned by this account, counted client-side from the instance
-  // list (GET /users exposes no usage field). Quota 0 means unlimited.
-  usage: number
 }>()
 
 const { t } = useI18n()
 
-// Mirrors quotaLabel in useAccountsTable: quota 0 means unlimited, any other
-// quota renders as its number. Keep both in sync.
+// Usage comes from the backend-computed instances_used field of the user
+// DTO (every owned instance, any state); instance_limit 0 means unlimited.
+const usage = computed(() => props.user.instances_used)
+
+// Mirrors quotaLabel in useAccountsTable: limit 0 means unlimited, any other
+// limit renders as its number. Keep both in sync.
 const quotaText = computed(() => {
-  return props.user.instance_quota === 0 ? t('accounts.unlimited') : String(props.user.instance_quota)
+  return props.user.instance_limit === 0 ? t('accounts.unlimited') : String(props.user.instance_limit)
 })
 
 const percent = computed(() => {
-  if (props.user.instance_quota === 0) {
+  if (props.user.instance_limit === 0) {
     return 0
   }
-  return Math.min(100, Math.round((props.usage / props.user.instance_quota) * 100))
+  return Math.min(100, Math.round((usage.value / props.user.instance_limit) * 100))
 })
 
 const barColor = computed(() => {
-  if (props.user.instance_quota !== 0 && props.usage >= props.user.instance_quota) {
+  if (props.user.instance_limit !== 0 && usage.value >= props.user.instance_limit) {
     return 'error'
   }
   if (percent.value >= 80) {
@@ -40,7 +41,7 @@ const barColor = computed(() => {
       {{ usage }} / {{ quotaText }}
     </span>
     <UProgress
-      v-if="user.instance_quota !== 0"
+      v-if="user.instance_limit !== 0"
       :model-value="percent"
       :max="100"
       :color="barColor"

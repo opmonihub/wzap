@@ -29,7 +29,7 @@ function menuItems(instance: Instance): DropdownMenuItem[] {
       onSelect: () => emit('open', instance)
     }
   ]
-  if (instance.status !== 'connected') {
+  if (instance.connection.status !== 'connected') {
     items.push({
       label: t('instances.actions.connect'),
       icon: 'i-lucide-qr-code',

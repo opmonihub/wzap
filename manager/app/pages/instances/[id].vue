@@ -81,7 +81,7 @@ await load()
           />
         </template>
         <template v-if="instance" #right>
-          <InstanceStatusBadge :status="instance.status" />
+          <InstanceStatusBadge :status="instance.connection.status" />
         </template>
       </UDashboardNavbar>
 
@@ -117,7 +117,7 @@ await load()
           <InstanceMessagesSection
             v-if="section === 'messages'"
             :instance-id="instance.id"
-            :status="instance.status"
+            :status="instance.connection.status"
           />
 
           <div v-else class="mx-auto flex w-full min-w-0 max-w-full flex-col gap-4 sm:gap-6 lg:max-w-2xl lg:gap-12">
@@ -132,19 +132,19 @@ await load()
             <InstanceGroupsSection
               v-else-if="section === 'groups'"
               :instance-id="instance.id"
-              :status="instance.status"
+              :status="instance.connection.status"
             />
 
             <InstanceChannelsSection
               v-else-if="section === 'channels'"
               :instance-id="instance.id"
-              :status="instance.status"
+              :status="instance.connection.status"
             />
 
             <InstanceProfileSection
               v-else-if="section === 'profile'"
               :instance-id="instance.id"
-              :status="instance.status"
+              :status="instance.connection.status"
             />
 
             <InstanceIntegrationsSection

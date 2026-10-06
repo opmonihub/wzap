@@ -1,6 +1,7 @@
 import type {
   CreateGroupInput,
   Group,
+  GroupEnvelope,
   GroupInvite,
   GroupJoinResult,
   GroupLeaveResult,
@@ -10,26 +11,30 @@ import type {
   UpdateGroupInput
 } from '~/types/api'
 
-// Typed client for the 8 group routes. Name validation mirrors
-// handleCreateGroup (trimmed, 1..25 runes); a 201 with an empty invite_code
-// is partial (post-create invite lookup failed) and the caller reconciles via
-// getInvite instead of retrying create, which would duplicate the group.
+// Typed client for the 8 group routes. Single group reads nest under
+// data.group while update answers the flat command {updated:true}. Name
+// validation mirrors handleCreateGroup (trimmed, 1..25 runes); a 201 with an
+// empty invite_code is partial (post-create invite lookup failed) and the
+// caller reconciles via getInvite instead of retrying create, which would
+// duplicate the group.
 export function useInstanceGroups() {
   const { api } = useApi()
 
   async function createGroup(instanceId: string, input: CreateGroupInput): Promise<Group> {
-    return await api<Group>(`/instances/${instanceId}/groups`, {
+    return (await api<GroupEnvelope>(`/instances/${instanceId}/groups`, {
       method: 'POST',
       body: { name: input.name.trim(), participants: input.participants ?? [] }
-    })
+    })).group
   }
 
   async function getGroup(instanceId: string, groupJid: string): Promise<Group> {
-    return await api<Group>(`/instances/${instanceId}/groups/${encodeURIComponent(groupJid)}`)
+    return (await api<GroupEnvelope>(`/instances/${instanceId}/groups/${encodeURIComponent(groupJid)}`)).group
   }
 
-  async function updateGroup(instanceId: string, groupJid: string, input: UpdateGroupInput): Promise<Group> {
-    return await api<Group>(`/instances/${instanceId}/groups/${encodeURIComponent(groupJid)}`, {
+  // PATCH answers the flat command {updated:true}, not the group; callers
+  // re-read via getGroup for the fresh metadata.
+  async function updateGroup(instanceId: string, groupJid: string, input: UpdateGroupInput): Promise<GroupUpdatedResult> {
+    return await api<GroupUpdatedResult>(`/instances/${instanceId}/groups/${encodeURIComponent(groupJid)}`, {
       method: 'PATCH',
       body: input
     })

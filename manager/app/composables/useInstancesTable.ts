@@ -11,16 +11,15 @@ import type { Instance } from '~/types/api'
 // components/instances/InstancesTable*.vue.
 export function useInstancesTable(
   _items: Ref<Instance[]> | ComputedRef<Instance[]>,
-  ownerEmails: Ref<Record<string, string>> | ComputedRef<Record<string, string>>,
   _isAdmin: Ref<boolean> | ComputedRef<boolean>
 ) {
   const { t } = useI18n()
 
   // The loaded items travel straight into UTable as :data (client-side
-  // sorting/filtering/pagination act on the accumulated cursor pages).
-  // Admin gating lives in the page (owner column meta + viewport merge), so
-  // the items and role travel unused here beyond keeping the shared
-  // signature.
+  // sorting/filtering/pagination act on the accumulated cursor pages). The
+  // remodeled public DTO hides owner_user_id, external_ref and whatsapp_jid,
+  // so the owner/JID/external-ref columns are gone: the table renders name,
+  // the nested connection status and actions.
 
   // Default sorting is empty, mirroring the template customers table: the
   // list renders in server order until the account sorts a header.
@@ -28,26 +27,16 @@ export function useInstancesTable(
   const globalFilter = ref('')
   const columnFilters = ref<{ id: string, value: unknown }[]>([])
   // User visibility overrides from the columns dropdown; the page merges them
-  // over the viewport defaults (owner/jid collapse on small screens).
+  // over the viewport defaults.
   const columnVisibility = ref<Record<string, boolean>>({})
   const rowSelection = ref<Record<string, boolean>>({})
   const pagination = ref({ pageIndex: 0, pageSize: 10 })
   // No virtualization: cursor accumulation plus pageSize slicing bounds render cost; virtualize only if lists outgrow this.
 
-  // Resolves the owner column value, mirroring the card list it replaces
-  // (ownerLabel in pages/instances/index.vue): the account email when known,
-  // the short id as best-effort fallback, an em dash when ownerless (empty
-  // table cells always render as —).
-  function ownerLabel(instance: Instance): string {
-    if (!instance.owner_user_id) {
-      return '—'
-    }
-    return ownerEmails.value[instance.owner_user_id] ?? instance.owner_user_id.slice(0, 8)
-  }
-
   // Global search over the already-loaded items (no API call): matches the
-  // instance name or the external reference, case-insensitively. Wired as the
-  // native global filter via :global-filter-options, so UTable owns matching.
+  // instance name, case-insensitively (external_ref is no longer public).
+  // Wired as the native global filter via :global-filter-options, so UTable
+  // owns matching.
   function instancesGlobalFilterFn(
     row: { original: Instance },
     _columnId: string,
@@ -57,9 +46,7 @@ export function useInstancesTable(
     if (query === '') {
       return true
     }
-    return [row.original.name, row.original.external_ref].some(value =>
-      (value ?? '').toLowerCase().includes(query)
-    )
+    return row.original.name.toLowerCase().includes(query)
   }
 
   const globalFilterOptions = computed(() => ({ globalFilterFn: instancesGlobalFilterFn }))
@@ -67,19 +54,10 @@ export function useInstancesTable(
 
   const columns = computed<TableColumn<Instance>[]>(() => {
     // Built inside the computed so headers follow runtime locale switches.
-    // The admin-only marker and the status filter variant travel as untyped
-    // meta for the page to read.
-    const ownerColumn: TableColumn<Instance> = {
-      id: 'owner',
-      accessorFn: (row: Instance) => ownerLabel(row),
-      header: t('instances.columns.owner'),
-      enableSorting: false,
-      enableHiding: true
-    }
-    ownerColumn.meta = { ifAdmin: true } as unknown as TableColumn<Instance>['meta']
+    // The status filter variant travels as untyped meta for the page to read.
     const statusColumn: TableColumn<Instance> = {
       id: 'status',
-      accessorKey: 'status',
+      accessorFn: (row: Instance) => row.connection.status,
       header: t('instances.columns.status'),
       enableSorting: true,
       enableHiding: false,
@@ -102,21 +80,6 @@ export function useInstancesTable(
         enableHiding: false
       },
       statusColumn,
-      {
-        id: 'external_ref',
-        accessorKey: 'external_ref',
-        header: t('instances.columns.externalRef'),
-        enableSorting: false,
-        enableHiding: true
-      },
-      ownerColumn,
-      {
-        id: 'whatsapp_jid',
-        accessorKey: 'whatsapp_jid',
-        header: t('instances.columns.jid'),
-        enableSorting: false,
-        enableHiding: true
-      },
       // Display column: no accessor, never sorts, never hides (the page keeps
       // the connect/edit/delete flows; InstancesTableActionsCell only emits).
       {

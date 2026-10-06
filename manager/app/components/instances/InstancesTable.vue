@@ -1,11 +1,8 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TableRow } from '@nuxt/ui'
-import { useMediaQuery } from '@vueuse/core'
 import { useInstancesTable } from '~/composables/useInstancesTable'
 import InstancesTableActionsCell from '~/components/instances/InstancesTableActionsCell.vue'
-import InstancesTableJidCell from '~/components/instances/InstancesTableJidCell.vue'
 import InstancesTableNameCell from '~/components/instances/InstancesTableNameCell.vue'
-import InstancesTableOwnerCell from '~/components/instances/InstancesTableOwnerCell.vue'
 import InstancesTableStatusCell from '~/components/instances/InstancesTableStatusCell.vue'
 import DataTableFooter from '~/components/shared/DataTableFooter.vue'
 import DataTableToolbar from '~/components/shared/DataTableToolbar.vue'
@@ -13,17 +10,16 @@ import type { Instance, InstanceStatus } from '~/types/api'
 
 const props = defineProps<{
   items: Instance[]
-  ownerEmails: Record<string, string>
   isAdmin: boolean
 }>()
 
 const emit = defineEmits<{
-  'connect': [instance: Instance]
-  'edit': [instance: Instance]
-  'remove': [instance: Instance]
+  connect: [instance: Instance]
+  edit: [instance: Instance]
+  remove: [instance: Instance]
   // Empty-state create button (the navbar create button stays in the page, so
   // this is the only create entry owned here).
-  'create': []
+  create: []
 }>()
 
 // Structural view of the UTable API this table drives (stable component
@@ -49,7 +45,6 @@ const toast = useToast()
 const { copy } = useClipboard()
 
 const itemsRef = computed(() => props.items)
-const ownerEmailsRef = computed(() => props.ownerEmails)
 const isAdminRef = computed(() => props.isAdmin)
 
 const {
@@ -62,45 +57,17 @@ const {
   pagination,
   globalFilterOptions,
   paginationOptions
-} = useInstancesTable(itemsRef, ownerEmailsRef, isAdminRef)
+} = useInstancesTable(itemsRef, isAdminRef)
 
 const table = useTemplateRef<{ tableApi?: InstancesTableApi }>('table')
 
-// Client-side viewport mirrors the old cards (owner hidden below md, JID
-// below lg). useMediaQuery is mobile-first on SSR (false until mount), so the
-// first paint already hides both columns on small screens.
-const isMdViewport = useMediaQuery('(min-width: 768px)')
-const isLgViewport = useMediaQuery('(min-width: 1024px)')
-
-// The admin-only marker travels as untyped column meta (see
-// useInstancesTable); read it with a cast, as a structural view without importing table-core types directly.
-function isAdminOnly(columnId: string): boolean {
-  const column = columns.value.find(entry => entry.id === columnId)
-  return (column?.meta as unknown as { ifAdmin?: boolean } | undefined)?.ifAdmin ?? false
-}
-
-function baseColumnVisibility(): Record<string, boolean> {
-  return {
-    owner: (!isAdminOnly('owner') || isAdminRef.value) && isMdViewport.value,
-    whatsapp_jid: isLgViewport.value
-  }
-}
-
-// Viewport defaults merged with the user's dropdown overrides (kept in the
-// composable ref). Untouched columns keep tracking the viewport; a column the
-// user toggled stays on their choice until toggled back to the default.
+// The remodeled public instance hides owner_user_id, external_ref and
+// whatsapp_jid, so only name/status/actions remain: the column-visibility
+// merge stays for the dropdown even though every column is always visible.
 const columnVisibility = computed<Record<string, boolean>>({
-  get: () => ({ ...baseColumnVisibility(), ...visibilityOverrides.value }),
+  get: () => ({ ...visibilityOverrides.value }),
   set: (next) => {
-    const base = baseColumnVisibility()
-    const diff: Record<string, boolean> = {}
-    for (const key of Object.keys(next)) {
-      const value = next[key] ?? true
-      if (value !== (base[key] ?? true)) {
-        diff[key] = value
-      }
-    }
-    visibilityOverrides.value = diff
+    visibilityOverrides.value = { ...next }
   }
 })
 
@@ -157,12 +124,6 @@ function columnLabel(columnId: string): string {
       return t('instances.columns.name')
     case 'status':
       return t('instances.columns.status')
-    case 'external_ref':
-      return t('instances.columns.externalRef')
-    case 'owner':
-      return t('instances.columns.owner')
-    case 'whatsapp_jid':
-      return t('instances.columns.jid')
     default:
       return columnId
   }
@@ -371,25 +332,8 @@ function onRowSelect(event: Event, row: { original: Instance }) {
         </NuxtLink>
       </template>
 
-      <template #external_ref-cell="{ row }">
-        <span v-if="row.original.external_ref" class="block min-w-0 truncate" :title="row.original.external_ref ?? ''">
-          {{ row.original.external_ref }}
-        </span>
-        <span v-else class="text-sm text-muted" aria-hidden="true">—</span>
-      </template>
-
       <template #status-cell="{ row }">
         <InstancesTableStatusCell :instance="row.original" @connect="(instance: Instance) => emit('connect', instance)" />
-      </template>
-
-      <template #owner-cell="{ row }">
-        <InstancesTableOwnerCell :instance="row.original" :email="ownerEmails[row.original.owner_user_id ?? '']" />
-      </template>
-
-      <template #whatsapp_jid-cell="{ row }">
-        <div class="min-w-0 truncate" :title="row.original.whatsapp_jid">
-          <InstancesTableJidCell :instance="row.original" />
-        </div>
       </template>
 
       <template #actions-cell="{ row }">

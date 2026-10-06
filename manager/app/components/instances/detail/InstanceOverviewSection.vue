@@ -6,7 +6,7 @@ import { instanceNameErrorKey, instanceNameUpdate, isValidInstanceName } from '~
 import { useConfirmDelete } from '~/components/instances/ConfirmDelete'
 import PairingCard from '~/components/instances/PairingCard.vue'
 import PairPhoneCard from '~/components/instances/PairPhoneCard.vue'
-import type { Instance } from '~/types/api'
+import type { Instance, UpdateInstanceInput } from '~/types/api'
 
 const props = defineProps<{
   instance: Instance
@@ -23,12 +23,16 @@ const toast = useToast()
 const { updateInstance, disconnectInstance } = useInstances()
 const { confirmDelete } = useConfirmDelete()
 
+// external_ref never comes back on reads (it is write-only in the public
+// DTO), so the field always starts empty; an explicit empty value clears the
+// stored reference while an unchanged empty edit leaves it untouched — the
+// input stays as the operator left it, hidden fields are never wiped.
 const schema = z.object({
   name: z.string().refine(name => isValidInstanceName(name, props.instance.name), t('instances.fields.nameHint')),
   external_ref: z.string().max(255)
 })
 type Schema = z.output<typeof schema>
-const state = reactive<Partial<Schema>>({ name: props.instance.name, external_ref: props.instance.external_ref })
+const state = reactive<Partial<Schema>>({ name: props.instance.name, external_ref: '' })
 const saving = ref(false)
 const saveFailure = ref<string | null>(null)
 
@@ -46,10 +50,15 @@ async function onSave(event: FormSubmitEvent<Schema>) {
   saving.value = true
   saveFailure.value = null
   try {
-    const updated = await updateInstance(props.instance.id, {
-      ...instanceNameUpdate(name, props.instance.name),
-      external_ref: (event.data.external_ref ?? '').trim()
-    })
+    const patch: UpdateInstanceInput = instanceNameUpdate(name, props.instance.name)
+    const externalRef = (event.data.external_ref ?? '').trim()
+    // Omitted keeps the stored external_ref; the field starts empty (the
+    // read never echoes it), so only a typed value is sent — never an
+    // implicit clear.
+    if (externalRef !== '') {
+      patch.external_ref = externalRef
+    }
+    const updated = await updateInstance(props.instance.id, patch)
     emit('updated', updated)
     toast.add({ title: t('instances.detail.saved'), icon: 'i-lucide-check', color: 'success' })
   } catch (error) {
@@ -103,7 +112,7 @@ async function onDisconnect() {
 }
 
 // The pairing card emits after the phone scan flips the session to
-// connected; the page reloads to refresh the badge, JID and disconnect action.
+// connected; the page reloads to refresh the badge and disconnect action.
 function onPaired() {
   emit('paired')
 }
@@ -117,10 +126,11 @@ function formatDateTime(value: string | null): string {
 }
 
 // A fresh instance row (after pairing/disconnect reloads or navigation)
-// replaces the edited values with the stored configuration.
+// replaces the edited name; the external_ref field resets to empty because
+// the read never echoes the stored value.
 watch(() => props.instance, (next) => {
   state.name = next.name
-  state.external_ref = next.external_ref
+  state.external_ref = ''
   saveFailure.value = null
 })
 </script>
@@ -129,20 +139,12 @@ watch(() => props.instance, (next) => {
   <div class="flex w-full min-w-0 flex-col gap-4 sm:gap-6">
     <UPageCard :title="instance.name" variant="subtle">
       <dl class="flex flex-col gap-3 text-sm sm:gap-2">
-        <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-          <dt class="shrink-0 text-muted">
-            {{ t('instances.fields.jid') }}
-          </dt>
-          <dd class="min-w-0 font-mono break-all text-highlighted sm:text-right">
-            {{ instance.whatsapp_jid || t('common.notSet') }}
-          </dd>
-        </div>
-        <div v-if="instance.last_error" class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+        <div v-if="instance.connection.last_error" class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
           <dt class="shrink-0 text-muted">
             {{ t('instances.fields.lastError') }}
           </dt>
           <dd class="min-w-0 break-all text-highlighted sm:text-right">
-            {{ instance.last_error }}
+            {{ instance.connection.last_error.message }}
           </dd>
         </div>
         <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
@@ -150,7 +152,7 @@ watch(() => props.instance, (next) => {
             {{ t('instances.fields.lastConnectedAt') }}
           </dt>
           <dd class="min-w-0 break-all text-highlighted sm:text-right">
-            {{ formatDateTime(instance.last_connected_at) }}
+            {{ formatDateTime(instance.connection.last_connected_at) }}
           </dd>
         </div>
         <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
@@ -170,7 +172,7 @@ watch(() => props.instance, (next) => {
           </dd>
         </div>
       </dl>
-      <template v-if="instance.status === 'connected'" #footer>
+      <template v-if="instance.connection.status === 'connected'" #footer>
         <UButton
           color="warning"
           variant="soft"
@@ -184,12 +186,11 @@ watch(() => props.instance, (next) => {
 
     <PairingCard
       :instance-id="instance.id"
-      :status="instance.status"
-      :whatsapp-jid="instance.whatsapp_jid"
+      :status="instance.connection.status"
       @paired="onPaired"
     />
 
-    <PairPhoneCard :instance-id="instance.id" :status="instance.status" />
+    <PairPhoneCard :instance-id="instance.id" :status="instance.connection.status" />
 
     <UPageCard :title="t('instances.fields.name')" variant="subtle">
       <UForm
@@ -218,7 +219,7 @@ watch(() => props.instance, (next) => {
           />
         </UFormField>
 
-        <UFormField :label="t('instances.fields.externalRef')" :hint="t('instances.fields.externalRefHint')" name="external_ref">
+        <UFormField :label="t('instances.fields.externalRef')" :hint="t('instances.fields.externalRefWriteOnlyHint')" name="external_ref">
           <UInput v-model="state.external_ref" maxlength="255" class="w-full" />
         </UFormField>
 

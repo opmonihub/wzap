@@ -150,8 +150,8 @@ async function onSendText(event: FormSubmitEvent<TextSchema>) {
   try {
     const accepted = await sendText(props.instanceId, to, event.data.text_body ?? '')
     toast.add({ title: t('instances.send.sentToast'), icon: 'i-lucide-check', color: 'success' })
-    emit('sent', accepted.message_id)
-    void track(accepted.message_id)
+    emit('sent', accepted.message.id)
+    void track(accepted.message.id)
   } catch (error) {
     sendFailure.value = friendlySendError(error)
   } finally {
@@ -210,8 +210,8 @@ async function onSendMedia(event: FormSubmitEvent<MediaSchema>) {
       file
     })
     toast.add({ title: t('instances.send.sentToast'), icon: 'i-lucide-check', color: 'success' })
-    emit('sent', accepted.message_id)
-    void track(accepted.message_id)
+    emit('sent', accepted.message.id)
+    void track(accepted.message.id)
   } catch (error) {
     mediaFailure.value = friendlySendError(error)
   } finally {
@@ -245,7 +245,7 @@ async function track(messageId: string) {
   trackTimedOut.value = false
   trackFailure.value = null
   const first = await pollTracked(messageId, token)
-  if (tracking.value && isTokenCurrent(token) && !isTerminal(first?.status)) {
+  if (tracking.value && isTokenCurrent(token) && !isTerminal(first?.send_status)) {
     tracker = setInterval(() => {
       void pollTracked(messageId, token)
     }, TRACK_POLL_MS)
@@ -267,7 +267,7 @@ async function pollTracked(messageId: string, token: number): Promise<OutboundMe
       return null
     }
     tracked.value = current
-    if (isTerminal(current.status)) {
+    if (isTerminal(current.send_status)) {
       tracking.value = false
       stopTracker()
       emit('settled', messageId)

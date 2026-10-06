@@ -1,10 +1,11 @@
 import type {
-  AccountUser,
+  AccountUserList,
   ConnectResult,
   ConnectionStatus,
   CreatedInstance,
   CreateInstanceInput,
   Instance,
+  InstanceEnvelope,
   InstanceList,
   RotatedInstanceKey,
   UpdateInstanceInput,
@@ -54,39 +55,47 @@ export function useInstances() {
     return await api<InstanceList>('/instances')
   }
 
+  // Single reads/writes nest the instance under data.instance.
   async function getInstance(id: string): Promise<Instance> {
-    return await api<Instance>(`/instances/${id}`)
+    return (await api<InstanceEnvelope>(`/instances/${id}`)).instance
   }
 
+  // POST /instances answers 201 with data.instance plus the one-time
+  // plaintext key as a sibling field.
   async function createInstance(input: CreateInstanceInput): Promise<CreatedInstance> {
-    const body: Record<string, string> = { name: input.name }
+    const body: Record<string, unknown> = { name: input.name }
     const externalRef = input.external_ref?.trim() ?? ''
     if (externalRef !== '') {
       body.external_ref = externalRef
+    }
+    if (input.webhook !== undefined) {
+      body.webhook = input.webhook
     }
     return await api<CreatedInstance>('/instances', { method: 'POST', body })
   }
 
   async function updateInstance(id: string, input: UpdateInstanceInput): Promise<Instance> {
-    return await api<Instance>(`/instances/${id}`, {
+    return (await api<InstanceEnvelope>(`/instances/${id}`, {
       method: 'PATCH',
       body: input
-    })
+    })).instance
   }
 
-  // PATCH /instances/{id} with webhook-only fields. Name and external_ref
+  // PATCH /instances/{id} with the webhook block only. Name and external_ref
   // stay omitted so the stored values are kept. Anyone operating the instance
   // (global, owning user, own instance key) may call it; a 422 ApiError
   // carries the server validation message verbatim for the UI to mirror.
   async function updateInstanceWebhook(id: string, input: UpdateWebhookInput): Promise<Instance> {
-    return await api<Instance>(`/instances/${id}`, {
+    return (await api<InstanceEnvelope>(`/instances/${id}`, {
       method: 'PATCH',
       body: {
-        webhook_url: input.webhook_url,
-        webhook_enabled: input.webhook_enabled,
-        webhook_events: input.webhook_events
+        webhook: {
+          url: input.url,
+          enabled: input.enabled,
+          events: input.events
+        }
       }
-    })
+    })).instance
   }
 
   // DELETE answers 204 with no envelope, so it goes through the raw client.
@@ -99,21 +108,23 @@ export function useInstances() {
     await raw(`/instances/${id}/disconnect`, { method: 'POST' })
   }
 
-  // POST /instances/{id}/connect starts pairing and answers the QR payload
-  // with its validity, or the connected status with no QR when the instance
-  // needs no pairing (stored credentials or an already-open session).
+  // POST /instances/{id}/connect starts pairing and answers data.connection
+  // with the QR payload and its validity, or the connected status with no QR
+  // when the instance needs no pairing (stored credentials or an
+  // already-open session).
   async function connectInstance(id: string): Promise<ConnectResult> {
     return await api<ConnectResult>(`/instances/${id}/connect`, { method: 'POST' })
   }
 
-  // GET /instances/{id}/qr returns the current pairing QR, starting a new
-  // pairing when none is active so an expired code is replaced. It throws a
-  // 409 ApiError when the instance is already connected (nothing to scan).
+  // GET /instances/{id}/qr returns the current pairing QR under
+  // data.connection, starting a new pairing when none is active so an
+  // expired code is replaced. It throws a 409 ApiError when the instance is
+  // already connected (nothing to scan).
   async function getPairingQR(id: string): Promise<ConnectResult> {
     return await api<ConnectResult>(`/instances/${id}/qr`)
   }
 
-  // GET /instances/{id}/status reports the connection state without touching
+  // GET /instances/{id}/status reports the connection block without touching
   // the session; the pairing card polls it while a QR is on screen.
   async function getConnectionStatus(id: string): Promise<ConnectionStatus> {
     return await api<ConnectionStatus>(`/instances/${id}/status`)
@@ -132,10 +143,11 @@ export function useInstances() {
     await raw(`/instances/${id}/apikey`, { method: 'DELETE' })
   }
 
-  // Admin-only account listing used to resolve the owner column. It throws
-  // 403 for user sessions; callers gate it behind isAdmin.
-  async function listAccounts(): Promise<AccountUser[]> {
-    return await api<AccountUser[]>('/users')
+  // Admin-only account listing under data.items[].user, used to resolve the
+  // owner column. It throws 403 for user sessions; callers gate it behind
+  // isAdmin.
+  async function listAccounts(): Promise<AccountUserList> {
+    return await api<AccountUserList>('/users')
   }
 
   return {

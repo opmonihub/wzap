@@ -18,16 +18,16 @@ const toast = useToast()
 const { updateUserQuota } = useAccounts()
 
 const quotaSchema = z.object({
-  instance_quota: z.string()
+  instance_limit: z.string()
 })
 type QuotaSchema = z.output<typeof quotaSchema>
-const quotaState = reactive<Partial<QuotaSchema>>({ instance_quota: '' })
+const quotaState = reactive<Partial<QuotaSchema>>({ instance_limit: '' })
 const quotaSaving = ref(false)
 const quotaFailure = ref<string | null>(null)
 
 watch([open, () => props.target], ([isOpen, target]) => {
   if (isOpen && target) {
-    quotaState.instance_quota = String(target.instance_quota)
+    quotaState.instance_limit = String(target.instance_limit)
     quotaSaving.value = false
     quotaFailure.value = null
   }
@@ -37,7 +37,7 @@ async function onSaveQuota(event: FormSubmitEvent<QuotaSchema>) {
   if (!props.target || quotaSaving.value) {
     return
   }
-  const quota = parseQuota(event.data.instance_quota ?? '')
+  const quota = parseQuota(event.data.instance_limit ?? '')
   if (quota === null || quota === undefined) {
     quotaFailure.value = t('accounts.quota.quotaInvalid')
     return
@@ -77,11 +77,11 @@ async function onSaveQuota(event: FormSubmitEvent<QuotaSchema>) {
         <UFormField
           :label="t('accounts.quotaLabel')"
           :hint="t('accounts.quota.hint')"
-          name="instance_quota"
+          name="instance_limit"
           required
         >
           <UInput
-            v-model="quotaState.instance_quota"
+            v-model="quotaState.instance_limit"
             type="number"
             step="1"
             class="w-full"

@@ -1,4 +1,4 @@
-import type { Instance, InstanceStats } from '~/types/api'
+import type { Instance, InstanceStats, StatsEnvelope } from '~/types/api'
 
 // How many instances the overview surfaces as recent.
 const recentLimit = 5
@@ -28,13 +28,15 @@ function normalizeStats(raw: InstanceStats): InstanceStats {
 }
 
 // Local count over all authorized instances with the server's folding rule
-// (unknown status counts as disconnected). Buckets are written through the
-// nullish default so indexed access stays safe under noUncheckedIndexedAccess.
+// (unknown status counts as disconnected). The status lives inside the
+// nested connection block since the remodel. Buckets are written through
+// the nullish default so indexed access stays safe under
+// noUncheckedIndexedAccess.
 function countLocally(items: Instance[]): InstanceStats {
   const stats = emptyStats()
   for (const item of items) {
     stats.total++
-    const bucket = knownStatuses.includes(item.status) ? item.status : 'disconnected'
+    const bucket = knownStatuses.includes(item.connection.status) ? item.connection.status : 'disconnected'
     stats.by_status[bucket] = (stats.by_status[bucket] ?? 0) + 1
   }
   return stats
@@ -54,14 +56,15 @@ function byNewestFirst(a: Instance, b: Instance): number {
 }
 
 // Overview data for the Home screen: scoped totals from GET /instances/stats
-// (via useApi, the session cookie travels automatically) with a local count
-// over the complete listing (listInstances from useInstances) when
-// the endpoint fails. Both attempts failing surfaces failure for the
-// UAlert+retry; a stats-only failure sets fallback so the page shows its
-// discrete notice and still renders. A listing-only failure sets
-// listingFailed so the Recent block offers its own retry while the stats
-// cards keep rendering. refresh() never rejects and never clears a previous
-// snapshot: stale stats/items survive a failed re-fetch.
+// (answered under data.stats; the session cookie travels automatically) with
+// a local count over the complete listing (listInstances from useInstances,
+// elements nested under items[].instance) when the endpoint fails. Both
+// attempts failing surfaces failure for the UAlert+retry; a stats-only
+// failure sets fallback so the page shows its discrete notice and still
+// renders. A listing-only failure sets listingFailed so the Recent block
+// offers its own retry while the stats cards keep rendering. refresh() never
+// rejects and never clears a previous snapshot: stale stats/items survive a
+// failed re-fetch.
 //
 // Usage in setup (mirrors await loadFirst() in pages/instances/index.vue):
 // const overview = useOverview(); await overview.refresh()
@@ -96,21 +99,24 @@ export function useOverview() {
     fallback.value = false
     listingFailed.value = false
     const [statsResult, listResult] = await Promise.allSettled([
-      api<InstanceStats>('/instances/stats'),
+      api<StatsEnvelope>('/instances/stats'),
       listInstances()
     ])
-    if (listResult.status === 'fulfilled') {
-      items.value = listResult.value.items
+    const listed = listResult.status === 'fulfilled'
+      ? listResult.value.items.map(item => item.instance)
+      : null
+    if (listed !== null) {
+      items.value = listed
     } else {
       listingFailed.value = true
     }
     if (statsResult.status === 'fulfilled') {
-      stats.value = normalizeStats(statsResult.value)
-    } else if (listResult.status === 'fulfilled') {
-      stats.value = countLocally(listResult.value.items)
+      stats.value = normalizeStats(statsResult.value.stats)
+    } else if (listed !== null) {
+      stats.value = countLocally(listed)
       fallback.value = true
     } else {
-      failure.value = messageOf(statsResult.reason ?? listResult.reason)
+      failure.value = messageOf(listResult.status === 'rejected' ? listResult.reason : statsResult.reason)
     }
     pending.value = false
   }

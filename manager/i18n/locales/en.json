@@ -170,6 +170,7 @@
       "nameAmbiguous": "This name matches multiple instances. Open the instance by its ID and choose a unique name.",
       "externalRef": "External reference",
       "externalRefHint": "Optional unique reference used by your systems.",
+      "externalRefWriteOnlyHint": "Stored secret-style reference: it is never shown back. Leave empty to keep the current value; type a value to replace it.",
       "owner": "Owner",
       "jid": "WhatsApp JID",
       "lastConnectedAt": "Last connected",

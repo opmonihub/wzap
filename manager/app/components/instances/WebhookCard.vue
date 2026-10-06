@@ -6,11 +6,11 @@ import { WEBHOOK_EVENT_TYPES } from '~/types/api'
 import type { Instance } from '~/types/api'
 
 // Webhook editor for one instance. Anyone operating the instance may save:
-// the PATCH carries webhook-only fields so name and external_ref stay stored.
-// An explicit empty URL unsets the webhook and an explicit empty event list
-// clears the subscription; both mean no deliveries, as does enabled off.
-// Validation failures (422) mirror the server message verbatim and persist
-// nothing server-side.
+// the PATCH carries the nested webhook block only so name and external_ref
+// stay stored. An explicit empty url unsets the webhook and an explicit
+// empty events list clears the subscription; both mean no deliveries, as
+// does enabled off. Validation failures (422) mirror the server message
+// verbatim and persist nothing server-side.
 const props = defineProps<{
   instance: Instance
 }>()
@@ -33,9 +33,9 @@ const schema = z.object({
 })
 type Schema = z.output<typeof schema>
 const state = reactive<Partial<Schema>>({
-  url: props.instance.webhook_url ?? '',
-  enabled: props.instance.webhook_enabled,
-  events: [...props.instance.webhook_events]
+  url: props.instance.webhook.url ?? '',
+  enabled: props.instance.webhook.enabled,
+  events: [...props.instance.webhook.events]
 })
 const saving = ref(false)
 const failure = ref<string | null>(null)
@@ -72,9 +72,9 @@ async function onSave(event: FormSubmitEvent<Schema>) {
   failure.value = null
   try {
     const updated = await updateInstanceWebhook(props.instance.id, {
-      webhook_url: (event.data.url ?? '').trim(),
-      webhook_enabled: event.data.enabled ?? false,
-      webhook_events: event.data.events ?? []
+      url: (event.data.url ?? '').trim(),
+      enabled: event.data.enabled ?? false,
+      events: event.data.events ?? []
     })
     emit('updated', updated)
     toast.add({ title: t('instances.webhook.saved'), icon: 'i-lucide-check', color: 'success' })
@@ -88,9 +88,9 @@ async function onSave(event: FormSubmitEvent<Schema>) {
 // A fresh instance row (after pairing reloads or navigation) replaces the
 // edited values with the stored configuration.
 watch(() => props.instance.id, () => {
-  state.url = props.instance.webhook_url ?? ''
-  state.enabled = props.instance.webhook_enabled
-  state.events = [...props.instance.webhook_events]
+  state.url = props.instance.webhook.url ?? ''
+  state.enabled = props.instance.webhook.enabled
+  state.events = [...props.instance.webhook.events]
   failure.value = null
 })
 </script>

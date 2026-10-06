@@ -4,14 +4,14 @@ import InstancesTableActionsCell from '~/components/instances/InstancesTableActi
 import type { Instance, InstanceStatus } from '~/types/api'
 
 // Card tile for the instances list, mirroring research/wzap/web sessions
-// index: an identity row (avatar + status dot, name, kebab, external ref +
-// status badge), a metadata row (phone, owner, updated date) and an Open
-// footer with connect/edit/delete icon actions. The card only emits: the page
-// keeps the detail navigation, the connect call and the edit/delete modals.
+// index: an identity row (avatar + status dot, name, kebab + status badge),
+// a metadata row (updated date) and an Open footer with connect/edit/delete
+// icon actions. The remodeled public DTO hides owner_user_id, external_ref
+// and whatsapp_jid, so the card no longer renders them. The card only emits:
+// the page keeps the detail navigation, the connect call and the edit/delete
+// modals.
 const props = defineProps<{
   instance: Instance
-  email?: string
-  showOwner?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -35,34 +35,8 @@ const initials = computed(() => {
 
 // Mirrors InstancesTableStatusCell: disconnected/error offer Connect, pairing
 // links to the QR on the detail screen, connected shows nothing extra.
-const showConnect = computed(() => props.instance.status === 'disconnected' || props.instance.status === 'error')
-const showViewQr = computed(() => props.instance.status === 'pairing')
-
-// Mirrors InstancesTableOwnerCell: resolved account email when known, short id
-// fallback, em dash when ownerless. Hidden for non-admin viewers.
-const ownerLabel = computed(() => {
-  if (props.email) {
-    return props.email
-  }
-  if (!props.instance.owner_user_id) {
-    return '—'
-  }
-  return props.instance.owner_user_id.slice(0, 8)
-})
-
-// WhatsApp JID user part as a phone number; LIDs and group JIDs fall back to
-// the raw user part. Title keeps the full JID for copy/inspect.
-const displayPhone = computed(() => {
-  const jid = props.instance.whatsapp_jid
-  if (!jid) {
-    return ''
-  }
-  const user = jid.split('@')[0] ?? ''
-  if (/^\d{10,15}$/.test(user)) {
-    return `+${user}`
-  }
-  return user || jid
-})
+const showConnect = computed(() => props.instance.connection.status === 'disconnected' || props.instance.connection.status === 'error')
+const showViewQr = computed(() => props.instance.connection.status === 'pairing')
 
 function formatDate(value: string): string {
   const parsed = new Date(value)
@@ -101,7 +75,7 @@ function onCardClick(event: Event) {
         </span>
         <span
           class="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full ring-2 ring-white dark:ring-gray-900"
-          :class="dotClass[instance.status]"
+          :class="dotClass[instance.connection.status]"
           aria-hidden="true"
         />
       </div>
@@ -127,11 +101,7 @@ function onCardClick(event: Event) {
           />
         </div>
         <div class="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted">
-          <span v-if="instance.external_ref" class="truncate" :title="instance.external_ref">
-            {{ instance.external_ref }}
-          </span>
-          <span v-if="instance.external_ref" class="shrink-0 text-dimmed" aria-hidden="true">·</span>
-          <InstanceStatusBadge :status="instance.status" size="xs" class="shrink-0 capitalize" />
+          <InstanceStatusBadge :status="instance.connection.status" size="xs" class="shrink-0 capitalize" />
           <UButton
             v-if="showConnect"
             color="primary"
@@ -155,18 +125,6 @@ function onCardClick(event: Event) {
 
     <div class="border-t border-default px-4 py-2">
       <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
-        <span v-if="displayPhone" class="flex min-w-0 items-center gap-1">
-          <UIcon name="i-lucide-phone" class="size-3 shrink-0" aria-hidden="true" />
-          <span class="truncate font-mono" :title="instance.whatsapp_jid">
-            {{ displayPhone }}
-          </span>
-        </span>
-        <span v-if="showOwner && ownerLabel !== '—'" class="flex min-w-0 items-center gap-1">
-          <UIcon name="i-lucide-user" class="size-3 shrink-0" aria-hidden="true" />
-          <span class="truncate" :title="ownerLabel">
-            {{ ownerLabel }}
-          </span>
-        </span>
         <span class="flex shrink-0 items-center gap-1">
           <UIcon name="i-lucide-clock" class="size-3" aria-hidden="true" />
           {{ formatDate(instance.updated_at) }}

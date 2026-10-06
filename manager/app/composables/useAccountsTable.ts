@@ -22,12 +22,12 @@ export function useAccountsTable() {
   // No virtualization: pageSize slicing bounds render cost on large account lists; virtualize only if lists outgrow this.
 
   // Quota display rule, mirroring quotaLabel in pages/accounts/index.vue:
-  // quota 0 means unlimited, any other quota renders as its number. The quota
+  // limit 0 means unlimited, any other limit renders as its number. The quota
   // cell (AccountsTableQuotaCell.vue) applies the same rule; keep both in
   // sync. Sorting never uses this display string (see numeric sortingFn on
-  // the quota column below).
+  // the limit column below).
   function quotaLabel(user: AccountUser): string {
-    return user.instance_quota === 0 ? t('accounts.unlimited') : String(user.instance_quota)
+    return user.instance_limit === 0 ? t('accounts.unlimited') : String(user.instance_limit)
   }
 
   // Global search over the already-loaded users (no API call): matches the
@@ -61,15 +61,15 @@ export function useAccountsTable() {
     }
     roleColumn.meta = { filterVariant: 'select' } as unknown as TableColumn<AccountUser>['meta']
     const quotaColumn: TableColumn<AccountUser> = {
-      id: 'instance_quota',
+      id: 'instance_limit',
       accessorFn: (row: AccountUser) => quotaLabel(row),
       header: t('accounts.quotaLabel'),
       enableSorting: true,
       enableHiding: true,
-      // Numeric ordering over instance_quota (0 = Unlimited sorts as 0),
+      // Numeric ordering over instance_limit (0 = Unlimited sorts as 0),
       // never over the display string from the accessorFn above.
       sortingFn: (rowA: TableRow<AccountUser>, rowB: TableRow<AccountUser>) =>
-        rowA.original.instance_quota - rowB.original.instance_quota
+        rowA.original.instance_limit - rowB.original.instance_limit
     }
     return [
       // Selection checkboxes render via the page's #select-header/#select-cell

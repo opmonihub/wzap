@@ -5,8 +5,9 @@ import InstanceStatusBadge from '~/components/instances/InstanceStatusBadge.vue'
 
 // The 5 most recent instances (useOverview.recent) next to the chart,
 // mirroring the template's HomeSales mini UTable: no sorting, filtering or
-// pagination of its own, name links to the detail page, status/JID reuse the
-// list cells. When the listing failed but stats succeeded the parent renders
+// pagination of its own, name links to the detail page, status reuses the
+// list badge. The remodeled public DTO hides whatsapp_jid, so the JID column
+// is gone. When the listing failed but stats succeeded the parent renders
 // a retry affordance instead of the empty state, so a transient listing
 // error never reads as "no instances".
 defineProps<{
@@ -26,12 +27,9 @@ const columns = computed<TableColumn<Instance>[]>(() => [
     header: t('overview.recent.columns.name')
   },
   {
-    accessorKey: 'status',
+    id: 'status',
+    accessorFn: (row: Instance) => row.connection.status,
     header: t('overview.recent.columns.status')
-  },
-  {
-    accessorKey: 'whatsapp_jid',
-    header: t('overview.recent.columns.jid')
   },
   {
     id: 'actions',
@@ -112,12 +110,7 @@ function getRowId(row: Instance): string {
         </NuxtLink>
       </template>
       <template #status-cell="{ row }">
-        <InstanceStatusBadge :status="row.original.status" />
-      </template>
-      <template #whatsapp_jid-cell="{ row }">
-        <div class="min-w-0 truncate" :title="row.original.whatsapp_jid">
-          <InstancesTableJidCell :instance="row.original" />
-        </div>
+        <InstanceStatusBadge :status="row.original.connection.status" />
       </template>
       <template #actions-cell="{ row }">
         <UButton

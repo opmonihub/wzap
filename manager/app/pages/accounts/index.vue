@@ -16,7 +16,6 @@ const toast = useToast()
 const { isAdmin, user: sessionUser } = useAuth()
 const { listUsers, deleteUser } = useAccounts()
 const { confirmDelete } = useConfirmDelete()
-const { listInstances } = useInstances()
 
 if (!isAdmin.value) {
   await navigateTo('/')
@@ -25,9 +24,6 @@ if (!isAdmin.value) {
 const users = ref<AccountUser[]>([])
 const pending = ref(true)
 const failure = ref<string | null>(null)
-// Instances owned per account, counted client-side: GET /users exposes no
-// usage field, so the quota cell pairs the stored quota with this count.
-const usageByOwner = ref<Record<string, number>>({})
 
 const accountsTable = useTemplateRef<{ clearSelection: () => void }>('accountsTable')
 
@@ -48,29 +44,10 @@ async function load() {
   failure.value = null
   try {
     users.value = await listUsers()
-    await loadUsage()
   } catch (error) {
     failure.value = error instanceof ApiError ? error.message : t('accounts.loadFailed')
   } finally {
     pending.value = false
-  }
-}
-
-// Usage comes from the instance list (no usage field on GET /users):
-// fetch the complete collection best-effort and count owners. A failed usage
-// load never fails the accounts list; cells fall back to 0 used.
-async function loadUsage() {
-  const counts: Record<string, number> = {}
-  try {
-    const listing = await listInstances()
-    for (const instance of listing.items) {
-      if (instance.owner_user_id) {
-        counts[instance.owner_user_id] = (counts[instance.owner_user_id] ?? 0) + 1
-      }
-    }
-    usageByOwner.value = counts
-  } catch {
-    usageByOwner.value = counts
   }
 }
 
@@ -172,7 +149,6 @@ if (isAdmin.value) {
         <AccountsTable
           ref="accountsTable"
           :users="users"
-          :usage-by-owner="usageByOwner"
           :session-user-id="sessionUser?.id"
           :bulk-deleting="bulkDeleting"
           @edit-quota="(user: AccountUser) => { quotaTarget = user; quotaOpen = true }"

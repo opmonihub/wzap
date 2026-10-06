@@ -18,9 +18,9 @@ const { t } = useI18n()
 
 <template>
   <div class="flex flex-wrap items-center gap-2">
-    <InstanceStatusBadge :status="instance.status" />
+    <InstanceStatusBadge :status="instance.connection.status" />
     <UButton
-      v-if="instance.status === 'disconnected' || instance.status === 'error'"
+      v-if="instance.connection.status === 'disconnected' || instance.connection.status === 'error'"
       color="primary"
       variant="ghost"
       size="xs"
@@ -29,7 +29,7 @@ const { t } = useI18n()
       @click.stop="$emit('connect', instance)"
     />
     <NuxtLink
-      v-else-if="instance.status === 'pairing'"
+      v-else-if="instance.connection.status === 'pairing'"
       :to="`/instances/${instance.id}`"
       class="text-xs font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       @click.stop

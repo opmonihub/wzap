@@ -1,10 +1,10 @@
-import type { SessionUser, VisionScope } from '~/types/api'
+import type { MeEnvelope, SessionUser, VisionScope } from '~/types/api'
 
 // Session state for the manager console. Login mints the wzap_session
 // httpOnly cookie on the Go side; the browser resends it automatically, so
-// this store only keeps the identity returned by /auth/me and derives the
-// vision scope from the role: admin sees everything (global), user sees only
-// the account's own instances (instance).
+// this store only keeps the identity returned by /auth/me under data.me and
+// derives the vision scope from the role: admin sees everything (global),
+// user sees only the account's own instances (instance).
 export function useAuth() {
   const user = useState<SessionUser | null>('auth-user', () => null)
   const ready = useState<boolean>('auth-ready', () => false)
@@ -22,7 +22,7 @@ export function useAuth() {
 
   async function refresh(): Promise<SessionUser | null> {
     try {
-      user.value = await api<SessionUser>('/auth/me')
+      user.value = (await api<MeEnvelope>('/auth/me')).me
     } catch {
       user.value = null
     } finally {
@@ -32,10 +32,10 @@ export function useAuth() {
   }
 
   async function login(email: string, password: string): Promise<SessionUser> {
-    user.value = await api<SessionUser>('/auth/login', {
+    user.value = (await api<MeEnvelope>('/auth/login', {
       method: 'POST',
       body: { email, password }
-    })
+    })).me
     ready.value = true
     return user.value
   }

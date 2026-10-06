@@ -13,13 +13,12 @@ import type { CreatedInstance, Instance } from '~/types/api'
 const { t } = useI18n()
 const toast = useToast()
 const { isAdmin } = useAuth()
-const { listInstances, listAccounts, connectInstance } = useInstances()
+const { listInstances, connectInstance } = useInstances()
 
 const items = ref<Instance[]>([])
 const pending = ref(true)
 const failure = ref<string | null>(null)
 const createOpen = ref(false)
-const ownerEmails = ref<Record<string, string>>({})
 
 // View preference persisted in a cookie (default cards). Restored verbatim
 // from the pre-extraction page: the toggle lives in the page header while
@@ -44,25 +43,12 @@ useSeoMeta({
   title: 'Instances'
 })
 
-async function loadOwners() {
-  if (!isAdmin.value) {
-    return
-  }
-  try {
-    const accounts = await listAccounts()
-    ownerEmails.value = Object.fromEntries(accounts.map(account => [account.id, account.email]))
-  } catch {
-    // Owner resolution is best-effort: the list still renders with short ids.
-  }
-}
-
 async function loadFirst() {
   pending.value = true
   failure.value = null
   try {
     const listing = await listInstances()
-    items.value = listing.items
-    await loadOwners()
+    items.value = listing.items.map(item => item.instance)
   } catch (error) {
     failure.value = error instanceof ApiError ? error.message : t('instances.loadFailed')
   } finally {
@@ -70,11 +56,11 @@ async function loadFirst() {
   }
 }
 
-function onCreated(instance: CreatedInstance) {
+function onCreated(created: CreatedInstance) {
   // The one-time key lives in the modal only: strip it before the created
   // instance joins the list so it is never retained in list memory.
-  const { instance_api_key: _omit, ...rest } = instance
-  items.value = [rest, ...items.value]
+  const { instance_api_key: _omit, ...rest } = created
+  items.value = [rest.instance, ...items.value]
   toast.add({ title: t('instances.create.createdToast'), icon: 'i-lucide-check', color: 'success' })
 }
 
@@ -89,10 +75,11 @@ async function onConnect(instance: Instance) {
   connectingId.value = instance.id
   try {
     const result = await connectInstance(instance.id)
+    const status = result.connection.status
     items.value = items.value.map(entry =>
-      entry.id === instance.id ? { ...entry, status: result.status } : entry
+      entry.id === instance.id ? { ...entry, connection: { ...entry.connection, status } } : entry
     )
-    if (result.status === 'connected' || !result.qr_code) {
+    if (status === 'connected' || !result.connection.qr_code) {
       toast.add({ title: t('instances.connect.alreadyConnected'), icon: 'i-lucide-check', color: 'success' })
       return
     }
@@ -212,7 +199,6 @@ await loadFirst()
           <InstancesTable
             v-if="view === 'table'"
             :items="items"
-            :owner-emails="ownerEmails"
             :is-admin="isAdmin"
             @connect="onConnect"
             @edit="openEdit"
@@ -222,8 +208,6 @@ await loadFirst()
           <InstancesCards
             v-else
             :items="items"
-            :owner-emails="ownerEmails"
-            :is-admin="isAdmin"
             @open="openDetails"
             @connect="onConnect"
             @edit="openEdit"

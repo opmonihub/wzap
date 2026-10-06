@@ -10,7 +10,6 @@ import type { AccountRole, AccountUser } from '~/types/api'
 
 const props = defineProps<{
   users: AccountUser[]
-  usageByOwner: Record<string, number>
   sessionUserId: string | undefined
   // Owned by the page (it runs the bulk-delete loop); drives the bulk-bar
   // button loading state while the confirm + loop resolve.
@@ -119,7 +118,7 @@ function columnLabel(columnId: string): string {
       return t('common.email')
     case 'role':
       return t('common.role')
-    case 'instance_quota':
+    case 'instance_limit':
       return t('accounts.quotaLabel')
     default:
       return columnId
@@ -207,7 +206,7 @@ function sortActionLabel(columnId: string): string {
   const nextDesc = current?.id === columnId && !current.desc
   const column = columnId === 'role'
     ? t('common.role')
-    : columnId === 'instance_quota' ? t('accounts.quotaLabel') : t('common.email')
+    : columnId === 'instance_limit' ? t('accounts.quotaLabel') : t('common.email')
   return nextDesc ? t('accounts.table.sortDesc', { column }) : t('accounts.table.sortAsc', { column })
 }
 
@@ -333,14 +332,14 @@ function sortActionLabel(columnId: string): string {
         />
       </template>
 
-      <template #instance_quota-header="{ column }">
+      <template #instance_limit-header="{ column }">
         <UButton
           color="neutral"
           variant="ghost"
           class="-mx-2.5"
           :label="t('accounts.quotaLabel')"
           :icon="column.getIsSorted() ? (column.getIsSorted() === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow') : 'i-lucide-arrow-up-down'"
-          :aria-label="sortActionLabel('instance_quota')"
+          :aria-label="sortActionLabel('instance_limit')"
           @click="column.toggleSorting(column.getIsSorted() === 'asc')"
         />
       </template>
@@ -355,8 +354,8 @@ function sortActionLabel(columnId: string): string {
         <AccountsTableRoleCell :user="row.original" />
       </template>
 
-      <template #instance_quota-cell="{ row }">
-        <AccountsTableQuotaCell :user="row.original" :usage="usageByOwner[row.original.id] ?? 0" />
+      <template #instance_limit-cell="{ row }">
+        <AccountsTableQuotaCell :user="row.original" />
       </template>
 
       <template #actions-cell="{ row }">

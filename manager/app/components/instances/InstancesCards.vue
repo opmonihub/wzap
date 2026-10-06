@@ -4,8 +4,6 @@ import type { Instance, InstanceStatus } from '~/types/api'
 
 const props = defineProps<{
   items: Instance[]
-  ownerEmails: Record<string, string>
-  isAdmin: boolean
 }>()
 
 const emit = defineEmits<{
@@ -22,8 +20,9 @@ const { t } = useI18n()
 
 // Card/grid view over the same loaded items as the table: search and status
 // state stay local so the grid filters the accumulated cursor pages
-// client-side (name/external_ref match + status equals), mirroring the table.
-// Transcribed from pages/instances/index.vue (BASE 6b2d4e1).
+// client-side (name match + connection.status equals), mirroring the table.
+// Transcribed from pages/instances/index.vue (BASE 6b2d4e1). external_ref is
+// no longer public, so search matches the name only.
 const searchInput = ref('')
 
 // Search input debounced into the grid filter (300ms): typing never
@@ -61,10 +60,10 @@ const cardItems = computed(() => {
   const query = globalFilter.value.trim().toLowerCase()
   const status = columnFilters.value.find(entry => entry.id === 'status')?.value
   const filtered = props.items.filter((entry) => {
-    if (typeof status === 'string' && status !== '' && entry.status !== status) {
+    if (typeof status === 'string' && status !== '' && entry.connection.status !== status) {
       return false
     }
-    if (query !== '' && ![entry.name, entry.external_ref].some(value => (value ?? '').toLowerCase().includes(query))) {
+    if (query !== '' && !entry.name.toLowerCase().includes(query)) {
       return false
     }
     return true
@@ -136,8 +135,6 @@ watch(cardPageCount, (count) => {
         v-for="entry in cardPageItems"
         :key="entry.id"
         :instance="entry"
-        :email="ownerEmails[entry.owner_user_id ?? '']"
-        :show-owner="isAdmin"
         @open="(instance: Instance) => emit('open', instance)"
         @connect="(instance: Instance) => emit('connect', instance)"
         @edit="(instance: Instance) => emit('edit', instance)"

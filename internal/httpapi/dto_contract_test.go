@@ -2,8 +2,10 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -166,5 +168,36 @@ func TestDTOContractQRFieldsOnlyWhenPairing(t *testing.T) {
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		connection := payload["data"].(map[string]any)["connection"].(map[string]any)
 		requireContractKeys(t, connection, "status")
+	}
+}
+
+// The accepted body carries only fields known at accept time: no fabricated
+// zero values, and media_id only for media uploads.
+func TestDTOContractMessageAcceptedFields(t *testing.T) {
+	messageID, instanceID, mediaID := uuid.New(), uuid.New(), uuid.New()
+	for _, tc := range []struct {
+		name    string
+		mediaID *uuid.UUID
+		want    any
+	}{
+		{name: "text", want: nil},
+		{name: "media", mediaID: &mediaID, want: mediaID.String()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			raw, err := json.Marshal(newMessageAcceptedResponse(messageID, instanceID, tc.mediaID))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var payload map[string]map[string]any
+			decodeJSON(t, raw, &payload)
+			msg := payload["message"]
+			requireContractKeys(t, msg, "id,instance_id,send_status,media_id")
+			if msg["id"] != messageID.String() || msg["instance_id"] != instanceID.String() || msg["send_status"] != "queued" || msg["media_id"] != tc.want {
+				t.Errorf("accepted message = %v", msg)
+			}
+			if strings.Contains(string(raw), "0001-01-01") {
+				t.Errorf("accepted body carries a zero timestamp: %s", raw)
+			}
+		})
 	}
 }

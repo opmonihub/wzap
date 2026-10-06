@@ -229,9 +229,9 @@ func convertReplayBody(r *http.Request, body []byte) ([]byte, bool) {
 	switch parts[3] {
 	case "messages", "messages/text", "messages/location", "messages/contact", "messages/media":
 		var data struct {
-			Message   *messageResponse `json:"message"`
-			MessageID string           `json:"message_id"`
-			Status    string           `json:"status"`
+			Message   *acceptedMessageResponse `json:"message"`
+			MessageID string                   `json:"message_id"`
+			Status    string                   `json:"status"`
 		}
 		if err := json.Unmarshal(stored.Data, &data); err != nil {
 			return nil, false
@@ -250,7 +250,7 @@ func convertReplayBody(r *http.Request, body []byte) ([]byte, bool) {
 		if err != nil {
 			return nil, false
 		}
-		converted, err := json.Marshal(envelope{Data: newMessageAcceptedResponse(id, instanceID)})
+		converted, err := json.Marshal(envelope{Data: newMessageAcceptedResponse(id, instanceID, nil)})
 		return converted, err == nil
 	case "newsletters":
 		var data map[string]json.RawMessage

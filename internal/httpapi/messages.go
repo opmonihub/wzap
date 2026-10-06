@@ -177,7 +177,7 @@ func handleSendMessage(instances InstanceService, messages MessageService) http.
 			writeMessageError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID, id))
+		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID, id, nil))
 	}
 }
 
@@ -298,7 +298,7 @@ func handleSendText(instances InstanceService, messages MessageService) http.Han
 			writeMessageError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID, id))
+		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID, id, nil))
 	}
 }
 
@@ -367,7 +367,7 @@ func handleSendLocation(instances InstanceService, messages MessageService) http
 			writeMessageError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID, id))
+		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID, id, nil))
 	}
 }
 
@@ -432,7 +432,7 @@ func handleSendContact(instances InstanceService, messages MessageService) http.
 			writeMessageError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID, id))
+		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID, id, nil))
 	}
 }
 
@@ -595,7 +595,7 @@ func handleSendMedia(instances InstanceService, messages MessageService, mediaSt
 			writeMessageError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID, id))
+		JSON(w, r, http.StatusAccepted, newMessageAcceptedResponse(messageID, id, &stored.ID))
 	}
 }
 
@@ -764,12 +764,14 @@ func parseMessagesLimit(raw string) int {
 }
 
 // newMessageAcceptedResponse maps an accepted send to its 202 body: the
-// queue id plus the queued status under data.message.
-func newMessageAcceptedResponse(id, instanceID uuid.UUID) messageAcceptedResponse {
-	return messageAcceptedResponse{Message: messageResponse{
+// queue id plus the queued status under data.message. mediaID is the stored
+// media of a media upload and nil for every other send.
+func newMessageAcceptedResponse(id, instanceID uuid.UUID, mediaID *uuid.UUID) messageAcceptedResponse {
+	return messageAcceptedResponse{Message: acceptedMessageResponse{
 		ID:         id.String(),
 		InstanceID: instanceID.String(),
 		SendStatus: message.StatusQueued,
+		MediaID:    mediaID,
 	}}
 }
 

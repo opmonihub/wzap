@@ -169,10 +169,20 @@ type messageResponse struct {
 	UpdatedAt     time.Time          `json:"updated_at"`
 }
 
+// acceptedMessageResponse is the queue message known at accept time: only its
+// real fields, never fabricated zero values. media_id is null except for
+// media uploads, whose stored media is known when the send is enqueued.
+type acceptedMessageResponse struct {
+	ID         string     `json:"id"`
+	InstanceID string     `json:"instance_id"`
+	SendStatus string     `json:"send_status"`
+	MediaID    *uuid.UUID `json:"media_id"`
+}
+
 // messageAcceptedResponse is the 202 answer to an accepted send: the queue
 // message with its id and the queued status.
 type messageAcceptedResponse struct {
-	Message messageResponse `json:"message"`
+	Message acceptedMessageResponse `json:"message"`
 }
 
 // messageListResponse is one page of messages plus its next cursor; each

@@ -161,8 +161,9 @@ func serveMessages(t *testing.T, srv *http.Server, method, path, body string, he
 type messageAcceptedPayload struct {
 	Data struct {
 		Message struct {
-			ID         string `json:"id"`
-			SendStatus string `json:"send_status"`
+			ID         string  `json:"id"`
+			SendStatus string  `json:"send_status"`
+			MediaID    *string `json:"media_id"`
 		} `json:"message"`
 	} `json:"data"`
 }
@@ -193,6 +194,9 @@ func TestSendTextAccepted(t *testing.T) {
 	}
 	if payload.Data.Message.SendStatus != message.StatusQueued {
 		t.Errorf("data.message.send_status = %q, want %q", payload.Data.Message.SendStatus, message.StatusQueued)
+	}
+	if payload.Data.Message.MediaID != nil {
+		t.Errorf("data.message.media_id = %v, want null for a text send", payload.Data.Message.MediaID)
 	}
 }
 
@@ -587,6 +591,9 @@ func TestSendMediaAccepted(t *testing.T) {
 	}
 	if payload.Data.Message.SendStatus != message.StatusQueued {
 		t.Errorf("data.message.send_status = %q, want %q", payload.Data.Message.SendStatus, message.StatusQueued)
+	}
+	if payload.Data.Message.MediaID == nil || *payload.Data.Message.MediaID != storedID.String() {
+		t.Errorf("data.message.media_id = %v, want %s", payload.Data.Message.MediaID, storedID)
 	}
 	if len(store.saveCalls) != 1 {
 		t.Errorf("Save calls = %d, want 1", len(store.saveCalls))

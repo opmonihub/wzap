@@ -78,13 +78,13 @@ var responseContractFixtures = []responseContractFixture{
 	{method: "POST", path: "/instances/{id}/groups/{group_id}/requests", status: 200, body: `{"action":"approve","participants":["5511999999999@s.whatsapp.net"]}`, keys: "updated", entity: "", upload: ""},
 	{method: "PATCH", path: "/instances/{id}/groups/{group_id}/settings", status: 200, body: `{"announce":true}`, keys: "updated", entity: "", upload: ""},
 	{method: "GET", path: "/instances/{id}/messages", status: 200, body: ``, keys: "items,next_cursor", entity: "items.message", upload: ""},
-	{method: "POST", path: "/instances/{id}/messages", status: 202, body: `{"type":"buttons","to":"5511999999999","text":"Choose","buttons":[{"id":"yes","title":"Yes"}]}`, keys: "message", entity: "message", upload: ""},
-	{method: "POST", path: "/instances/{id}/messages/contact", status: 202, body: `{"to":"5511999999999","display_name":"Contact","vcard":"BEGIN:VCARD\nEND:VCARD"}`, keys: "message", entity: "message", upload: ""},
+	{method: "POST", path: "/instances/{id}/messages", status: 202, body: `{"type":"buttons","to":"5511999999999","text":"Choose","buttons":[{"id":"yes","title":"Yes"}]}`, keys: "message", entity: "accepted_message", upload: ""},
+	{method: "POST", path: "/instances/{id}/messages/contact", status: 202, body: `{"to":"5511999999999","display_name":"Contact","vcard":"BEGIN:VCARD\nEND:VCARD"}`, keys: "message", entity: "accepted_message", upload: ""},
 	{method: "POST", path: "/instances/{id}/messages/edit", status: 200, body: `{"chat":"5511999999999@s.whatsapp.net","message_id":"wamid.1","text":"Edited"}`, keys: "message_id", entity: "", upload: ""},
-	{method: "POST", path: "/instances/{id}/messages/location", status: 202, body: `{"to":"5511999999999","latitude":1,"longitude":2}`, keys: "message", entity: "message", upload: ""},
-	{method: "POST", path: "/instances/{id}/messages/media", status: 202, body: `{"to":"5511999999999","type":"image"}`, keys: "message", entity: "message", upload: "multipart"},
+	{method: "POST", path: "/instances/{id}/messages/location", status: 202, body: `{"to":"5511999999999","latitude":1,"longitude":2}`, keys: "message", entity: "accepted_message", upload: ""},
+	{method: "POST", path: "/instances/{id}/messages/media", status: 202, body: `{"to":"5511999999999","type":"image"}`, keys: "message", entity: "accepted_message", upload: "multipart"},
 	{method: "POST", path: "/instances/{id}/messages/revoke", status: 200, body: `{"chat":"5511999999999@s.whatsapp.net","message_id":"wamid.1"}`, keys: "revoked", entity: "", upload: ""},
-	{method: "POST", path: "/instances/{id}/messages/text", status: 202, body: `{"to":"5511999999999","text":"Hello"}`, keys: "message", entity: "message", upload: ""},
+	{method: "POST", path: "/instances/{id}/messages/text", status: 202, body: `{"to":"5511999999999","text":"Hello"}`, keys: "message", entity: "accepted_message", upload: ""},
 	{method: "GET", path: "/instances/{id}/messages/{message_id}", status: 200, body: ``, keys: "message", entity: "message", upload: ""},
 	{method: "GET", path: "/instances/{id}/newsletters", status: 200, body: ``, keys: "items,next_cursor", entity: "items.channel", upload: ""},
 	{method: "POST", path: "/instances/{id}/newsletters", status: 201, body: `{"title":"News"}`, keys: "channel", entity: "channel", upload: ""},
@@ -191,10 +191,20 @@ func TestResponseContractMatrix(t *testing.T) {
 			if key, ok := data["instance_api_key"]; ok && key == "" {
 				t.Error("creation/rotation key is empty")
 			}
-			if fixture.method == "POST" && fixture.entity == "message" {
+			if fixture.entity == "accepted_message" {
 				msg := data["message"].(map[string]any)
-				if msg["send_status"] != "queued" || msg["wa_id"] != nil {
+				if msg["send_status"] != "queued" {
 					t.Errorf("accepted message = %v", msg)
+				}
+				if strings.Contains(rec.Body.String(), "0001-01-01") {
+					t.Errorf("accepted body carries a zero timestamp: %s", rec.Body.String())
+				}
+				if fixture.upload == "multipart" {
+					if id, ok := msg["media_id"].(string); !ok || id == "" {
+						t.Errorf("media_id = %v, want the stored media id", msg["media_id"])
+					}
+				} else if msg["media_id"] != nil {
+					t.Errorf("media_id = %v, want null for a non-media send", msg["media_id"])
 				}
 			}
 		})
@@ -351,6 +361,9 @@ func requireContractEntity(t *testing.T, data map[string]any, entity string) {
 	if entity == "pairing" {
 		key = "connection"
 	}
+	if entity == "accepted_message" {
+		key = "message"
+	}
 	object, ok := data[key].(map[string]any)
 	if !ok {
 		t.Fatalf("missing entity %s in %v", key, data)
@@ -366,6 +379,8 @@ func requireContractEntity(t *testing.T, data map[string]any, entity string) {
 		requireContractKeys(t, hook, "enabled,url,events")
 	case "message":
 		requireContractKeys(t, object, "id,instance_id,message_type,recipient_jid,send_status,wa_id,media_id,retry_count,last_error,next_attempt_at,delivered_at,read_at,created_at,updated_at")
+	case "accepted_message":
+		requireContractKeys(t, object, "id,instance_id,send_status,media_id")
 	case "user":
 		requireContractKeys(t, object, "id,email,role,instance_limit,instances_used,created_at,updated_at")
 	case "me":

@@ -156,7 +156,7 @@ func countingHandler(calls *int, status int, body string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		*calls++
 		id, _ := uuid.Parse(r.PathValue("id"))
-		JSON(w, r, status, newMessageAcceptedResponse(uuid.NewSHA1(uuid.Nil, []byte(body)), id))
+		JSON(w, r, status, newMessageAcceptedResponse(uuid.NewSHA1(uuid.Nil, []byte(body)), id, nil))
 	})
 }
 
@@ -996,5 +996,40 @@ func TestIdempotencyReplayAcceptsBothEnvelopes(t *testing.T) {
 		if rec.Body.String() != string(body) {
 			t.Errorf("replay body = %q, want the stored %q", rec.Body.String(), body)
 		}
+	}
+}
+
+// A legacy {message_id,status} replay converts to the accepted message with
+// the same UUID and only real fields.
+func TestIdempotencyReplayConvertsLegacyAcceptedBody(t *testing.T) {
+	id := uuid.New()
+	messageID := uuid.New()
+	fingerprint, cleanup, err := fingerprintRequest(idempotencyRequest(id, "key-legacy", `{"to":"5547"}`), testMultipartLimit)
+	if err != nil {
+		t.Fatalf("fingerprintRequest: %v", err)
+	}
+	if cleanup != nil {
+		defer cleanup()
+	}
+	repo := newFakeIdempotency()
+	repo.putRecord(model.IdempotencyRecord{
+		InstanceID: id, Key: "key-legacy", Fingerprint: fingerprint,
+		Status: "completed", ResponseStatus: http.StatusAccepted,
+		ResponseBody: []byte(`{"data":{"message_id":"` + messageID.String() + `","status":"queued"}}`),
+	})
+	rec := serveIdempotency(repo, countingHandler(new(int), http.StatusAccepted, "new"),
+		idempotencyRequest(id, "key-legacy", `{"to":"5547"}`))
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202: %s", rec.Code, rec.Body.String())
+	}
+	var payload map[string]map[string]map[string]any
+	decodeJSON(t, rec.Body.Bytes(), &payload)
+	msg := payload["data"]["message"]
+	requireContractKeys(t, msg, "id,instance_id,send_status,media_id")
+	if msg["id"] != messageID.String() || msg["instance_id"] != id.String() || msg["send_status"] != "queued" || msg["media_id"] != nil {
+		t.Errorf("converted message = %v", msg)
+	}
+	if strings.Contains(rec.Body.String(), "0001-01-01") {
+		t.Errorf("converted body carries a zero timestamp: %s", rec.Body.String())
 	}
 }

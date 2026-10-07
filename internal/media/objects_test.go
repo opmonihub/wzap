@@ -28,7 +28,6 @@ type fakeObjects struct {
 	deleteErr error
 	existsErr error
 	deleted   []string
-	puts      []string
 }
 
 func newFakeObjects() *fakeObjects {
@@ -65,15 +64,7 @@ func (f *fakeObjects) Put(_ context.Context, bucket, key string, data []byte, _ 
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.data[f.fullKey(bucket, key)] = append([]byte(nil), data...)
-	f.puts = append(f.puts, f.fullKey(bucket, key))
 	return nil
-}
-
-// putCalls returns how many Put operations reached the store.
-func (f *fakeObjects) putCalls() int {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return len(f.puts)
 }
 
 func (f *fakeObjects) Get(_ context.Context, bucket, key string) (io.ReadCloser, error) {

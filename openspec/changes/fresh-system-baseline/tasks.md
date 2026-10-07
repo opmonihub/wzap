@@ -1,7 +1,7 @@
 ## 1. Preparação da aplicação futura
 
-- [ ] 1.1 Criar o worktree `.worktrees/fresh-system-baseline` e a branch `codex/fresh-system-baseline`, verificando isolamento e preservação das alterações locais existentes com `git worktree list` e `git status`.
-- [ ] 1.2 Produzir `plan.md` com passos TDD por task ID e inventário de caminhos históricos, verificando cobertura dos 11 deltas e ausência de exclusões de fluxos atuais por busca textual apenas.
+- [x] 1.1 Criar o worktree `.worktrees/fresh-system-baseline` e a branch `codex/fresh-system-baseline`, verificando isolamento e preservação das alterações locais existentes com `git worktree list` e `git status`.
+- [x] 1.2 Produzir `plan.md` com passos TDD por task ID e inventário de caminhos históricos, verificando cobertura dos 11 deltas e ausência de exclusões de fluxos atuais por busca textual apenas.
 
 ## 2. Schema inicial e identidade
 

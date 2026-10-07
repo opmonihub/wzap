@@ -12867,9 +12867,6 @@ const docTemplate = `{
         "httpapi.revokeResponse": {
             "type": "object",
             "properties": {
-                "reason": {
-                    "type": "string"
-                },
                 "revoked": {
                     "type": "boolean"
                 }

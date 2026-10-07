@@ -16,11 +16,9 @@ type revokeRequest struct {
 // revokeResponse is the 200 answer to a sent revocation. Revoked is always
 // true here: the protocol revoke is fire-and-forget and the adapter reports
 // no out-of-window signal, so a failure to revoke surfaces as 409 (offline)
-// or 422 (invalid target) instead of revoked:false. The reason field stays
-// for forward compatibility with an upstream window report.
+// or 422 (invalid target) instead of revoked:false.
 type revokeResponse struct {
-	Revoked bool   `json:"revoked"`
-	Reason  string `json:"reason,omitempty"`
+	Revoked bool `json:"revoked"`
 }
 
 // markReadRequest is the POST /instances/{id}/chats/mark-read payload. Sender

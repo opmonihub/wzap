@@ -734,8 +734,6 @@ definitions:
     type: object
   httpapi.revokeResponse:
     properties:
-      reason:
-        type: string
       revoked:
         type: boolean
     type: object

@@ -26,7 +26,7 @@
 
 ## 5. Mídia e Manager
 
-- [ ] 5.1 Remover media-migrate, transferência histórica, atualização de bucket para conversão e fallback de bucket vazio, verificando `go test ./cmd/wzap ./internal/media ./internal/storage/postgres -count=1` e referências sem consumidores remanescentes.
+- [x] 5.1 Remover media-migrate, transferência histórica, atualização de bucket para conversão e fallback de bucket vazio, verificando `go test ./cmd/wzap ./internal/media ./internal/storage/postgres -count=1` e referências sem consumidores remanescentes.
 - [ ] 5.2 Manter S3 configurado ou disco sem endpoint com bucket explícito, checksum, download, TTL e cache, verificando operações locais/S3, bucket registrado e falha S3 sem gravação alternativa em disco.
 - [ ] 5.3 Atualizar formulários, tipos, traduções e mensagens do Manager para o contrato atual após o contrato Go, verificando nomes inválidos/conflitos, falhas estruturadas e `pnpm --dir manager test`, `lint`, `typecheck` e `build`.
 - [ ] 5.4 Atualizar README, instruções vigentes e Swagger após remover anotações de compatibilidade, verificando rotas/schemas atuais e regeneração limpa de `docs/` com o comando Swag definido no projeto.

@@ -119,8 +119,9 @@ Públicas sem credencial: `GET /healthz`, `GET /readyz`, o console em
 regras de autenticação acima).
 
 Subcomandos do binário: `wzap serve` (padrão), `wzap migrate` (aplica as
-migrações e sai) e `wzap healthcheck` (chama `/readyz` em loopback e sai
-`0`/`1`; é o healthcheck do container).
+migrações e sai), `wzap media-migrate` (migra bytes de mídia legados para o
+object store quando `WZAP_S3_ENDPOINT` está configurado) e `wzap healthcheck`
+(chama `/readyz` em loopback e sai `0`/`1`; é o healthcheck do container).
 
 ### Contas (só key global ou sessão `admin`; sem registro público)
 
@@ -606,9 +607,17 @@ curl -sS -X POST 127.0.0.1:8081/instances/<id>/connect \
 ```
 
 Encerramento: o serviço trata `SIGINT`/`SIGTERM`, drena as requisições em voo e
-só depois para o outbox, a limpeza de mídia, o worker de webhooks e, por
-último, o relay — que publica os eventos pendentes. Todo o encerramento
-compartilha um limite de 10 s e um segundo sinal o aborta imediatamente.
+só depois para, nesta ordem: outbox de mensagens, limpeza de mídia, worker de
+webhooks, mirror Chatwoot (se habilitado), agendador de import Chatwoot (se
+habilitado) e, por último, o relay — que publica os eventos pendentes do
+outbox. Todo o encerramento compartilha um limite de 10 s e um segundo sinal
+o aborta imediatamente.
+
+Eventos e webhooks: a fila de outbox persiste antes do broker; o relay publica
+do Postgres. Webhooks por instância só disparam **depois** que o outbox
+grava o envelope com sucesso. A entrega HTTP é best-effort (retries e dead
+letters); se a fila interna encher, eventos podem ser descartados com contador
+de log — o outbox/NATS permanece a fonte durável.
 
 ## Testes
 

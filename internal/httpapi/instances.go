@@ -776,8 +776,6 @@ func writeInstanceError(w http.ResponseWriter, r *http.Request, err error) {
 		Error(w, r, http.StatusUnprocessableEntity, "invalid_instance_name", "invalid instance name")
 	case errors.Is(err, instance.ErrInstanceNameTaken):
 		Error(w, r, http.StatusConflict, "instance_name_taken", "instance name already taken")
-	case errors.Is(err, instance.ErrInstanceNameAmbiguous):
-		Error(w, r, http.StatusConflict, "instance_name_ambiguous", "instance name matches multiple instances")
 	case errors.Is(err, instance.ErrExternalRefTaken):
 		Error(w, r, http.StatusConflict, "conflict", "external ref already taken")
 	case errors.Is(err, instance.ErrInvalidCursor):

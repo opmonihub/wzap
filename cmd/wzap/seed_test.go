@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -77,7 +76,7 @@ func TestSeedAdminEmptyWithEnvs(t *testing.T) {
 	_, users, _ := newSeedRepos(t)
 
 	cfg := seedTestConfig("admin@example.com", "s3cret-password")
-	if err := seedAdmin(ctx, cfg, users, noopBackfiller{}, zerolog.Nop()); err != nil {
+	if err := seedAdmin(ctx, cfg, users, zerolog.Nop()); err != nil {
 		t.Fatalf("seedAdmin: %v", err)
 	}
 
@@ -111,7 +110,7 @@ func TestSeedAdminEmptyWithoutEnvs(t *testing.T) {
 	ctx := context.Background()
 	_, users, _ := newSeedRepos(t)
 
-	if err := seedAdmin(ctx, seedTestConfig("", ""), users, noopBackfiller{}, zerolog.Nop()); err != nil {
+	if err := seedAdmin(ctx, seedTestConfig("", ""), users, zerolog.Nop()); err != nil {
 		t.Fatalf("seedAdmin: %v", err)
 	}
 
@@ -131,7 +130,7 @@ func TestSeedAdminNonEmptyWithEnvs(t *testing.T) {
 	existing := createSeedUser(t, users, "owner@example.com")
 	owned := createSeedInstance(t, instances, existing, "owned")
 
-	if err := seedAdmin(ctx, seedTestConfig("admin@example.com", "s3cret-password"), users, noopBackfiller{}, zerolog.Nop()); err != nil {
+	if err := seedAdmin(ctx, seedTestConfig("admin@example.com", "s3cret-password"), users, zerolog.Nop()); err != nil {
 		t.Fatalf("seedAdmin: %v", err)
 	}
 
@@ -160,7 +159,7 @@ func TestSeedAdminNonEmptyWithoutEnvs(t *testing.T) {
 	existing := createSeedUser(t, users, "owner@example.com")
 	owned := createSeedInstance(t, instances, existing, "owned")
 
-	if err := seedAdmin(ctx, seedTestConfig("", ""), users, noopBackfiller{}, zerolog.Nop()); err != nil {
+	if err := seedAdmin(ctx, seedTestConfig("", ""), users, zerolog.Nop()); err != nil {
 		t.Fatalf("seedAdmin: %v", err)
 	}
 
@@ -198,7 +197,7 @@ func TestSeedAdminHalfConfigured(t *testing.T) {
 
 			// A half-configured seed warns, creates nothing and lets boot
 			// proceed: the nil error is the assertion that boot continues.
-			if err := seedAdmin(ctx, seedTestConfig(tt.email, tt.password), users, noopBackfiller{}, zerolog.Nop()); err != nil {
+			if err := seedAdmin(ctx, seedTestConfig(tt.email, tt.password), users, zerolog.Nop()); err != nil {
 				t.Fatalf("seedAdmin(half-configured) = %v, want nil (boot proceeds)", err)
 			}
 
@@ -210,57 +209,5 @@ func TestSeedAdminHalfConfigured(t *testing.T) {
 				t.Errorf("users count = %d, want 0 (half-configured seed creates nothing)", count)
 			}
 		})
-	}
-}
-
-// errBackfiller is an ownerBackfiller that always fails, simulating a broken
-// backfill UPDATE.
-type errBackfiller struct{ err error }
-
-func (f errBackfiller) BackfillOwner(context.Context, uuid.UUID) (int64, error) {
-	return 0, f.err
-}
-
-// noopBackfiller is an ownerBackfiller that claims nothing: the fresh
-// baseline has no ownerless rows to backfill.
-type noopBackfiller struct{}
-
-func (noopBackfiller) BackfillOwner(context.Context, uuid.UUID) (int64, error) {
-	return 0, nil
-}
-
-func TestSeedAdminBackfillFailureRollsBackAdmin(t *testing.T) {
-	ctx := context.Background()
-	_, users, _ := newSeedRepos(t)
-
-	cfg := seedTestConfig("admin@example.com", "s3cret-password")
-	boom := errors.New("backfill boom")
-	err := seedAdmin(ctx, cfg, users, errBackfiller{err: boom}, zerolog.Nop())
-	if err == nil {
-		t.Fatal("seedAdmin(backfill failure) = nil, want the backfill error")
-	}
-	if !errors.Is(err, boom) {
-		t.Fatalf("seedAdmin(backfill failure) = %v, want it to wrap the backfill error", err)
-	}
-
-	// The just-created admin owns nothing (the UPDATE is atomic), so he is
-	// removed: the next boot sees zero users and retries the full seed path.
-	count, err := users.Count(ctx)
-	if err != nil {
-		t.Fatalf("Count: %v", err)
-	}
-	if count != 0 {
-		t.Fatalf("users count = %d, want 0 (failed backfill rolls the admin back)", count)
-	}
-
-	if err := seedAdmin(ctx, cfg, users, noopBackfiller{}, zerolog.Nop()); err != nil {
-		t.Fatalf("seedAdmin(retry with working backfiller): %v", err)
-	}
-	admin, err := users.GetByEmail(ctx, "admin@example.com")
-	if err != nil {
-		t.Fatalf("GetByEmail(admin) after retry: %v", err)
-	}
-	if admin.Role != "admin" {
-		t.Errorf("admin Role after retry = %q, want admin", admin.Role)
 	}
 }

@@ -153,9 +153,9 @@ func serve() error {
 	users := postgres.NewUserRepository(pool)
 	keys := postgres.NewAPIKeyRepository(pool)
 
-	// Seed the initial admin (and claim the legacy ownerless instances for
-	// him) before serving. Without WZAP_ADMIN_* this is a no-op.
-	if err := seedAdmin(ctx, cfg, users, instances, log); err != nil {
+	// Seed the initial admin before serving. Without WZAP_ADMIN_* this is a
+	// no-op.
+	if err := seedAdmin(ctx, cfg, users, log); err != nil {
 		return err
 	}
 

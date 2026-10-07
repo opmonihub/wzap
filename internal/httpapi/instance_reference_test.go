@@ -73,14 +73,9 @@ func TestInstanceReferenceErrorsAndUUIDPrecedence(t *testing.T) {
 			t.Errorf("ref %q status=%d", ref, rec.Code)
 		}
 	}
-	svc.getByNameFn = func(context.Context, string) (*model.Instance, error) { return nil, instance.ErrInstanceNameAmbiguous }
-	rec := serveJSON(t, srv, "GET", "/instances/duplicate", "")
-	if rec.Code != 409 || errorCode(t, rec.Body.Bytes()) != "instance_name_ambiguous" {
-		t.Errorf("ambiguous=%d %s", rec.Code, rec.Body.String())
-	}
 	svc.getNames = nil
 	for _, ref := range []string{f.instA.ID.String(), strings.ReplaceAll(f.instA.ID.String(), "-", ""), "x" + f.instA.ID.String() + "y"} {
-		rec = serveJSON(t, srv, "GET", "/instances/"+ref, "")
+		rec := serveJSON(t, srv, "GET", "/instances/"+ref, "")
 		if rec.Code != 200 {
 			t.Errorf("UUID %q=%d", ref, rec.Code)
 		}

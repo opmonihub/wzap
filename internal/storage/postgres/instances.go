@@ -127,32 +127,15 @@ func (r *InstanceRepository) Get(ctx context.Context, id uuid.UUID) (*model.Inst
 	return instance, nil
 }
 
-// GetByName returns the unique exact match, rejecting ambiguous legacy rows.
+// GetByName returns the instance with the exact name (case-sensitive,
+// globally unique) or storage.ErrNotFound.
 func (r *InstanceRepository) GetByName(ctx context.Context, name string) (*model.Instance, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT `+instanceColumns+instanceJoin+` WHERE i.name = $1 LIMIT 2`, name)
+	instance, err := scanInstance(r.pool.QueryRow(ctx,
+		`SELECT `+instanceColumns+instanceJoin+` WHERE i.name = $1`, name))
 	if err != nil {
-		return nil, fmt.Errorf("get instance by name: %w", err)
+		return nil, fmt.Errorf("get instance by name: %w", mapInstanceError("get instance by name", err))
 	}
-	defer rows.Close()
-	var found *model.Instance
-	for rows.Next() {
-		instance, err := scanInstance(rows)
-		if err != nil {
-			return nil, fmt.Errorf("get instance by name: %w", err)
-		}
-		if found != nil {
-			return nil, fmt.Errorf("get instance by name: %w", storage.ErrInstanceNameAmbiguous)
-		}
-		found = instance
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("get instance by name: %w", err)
-	}
-	if found == nil {
-		return nil, fmt.Errorf("get instance by name: %w", storage.ErrNotFound)
-	}
-	return found, nil
+	return instance, nil
 }
 
 // GetByDeviceJID returns the instance bound to deviceJID or storage.ErrNotFound.
@@ -357,22 +340,6 @@ func (r *InstanceRepository) SetDefaultDisappearing(ctx context.Context, id uuid
 		return fmt.Errorf("set instance default disappearing: %w", storage.ErrNotFound)
 	}
 	return nil
-}
-
-// BackfillOwner claims every legacy instance with a NULL owner for owner and
-// returns how many rows were claimed. Instances that already have an owner are
-// never touched: ownership is immutable.
-func (r *InstanceRepository) BackfillOwner(ctx context.Context, owner uuid.UUID) (int64, error) {
-	tag, err := r.pool.Exec(ctx, `
-		UPDATE instances
-		SET owner_user_id = $1, updated_at = now()
-		WHERE owner_user_id IS NULL`,
-		owner,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("backfill instance owners: %w", err)
-	}
-	return tag.RowsAffected(), nil
 }
 
 // Delete removes the instance and its dependent rows, or storage.ErrNotFound.

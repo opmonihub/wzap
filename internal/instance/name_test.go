@@ -60,6 +60,24 @@ func TestServiceUpdateNameValidation(t *testing.T) {
 	}
 }
 
+// TestServiceUpdateRevalidatesUnchangedName pins that the unchanged-name skip
+// is gone: every update input is validated, even when it equals the stored
+// name. Legacy rows with names outside the current grammar can no longer
+// exist, so an unchanged name is always valid — but the revalidation must run
+// (an invalid input is rejected instead of silently accepted).
+func TestServiceUpdateRevalidatesUnchangedName(t *testing.T) {
+	inst := model.Instance{ID: uuid.New(), Name: "bad name"}
+	repo := newFakeRepo(inst)
+	svc := NewService(repo, nil, nil, nil, nil, zerolog.Nop())
+	same := inst.Name
+	if _, err := svc.Update(context.Background(), inst.ID, UpdateInput{Name: &same}); !errors.Is(err, ErrInvalidInstanceName) {
+		t.Fatalf("Update(unchanged invalid name) = %v, want invalid instance name", err)
+	}
+	if len(repo.updateCalls) != 0 {
+		t.Fatal("revalidated unchanged name persisted")
+	}
+}
+
 func TestValidateInstanceName(t *testing.T) {
 	for _, name := range []string{"a", "Z", "1", "Loja_SP-1", "Stats", "STATS", strings.Repeat("a", 64)} {
 		if err := ValidateInstanceName(name); err != nil {
@@ -76,7 +94,7 @@ func TestValidateInstanceName(t *testing.T) {
 func TestServiceNameErrorMapping(t *testing.T) {
 	for _, tc := range []struct{ stored, domain error }{
 		{storage.ErrInvalidInstanceName, ErrInvalidInstanceName},
-		{storage.ErrInstanceNameTaken, ErrInstanceNameTaken}, {storage.ErrInstanceNameAmbiguous, ErrInstanceNameAmbiguous},
+		{storage.ErrInstanceNameTaken, ErrInstanceNameTaken},
 	} {
 		if !errors.Is(mapError("get", tc.stored), tc.domain) {
 			t.Errorf("mapping %v", tc.stored)

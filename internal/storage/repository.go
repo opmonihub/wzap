@@ -17,8 +17,6 @@ var (
 	ErrInvalidInstanceName = errors.New("invalid instance name")
 	// ErrInstanceNameTaken reports a globally occupied exact instance name.
 	ErrInstanceNameTaken = errors.New("instance name already taken")
-	// ErrInstanceNameAmbiguous reports multiple legacy rows with an exact name.
-	ErrInstanceNameAmbiguous = errors.New("instance name ambiguous")
 	// ErrNotFound reports that the requested record does not exist.
 	ErrNotFound = errors.New("record not found")
 	// ErrExternalRefTaken reports that an instance external_ref is already in use.

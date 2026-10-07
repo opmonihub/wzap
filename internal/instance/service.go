@@ -25,8 +25,6 @@ import (
 var (
 	// ErrInstanceNameTaken reports a globally occupied exact instance name.
 	ErrInstanceNameTaken = errors.New("instance name already taken")
-	// ErrInstanceNameAmbiguous reports multiple legacy rows with an exact name.
-	ErrInstanceNameAmbiguous = errors.New("instance name ambiguous")
 	// ErrInvalidInstanceName reports an unsafe or reserved name.
 	ErrInvalidInstanceName = errors.New("invalid instance name")
 	// ErrNotFound reports that the requested instance does not exist.
@@ -333,7 +331,10 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 	}
 
 	name := instance.Name
-	if input.Name != nil && *input.Name != instance.Name {
+	if input.Name != nil {
+		// Names are globally unique and always valid on create, so every
+		// rename/update input is validated — including one equal to the
+		// stored name (which stays a successful no-op rename).
 		if err := ValidateInstanceName(*input.Name); err != nil {
 			return nil, fmt.Errorf("update instance: %w", err)
 		}
@@ -801,8 +802,6 @@ func mapError(op string, err error) error {
 		return fmt.Errorf("%s: %w", op, ErrInvalidInstanceName)
 	case errors.Is(err, storage.ErrInstanceNameTaken):
 		return fmt.Errorf("%s: %w", op, ErrInstanceNameTaken)
-	case errors.Is(err, storage.ErrInstanceNameAmbiguous):
-		return fmt.Errorf("%s: %w", op, ErrInstanceNameAmbiguous)
 	case errors.Is(err, storage.ErrExternalRefTaken):
 		return fmt.Errorf("%s: %w", op, ErrExternalRefTaken)
 	case errors.Is(err, storage.ErrInvalidCursor):

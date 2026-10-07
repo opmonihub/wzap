@@ -31,3 +31,5 @@ Cobertura apenas de unmarshalling em ponteiros não prova omissão: ausência e 
 ## 6. Próximos passos
 
 Integrar e publicar os componentes em conjunto identificando a quebra de contrato. Arquivar a change somente na etapa própria, sincronizando deltas com specs principais. Testes com WhatsApp/Chatwoot reais dependem de ambiente e credenciais apropriados; não foram alegados como executados. Nenhum achado bloqueador permanece na implementação verificada.
+
+Atualização de 2026-10-07: o usuário escolheu integração local; a implementação foi integrada à main e verificada, e o worktree próprio foi removido. Evidências e preservação das alterações locais estão no addendum de integração de [verify.md](verify.md). Publicação e arquivamento permanecem etapas separadas.

@@ -82,3 +82,17 @@ Limites: não houve teste de pareamento/envio real WhatsApp, chamada real Chatwo
 Antes de apresentar as opções de integração, a suíte completa foi executada novamente no mesmo worktree: `GOTOOLCHAIN=go1.26.0 go test ./... -count=1` retornou exit 0 (HTTP 11.291s), e `pnpm --dir manager test` retornou exit 0 (3 arquivos, 7 testes). Esta repetição usou as integrações opcionais desativadas; a execução real Postgres/NATS registrada no Check 6 não foi repetida.
 
 Git confirmou worktree em branch nomeada `codex/standardize-rest-collections`, separado do diretório Git comum. O ponto de bifurcação é `d95ef6c`, o HEAD atual de main. A integração aguarda a escolha explícita do usuário; não houve commit, merge, push ou remoção do worktree nesta etapa.
+
+## Integração local na main — 2026-10-07
+
+O usuário escolheu merge local. Commit de implementação `970a97dd041e0e6e04f1b05309e48eb5f6579df4` (`feat(api): migrate REST transport to Chi (BREAKING)`) contém somente os arquivos da change. `git pull --ff-only` informou Already up to date, e a main avançou de d95ef6c para 970a97d por fast-forward.
+
+A reescrita de AGENTS.md e o manager/AGENTS.md preexistentes não foram incluídos no commit. AGENTS.md recebeu somente 17 linhas de orientação Chi/JSON sobre a versão versionada; a reescrita local do usuário foi restaurada com os ajustes de contrato aprovados. Dezenove caminhos de alterações prévias foram conferidos por conteúdo, presença ou symlink; as alterações não relacionadas permaneceram idênticas, incluindo a remoção de THIRD_PARTY_NOTICES.md.
+
+Na árvore integrada, `pnpm --dir manager test` passou (7 testes), `pnpm --dir manager build` passou e regenerou o embed estático, `GOTOOLCHAIN=go1.26.0 go test ./... -count=1` passou (HTTP 14.485s) e `go build ./...` passou. Essa rodada usou integrações opcionais desativadas; a integração real Postgres/NATS do Check 6 havia sido executada antes do merge e não foi repetida.
+
+A geração Swaggo fixada foi repetida na main: os três hashes do Check 5 permaneceram idênticos, e `git diff --exit-code -- docs` passou. A validação OpenSpec strict também passou após a integração.
+
+Depois dos testes verdes, o worktree próprio foi removido normalmente, sem force, e a branch codex/standardize-rest-collections foi excluída por já estar integrada. Os dois arquivos locais residuais foram conferidos como cópias idênticas às preservadas na main e também guardados no backup `/tmp/wzap-chi-local-merge-iqv4uxp9` antes da limpeza. Apenas dependências e builds gerados ignorados acompanharam a remoção do worktree.
+
+A implementação agora está na main. A change continua ativa e completa, aguardando arquivamento próprio; nenhum push, PR, deploy ou reinício do serviço foi realizado.

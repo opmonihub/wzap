@@ -126,14 +126,13 @@ func (w *Worker) Dropped() int64 {
 	return w.dropped.Load()
 }
 
-// Fanout decorates inner with the webhook fan-out: every Write enqueues the
-// {instanceID, envelope} NON-BLOCKINGLY for the worker and always calls the
-// inner Write, so the webhook never breaks the NATS path and NATS errors
-// never break the webhook (the job is already queued when inner fails).
+// Fanout decorates inner with the webhook fan-out: inner Write persists the
+// outbox first; only after success the envelope is enqueued NON-BLOCKINGLY
+// for the worker. Outbox failures skip webhook delivery so consumers never
+// see events that were not durably recorded.
 //
 // The NATS relay replays from the DB outbox, NOT through Writer, so fanning
-// out here delivers every event exactly once per Write with no double
-// delivery.
+// out here delivers every persisted event once per successful Write.
 func (w *Worker) Fanout(inner events.Writer) events.Writer {
 	return &fanoutWriter{worker: w, inner: inner}
 }
@@ -145,8 +144,11 @@ type fanoutWriter struct {
 }
 
 func (f *fanoutWriter) Write(ctx context.Context, subject string, env events.Envelope) error {
+	if err := f.inner.Write(ctx, subject, env); err != nil {
+		return err
+	}
 	f.worker.dispatch(env)
-	return f.inner.Write(ctx, subject, env)
+	return nil
 }
 
 // dispatch queues env for the worker, dropping it with a counter when the

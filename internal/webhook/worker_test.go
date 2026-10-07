@@ -224,10 +224,9 @@ func instantWorker(loader InstanceLoader, keys *KeyCache, deliver func(ctx conte
 	return worker
 }
 
-// TestFanoutAlwaysCallsInner pins the fan-out contract: every Write reaches
-// the inner NATS writer, even when the inner write fails — and the webhook
-// job is still queued in that case.
-func TestFanoutAlwaysCallsInner(t *testing.T) {
+// TestFanoutQueuesWebhookOnlyAfterOutboxOK pins the fan-out contract: inner
+// Write runs first; webhook jobs enqueue only when persistence succeeds.
+func TestFanoutQueuesWebhookOnlyAfterOutboxOK(t *testing.T) {
 	inner := &stubWriter{}
 	worker := instantWorker(newStubLoader(), NewKeyCache(), Deliver, zerolog.Nop())
 	fanout := worker.Fanout(inner)
@@ -239,17 +238,20 @@ func TestFanoutAlwaysCallsInner(t *testing.T) {
 	if got := inner.calls(); got != 1 {
 		t.Fatalf("inner calls = %d, want 1", got)
 	}
+	if got := len(worker.queue); got != 1 {
+		t.Fatalf("queued jobs = %d, want 1", got)
+	}
 
-	inner.writeErr = errors.New("nats down")
+	inner.writeErr = errors.New("outbox down")
 	env2 := testEnvelope(t, "receipt", uuid.New())
 	if err := fanout.Write(context.Background(), "wzap.instances.x.receipt", env2); err == nil {
-		t.Fatal("Write with failing inner: error = nil, want the NATS error back")
+		t.Fatal("Write with failing inner: error = nil, want the outbox error back")
 	}
 	if got := inner.calls(); got != 2 {
-		t.Fatalf("inner calls = %d, want 2 (webhook never breaks the NATS path)", got)
+		t.Fatalf("inner calls = %d, want 2", got)
 	}
-	if got := len(worker.queue); got != 2 {
-		t.Fatalf("queued jobs = %d, want 2 (NATS errors never break webhook)", got)
+	if got := len(worker.queue); got != 1 {
+		t.Fatalf("queued jobs = %d, want 1 (no webhook when outbox fails)", got)
 	}
 }
 

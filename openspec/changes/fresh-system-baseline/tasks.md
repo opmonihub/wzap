@@ -22,14 +22,14 @@
 - [x] 4.1 Remover conversores e respostas especiais de replay histórico preservando status/corpo originais, autorização, TTL, fingerprints e liberação de chaves, verificando testes de idempotência atuais incluindo aliases, concorrência e ausência de segundo efeito.
 - [x] 4.2 Remover legacy_error e assegurar código/mensagem/instante reais em falhas atuais, verificando testes de conexão, envio, outbox, dead letters e DTOs sem fabricação de timestamps.
 - [x] 4.3 Remover o campo reservado de revogação e manter sucesso data.revoked e falhas atuais, verificando os testes de lifecycle e fixtures do contrato HTTP.
-- [ ] 4.4 Retirar testes de envelopes históricos preservando contratos e privacidade atuais, verificando `go test ./internal/httpapi ./internal/message ./internal/app ./internal/session/... -count=1`.
+- [x] 4.4 Retirar testes de envelopes históricos preservando contratos e privacidade atuais, verificando `go test ./internal/httpapi ./internal/message ./internal/app ./internal/session/... -count=1`.
 
 ## 5. Mídia e Manager
 
 - [x] 5.1 Remover media-migrate, transferência histórica, atualização de bucket para conversão e fallback de bucket vazio, verificando `go test ./cmd/wzap ./internal/media ./internal/storage/postgres -count=1` e referências sem consumidores remanescentes.
-- [ ] 5.2 Manter S3 configurado ou disco sem endpoint com bucket explícito, checksum, download, TTL e cache, verificando operações locais/S3, bucket registrado e falha S3 sem gravação alternativa em disco.
-- [ ] 5.3 Atualizar formulários, tipos, traduções e mensagens do Manager para o contrato atual após o contrato Go, verificando nomes inválidos/conflitos, falhas estruturadas e `pnpm --dir manager test`, `lint`, `typecheck` e `build`.
-- [ ] 5.4 Atualizar README, instruções vigentes e Swagger após remover anotações de compatibilidade, verificando rotas/schemas atuais e regeneração limpa de `docs/` com o comando Swag definido no projeto.
+- [x] 5.2 Manter S3 configurado ou disco sem endpoint com bucket explícito, checksum, download, TTL e cache, verificando operações locais/S3, bucket registrado e falha S3 sem gravação alternativa em disco.
+- [x] 5.3 Atualizar formulários, tipos, traduções e mensagens do Manager para o contrato atual após o contrato Go, verificando nomes inválidos/conflitos, falhas estruturadas e `pnpm --dir manager test`, `lint`, `typecheck` e `build`.
+- [x] 5.4 Atualizar README, instruções vigentes e Swagger após remover anotações de compatibilidade, verificando rotas/schemas atuais e regeneração limpa de `docs/` com o comando Swag definido no projeto.
 
 ## 6. Gates e revisão antes do reset
 

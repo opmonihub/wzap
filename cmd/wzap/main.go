@@ -188,7 +188,7 @@ func serve() error {
 		mediaStorage.SetObjects(objectStore)
 		log.Info().Str("bucket", cfg.S3.Bucket).Msg("media object store ready")
 	}
-	relay := events.NewRelay(outbox, publisher, log, cfg.EventRetentionDays)
+	relay := events.NewRelay(outbox, publisher, log)
 	checker := httpapi.NewChecker(pool, httpapi.NamedProbe{Name: "nats", Run: publisher.Ready})
 
 	eventWriter := events.NewWriter(outbox)

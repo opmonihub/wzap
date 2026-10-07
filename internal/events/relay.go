@@ -16,11 +16,10 @@ import (
 )
 
 const (
-	defaultRelayBatchSize       = 100
-	defaultRelayPollInterval    = time.Second
-	defaultRelayBackoffBase     = time.Second
-	defaultRelayBackoffMax      = 30 * time.Second
-	defaultRelayCleanupInterval = time.Hour
+	defaultRelayBatchSize    = 100
+	defaultRelayPollInterval = time.Second
+	defaultRelayBackoffBase  = time.Second
+	defaultRelayBackoffMax   = 30 * time.Second
 )
 
 // Writer enqueues an event into the transactional outbox. Producers call it
@@ -58,18 +57,15 @@ func (w *OutboxWriter) Write(ctx context.Context, subject string, env Envelope) 
 // design: ClaimPending has no claimed state, so a second concurrent relay
 // would publish the same rows twice.
 type Relay struct {
-	outbox        storage.EventOutboxRepository
-	publisher     Publisher
-	log           zerolog.Logger
-	retentionDays int
+	outbox    storage.EventOutboxRepository
+	publisher Publisher
+	log       zerolog.Logger
 
-	batchSize       int
-	pollInterval    time.Duration
-	backoffBase     time.Duration
-	backoffMax      time.Duration
-	cleanupInterval time.Duration
-	now             func() time.Time
-	sleep           func(ctx context.Context, d time.Duration) error
+	batchSize    int
+	pollInterval time.Duration
+	backoffBase  time.Duration
+	backoffMax   time.Duration
+	sleep        func(ctx context.Context, d time.Duration) error
 
 	mu        sync.Mutex
 	lastWarn  map[string]time.Time
@@ -78,22 +74,19 @@ type Relay struct {
 
 // NewRelay returns a relay that publishes outbox pending events through
 // publisher. The outbox is pending-only: MarkPublished deletes the row on
-// success, so the published retention sweep has nothing left to remove.
-func NewRelay(outbox storage.EventOutboxRepository, publisher Publisher, log zerolog.Logger, retentionDays int) *Relay {
+// success, so pending rows are the only state the relay manages.
+func NewRelay(outbox storage.EventOutboxRepository, publisher Publisher, log zerolog.Logger) *Relay {
 	return &Relay{
-		outbox:          outbox,
-		publisher:       publisher,
-		log:             log,
-		retentionDays:   retentionDays,
-		batchSize:       defaultRelayBatchSize,
-		pollInterval:    defaultRelayPollInterval,
-		backoffBase:     defaultRelayBackoffBase,
-		backoffMax:      defaultRelayBackoffMax,
-		cleanupInterval: defaultRelayCleanupInterval,
-		now:             time.Now,
-		sleep:           sleepContext,
-		lastWarn:        make(map[string]time.Time),
-		warnEvery:       time.Minute,
+		outbox:       outbox,
+		publisher:    publisher,
+		log:          log,
+		batchSize:    defaultRelayBatchSize,
+		pollInterval: defaultRelayPollInterval,
+		backoffBase:  defaultRelayBackoffBase,
+		backoffMax:   defaultRelayBackoffMax,
+		sleep:        sleepContext,
+		lastWarn:     make(map[string]time.Time),
+		warnEvery:    time.Minute,
 	}
 }
 
@@ -116,16 +109,10 @@ func (r *Relay) warnThrottled(key, msg string, fields func(*zerolog.Event) *zero
 func (r *Relay) Run(ctx context.Context) {
 	failures := 0
 	ensured := false
-	lastCleanup := time.Time{}
 
 	for {
 		if ctx.Err() != nil {
 			return
-		}
-
-		if r.now().Sub(lastCleanup) >= r.cleanupInterval {
-			lastCleanup = r.now()
-			r.cleanup(ctx)
 		}
 
 		if !ensured {
@@ -221,19 +208,6 @@ func (r *Relay) PublishNow(ctx context.Context, pending []model.OutboxEvent) err
 func (r *Relay) markAttempt(ctx context.Context, id uuid.UUID, cause error) {
 	if err := r.outbox.MarkAttempt(ctx, id, cause.Error()); err != nil {
 		r.log.Error().Str("event_id", id.String()).Err(err).Msg("record event attempt")
-	}
-}
-
-// cleanup deletes published events older than the retention window.
-func (r *Relay) cleanup(ctx context.Context) {
-	cutoff := r.now().Add(-time.Duration(r.retentionDays) * 24 * time.Hour)
-	removed, err := r.outbox.DeletePublishedBefore(ctx, cutoff)
-	if err != nil {
-		r.log.Warn().Err(err).Msg("cleanup published events")
-		return
-	}
-	if removed > 0 {
-		r.log.Info().Int64("removed", removed).Msg("cleaned published events")
 	}
 }
 

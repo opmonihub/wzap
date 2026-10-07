@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -111,13 +110,6 @@ func (r *EventOutboxRepository) MarkAttempt(ctx context.Context, id uuid.UUID, e
 		return fmt.Errorf("mark event attempt: %w", storage.ErrNotFound)
 	}
 	return nil
-}
-
-// DeletePublishedBefore is a no-op under the pending-only model: published
-// events are deleted by MarkPublished, so there is nothing left to sweep.
-// The method stays on the interface until the relay rework (task 4.1).
-func (r *EventOutboxRepository) DeletePublishedBefore(ctx context.Context, t time.Time) (int64, error) {
-	return 0, nil
 }
 
 func scanOutboxEventRow(scanner rowScanner, event *model.OutboxEvent) error {

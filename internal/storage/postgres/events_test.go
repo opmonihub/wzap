@@ -292,30 +292,3 @@ func TestEventOutboxRepositoryMarkAttempt(t *testing.T) {
 		t.Errorf("MarkAttempt(unknown) error = %v, want ErrNotFound", err)
 	}
 }
-
-func TestEventOutboxRepositoryDeletePublishedBefore(t *testing.T) {
-	ctx := context.Background()
-	pool := newTestPool(t)
-	repo := NewEventOutboxRepository(pool)
-
-	// Pending-only outbox: MarkPublished deletes the row, so the prune
-	// command has nothing to do beyond staying callable.
-	pendingID := uuid.New()
-	enqueueTestEvent(t, repo, pendingID, "wzap.instances.a.message")
-
-	removed, err := repo.DeletePublishedBefore(ctx, time.Now().Add(-time.Hour))
-	if err != nil {
-		t.Fatalf("DeletePublishedBefore: %v", err)
-	}
-	if removed != 0 {
-		t.Errorf("DeletePublishedBefore = %d, want 0 (published rows are deleted on publish)", removed)
-	}
-
-	claimed, err := repo.ClaimPending(ctx, 10)
-	if err != nil {
-		t.Fatalf("ClaimPending after cleanup: %v", err)
-	}
-	if len(claimed) != 1 || claimed[0].ID != pendingID {
-		t.Errorf("ClaimPending after cleanup = %+v, want only pending %s", claimed, pendingID)
-	}
-}

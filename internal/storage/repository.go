@@ -184,8 +184,6 @@ type EventOutboxRepository interface {
 	// MarkAttempt records a failed publish attempt. It returns ErrNotFound when
 	// the event does not exist.
 	MarkAttempt(ctx context.Context, id uuid.UUID, errMsg string) error
-	// DeletePublishedBefore removes published events stamped before t.
-	DeletePublishedBefore(ctx context.Context, t time.Time) (int64, error)
 }
 
 // UserRepository persists manager users. GetByEmail matches case-insensitively

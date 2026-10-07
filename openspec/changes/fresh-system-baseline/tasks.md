@@ -14,8 +14,8 @@
 
 - [x] 3.1 Simplificar o seed para criar somente o primeiro admin e retirar adoção/compensações de ownership, verificando os testes de seed, criação sem dono válido e reinício com contas existentes.
 - [x] 3.2 Exigir chave Chatwoot quando habilitado e cifrar tokens não vazios sem passthrough ou backfill, verificando chave ausente/inválida, round-trip, adulteração, configuração desligada e ausência de segredos em respostas com testes de configuração e repositórios reais.
-- [ ] 3.3 Retirar alias `text`, referências a envs anteriores e handler dedicado de prefixo antigo, verificando apenas json/console válidos e os testes genéricos de autenticação e routing.
-- [ ] 3.4 Remover a limpeza vestigial de publicações e seu contrato sem efeito preservando outbox pendente, retries e event_id, verificando `go test ./internal/events ./internal/webhook -count=1` e a integração NATS dedicada.
+- [x] 3.3 Retirar alias `text`, referências a envs anteriores e handler dedicado de prefixo antigo, verificando apenas json/console válidos e os testes genéricos de autenticação e routing.
+- [x] 3.4 Remover a limpeza vestigial de publicações e seu contrato sem efeito preservando outbox pendente, retries e event_id, verificando `go test ./internal/events ./internal/webhook -count=1` e a integração NATS dedicada.
 
 ## 4. Contrato REST e idempotência
 

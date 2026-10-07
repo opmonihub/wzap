@@ -10,10 +10,7 @@ const _useDashboard = () => {
     'g-i': () => router.push('/instances'),
     'g-a': () => router.push('/accounts'),
     // No settings page in this console; g-s falls back to /instances.
-    'g-s': () => router.push('/instances'),
-    'n': () => {
-      isNotificationsSlideoverOpen.value = !isNotificationsSlideoverOpen.value
-    }
+    'g-s': () => router.push('/instances')
   })
 
   watch(() => route.fullPath, () => {

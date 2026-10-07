@@ -473,7 +473,15 @@
       "profileName": "Profile name",
       "statusPrivacy": "Status updates audience",
       "statusPrivacyJids": "{count} contact(s)",
-      "defaultDisappearing": "Default disappearing timer"
+      "defaultDisappearing": "Default disappearing timer",
+      "disappearingOff": "Off",
+      "disappearing24h": "24 hours",
+      "disappearing7d": "7 days",
+      "disappearing90d": "90 days",
+      "saveDefaultDisappearing": "Save default timer",
+      "defaultDisappearingSaved": "Default disappearing timer updated",
+      "defaultDisappearingFailed": "Could not update the default timer",
+      "defaultDisappearingHint": "Echo of the last value accepted by the API for new chats; it may differ from the phone."
     },
     "chatwoot": {
       "cardTitle": "Chatwoot",

@@ -17,7 +17,40 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const toast = useToast()
 const { rotateInstanceKey, revokeInstanceKey } = useInstances()
+const { setDefaultDisappearing } = useInstanceProfile()
 const { confirmDelete } = useConfirmDelete()
+
+const disappearingOptions = computed(() => [
+  { label: t('instances.settings.disappearingOff'), value: '0' },
+  { label: t('instances.settings.disappearing24h'), value: '24h' },
+  { label: t('instances.settings.disappearing7d'), value: '168h' },
+  { label: t('instances.settings.disappearing90d'), value: '2160h' }
+])
+const disappearingChoice = ref('0')
+const savingDisappearing = ref(false)
+const disappearingFailure = ref<string | null>(null)
+
+watch(() => props.instance.settings.default_disappearing, (value) => {
+  const options = disappearingOptions.value
+  disappearingChoice.value = value && options.some(o => o.value === value) ? value : '0'
+}, { immediate: true })
+
+async function onSaveDefaultDisappearing() {
+  if (savingDisappearing.value || props.instance.connection.status !== 'connected') {
+    return
+  }
+  savingDisappearing.value = true
+  disappearingFailure.value = null
+  try {
+    await setDefaultDisappearing(props.instance.id, disappearingChoice.value)
+    toast.add({ title: t('instances.settings.defaultDisappearingSaved'), icon: 'i-lucide-check', color: 'success' })
+    emit('changed')
+  } catch (error) {
+    disappearingFailure.value = error instanceof ApiError ? error.message : t('instances.settings.defaultDisappearingFailed')
+  } finally {
+    savingDisappearing.value = false
+  }
+}
 
 const freshKey = ref<RotatedInstanceKey | null>(null)
 const keySeen = ref(false)
@@ -81,7 +114,6 @@ watch(() => props.instance.id, (nextId: string) => {
 // Compact read-only snapshot of instance.settings (aggregated on reads, null
 // per block while the instance is disconnected or a block fetch failed).
 // Purely presentational: profile/privacy edits stay under the Profile
-// section and the default disappearing timer has no write flow here.
 function audienceLabel(value: string | null | undefined): string {
   switch (value) {
     case 'all':
@@ -116,10 +148,11 @@ const settingsRows = computed(() => {
     { key: 'status', label: t('instances.privacy.status'), value: audienceLabel(settings.privacy?.status) },
     { key: 'readReceipts', label: t('instances.privacy.readReceipts'), value: audienceLabel(settings.privacy?.read_receipts) },
     { key: 'groupsAdd', label: t('instances.privacy.groupsAdd'), value: audienceLabel(settings.privacy?.groups_add) },
-    { key: 'statusPrivacy', label: t('instances.settings.statusPrivacy'), value: statusPrivacyLabel(settings.status_privacy) },
-    { key: 'defaultDisappearing', label: t('instances.settings.defaultDisappearing'), value: settings.default_disappearing || t('common.notSet') }
+    { key: 'statusPrivacy', label: t('instances.settings.statusPrivacy'), value: statusPrivacyLabel(settings.status_privacy) }
   ]
 })
+
+const isConnected = computed(() => props.instance.connection.status === 'connected')
 </script>
 
 <template>
@@ -143,6 +176,36 @@ const settingsRows = computed(() => {
             </dd>
           </div>
         </dl>
+        <div v-if="isConnected" class="flex flex-col gap-2 border-t border-default pt-4">
+          <p class="text-sm font-medium text-highlighted">
+            {{ t('instances.settings.defaultDisappearing') }}
+          </p>
+          <UAlert
+            v-if="disappearingFailure"
+            color="error"
+            variant="subtle"
+            :title="disappearingFailure"
+          />
+          <div class="flex flex-wrap items-end gap-2">
+            <USelect
+              v-model="disappearingChoice"
+              :items="disappearingOptions"
+              class="min-w-48"
+            />
+            <UButton
+              :loading="savingDisappearing"
+              :label="t('instances.settings.saveDefaultDisappearing')"
+              @click="onSaveDefaultDisappearing"
+            />
+          </div>
+          <p class="text-xs text-muted">
+            {{ t('instances.settings.defaultDisappearingHint') }}
+          </p>
+        </div>
+        <p v-else class="border-t border-default pt-4 text-sm text-muted">
+          {{ t('instances.settings.defaultDisappearing') }}:
+          {{ props.instance.settings.default_disappearing || t('common.notSet') }}
+        </p>
       </div>
     </UPageCard>
 
@@ -158,9 +221,8 @@ const settingsRows = computed(() => {
         <OneTimeKeyDisplay v-if="freshKey" :api-key="freshKey.instance_api_key" />
 
         <template v-else>
-          <!-- Debt: no has-key flag exists in the API, so the banner is
-              driven by the browser-side key-seen marker. A future API
-              field (e.g. has_api_key) should replace this condition. -->
+          <!-- keySeen tracks whether the operator saved a freshly rotated key
+              in this browser; it does not reflect server-side key existence. -->
           <UAlert
             v-if="!keySeen"
             color="info"

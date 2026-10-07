@@ -60,12 +60,17 @@ O serviço SHALL servir o console em `/manager` e a documentação interativa em
 
 ### Requirement: Documentação interativa da API
 
-A documentação servida SHALL descrever as rotas, corpos, envelopes de resposta e o esquema `apikey`, permitindo testar chamadas com uma key informada pelo leitor. A documentação MUST refletir as rotas efetivamente servidas.
+A documentação servida SHALL descrever as rotas, corpos, envelopes de resposta e o esquema `apikey`, permitindo testar chamadas com uma key informada pelo leitor uma única vez no Authorize global da página. A documentação MUST refletir as rotas efetivamente servidas. Operações MUST NOT declarar campos de entrada manuais `apikey` ou `X-Request-Id`; o serviço SHALL continuar exigindo credencial nas rotas protegidas e gerando ou propagando o identificador de correlação na resposta.
 
 #### Scenario: Testar chamada pela documentação
 
-- **WHEN** o leitor informa uma apikey válida na documentação e executa uma chamada
-- **THEN** a chamada é enviada com o header `apikey:` e a resposta é exibida
+- **WHEN** o leitor informa uma apikey válida no Authorize e executa uma chamada protegida
+- **THEN** a chamada é enviada com o header `apikey:` sem exigir nova entrada da chave e a resposta é exibida
+
+#### Scenario: Correlação automática
+
+- **WHEN** o leitor abre os parâmetros de uma operação
+- **THEN** nenhum campo de entrada X-Request-Id aparece e a resposta da chamada ainda contém o identificador de correlação
 
 ### Requirement: Saúde e prontidão
 
@@ -159,3 +164,33 @@ Ao receber sinal de término, o serviço SHALL parar de aceitar novas requisiç�
 
 - **WHEN** o serviço recebe pedido de encerramento
 - **THEN** ele para de aceitar requisições e finaliza o processamento em andamento no prazo definido
+
+### Requirement: Persistência do JetStream local
+
+O broker iniciado pelo compose local SHALL gravar o store do JetStream no volume já montado para o serviço, e MUST NOT usar diretório temporário do container. Reiniciar só o container do broker SHALL preservar o stream já criado nesse volume.
+
+#### Scenario: Store no volume
+
+- **WHEN** o ambiente local sobe o broker
+- **THEN** o diretório de store do JetStream é o volume montado, e o log de boot não avisa que o storage é temporário
+
+#### Scenario: Restart do broker
+
+- **WHEN** o container do broker é recriado com o mesmo volume
+- **THEN** o stream existente nesse volume continua disponível para o serviço
+
+### Requirement: Authorization and documentation for instance aliases
+
+Swagger SHALL describe instance path parameters as UUID or name and document targeted stats, validation and conflict responses. Aliases MUST preserve existing authorization; an instance key MUST only operate its own current name or UUID. Idempotent replay MUST recheck current access before returning a cached response, and using a UUID/name alias with the same key and request MUST share the canonical instance's replay.
+
+#### Scenario: Swagger name input
+- **WHEN** a reader opens an instance-scoped operation or stats
+- **THEN** the documentation explains UUID/name references and exposes the optional stats target
+
+#### Scenario: Alias replay
+- **WHEN** an authorized client repeats an identical idempotent request and key using the other reference for the same instance
+- **THEN** the previous response is replayed without repeating the operation
+
+#### Scenario: Access revoked before replay
+- **WHEN** a client lacks current ownership or uses a foreign instance key against a cached operation
+- **THEN** the response is 403 and the cached response is not exposed

@@ -114,6 +114,11 @@ type Resolver interface {
 	Resolve(ctx context.Context, instanceID uuid.UUID, phone string) (jid string, err error)
 }
 
+// SessionRegistry reports whether a live session exists for an instance.
+type SessionRegistry interface {
+	Get(instanceID uuid.UUID) (session.Session, bool)
+}
+
 // MessageStore persists and queries the outbound message queue.
 type MessageStore interface {
 	Create(ctx context.Context, message model.OutboundMessage) (*model.OutboundMessage, error)
@@ -183,6 +188,7 @@ type Service struct {
 	instances InstanceReader
 	resolver  Resolver
 	messages  MessageStore
+	sessions  SessionRegistry
 }
 
 // The concrete resolver satisfies the service contract; the assertion catches
@@ -190,8 +196,8 @@ type Service struct {
 var _ Resolver = (*JIDResolver)(nil)
 
 // NewService builds the service over its dependencies.
-func NewService(instances InstanceReader, resolver Resolver, messages MessageStore) *Service {
-	return &Service{instances: instances, resolver: resolver, messages: messages}
+func NewService(instances InstanceReader, resolver Resolver, messages MessageStore, sessions SessionRegistry) *Service {
+	return &Service{instances: instances, resolver: resolver, messages: messages, sessions: sessions}
 }
 
 // Enqueue validates and stores one message, returning its identifier. A
@@ -208,6 +214,11 @@ func (s *Service) Enqueue(ctx context.Context, instanceID uuid.UUID, input Enque
 	}
 	if instance.Connection.Status != string(session.StatusConnected) {
 		return uuid.Nil, fmt.Errorf("enqueue message: instance %s is %s: %w", instanceID, instance.Connection.Status, ErrInstanceNotConnected)
+	}
+	if s.sessions != nil {
+		if _, ok := s.sessions.Get(instanceID); !ok {
+			return uuid.Nil, fmt.Errorf("enqueue message: instance %s has no live session: %w", instanceID, ErrInstanceNotConnected)
+		}
 	}
 
 	payload, err := buildPayload(input)

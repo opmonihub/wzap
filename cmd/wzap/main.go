@@ -340,7 +340,7 @@ func serve() error {
 			postgres.NewNewsletterMetadataRepository(pool),
 		))
 	numbers := message.NewJIDResolver(sessions, postgres.NewJIDCacheRepository(pool), log)
-	messages := message.NewService(instances, numbers, messageRepo)
+	messages := message.NewService(instances, numbers, messageRepo, sessions)
 
 	// Chatwoot inbound (capability wzap-chatwoot-inbound): the open webhook
 	// reuses message.Service.Enqueue (text/media via media.Storage after

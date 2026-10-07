@@ -191,7 +191,7 @@ O overview SHALL exibir stats por status (total, connected, disconnected/pairing
 #### Scenario: Fallback local
 
 - **WHEN** `GET /instances/stats` falha
-- **THEN** o overview deriva os mesmos cards da listagem cursor-acumulada e exibe aviso discreto
+- **THEN** o overview deriva os mesmos cards da listagem completa obtida em uma chamada e exibe aviso discreto
 
 #### Scenario: Gráfico por período
 
@@ -347,3 +347,42 @@ O Manager SHALL usar a contagem de instâncias fornecida pelo backend para repre
 
 - **WHEN** o Manager apresenta o limite e uso de uma conta com instâncias desconectadas
 - **THEN** mostra a contagem retornada pelo backend e mantém a regra de quota existente
+
+### Requirement: Busca de grupo sem identificador
+
+A seção de grupos SHALL recusar a busca quando o campo de JID está vazio ou só tem espaço, e MUST NOT chamar a API nesse caso. O grupo exibido permanece o anterior.
+
+#### Scenario: Busca com campo vazio
+
+- **WHEN** a conta aciona a busca de grupo com o campo de JID vazio
+- **THEN** o console não emite `GET` de grupo e mostra o erro de identificador ausente sem trocar o grupo em tela
+
+### Requirement: Instance name form validation
+
+Create, edit and overview forms SHALL explain and validate the same name grammar and reserved names as the API. Editing SHALL permit an exactly unchanged legacy name, without trimming or silently renaming it. Name-conflict errors SHALL be distinguished from external-reference conflicts.
+
+#### Scenario: Invalid new name
+- **WHEN** a user enters spaces, accents, invalid punctuation, an overlong value or a reserved name
+- **THEN** the form explains the rule and prevents submission
+
+#### Scenario: Legacy name unchanged
+- **WHEN** a user edits another field while retaining the original legacy name
+- **THEN** the unchanged name is omitted or retained exactly and the unrelated update remains possible
+
+#### Scenario: Name already occupied
+- **WHEN** the API returns instance_name_taken
+- **THEN** the form reports the instance-name conflict instead of an external-reference conflict
+
+### Requirement: Consulta única da coleção de instâncias
+
+O Manager SHALL obter a coleção completa com uma única chamada GET /instances sem limit ou cursor para a lista de instâncias, métricas do overview e contagem de uso por conta. A lista SHALL manter busca, filtros, ordenação e paginação visual local, sem botão para carregar páginas do servidor.
+
+#### Scenario: Listagem do console
+
+- **WHEN** a conta carrega a lista de instâncias
+- **THEN** todas as instâncias autorizadas ficam disponíveis para busca e paginação visual com uma única consulta da coleção
+
+#### Scenario: Uso por conta
+
+- **WHEN** o administrador carrega o uso de instâncias por conta
+- **THEN** a contagem usa todos os itens de uma única consulta GET /instances

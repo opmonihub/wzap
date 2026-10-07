@@ -12,10 +12,8 @@ import type {
   UpdateWebhookInput
 } from '~/types/api'
 
-// Debt: the API exposes no has-key flag, so this browser-side marker stands
-// in for key presence. A future API field (e.g. has_api_key) should replace
-// hasSeenInstanceKey at the call sites. Only the boolean travels to storage,
-// never the key itself.
+// keySeenStorageKey remembers whether the operator acknowledged a freshly
+// rotated key in this browser. It is not an API "has key" indicator.
 function keySeenStorageKey(id: string): string {
   return `wzap.manager.keySeen.${id}`
 }

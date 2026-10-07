@@ -58,5 +58,12 @@ export function useInstanceProfile() {
     })
   }
 
-  return { getProfile, updateProfile, setProfilePhoto, getPrivacy, setPrivacy, pairPhone, rejectCall }
+  async function setDefaultDisappearing(instanceId: string, duration: string): Promise<void> {
+    await api(`/instances/${instanceId}/chats/default-disappearing`, {
+      method: 'PUT',
+      body: { duration }
+    })
+  }
+
+  return { getProfile, updateProfile, setProfilePhoto, getPrivacy, setPrivacy, pairPhone, rejectCall, setDefaultDisappearing }
 }

@@ -121,14 +121,30 @@ type serviceFixture struct {
 	instance  uuid.UUID
 }
 
+type fakeSessionRegistry struct {
+	live map[uuid.UUID]struct{}
+}
+
+func (f *fakeSessionRegistry) Get(id uuid.UUID) (session.Session, bool) {
+	if f == nil {
+		return nil, false
+	}
+	_, ok := f.live[id]
+	return nil, ok
+}
+
 // newServiceFixture returns a fixture whose instance has the given status.
 func newServiceFixture(status session.Status) *serviceFixture {
 	instanceID := uuid.New()
 	instances := &fakeInstances{instances: map[uuid.UUID]model.Instance{instanceID: {ID: instanceID, Name: "loja", Connection: model.InstanceConnection{Status: string(status)}}}}
 	resolver := &fakeResolver{}
 	messages := &fakeMessages{}
+	var sessions SessionRegistry
+	if status == session.StatusConnected {
+		sessions = &fakeSessionRegistry{live: map[uuid.UUID]struct{}{instanceID: {}}}
+	}
 	return &serviceFixture{
-		service:   NewService(instances, resolver, messages),
+		service:   NewService(instances, resolver, messages, sessions),
 		instances: instances,
 		resolver:  resolver,
 		messages:  messages,
@@ -144,6 +160,23 @@ func decodePayload(t *testing.T, msg model.OutboundMessage) map[string]any {
 		t.Fatalf("decode payload %q: %v", msg.Payload, err)
 	}
 	return payload
+}
+
+func TestEnqueueConnectedWithoutLiveSession(t *testing.T) {
+	f := newServiceFixture(session.StatusConnected)
+	f.service.sessions = &fakeSessionRegistry{live: map[uuid.UUID]struct{}{}}
+
+	_, err := f.service.Enqueue(context.Background(), f.instance, EnqueueInput{
+		Type: TypeText,
+		To:   "+5547988359190",
+		Text: "olá",
+	})
+	if !errors.Is(err, ErrInstanceNotConnected) {
+		t.Fatalf("Enqueue err = %v, want ErrInstanceNotConnected", err)
+	}
+	if len(f.messages.created) != 0 {
+		t.Fatalf("created = %d messages, want 0", len(f.messages.created))
+	}
 }
 
 func TestEnqueueTextSuccess(t *testing.T) {

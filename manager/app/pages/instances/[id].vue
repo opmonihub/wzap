@@ -16,6 +16,7 @@ import type { Instance } from '~/types/api'
 const { t } = useI18n()
 const toast = useToast()
 const route = useRoute()
+const router = useRouter()
 const { isAdmin } = useAuth()
 const { getInstance } = useInstances()
 
@@ -28,7 +29,29 @@ const failure = ref<string | null>(null)
 
 const deleteOpen = ref(false)
 
-const section = ref('overview')
+const sectionIds = ['overview', 'messages', 'groups', 'channels', 'profile', 'integrations', 'settings'] as const
+
+function sectionFromQuery(raw: unknown): string {
+  const value = typeof raw === 'string' ? raw : 'overview'
+  return (sectionIds as readonly string[]).includes(value) ? value : 'overview'
+}
+
+const section = ref(sectionFromQuery(route.query.section))
+
+watch(section, (value) => {
+  const nextQuery = value === 'overview' ? undefined : value
+  if (route.query.section === nextQuery || (nextQuery === undefined && route.query.section === undefined)) {
+    return
+  }
+  router.replace({ query: { ...route.query, section: nextQuery } })
+})
+
+watch(() => route.query.section, (raw) => {
+  const parsed = sectionFromQuery(raw)
+  if (section.value !== parsed) {
+    section.value = parsed
+  }
+})
 
 useSeoMeta({
   title: 'Instance details'

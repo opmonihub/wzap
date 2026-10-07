@@ -167,7 +167,7 @@ func serve() error {
 	// file. An unreachable or unprovisionable bucket aborts the boot —
 	// media writes would fail anyway and the misconfiguration must not go
 	// unnoticed. With WZAP_S3_ENDPOINT empty the storage keeps the
-	// filesystem mode (mid-migration deployments).
+	// local filesystem mode when WZAP_S3_ENDPOINT is unset.
 	if cfg.S3.Endpoint != "" {
 		objectStore := media.NewObjectStore(media.S3Config{
 			Endpoint:  cfg.S3.Endpoint,

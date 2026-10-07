@@ -116,7 +116,7 @@ type Storage struct {
 // NewStorage returns a storage rooted at dir that accepts up to maxBytes per
 // media and expires every saved media after ttl. With objects nil the
 // storage serves a filesystem-only mode: objects are written under dir and
-// reads come from it — used by tests and deployments still mid-migration.
+// reads come from it — used by tests and disk-only deployments without S3.
 func NewStorage(dir string, repo storage.MediaRepository, maxBytes int64, ttl time.Duration) *Storage {
 	return &Storage{dir: dir, repo: repo, maxBytes: maxBytes, ttl: ttl, now: time.Now}
 }

@@ -87,7 +87,11 @@ func migrationsApplied(ctx context.Context, pool *pgxpool.Pool) error {
 		return fmt.Errorf("read goose version table: %w", err)
 	}
 
-	if applied < count || appliedLatest < latest {
+	if applied < count || appliedLatest != latest {
+		if appliedLatest > latest {
+			return fmt.Errorf("incompatible migration version %d (embedded latest %d): fresh install required",
+				appliedLatest, latest)
+		}
 		return fmt.Errorf("pending migrations: %d of %d applied, latest %d of %d",
 			applied, count, appliedLatest, latest)
 	}

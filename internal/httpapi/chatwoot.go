@@ -127,7 +127,7 @@ type chatwootConfigResponse struct {
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid configuration or field type"
 // @Failure 500 {object} errorEnvelope "Internal error"
-// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
+// @Failure 409 {object} errorEnvelope "instance_name_taken: name already in use"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/chatwoot [put]
 func handleChatwootSet(instances InstanceService, configs ChatwootConfigStore, global cfgpkg.Chatwoot, publicURL string, clientFor ChatwootClientFor, log zerolog.Logger) http.HandlerFunc {
@@ -253,7 +253,7 @@ func ensureChatwootInbox(ctx context.Context, clientFor ChatwootClientFor, cfg m
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
-// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
+// @Failure 409 {object} errorEnvelope "instance_name_taken: name already in use"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/chatwoot [get]
 func handleChatwootGet(instances InstanceService, configs ChatwootConfigStore, global cfgpkg.Chatwoot, publicURL string) http.HandlerFunc {
@@ -309,7 +309,7 @@ func handleChatwootGet(instances InstanceService, configs ChatwootConfigStore, g
 // @Failure 404 {object} errorEnvelope "Invalid or missing instance"
 // @Failure 429 {object} errorEnvelope "Per-instance webhook rate limit exceeded"
 // @Failure 500 {object} errorEnvelope "Internal error"
-// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
+// @Failure 409 {object} errorEnvelope "instance_name_taken: name already in use"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /chatwoot/webhook/{id} [post]
 func handleChatwootWebhook(instances InstanceService, inb ChatwootInbound, global cfgpkg.Chatwoot, limiter *ChatwootRateLimiter) http.HandlerFunc {
@@ -429,7 +429,7 @@ func newChatwootConfigResponse(cfg *model.ChatwootConfig, webhookURL string) cha
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance or required connector config not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
-// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
+// @Failure 409 {object} errorEnvelope "instance_name_taken: name already in use"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/chatwoot/import [post]
 func handleChatwootImport(instances InstanceService, configs ChatwootConfigStore, global cfgpkg.Chatwoot, importer ChatwootImporter) http.HandlerFunc {
@@ -504,7 +504,7 @@ type chatwootCommandRequest struct {
 // @Failure 404 {object} errorEnvelope "Instance or required connector config not found"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 500 {object} errorEnvelope "Internal error"
-// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
+// @Failure 409 {object} errorEnvelope "instance_name_taken: name already in use"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/chatwoot/command [post]
 func handleChatwootCommand(instances InstanceService, configs ChatwootConfigStore, global cfgpkg.Chatwoot, inb ChatwootInbound) http.HandlerFunc {

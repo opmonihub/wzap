@@ -73,8 +73,8 @@ inicialização com mensagem nomeando a variável.
 | `WZAP_PUBLIC_URL` | não | vazio | Base das URLs de download de mídia embutidas nos eventos (`media.url`). Sem ela a URL sai relativa (`/media/<id>`); na operação local use `http://127.0.0.1:8081`. |
 | `WZAP_NATS_STREAM` | não | `WZAP` | Nome do stream JetStream. O stream cobre `wzap.>`. |
 | `WZAP_EVENT_RETENTION_DAYS` | não | `7` | Retenção dos eventos no stream, em dias. |
-| `WZAP_DATA_DIR` | não | `/data` | Raiz do cache local de mídia e do armazenamento legado em filesystem (modo sem `WZAP_S3_ENDPOINT`). |
-| `WZAP_S3_ENDPOINT` | não | vazio | Endpoint S3/MinIO (ex. `http://minio:9000`). Com ele configurado os bytes de mídia vivem no object store e o data dir vira cache descartável; sem ele o backend de filesystem permanece ativo (janela de migração). Exige `WZAP_S3_ACCESS_KEY` e `WZAP_S3_SECRET_KEY`. |
+| `WZAP_DATA_DIR` | não | `/data` | Raiz do cache local descartável de mídia (materialização temporária para consumidores que precisam de arquivo). Sem `WZAP_S3_ENDPOINT`, os bytes persistem neste diretório com bucket lógico `local`. |
+| `WZAP_S3_ENDPOINT` | não | vazio | Endpoint S3/MinIO (ex. `http://minio:9000`). Com ele configurado os bytes de mídia vivem no object store e o data dir vira cache descartável; sem ele o backend de disco local permanece ativo. Exige `WZAP_S3_ACCESS_KEY` e `WZAP_S3_SECRET_KEY`. Falha ao preparar o bucket interrompe o boot. |
 | `WZAP_S3_BUCKET` | não | `wzap-media` | Bucket dos objetos de mídia, criado no boot quando ausente. |
 | `WZAP_S3_REGION` | não | `us-east-1` | Região declarada ao cliente S3. |
 | `WZAP_S3_ACCESS_KEY` | condicional | — | Access key do object store; obrigatória quando `WZAP_S3_ENDPOINT` está definido. |
@@ -85,7 +85,7 @@ inicialização com mensagem nomeando a variável.
 | `WZAP_OUTBOX_WORKERS` | não | `4` | Goroutines de envio do outbox. |
 | `WZAP_HUMANIZE` | não | `false` | Simula presença/atraso antes do envio (humanização). |
 | `WZAP_LOG_LEVEL` | não | `info` | Nível (`debug`, `info`, `warn`, `error`). |
-| `WZAP_LOG_FORMAT` | não | `json` | Formato (`json` ou `console`; `text` é alias legado de `console`). |
+| `WZAP_LOG_FORMAT` | não | `json` | Formato (`json` ou `console` apenas). |
 | `WZAP_AUTO_MIGRATE` | não | `true` | Aplica as migrações embutidas no boot antes de aceitar tráfego. |
 
 ## Contrato REST
@@ -118,21 +118,9 @@ Públicas sem credencial: `GET /healthz`, `GET /readyz`, o console em
 `/manager` e a documentação em `/swagger/*` (as chamadas de dados seguem as
 regras de autenticação acima).
 
-Subcomandos do binário: `wzap serve` (padrão), `wzap migrate` (aplica as
-migrações e sai), `wzap media-migrate` (transfere mídia local para o object
-store quando `WZAP_S3_ENDPOINT` está configurado, verificando SHA-256;
-arquivos ilegíveis e rows sem cópia — sem arquivo e sem objeto no bucket —
-falham o comando por linha) e `wzap healthcheck` (chama `/readyz` em loopback
-e sai `0`/`1`; é o healthcheck do container).
-
-O corte do remodel de storage tem um gate na migração `00010`: divergências
-de identidade (`whatsapp_jid` vs `device_jid`) registradas em
-`remodel_report` (`device_jid_conflicts`) bloqueiam `wzap migrate` e o boot
-com `WZAP_AUTO_MIGRATE=true` até resolução explícita — o erro lista os casos;
-o operador reconcilia `instance_connections.device_jid`, marca a row como
-resolvida (`UPDATE remodel_report SET resolved_at = now() WHERE category =
-'device_jid_conflicts' AND ref_id = ...`) e roda `wzap migrate` novamente. A
-row fica como histórico de auditoria.
+Subcomandos do binário: `wzap serve` (padrão), `wzap migrate` (aplica a
+migração inicial embutida e sai) e `wzap healthcheck` (chama `/readyz` em
+loopback e sai `0`/`1`; é o healthcheck do container).
 
 ### Contas (só key global ou sessão `admin`; sem registro público)
 
@@ -145,8 +133,7 @@ row fica como histórico de auditoria.
 | `DELETE /users/{id}` | `204`; dono com instâncias → `409` (sem transferência, sem cascata). |
 
 No primeiro boot sem contas e com `WZAP_ADMIN_EMAIL`/`WZAP_ADMIN_PASSWORD`,
-o serviço cria o admin inicial (e adota as instâncias legadas sem dono);
-sem as vars, nenhuma conta é criada.
+o serviço cria somente o admin inicial; sem as vars, nenhuma conta é criada.
 
 ### Instâncias
 
@@ -154,10 +141,10 @@ Todos os caminhos de instância aceitam `{id}` como UUID ou nome exato,
 incluindo `POST /chatwoot/webhook/{id}`. Nomes diferenciam maiúsculas de
 minúsculas; UUIDs têm precedência e continuam sendo a identidade de sessões,
 keys, mensagens, eventos e idempotência. Nome inexistente ou referência
-inválida → `404`; nome legado válido duplicado → `409 instance_name_ambiguous`.
-Uma renomeação muda o alias imediatamente e preserva o acesso pelo UUID.
+inválida → `404`. Uma renomeação muda o alias imediatamente e preserva o
+acesso pelo UUID.
 
-**BREAKING:** novos nomes e renomeações devem ser globalmente únicos e ter
+Novos nomes e renomeações devem ser globalmente únicos e ter
 1–64 caracteres ASCII: letras, dígitos, hífen ou underscore, começando e
 terminando com letra ou dígito. O nome exato `stats` e qualquer valor aceito
 como UUID (inclusive compacto) são reservados. Nome inválido →

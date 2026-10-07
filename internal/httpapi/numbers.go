@@ -53,7 +53,7 @@ type numberCheckResponse struct {
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Failure 503 {object} errorEnvelope "Number resolution unavailable"
-// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
+// @Failure 409 {object} errorEnvelope "instance_name_taken: name already in use"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/numbers/check [post]
 func handleCheckNumber(instances InstanceService, numbers NumberResolver) http.HandlerFunc {

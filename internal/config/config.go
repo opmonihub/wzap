@@ -36,10 +36,10 @@ type Config struct {
 	S3                 S3
 }
 
-// S3 holds the WZAP_S3_* object-store settings. Endpoint empty means the
-// object backend is disabled and media falls back to the data dir (the
-// mid-migration filesystem mode); the Compose environment always sets it.
-// When Endpoint is set, AccessKey and SecretKey are required.
+// S3 holds the WZAP_S3_* object-store settings. Endpoint empty means media
+// bytes persist under WZAP_DATA_DIR with bucket "local"; the Compose stack
+// sets Endpoint to MinIO. When Endpoint is set, AccessKey and SecretKey are
+// required and bucket preparation failure aborts the boot.
 type S3 struct {
 	Endpoint  string
 	Bucket    string

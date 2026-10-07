@@ -40,7 +40,7 @@ type pairPhoneResponse struct {
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "No open pairing channel, or already connected; instance_name_ambiguous for a legacy name matching multiple instances"
+// @Failure 409 {object} errorEnvelope "No open pairing channel, or already connected; instance_name_taken: name already in use"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid phone number"
 // @Failure 500 {object} errorEnvelope "Internal error"

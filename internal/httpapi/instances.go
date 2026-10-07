@@ -510,7 +510,7 @@ func handleListInstances(agg instanceConfigAggregator) http.HandlerFunc {
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Instance keys own no collection view, or target not owned"
 // @Failure 404 {object} errorEnvelope "Target instance not found"
-// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
+// @Failure 409 {object} errorEnvelope "instance_name_taken: name already in use"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/stats [get]
@@ -577,7 +577,7 @@ func handleInstanceStats(instances InstanceService) http.HandlerFunc {
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
-// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
+// @Failure 409 {object} errorEnvelope "instance_name_taken: name already in use"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id} [get]
 func handleGetInstance(agg instanceConfigAggregator) http.HandlerFunc {
@@ -620,7 +620,7 @@ func handleGetInstance(agg instanceConfigAggregator) http.HandlerFunc {
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "instance_name_taken: name already taken, or external ref already taken; instance_name_ambiguous for a legacy name matching multiple instances"
+// @Failure 409 {object} errorEnvelope "instance_name_taken: name already taken, or external ref already taken; instance_name_taken: name already in use"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "invalid_instance_name: invalid/reserved changed name, or invalid webhook config"
 // @Failure 500 {object} errorEnvelope "Internal error"
@@ -689,7 +689,7 @@ func handleUpdateInstance(agg instanceConfigAggregator) http.HandlerFunc {
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
-// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
+// @Failure 409 {object} errorEnvelope "instance_name_taken: name already in use"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id} [delete]
 func handleDeleteInstance(instances InstanceService) http.HandlerFunc {

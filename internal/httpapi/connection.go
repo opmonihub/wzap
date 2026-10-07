@@ -33,7 +33,7 @@ type statusResponse struct {
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance already connected; instance_name_ambiguous for a legacy name matching multiple instances"
+// @Failure 409 {object} errorEnvelope "Instance already connected; instance_name_taken: name already in use"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/connect [post]
@@ -88,7 +88,7 @@ func handleConnectInstance(instances InstanceService, log zerolog.Logger) http.H
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
-// @Failure 409 {object} errorEnvelope "Instance already connected; instance_name_ambiguous for a legacy name matching multiple instances"
+// @Failure 409 {object} errorEnvelope "Instance already connected; instance_name_taken: name already in use"
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/qr [get]
@@ -142,7 +142,7 @@ func handleQRInstance(instances InstanceService, log zerolog.Logger) http.Handle
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
-// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
+// @Failure 409 {object} errorEnvelope "instance_name_taken: name already in use"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/status [get]
 func handleInstanceStatus(instances InstanceService, log zerolog.Logger) http.HandlerFunc {
@@ -187,7 +187,7 @@ func handleInstanceStatus(instances InstanceService, log zerolog.Logger) http.Ha
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
-// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
+// @Failure 409 {object} errorEnvelope "instance_name_taken: name already in use"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/disconnect [post]
 func handleDisconnectInstance(instances InstanceService, log zerolog.Logger) http.HandlerFunc {

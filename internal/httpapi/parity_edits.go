@@ -42,7 +42,7 @@ type editMessageResponse struct {
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Not the owner"
 // @Failure 404 {object} errorEnvelope "Instance or message not found"
-// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances"
+// @Failure 409 {object} errorEnvelope "Instance not connected, or key already in flight; instance_name_taken: name already in use"
 // @Failure 413 {object} errorEnvelope "Body exceeds the 1 MiB limit"
 // @Failure 422 {object} errorEnvelope "Invalid text, target, or reused key"
 // @Failure 500 {object} errorEnvelope "Internal error"

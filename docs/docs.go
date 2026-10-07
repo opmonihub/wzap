@@ -309,7 +309,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "description": "instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -691,7 +691,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "description": "instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -802,7 +802,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "description": "instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -896,7 +896,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "description": "instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -1029,7 +1029,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "instance_name_taken: name already taken, or external ref already taken; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "instance_name_taken: name already taken, or external ref already taken; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -1149,7 +1149,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "description": "instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -1260,7 +1260,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "description": "instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -1371,7 +1371,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -1504,7 +1504,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -1663,7 +1663,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -1834,7 +1834,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -1993,7 +1993,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -2135,7 +2135,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -2287,7 +2287,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -2435,7 +2435,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "description": "instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -2569,7 +2569,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "description": "instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -2734,7 +2734,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "description": "instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -2875,7 +2875,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "description": "instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -2986,7 +2986,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance already connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance already connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -3103,7 +3103,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -3238,7 +3238,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -3380,7 +3380,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -3510,7 +3510,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -3640,7 +3640,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -3770,7 +3770,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -3878,7 +3878,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "description": "instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -4001,7 +4001,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -4134,7 +4134,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -4276,7 +4276,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -4423,7 +4423,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -4565,7 +4565,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -4705,7 +4705,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -4847,7 +4847,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -4965,7 +4965,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -5083,7 +5083,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -5225,7 +5225,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -5379,7 +5379,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -5521,7 +5521,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -5667,7 +5667,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -5833,7 +5833,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -5992,7 +5992,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "description": "instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -6131,7 +6131,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -6308,7 +6308,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -6485,7 +6485,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -6650,7 +6650,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -6857,7 +6857,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -7016,7 +7016,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -7181,7 +7181,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -7335,7 +7335,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "description": "instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -7458,7 +7458,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -7591,7 +7591,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -7750,7 +7750,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -7909,7 +7909,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -8051,7 +8051,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -8181,7 +8181,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -8335,7 +8335,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -8501,7 +8501,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -8643,7 +8643,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -8797,7 +8797,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -8956,7 +8956,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "description": "instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -9115,7 +9115,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "No open pairing channel, or already connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "No open pairing channel, or already connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -9274,7 +9274,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -9409,7 +9409,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -9543,7 +9543,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -9678,7 +9678,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -9811,7 +9811,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -9970,7 +9970,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -10117,7 +10117,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance already connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance already connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -10228,7 +10228,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "instance_name_ambiguous: legacy name matches multiple instances",
+                        "description": "instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -10339,7 +10339,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -10450,7 +10450,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -10590,7 +10590,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -10767,7 +10767,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected, or key already in flight; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },
@@ -10897,7 +10897,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Instance not connected; instance_name_ambiguous for a legacy name matching multiple instances",
+                        "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
                             "$ref": "#/definitions/httpapi.errorEnvelope"
                         },

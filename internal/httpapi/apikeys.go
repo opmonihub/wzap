@@ -35,7 +35,7 @@ type rotateAPIKeyResponse struct {
 // @Failure 403 {object} errorEnvelope "Requires global or admin scope"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
-// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
+// @Failure 409 {object} errorEnvelope "instance_name_taken: name already in use"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/apikey/rotate [post]
 func handleRotateAPIKey(instances InstanceService, keys storage.APIKeyRepository) http.HandlerFunc {
@@ -92,7 +92,7 @@ func handleRotateAPIKey(instances InstanceService, keys storage.APIKeyRepository
 // @Failure 403 {object} errorEnvelope "Requires global or admin scope"
 // @Failure 404 {object} errorEnvelope "Instance not found"
 // @Failure 500 {object} errorEnvelope "Internal error"
-// @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
+// @Failure 409 {object} errorEnvelope "instance_name_taken: name already in use"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id}/apikey [delete]
 func handleRevokeAPIKey(instances InstanceService, keys storage.APIKeyRepository) http.HandlerFunc {

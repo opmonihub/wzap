@@ -30,7 +30,7 @@ func TestIdempotencyRepositoryAcquireOwnsNewKey(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	repo := NewIdempotencyRepository(pool)
-	instance := createTestInstance(t, instances, "idempotency", "")
+	instance := createTestInstance(t, pool, instances, "idempotency", "")
 	start := time.Now()
 	expiresAt := start.Add(testIdempotencyTTL)
 
@@ -92,7 +92,7 @@ func TestIdempotencyRepositoryAcquireRace(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	repo := NewIdempotencyRepository(pool)
-	instance := createTestInstance(t, instances, "idempotency", "")
+	instance := createTestInstance(t, pool, instances, "idempotency", "")
 
 	const callers = 2
 	start := make(chan struct{})
@@ -143,7 +143,7 @@ func TestIdempotencyRepositoryAcquireInProgress(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	repo := NewIdempotencyRepository(pool)
-	instance := createTestInstance(t, instances, "idempotency", "")
+	instance := createTestInstance(t, pool, instances, "idempotency", "")
 	expiresAt := time.Now().Add(testIdempotencyTTL)
 
 	if _, acquired, err := repo.Acquire(ctx, instance.ID, "key-2", "fingerprint-a", expiresAt); err != nil || !acquired {
@@ -167,7 +167,7 @@ func TestIdempotencyRepositoryAcquireReplay(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	repo := NewIdempotencyRepository(pool)
-	instance := createTestInstance(t, instances, "idempotency", "")
+	instance := createTestInstance(t, pool, instances, "idempotency", "")
 	expiresAt := time.Now().Add(testIdempotencyTTL)
 	body := []byte(`{"data":{"message_id":"0f7c1c74-3f0a-4e0f-9a5f-3b9b2f0f7f11"}}`)
 
@@ -202,7 +202,7 @@ func TestIdempotencyRepositoryAcquireFingerprintMismatch(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	repo := NewIdempotencyRepository(pool)
-	instance := createTestInstance(t, instances, "idempotency", "")
+	instance := createTestInstance(t, pool, instances, "idempotency", "")
 	expiresAt := time.Now().Add(testIdempotencyTTL)
 
 	if _, acquired, err := repo.Acquire(ctx, instance.ID, "key-4", "fingerprint-a", expiresAt); err != nil || !acquired {
@@ -249,7 +249,7 @@ func TestIdempotencyRepositoryAcquireExpiredKeyIsReusable(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	repo := NewIdempotencyRepository(pool)
-	instance := createTestInstance(t, instances, "idempotency", "")
+	instance := createTestInstance(t, pool, instances, "idempotency", "")
 
 	if _, acquired, err := repo.Acquire(ctx, instance.ID, "key-5", "fingerprint-a", time.Now().Add(-time.Hour)); err != nil || !acquired {
 		t.Fatalf("first Acquire: acquired=%v err=%v, want true and nil", acquired, err)
@@ -282,7 +282,7 @@ func TestIdempotencyRepositoryAcquireExpiredCompletedKeyIsReusable(t *testing.T)
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	repo := NewIdempotencyRepository(pool)
-	instance := createTestInstance(t, instances, "idempotency", "")
+	instance := createTestInstance(t, pool, instances, "idempotency", "")
 	expiresAt := time.Now().Add(testIdempotencyTTL)
 
 	if _, acquired, err := repo.Acquire(ctx, instance.ID, "key-6", "fingerprint-a", expiresAt); err != nil || !acquired {
@@ -313,7 +313,7 @@ func TestIdempotencyRepositoryCompleteUnknownKey(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	repo := NewIdempotencyRepository(pool)
-	instance := createTestInstance(t, instances, "idempotency", "")
+	instance := createTestInstance(t, pool, instances, "idempotency", "")
 
 	err := repo.Complete(ctx, instance.ID, "missing", 200, []byte(`{"data":{}}`))
 	if !errors.Is(err, storage.ErrNotFound) {
@@ -326,7 +326,7 @@ func TestIdempotencyRepositoryRelease(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	repo := NewIdempotencyRepository(pool)
-	instance := createTestInstance(t, instances, "idempotency", "")
+	instance := createTestInstance(t, pool, instances, "idempotency", "")
 	expiresAt := time.Now().Add(testIdempotencyTTL)
 
 	if _, acquired, err := repo.Acquire(ctx, instance.ID, "key-7", "fingerprint-a", expiresAt); err != nil || !acquired {
@@ -360,7 +360,7 @@ func TestIdempotencyRepositoryDeleteExpired(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	repo := NewIdempotencyRepository(pool)
-	instance := createTestInstance(t, instances, "idempotency", "")
+	instance := createTestInstance(t, pool, instances, "idempotency", "")
 	expiresAt := time.Now().Add(testIdempotencyTTL)
 
 	if _, acquired, err := repo.Acquire(ctx, instance.ID, "key-live", "fingerprint-a", expiresAt); err != nil || !acquired {

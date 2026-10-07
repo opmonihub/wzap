@@ -38,7 +38,7 @@ func TestMediaRepositoryCreateAndGet(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	media := NewMediaRepository(pool)
-	instance := createTestInstance(t, instances, "media", "")
+	instance := createTestInstance(t, pool, instances, "media", "")
 	start := time.Now()
 	expiresAt := start.Add(2 * time.Hour)
 	messageID := uuid.NewString()
@@ -98,7 +98,7 @@ func TestMediaRepositoryCreateEmptyOptionals(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	media := NewMediaRepository(pool)
-	instance := createTestInstance(t, instances, "media-nullable", "")
+	instance := createTestInstance(t, pool, instances, "media-nullable", "")
 
 	created, err := media.Create(ctx, model.Media{
 		ID:         uuid.New(),
@@ -162,8 +162,8 @@ func TestMediaRepositoryListByInstance(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	media := NewMediaRepository(pool)
-	instanceA := createTestInstance(t, instances, "media-a", "")
-	instanceB := createTestInstance(t, instances, "media-b", "")
+	instanceA := createTestInstance(t, pool, instances, "media-a", "")
+	instanceB := createTestInstance(t, pool, instances, "media-b", "")
 	now := time.Now()
 
 	createTestMedia(t, media, instanceA.ID, "wa-1", "media/a/1", now.Add(time.Hour))
@@ -197,7 +197,7 @@ func TestMediaRepositoryListExpired(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	media := NewMediaRepository(pool)
-	instance := createTestInstance(t, instances, "media-expired", "")
+	instance := createTestInstance(t, pool, instances, "media-expired", "")
 	now := time.Now()
 
 	due := createTestMedia(t, media, instance.ID, "wa-old", "media/e/old", now.Add(-time.Hour))
@@ -225,7 +225,7 @@ func TestMediaRepositorySetBucket(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	media := NewMediaRepository(pool)
-	instance := createTestInstance(t, instances, "media-setbucket", "")
+	instance := createTestInstance(t, pool, instances, "media-setbucket", "")
 
 	record, err := media.Create(ctx, model.Media{
 		ID:         uuid.New(),
@@ -267,7 +267,7 @@ func TestMediaRepositoryDelete(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	media := NewMediaRepository(pool)
-	instance := createTestInstance(t, instances, "media-delete", "")
+	instance := createTestInstance(t, pool, instances, "media-delete", "")
 	record := createTestMedia(t, media, instance.ID, "wa-1", "media/d/1", time.Now().Add(time.Hour))
 
 	if err := media.Delete(ctx, record.ID); err != nil {
@@ -286,8 +286,8 @@ func TestMediaRepositoryDeleteByInstance(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	media := NewMediaRepository(pool)
-	instanceA := createTestInstance(t, instances, "media-del-a", "")
-	instanceB := createTestInstance(t, instances, "media-del-b", "")
+	instanceA := createTestInstance(t, pool, instances, "media-del-a", "")
+	instanceB := createTestInstance(t, pool, instances, "media-del-b", "")
 
 	createTestMedia(t, media, instanceA.ID, "wa-1", "media/da/1", time.Now().Add(time.Hour))
 	createTestMedia(t, media, instanceA.ID, "wa-2", "media/da/2", time.Now().Add(time.Hour))

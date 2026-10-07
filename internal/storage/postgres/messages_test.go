@@ -72,7 +72,7 @@ func TestMessageRepositoryCreate(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	messages := NewMessageRepository(pool)
-	instance := createTestInstance(t, instances, "messages", "")
+	instance := createTestInstance(t, pool, instances, "messages", "")
 	start := time.Now()
 
 	message, err := messages.Create(ctx, model.OutboundMessage{
@@ -130,7 +130,7 @@ func TestMessageRepositoryCreateWithMedia(t *testing.T) {
 	instances := NewInstanceRepository(pool)
 	media := NewMediaRepository(pool)
 	messages := NewMessageRepository(pool)
-	instance := createTestInstance(t, instances, "messages", "")
+	instance := createTestInstance(t, pool, instances, "messages", "")
 
 	// The media reference is validated against a real row of the same
 	// instance — the remodel turned the bare uuid into a checked relation.
@@ -184,8 +184,8 @@ func TestMessageRepositoryCreateRejectsCrossInstanceMedia(t *testing.T) {
 	media := NewMediaRepository(pool)
 	messages := NewMessageRepository(pool)
 
-	owner := createTestInstance(t, instances, "owner", "")
-	stranger := createTestInstance(t, instances, "stranger", "")
+	owner := createTestInstance(t, pool, instances, "owner", "")
+	stranger := createTestInstance(t, pool, instances, "stranger", "")
 	stored, err := media.Create(ctx, model.Media{
 		ID:         uuid.New(),
 		InstanceID: owner.ID,
@@ -238,7 +238,7 @@ func TestMessageRepositoryCreateSharedMediaWithinInstance(t *testing.T) {
 	instances := NewInstanceRepository(pool)
 	media := NewMediaRepository(pool)
 	messages := NewMessageRepository(pool)
-	instance := createTestInstance(t, instances, "shared", "")
+	instance := createTestInstance(t, pool, instances, "shared", "")
 
 	stored, err := media.Create(ctx, model.Media{
 		ID:         uuid.New(),
@@ -291,7 +291,7 @@ func TestMessageRepositoryGet(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	messages := NewMessageRepository(pool)
-	instance := createTestInstance(t, instances, "messages", "")
+	instance := createTestInstance(t, pool, instances, "messages", "")
 	created := createTestMessage(t, messages, instance.ID, `{"text":"hello"}`)
 
 	got, err := messages.Get(ctx, created.ID)
@@ -314,8 +314,8 @@ func TestMessageRepositoryListByInstance(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	messages := NewMessageRepository(pool)
-	instance := createTestInstance(t, instances, "messages", "")
-	other := createTestInstance(t, instances, "other", "")
+	instance := createTestInstance(t, pool, instances, "messages", "")
+	other := createTestInstance(t, pool, instances, "other", "")
 
 	first := createTestMessage(t, messages, instance.ID, `{"text":"1"}`)
 	second := createTestMessage(t, messages, instance.ID, `{"text":"2"}`)
@@ -376,7 +376,7 @@ func TestMessageRepositoryClaimQueued(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	messages := NewMessageRepository(pool)
-	instance := createTestInstance(t, instances, "messages", "")
+	instance := createTestInstance(t, pool, instances, "messages", "")
 
 	first := createTestMessage(t, messages, instance.ID, `{"text":"1"}`)
 	second := createTestMessage(t, messages, instance.ID, `{"text":"2"}`)
@@ -425,7 +425,7 @@ func TestMessageRepositoryClaimQueuedLimit(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	messages := NewMessageRepository(pool)
-	instance := createTestInstance(t, instances, "messages", "")
+	instance := createTestInstance(t, pool, instances, "messages", "")
 
 	first := createTestMessage(t, messages, instance.ID, `{"text":"1"}`)
 	second := createTestMessage(t, messages, instance.ID, `{"text":"2"}`)
@@ -461,7 +461,7 @@ func TestMessageRepositoryClaimQueuedConcurrent(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	messages := NewMessageRepository(pool)
-	instance := createTestInstance(t, instances, "messages", "")
+	instance := createTestInstance(t, pool, instances, "messages", "")
 
 	const total = 10
 	for i := 0; i < total; i++ {
@@ -509,7 +509,7 @@ func TestMessageRepositoryClaimQueuedSkipsLockedRows(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	messages := NewMessageRepository(pool)
-	instance := createTestInstance(t, instances, "messages", "")
+	instance := createTestInstance(t, pool, instances, "messages", "")
 
 	locked := createTestMessage(t, messages, instance.ID, `{"text":"locked"}`)
 	free := createTestMessage(t, messages, instance.ID, `{"text":"free"}`)
@@ -558,7 +558,7 @@ func TestMessageRepositoryClaimQueuedIgnoresPastAttempts(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	messages := NewMessageRepository(pool)
-	instance := createTestInstance(t, instances, "messages", "")
+	instance := createTestInstance(t, pool, instances, "messages", "")
 
 	due := createTestMessage(t, messages, instance.ID, `{"text":"due"}`)
 	setNextAttemptAt(t, pool, due.ID, time.Now().Add(-time.Minute))
@@ -577,7 +577,7 @@ func TestMessageRepositoryMarkSent(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	messages := NewMessageRepository(pool)
-	instance := createTestInstance(t, instances, "messages", "")
+	instance := createTestInstance(t, pool, instances, "messages", "")
 	message := createTestMessage(t, messages, instance.ID, `{"text":"hi"}`)
 
 	if _, err := messages.ClaimQueued(ctx, 1); err != nil {
@@ -614,7 +614,7 @@ func TestMessageRepositoryMarkFailed(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	messages := NewMessageRepository(pool)
-	instance := createTestInstance(t, instances, "messages", "")
+	instance := createTestInstance(t, pool, instances, "messages", "")
 	message := createTestMessage(t, messages, instance.ID, `{"text":"hi"}`)
 
 	if err := messages.MarkFailed(ctx, message.ID, "recipient not registered"); err != nil {
@@ -642,7 +642,7 @@ func TestMessageRepositoryMarkRetrying(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	messages := NewMessageRepository(pool)
-	instance := createTestInstance(t, instances, "messages", "")
+	instance := createTestInstance(t, pool, instances, "messages", "")
 	message := createTestMessage(t, messages, instance.ID, `{"text":"hi"}`)
 
 	nextAttemptAt := time.Now().Add(time.Minute)
@@ -701,7 +701,7 @@ func TestMessageRepositoryUpdateReceipt(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	messages := NewMessageRepository(pool)
-	instance := createTestInstance(t, instances, "messages", "")
+	instance := createTestInstance(t, pool, instances, "messages", "")
 	message := createTestMessage(t, messages, instance.ID, `{"text":"hi"}`)
 
 	if _, err := messages.ClaimQueued(ctx, 1); err != nil {
@@ -782,7 +782,7 @@ func TestMessageRepositoryRequeueStuck(t *testing.T) {
 	pool := newTestPool(t)
 	instances := NewInstanceRepository(pool)
 	messages := NewMessageRepository(pool)
-	instance := createTestInstance(t, instances, "messages", "")
+	instance := createTestInstance(t, pool, instances, "messages", "")
 
 	stuck := createTestMessage(t, messages, instance.ID, `{"text":"stuck"}`)
 	fresh := createTestMessage(t, messages, instance.ID, `{"text":"fresh"}`)

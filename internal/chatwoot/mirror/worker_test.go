@@ -922,7 +922,11 @@ func TestHandleMessageDedupsViaPostgresCorrelation(t *testing.T) {
 	}
 	cfgRepo, msgRepo := postgres.NewChatwootRepositories(pool, nil)
 	instanceID := uuid.New()
-	if _, err := postgres.NewInstanceRepository(pool).Create(ctx, model.Instance{ID: instanceID, Name: "mirror-pg", Connection: model.InstanceConnection{Status: "disconnected"}}); err != nil {
+	owner, err := postgres.NewUserRepository(pool).Create(ctx, model.User{ID: uuid.New(), Email: "mirror-owner@example.test", PasswordHash: "hash", Role: "user"})
+	if err != nil {
+		t.Fatalf("seed owner: %v", err)
+	}
+	if _, err := postgres.NewInstanceRepository(pool).Create(ctx, model.Instance{ID: instanceID, Name: "mirror-pg", OwnerUserID: &owner.ID, Connection: model.InstanceConnection{Status: "disconnected"}}); err != nil {
 		t.Fatalf("seed instance: %v", err)
 	}
 	if _, err := cfgRepo.Put(ctx, model.ChatwootConfig{

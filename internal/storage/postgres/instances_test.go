@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"wzap/internal/model"
@@ -25,19 +26,93 @@ func newTestPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-func createTestInstance(t *testing.T, repo storage.InstanceRepository, name, externalRef string) *model.Instance {
+// createTestOwner creates a throwaway user to own test instances: ownership
+// is mandatory, so every instance fixture carries an existing owner.
+func createTestOwner(t *testing.T, pool *pgxpool.Pool) *model.User {
 	t.Helper()
 
+	return createTestUser(t, NewUserRepository(pool),
+		fmt.Sprintf("owner-%s@test.example", uuid.NewString()), "user", 0)
+}
+
+func createTestInstance(t *testing.T, pool *pgxpool.Pool, repo storage.InstanceRepository, name, externalRef string) *model.Instance {
+	t.Helper()
+
+	owner := createTestOwner(t, pool)
 	instance, err := repo.Create(context.Background(), model.Instance{
 		ID:          uuid.New(),
 		Name:        name,
 		ExternalRef: externalRef,
+		OwnerUserID: &owner.ID,
 		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance %q: %v", name, err)
 	}
 	return instance
+}
+
+// TestMapInstanceErrorMapsDBConstraints pins the database-constraint mapping:
+// a unique violation on instances.name (a writer outside the claim protocol)
+// surfaces as storage.ErrInstanceNameTaken — the error handlers turn into
+// instance_name_taken/409 — and ownership violations surface as
+// storage.ErrOwnerRequired, while satellite FK violations stay ErrNotFound.
+func TestMapInstanceErrorMapsDBConstraints(t *testing.T) {
+	cases := []struct {
+		name  string
+		pgErr *pgconn.PgError
+		want  error
+	}{
+		{"name unique", &pgconn.PgError{Code: "23505", ConstraintName: "instances_name_key"}, storage.ErrInstanceNameTaken},
+		{"external ref unique", &pgconn.PgError{Code: "23505", ConstraintName: "instances_external_ref_key"}, storage.ErrExternalRefTaken},
+		{"device jid unique", &pgconn.PgError{Code: "23505", ConstraintName: "instance_connections_device_jid_uidx"}, storage.ErrDeviceJIDTaken},
+		{"ownerless instance", &pgconn.PgError{Code: "23502", ColumnName: "owner_user_id"}, storage.ErrOwnerRequired},
+		{"unknown owner", &pgconn.PgError{Code: "23503", TableName: "instances"}, storage.ErrOwnerRequired},
+		{"missing satellite instance", &pgconn.PgError{Code: "23503", TableName: "instance_webhooks"}, storage.ErrNotFound},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := mapInstanceError("create instance", tc.pgErr); !errors.Is(err, tc.want) {
+				t.Fatalf("mapInstanceError(%s) = %v, want %v", tc.name, err, tc.want)
+			}
+		})
+	}
+}
+
+// TestInstanceRepositoryCreateRequiresOwner pins the mandatory-ownership
+// contract end to end: a nil OwnerUserID violates the NOT NULL column and an
+// unknown owner violates the restrictive FK, both mapped to
+// storage.ErrOwnerRequired, and neither persists anything.
+func TestInstanceRepositoryCreateRequiresOwner(t *testing.T) {
+	ctx := context.Background()
+	pool := newTestPool(t)
+	repo := NewInstanceRepository(pool)
+
+	if _, err := repo.Create(ctx, model.Instance{
+		ID:         uuid.New(),
+		Name:       "ownerless",
+		Connection: model.InstanceConnection{Status: "disconnected"},
+	}); !errors.Is(err, storage.ErrOwnerRequired) {
+		t.Fatalf("Create(nil owner) error = %v, want ErrOwnerRequired", err)
+	}
+
+	unknown := uuid.New()
+	if _, err := repo.Create(ctx, model.Instance{
+		ID:          uuid.New(),
+		Name:        "ghost-owner",
+		OwnerUserID: &unknown,
+		Connection:  model.InstanceConnection{Status: "disconnected"},
+	}); !errors.Is(err, storage.ErrOwnerRequired) {
+		t.Fatalf("Create(unknown owner) error = %v, want ErrOwnerRequired", err)
+	}
+
+	var count int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM instances WHERE name IN ('ownerless', 'ghost-owner')`).Scan(&count); err != nil {
+		t.Fatalf("count instances: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("failed creates persisted %d instances, want 0", count)
+	}
 }
 
 func requireTimeBetween(t *testing.T, label string, got, start, end time.Time) {
@@ -80,10 +155,12 @@ func TestInstanceRepositoryCreate(t *testing.T) {
 	repo := NewInstanceRepository(pool)
 	start := time.Now()
 
+	owner := createTestOwner(t, pool)
 	created, err := repo.Create(ctx, model.Instance{
 		ID:          uuid.New(),
 		Name:        "Account A",
 		ExternalRef: "account-a",
+		OwnerUserID: &owner.ID,
 		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
@@ -128,12 +205,14 @@ func TestInstanceRepositoryCreateDuplicateExternalRef(t *testing.T) {
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
 
-	createTestInstance(t, repo, "first", "same-ref")
+	createTestInstance(t, pool, repo, "first", "same-ref")
 
+	owner := createTestOwner(t, pool)
 	_, err := repo.Create(ctx, model.Instance{
 		ID:          uuid.New(),
 		Name:        "second",
 		ExternalRef: "same-ref",
+		OwnerUserID: &owner.ID,
 		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if !errors.Is(err, storage.ErrExternalRefTaken) {
@@ -154,8 +233,8 @@ func TestInstanceRepositoryCreateWithoutExternalRef(t *testing.T) {
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
 
-	createTestInstance(t, repo, "first", "")
-	createTestInstance(t, repo, "second", "")
+	createTestInstance(t, pool, repo, "first", "")
+	createTestInstance(t, pool, repo, "second", "")
 
 	var nulls int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM instances WHERE external_ref IS NULL`).Scan(&nulls); err != nil {
@@ -227,7 +306,7 @@ func TestInstanceRepositoryGet(t *testing.T) {
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
 
-	created := createTestInstance(t, repo, "Account A", "account-a")
+	created := createTestInstance(t, pool, repo, "Account A", "account-a")
 
 	got, err := repo.Get(ctx, created.ID)
 	if err != nil {
@@ -248,7 +327,7 @@ func TestInstanceRepositoryGetByExternalRef(t *testing.T) {
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
 
-	created := createTestInstance(t, repo, "Account A", "account-a")
+	created := createTestInstance(t, pool, repo, "Account A", "account-a")
 
 	got, err := repo.GetByExternalRef(ctx, "account-a")
 	if err != nil {
@@ -277,14 +356,15 @@ func TestInstanceRepositoryListCompleteAndDeterministic(t *testing.T) {
 	}
 	ids := make([]uuid.UUID, 124)
 	oldest := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	owner := createTestOwner(t, pool)
 	for i := 1; i <= 123; i++ {
 		ids[i] = uuid.MustParse(fmt.Sprintf("00000000-0000-0000-0000-%012d", i))
 		createdAt := oldest
 		if i <= 3 {
 			createdAt = oldest.Add(time.Hour)
 		}
-		if _, err := pool.Exec(ctx, `INSERT INTO instances (id, name, created_at) VALUES ($1, $2, $3)`,
-			ids[i], fmt.Sprintf("instance-%d", i), createdAt); err != nil {
+		if _, err := pool.Exec(ctx, `INSERT INTO instances (id, name, owner_user_id, created_at) VALUES ($1, $2, $3, $4)`,
+			ids[i], fmt.Sprintf("instance-%d", i), owner.ID, createdAt); err != nil {
 			t.Fatalf("insert instance %d: %v", i, err)
 		}
 	}
@@ -311,7 +391,7 @@ func TestInstanceRepositoryUpdateIdentity(t *testing.T) {
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
 
-	instance := createTestInstance(t, repo, "original", "original-ref")
+	instance := createTestInstance(t, pool, repo, "original", "original-ref")
 
 	updated, err := repo.UpdateIdentity(ctx, instance.ID, "renamed", "renamed-ref")
 	if err != nil {
@@ -332,7 +412,7 @@ func TestInstanceRepositoryUpdateIdentity(t *testing.T) {
 		t.Errorf("UpdateIdentity(clear) ExternalRef = %q, want empty", cleared.ExternalRef)
 	}
 
-	createTestInstance(t, repo, "reuses ref", "renamed-ref")
+	createTestInstance(t, pool, repo, "reuses ref", "renamed-ref")
 }
 
 // TestInstanceRepositoryUpdateIdentityDoesNotTouchConnection is the
@@ -344,7 +424,7 @@ func TestInstanceRepositoryUpdateIdentityDoesNotTouchConnection(t *testing.T) {
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
 
-	instance := createTestInstance(t, repo, "original", "original-ref")
+	instance := createTestInstance(t, pool, repo, "original", "original-ref")
 	connectedAt := time.Now().UTC()
 	if err := repo.SetConnectionState(ctx, instance.ID, "connected", "5511999999999@s.whatsapp.net", "", &connectedAt); err != nil {
 		t.Fatalf("SetConnectionState seed: %v", err)
@@ -392,8 +472,8 @@ func TestInstanceRepositoryUpdateDuplicateExternalRef(t *testing.T) {
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
 
-	first := createTestInstance(t, repo, "first", "first-ref")
-	second := createTestInstance(t, repo, "second", "second-ref")
+	first := createTestInstance(t, pool, repo, "first", "first-ref")
+	second := createTestInstance(t, pool, repo, "second", "second-ref")
 
 	_, err := repo.UpdateIdentity(ctx, second.ID, second.Name, first.ExternalRef)
 	if !errors.Is(err, storage.ErrExternalRefTaken) {
@@ -425,7 +505,7 @@ func TestInstanceRepositorySetConnection(t *testing.T) {
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
 
-	instance := createTestInstance(t, repo, "original", "original-ref")
+	instance := createTestInstance(t, pool, repo, "original", "original-ref")
 	connectedAt := time.Now().Add(-time.Minute).UTC()
 	if err := repo.SetConnectionState(ctx, instance.ID, "connected", "5511999999999@s.whatsapp.net", "previous failure", &connectedAt); err != nil {
 		t.Fatalf("SetConnectionState seed: %v", err)
@@ -474,7 +554,7 @@ func TestInstanceRepositorySetConnectionState(t *testing.T) {
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
 
-	instance := createTestInstance(t, repo, "original", "original-ref")
+	instance := createTestInstance(t, pool, repo, "original", "original-ref")
 	connectedAt := time.Now().Add(-time.Minute).UTC()
 	if err := repo.SetConnectionState(ctx, instance.ID, "connected", "5511999999999@s.whatsapp.net", "", &connectedAt); err != nil {
 		t.Fatalf("SetConnectionState seed: %v", err)
@@ -527,7 +607,7 @@ func TestInstanceRepositoryGetByDeviceJID(t *testing.T) {
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
 
-	instance := createTestInstance(t, repo, "bound", "bound-ref")
+	instance := createTestInstance(t, pool, repo, "bound", "bound-ref")
 	if err := repo.SetConnection(ctx, instance.ID, "connected", "5511777777777@s.whatsapp.net"); err != nil {
 		t.Fatalf("SetConnection: %v", err)
 	}
@@ -550,8 +630,8 @@ func TestInstanceRepositoryDeviceJIDUnique(t *testing.T) {
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
 
-	first := createTestInstance(t, repo, "first", "first-ref")
-	second := createTestInstance(t, repo, "second", "second-ref")
+	first := createTestInstance(t, pool, repo, "first", "first-ref")
+	second := createTestInstance(t, pool, repo, "second", "second-ref")
 	jid := "5511666666666@s.whatsapp.net"
 	if err := repo.SetConnection(ctx, first.ID, "connected", jid); err != nil {
 		t.Fatalf("SetConnection(first): %v", err)
@@ -567,7 +647,7 @@ func TestInstanceRepositoryDelete(t *testing.T) {
 	repo := NewInstanceRepository(pool)
 	messages := NewMessageRepository(pool)
 
-	instance := createTestInstance(t, repo, "to delete", "delete-ref")
+	instance := createTestInstance(t, pool, repo, "to delete", "delete-ref")
 	message := createTestMessage(t, messages, instance.ID, `{"text":"hi"}`)
 
 	if err := repo.Delete(ctx, instance.ID); err != nil {
@@ -595,7 +675,7 @@ func TestInstanceRepositoryDefaultDisappearing(t *testing.T) {
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
 
-	created := createTestInstance(t, repo, "timers", "timers-ref")
+	created := createTestInstance(t, pool, repo, "timers", "timers-ref")
 	if created.DefaultDisappearing != nil {
 		t.Fatalf("Create echo = %v, want nil (never configured)", created.DefaultDisappearing)
 	}

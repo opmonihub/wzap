@@ -28,7 +28,7 @@ func TestAPIKeySetAndInstanceByHash(t *testing.T) {
 	instances := NewInstanceRepository(pool)
 	keys := NewAPIKeyRepository(pool)
 
-	instance := createTestInstance(t, instances, "keyed", "keyed-ref")
+	instance := createTestInstance(t, pool, instances, "keyed", "keyed-ref")
 
 	if err := keys.SetHash(ctx, instance.ID, "hash-aaa"); err != nil {
 		t.Fatalf("SetHash: %v", err)
@@ -53,7 +53,7 @@ func TestAPIKeySetHashReplaces(t *testing.T) {
 	instances := NewInstanceRepository(pool)
 	keys := NewAPIKeyRepository(pool)
 
-	instance := createTestInstance(t, instances, "rotated", "rotated-ref")
+	instance := createTestInstance(t, pool, instances, "rotated", "rotated-ref")
 
 	if err := keys.SetHash(ctx, instance.ID, "hash-old"); err != nil {
 		t.Fatalf("SetHash(old): %v", err)
@@ -90,7 +90,7 @@ func TestAPIKeyClearHash(t *testing.T) {
 	instances := NewInstanceRepository(pool)
 	keys := NewAPIKeyRepository(pool)
 
-	instance := createTestInstance(t, instances, "revoked", "revoked-ref")
+	instance := createTestInstance(t, pool, instances, "revoked", "revoked-ref")
 	if err := keys.SetHash(ctx, instance.ID, "hash-live"); err != nil {
 		t.Fatalf("SetHash: %v", err)
 	}
@@ -133,14 +133,14 @@ func TestAPIKeyCounts(t *testing.T) {
 	ownerA := createTestUser(t, users, "counter-a@example.com", "user", 5)
 	ownerB := createTestUser(t, users, "counter-b@example.com", "user", 5)
 
-	a1 := createTestInstance(t, instances, "a1", "a1-ref")
-	a2 := createTestInstance(t, instances, "a2", "a2-ref")
-	b1 := createTestInstance(t, instances, "b1", "b1-ref")
+	a1 := createTestInstance(t, pool, instances, "a1", "a1-ref")
+	a2 := createTestInstance(t, pool, instances, "a2", "a2-ref")
+	b1 := createTestInstance(t, pool, instances, "b1", "b1-ref")
 	setInstanceOwner(t, pool, a1.ID, ownerA.ID)
 	setInstanceOwner(t, pool, a2.ID, ownerA.ID)
 	setInstanceOwner(t, pool, b1.ID, ownerB.ID)
 
-	legacy := createTestInstance(t, instances, "legacy", "legacy-ref")
+	legacy := createTestInstance(t, pool, instances, "legacy", "legacy-ref")
 	_ = legacy
 
 	total, err = keys.CountAll(ctx)
@@ -182,13 +182,13 @@ func TestInstanceRepositoryReadsProductColumns(t *testing.T) {
 	users := NewUserRepository(pool)
 	instances := NewInstanceRepository(pool)
 
-	created := createTestInstance(t, instances, "plain", "plain-ref")
+	created := createTestInstance(t, pool, instances, "plain", "plain-ref")
 	got, err := instances.Get(ctx, created.ID)
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
-	if got.OwnerUserID != nil {
-		t.Errorf("OwnerUserID = %v, want nil for legacy instance", got.OwnerUserID)
+	if got.OwnerUserID == nil || created.OwnerUserID == nil || *got.OwnerUserID != *created.OwnerUserID {
+		t.Errorf("OwnerUserID = %v, want the stored owner", got.OwnerUserID)
 	}
 	if got.Webhook.URL != nil {
 		t.Errorf("WebhookURL = %v, want nil for legacy instance", got.Webhook.URL)
@@ -207,7 +207,7 @@ func TestInstanceRepositoryReadsProductColumns(t *testing.T) {
 	}
 
 	owner := createTestUser(t, users, "webhook-owner@example.com", "user", 5)
-	owned := createTestInstance(t, instances, "owned", "owned-ref")
+	owned := createTestInstance(t, pool, instances, "owned", "owned-ref")
 	if _, err := pool.Exec(ctx,
 		`UPDATE instances SET owner_user_id = $2 WHERE id = $1`,
 		owned.ID, owner.ID); err != nil {

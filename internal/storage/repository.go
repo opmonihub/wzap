@@ -31,6 +31,10 @@ var (
 	ErrEmailTaken = errors.New("email already taken")
 	// ErrInvalidCursor reports that a pagination cursor is not a valid identifier.
 	ErrInvalidCursor = errors.New("invalid cursor")
+	// ErrOwnerRequired reports that an instance write carried no owner:
+	// ownership is NOT NULL and every instance must reference an existing
+	// user.
+	ErrOwnerRequired = errors.New("owner is required")
 	// ErrFingerprintMismatch reports that an idempotency key was reused with a
 	// different request fingerprint.
 	ErrFingerprintMismatch = errors.New("idempotency fingerprint mismatch")

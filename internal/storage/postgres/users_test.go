@@ -216,11 +216,10 @@ func TestUserRepositoryDelete(t *testing.T) {
 	}
 }
 
-// TestUserRepositoryDeleteOwnerWithInstances proves the remodel policy:
-// deleting an owner succeeds and its instances become ownerless (ON DELETE
-// SET NULL), matching the legacy pre-backfill rows. The "don't delete users
-// with instances" rule stays a service-layer guard (CountByOwner check in
-// the handler); the FK is the safety net for a bypass.
+// TestUserRepositoryDeleteOwnerRestricted proves the ownership FK is
+// restrictive: deleting a user that still owns instances is blocked by the
+// database (never cascaded or nulled), the instances keep their owner, and
+// the delete succeeds once ownership is released.
 func TestUserRepositoryDeleteOwnerWithInstances(t *testing.T) {
 	ctx := context.Background()
 	pool := newTestPool(t)
@@ -228,19 +227,37 @@ func TestUserRepositoryDeleteOwnerWithInstances(t *testing.T) {
 	instances := NewInstanceRepository(pool)
 
 	owner := createTestUser(t, users, "owner@example.com", "user", 5)
-	instance := createTestInstance(t, instances, "owned", "owned-ref")
+	instance := createTestInstance(t, pool, instances, "owned", "owned-ref")
+	// Hand the instance to the owner under test: createTestInstance fixtures
+	// get their own throwaway owner.
 	setInstanceOwner(t, pool, instance.ID, owner.ID)
+	if seeded, err := instances.Get(ctx, instance.ID); err != nil {
+		t.Fatalf("seed instance Get: %v", err)
+	} else if seeded.OwnerUserID == nil || *seeded.OwnerUserID != owner.ID {
+		t.Fatalf("seed instance OwnerUserID = %v, want %s", seeded.OwnerUserID, owner.ID)
+	}
 
-	if err := users.Delete(ctx, owner.ID); err != nil {
-		t.Fatalf("Delete owner with instances: %v, want success (SET NULL)", err)
+	if err := users.Delete(ctx, owner.ID); err == nil {
+		t.Fatal("Delete owner with instances = nil, want the restrictive FK to block it")
 	}
 
 	got, err := instances.Get(ctx, instance.ID)
 	if err != nil {
-		t.Fatalf("Get instance after owner delete: %v", err)
+		t.Fatalf("Get instance after blocked owner delete: %v", err)
 	}
-	if got.OwnerUserID != nil {
-		t.Errorf("OwnerUserID = %v, want NULL after owner delete", *got.OwnerUserID)
+	if got.OwnerUserID == nil || *got.OwnerUserID != owner.ID {
+		t.Errorf("OwnerUserID = %v, want untouched %s", got.OwnerUserID, owner.ID)
+	}
+
+	// Ownership released: the delete goes through.
+	if err := instances.Delete(ctx, instance.ID); err != nil {
+		t.Fatalf("Delete instance: %v", err)
+	}
+	if err := users.Delete(ctx, owner.ID); err != nil {
+		t.Fatalf("Delete owner after instance delete: %v", err)
+	}
+	if _, err := users.GetByID(ctx, owner.ID); !errors.Is(err, storage.ErrNotFound) {
+		t.Errorf("GetByID(deleted owner) error = %v, want ErrNotFound", err)
 	}
 }
 

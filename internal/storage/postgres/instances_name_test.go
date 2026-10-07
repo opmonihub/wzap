@@ -19,8 +19,8 @@ func TestInstanceRepositoryNameLookupLegacy(t *testing.T) {
 	ctx := context.Background()
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
-	exact := createTestInstance(t, repo, "Loja_SP-1", "")
-	lower := createTestInstance(t, repo, "loja_SP-1", "")
+	exact := createTestInstance(t, pool, repo, "Loja_SP-1", "")
+	lower := createTestInstance(t, pool, repo, "loja_SP-1", "")
 	for _, inst := range []*model.Instance{exact, lower} {
 		got, err := repo.GetByName(ctx, inst.Name)
 		if err != nil || got.ID != inst.ID {
@@ -31,11 +31,16 @@ func TestInstanceRepositoryNameLookupLegacy(t *testing.T) {
 		t.Fatalf("missing = %v", err)
 	}
 	legacyID := uuid.New()
-	if _, err := pool.Exec(ctx, `INSERT INTO instances(id,name) VALUES($1,'unsafe name!'),($2,'Loja_SP-1')`, legacyID, uuid.New()); err != nil {
+	legacyOwner := createTestOwner(t, pool)
+	if _, err := pool.Exec(ctx, `INSERT INTO instances(id,name,owner_user_id) VALUES($1,'unsafe name!',$2)`, legacyID, legacyOwner.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.GetByName(ctx, exact.Name); !errors.Is(err, storage.ErrInstanceNameAmbiguous) {
-		t.Fatalf("ambiguous = %v", err)
+	// The exact name still resolves to a single row: the global unique
+	// constraint rules out legacy duplicates, so the ambiguity path of
+	// GetByName is unreachable in the fresh baseline.
+	got, err := repo.GetByName(ctx, exact.Name)
+	if err != nil || got.ID != exact.ID {
+		t.Fatalf("unique exact lookup = %+v, %v", got, err)
 	}
 	legacy, err := repo.GetByName(ctx, "unsafe name!")
 	if err != nil || legacy.ID != legacyID {
@@ -51,7 +56,7 @@ func TestInstanceRepositoryNameLookupLegacy(t *testing.T) {
 	if _, err := repo.UpdateIdentity(ctx, exact.ID, renamed, exact.ExternalRef); err != nil {
 		t.Fatal(err)
 	}
-	got, err := repo.GetByName(ctx, renamed)
+	got, err = repo.GetByName(ctx, renamed)
 	if err != nil || got.ID != exact.ID {
 		t.Fatalf("rename = %+v, %v", got, err)
 	}
@@ -79,7 +84,7 @@ func TestInstanceRepositoryNameClaims(t *testing.T) {
 	if _, err := repo.Create(ctx, model.Instance{ID: uuid.New(), Name: first.Name, OwnerUserID: &ownerB.ID}); !errors.Is(err, storage.ErrInstanceNameTaken) {
 		t.Fatalf("cross-owner duplicate = %v", err)
 	}
-	second := createTestInstance(t, repo, "other", "")
+	second := createTestInstance(t, pool, repo, "other", "")
 	if _, err := repo.UpdateIdentity(ctx, second.ID, first.Name, second.ExternalRef); !errors.Is(err, storage.ErrInstanceNameTaken) {
 		t.Fatalf("rename occupied = %v", err)
 	}
@@ -95,14 +100,15 @@ func TestInstanceRepositoryNameConcurrentClaims(t *testing.T) {
 			defer cancel()
 			pool := newTestPool(t)
 			repo := NewInstanceRepository(pool)
+			owner := createTestOwner(t, pool)
 			for i := 0; i < 8; i++ {
 				target := fmt.Sprintf("target-%d", i)
 				ops := []func() error{}
 				for j := 0; j < 2; j++ {
-					inst := model.Instance{ID: uuid.New(), Name: target}
+					inst := model.Instance{ID: uuid.New(), Name: target, OwnerUserID: &owner.ID}
 					rename := kind == "rename-rename" || kind == "create-rename" && j == 1
 					if rename {
-						inst = *createTestInstance(t, repo, fmt.Sprintf("old-%d-%d", i, j), "")
+						inst = *createTestInstance(t, pool, repo, fmt.Sprintf("old-%d-%d", i, j), "")
 						inst.Name = target
 					}
 					ops = append(ops, func() error {
@@ -148,7 +154,8 @@ func TestInstanceRepositoryNameSameRowUsesCurrentDatabaseName(t *testing.T) {
 	defer cancel()
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
-	stale := createTestInstance(t, repo, "original", "")
+	owner := createTestOwner(t, pool)
+	stale := createTestInstance(t, pool, repo, "original", "")
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -161,7 +168,7 @@ func TestInstanceRepositoryNameSameRowUsesCurrentDatabaseName(t *testing.T) {
 	if _, err := tx.Exec(ctx, `UPDATE instances SET name='new-current' WHERE id=$1`, stale.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO instances(id,name) VALUES($1,'original')`, uuid.New()); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO instances(id,name,owner_user_id) VALUES($1,'original',$2)`, uuid.New(), owner.ID); err != nil {
 		t.Fatal(err)
 	}
 	result := make(chan error, 1)
@@ -195,6 +202,7 @@ func TestInstanceRepositoryNameSameRowUsesCurrentDatabaseName(t *testing.T) {
 func TestInstanceRepositoryNameStaleLegacyRestoreRejected(t *testing.T) {
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
+	legacyOwner := createTestOwner(t, pool)
 	svc := instance.NewService(repo, nil, nil, nil, nil, zerolog.Nop())
 	for i, legacy := range []string{"legacy name!", "stats", "550e8400e29b41d4a716446655440000"} {
 		for _, explicit := range []bool{false, true} {
@@ -207,7 +215,7 @@ func TestInstanceRepositoryNameStaleLegacyRestoreRejected(t *testing.T) {
 						t.Errorf("cleanup legacy row: %v", err)
 					}
 				})
-				if _, err := pool.Exec(ctx, `INSERT INTO instances(id,name) VALUES($1,$2)`, id, legacy); err != nil {
+				if _, err := pool.Exec(ctx, `INSERT INTO instances(id,name,owner_user_id) VALUES($1,$2,$3)`, id, legacy, legacyOwner.ID); err != nil {
 					t.Fatal(err)
 				}
 				// Truly unchanged legacy values still allow unrelated updates.

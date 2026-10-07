@@ -34,10 +34,12 @@ func TestGroupNewsletterMetadataRoundTrip(t *testing.T) {
 	}
 
 	instances := NewInstanceRepository(pool)
+	owner := createTestOwner(t, pool)
 	instance, err := instances.Create(ctx, model.Instance{
-		ID:         uuid.New(),
-		Name:       "metadata",
-		Connection: model.InstanceConnection{Status: "disconnected"},
+		ID:          uuid.New(),
+		Name:        "metadata",
+		OwnerUserID: &owner.ID,
+		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)

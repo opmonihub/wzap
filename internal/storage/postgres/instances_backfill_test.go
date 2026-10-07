@@ -5,8 +5,14 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+
+	"wzap/internal/model"
 )
 
+// TestInstanceRepositoryBackfillOwner pins the backfill against the fresh
+// baseline: ownership is NOT NULL, so ownerless rows cannot exist and
+// BackfillOwner claims nothing, leaving owned instances untouched. (The
+// backfill itself goes away with the historical-tolerance cleanup.)
 func TestInstanceRepositoryBackfillOwner(t *testing.T) {
 	ctx := context.Background()
 	pool := newTestPool(t)
@@ -16,43 +22,36 @@ func TestInstanceRepositoryBackfillOwner(t *testing.T) {
 	admin := createTestUser(t, users, "admin@example.com", "admin", 0)
 	other := createTestUser(t, users, "other@example.com", "user", 0)
 
-	first := createTestInstance(t, repo, "legacy-one", "legacy-one")
-	second := createTestInstance(t, repo, "legacy-two", "legacy-two")
-	owned := createTestInstance(t, repo, "owned", "owned-ref")
-	setInstanceOwner(t, pool, owned.ID, other.ID)
+	created := []*model.Instance{
+		createTestInstance(t, pool, repo, "owned-one", "owned-one"),
+		createTestInstance(t, pool, repo, "owned-two", "owned-two"),
+	}
 
 	claimed, err := repo.BackfillOwner(ctx, admin.ID)
 	if err != nil {
 		t.Fatalf("BackfillOwner: %v", err)
 	}
-	if claimed != 2 {
-		t.Errorf("BackfillOwner claimed = %d, want 2", claimed)
+	if claimed != 0 {
+		t.Errorf("BackfillOwner claimed = %d, want 0 (no ownerless rows exist)", claimed)
 	}
 
-	for _, id := range []uuid.UUID{first.ID, second.ID} {
-		got, err := repo.Get(ctx, id)
+	for _, instance := range created {
+		got, err := repo.Get(ctx, instance.ID)
 		if err != nil {
-			t.Fatalf("Get(%s) after backfill: %v", id, err)
+			t.Fatalf("Get(%s) after backfill: %v", instance.ID, err)
 		}
-		if got.OwnerUserID == nil || *got.OwnerUserID != admin.ID {
-			t.Errorf("Get(%s) OwnerUserID = %v, want %s", id, got.OwnerUserID, admin.ID)
+		if got.OwnerUserID == nil || instance.OwnerUserID == nil || *got.OwnerUserID != *instance.OwnerUserID {
+			t.Errorf("Get(%s) OwnerUserID = %v, want untouched", instance.ID, instance.OwnerUserID)
 		}
 	}
 
-	got, err := repo.Get(ctx, owned.ID)
+	// The backfill is a no-op even on repeat: never touching owners.
+	claimed, err = repo.BackfillOwner(ctx, other.ID)
 	if err != nil {
-		t.Fatalf("Get(owned) after backfill: %v", err)
-	}
-	if got.OwnerUserID == nil || *got.OwnerUserID != other.ID {
-		t.Errorf("Get(owned) OwnerUserID = %v, want untouched %s", got.OwnerUserID, other.ID)
-	}
-
-	claimed, err = repo.BackfillOwner(ctx, admin.ID)
-	if err != nil {
-		t.Fatalf("BackfillOwner again: %v", err)
+		t.Fatalf("BackfillOwner(other): %v", err)
 	}
 	if claimed != 0 {
-		t.Errorf("BackfillOwner again claimed = %d, want 0", claimed)
+		t.Errorf("BackfillOwner(other) claimed = %d, want 0", claimed)
 	}
 }
 
@@ -61,30 +60,15 @@ func TestInstanceRepositoryBackfillOwnerUnknownOwner(t *testing.T) {
 	pool := newTestPool(t)
 	repo := NewInstanceRepository(pool)
 
-	createTestInstance(t, repo, "legacy", "legacy-ref")
+	createTestInstance(t, pool, repo, "owned", "owned-ref")
 
-	if _, err := repo.BackfillOwner(ctx, uuid.New()); err == nil {
-		t.Fatal("BackfillOwner(unknown owner) = nil, want FK error")
-	}
-
-	got, err := repo.Get(ctx, mustInstanceID(t, ctx, repo))
+	// With no ownerless rows to match, an unknown owner updates nothing and
+	// never reaches the FK.
+	claimed, err := repo.BackfillOwner(ctx, uuid.New())
 	if err != nil {
-		t.Fatalf("Get after failed backfill: %v", err)
+		t.Fatalf("BackfillOwner(unknown owner) = %v, want a no-op", err)
 	}
-	if got.OwnerUserID != nil {
-		t.Errorf("OwnerUserID = %v after failed backfill, want nil", got.OwnerUserID)
+	if claimed != 0 {
+		t.Errorf("BackfillOwner(unknown owner) claimed = %d, want 0", claimed)
 	}
-}
-
-func mustInstanceID(t *testing.T, ctx context.Context, repo *InstanceRepository) uuid.UUID {
-	t.Helper()
-
-	instances, err := repo.List(ctx)
-	if err != nil {
-		t.Fatalf("List: %v", err)
-	}
-	if len(instances) != 1 {
-		t.Fatalf("List returned %d instances, want 1", len(instances))
-	}
-	return instances[0].ID
 }

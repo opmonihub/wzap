@@ -21,10 +21,12 @@ func TestChatwootConfigPutAndGet(t *testing.T) {
 	}
 
 	instances := NewInstanceRepository(pool)
+	owner := createTestOwner(t, pool)
 	instance, err := instances.Create(ctx, model.Instance{
-		ID:         uuid.New(),
-		Name:       "chatwoot-cfg",
-		Connection: model.InstanceConnection{Status: "disconnected"},
+		ID:          uuid.New(),
+		Name:        "chatwoot-cfg",
+		OwnerUserID: &owner.ID,
+		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
@@ -138,6 +140,7 @@ func TestChatwootConfigPutNilAndEmptyIgnoreJIDs(t *testing.T) {
 	}
 
 	instances := NewInstanceRepository(pool)
+	owner := createTestOwner(t, pool)
 	cfgRepo, _ := NewChatwootRepositories(pool, nil)
 
 	for _, tc := range []struct {
@@ -149,9 +152,10 @@ func TestChatwootConfigPutNilAndEmptyIgnoreJIDs(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			instance, err := instances.Create(ctx, model.Instance{
-				ID:         uuid.New(),
-				Name:       "chatwoot-ignore-" + tc.name,
-				Connection: model.InstanceConnection{Status: "disconnected"},
+				ID:          uuid.New(),
+				Name:        "chatwoot-ignore-" + tc.name,
+				OwnerUserID: &owner.ID,
+				Connection:  model.InstanceConnection{Status: "disconnected"},
 			})
 			if err != nil {
 				t.Fatalf("create instance: %v", err)
@@ -187,10 +191,12 @@ func TestChatwootMessagePutGetDeleteByInstance(t *testing.T) {
 	}
 
 	instances := NewInstanceRepository(pool)
+	owner := createTestOwner(t, pool)
 	instance, err := instances.Create(ctx, model.Instance{
-		ID:         uuid.New(),
-		Name:       "chatwoot-msg",
-		Connection: model.InstanceConnection{Status: "disconnected"},
+		ID:          uuid.New(),
+		Name:        "chatwoot-msg",
+		OwnerUserID: &owner.ID,
+		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
@@ -275,10 +281,12 @@ func TestLatestByConversationTiebreaksDeterministically(t *testing.T) {
 	}
 
 	instances := NewInstanceRepository(pool)
+	owner := createTestOwner(t, pool)
 	instance, err := instances.Create(ctx, model.Instance{
-		ID:         uuid.New(),
-		Name:       "chatwoot-latest",
-		Connection: model.InstanceConnection{Status: "disconnected"},
+		ID:          uuid.New(),
+		Name:        "chatwoot-latest",
+		OwnerUserID: &owner.ID,
+		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
@@ -324,10 +332,12 @@ func TestLatestByConversationSkipsPendingRows(t *testing.T) {
 	}
 
 	instances := NewInstanceRepository(pool)
+	owner := createTestOwner(t, pool)
 	instance, err := instances.Create(ctx, model.Instance{
-		ID:         uuid.New(),
-		Name:       "chatwoot-latest-pending",
-		Connection: model.InstanceConnection{Status: "disconnected"},
+		ID:          uuid.New(),
+		Name:        "chatwoot-latest-pending",
+		OwnerUserID: &owner.ID,
+		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
@@ -381,10 +391,12 @@ func TestChatwootConfigTokenSealedAtRest(t *testing.T) {
 	}
 
 	instances := NewInstanceRepository(pool)
+	owner := createTestOwner(t, pool)
 	instance, err := instances.Create(ctx, model.Instance{
-		ID:         uuid.New(),
-		Name:       "chatwoot-sealed",
-		Connection: model.InstanceConnection{Status: "disconnected"},
+		ID:          uuid.New(),
+		Name:        "chatwoot-sealed",
+		OwnerUserID: &owner.ID,
+		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
@@ -436,7 +448,8 @@ func TestChatwootConfigBackfillTokenSeal(t *testing.T) {
 	}
 
 	instances := NewInstanceRepository(pool)
-	legacy, err := instances.Create(ctx, model.Instance{ID: uuid.New(), Name: "chatwoot-legacy", Connection: model.InstanceConnection{Status: "disconnected"}})
+	owner := createTestOwner(t, pool)
+	legacy, err := instances.Create(ctx, model.Instance{ID: uuid.New(), Name: "chatwoot-legacy", OwnerUserID: &owner.ID, Connection: model.InstanceConnection{Status: "disconnected"}})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
 	}
@@ -484,10 +497,12 @@ func TestChatwootMessagesMultipleSendsShareChatwootID(t *testing.T) {
 	}
 
 	instances := NewInstanceRepository(pool)
+	owner := createTestOwner(t, pool)
 	instance, err := instances.Create(ctx, model.Instance{
-		ID:         uuid.New(),
-		Name:       "chatwoot-shared",
-		Connection: model.InstanceConnection{Status: "disconnected"},
+		ID:          uuid.New(),
+		Name:        "chatwoot-shared",
+		OwnerUserID: &owner.ID,
+		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
@@ -534,10 +549,12 @@ func TestChatwootMessageKeepsCorrelationWhenQueueRowDies(t *testing.T) {
 
 	instances := NewInstanceRepository(pool)
 	messages := NewMessageRepository(pool)
+	owner := createTestOwner(t, pool)
 	instance, err := instances.Create(ctx, model.Instance{
-		ID:         uuid.New(),
-		Name:       "chatwoot-correl",
-		Connection: model.InstanceConnection{Status: "disconnected"},
+		ID:          uuid.New(),
+		Name:        "chatwoot-correl",
+		OwnerUserID: &owner.ID,
+		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
@@ -607,10 +624,12 @@ func TestChatwootPromotePendingRewritesWAKey(t *testing.T) {
 
 	instances := NewInstanceRepository(pool)
 	messages := NewMessageRepository(pool)
+	owner := createTestOwner(t, pool)
 	instance, err := instances.Create(ctx, model.Instance{
-		ID:         uuid.New(),
-		Name:       "chatwoot-pending",
-		Connection: model.InstanceConnection{Status: "disconnected"},
+		ID:          uuid.New(),
+		Name:        "chatwoot-pending",
+		OwnerUserID: &owner.ID,
+		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
@@ -683,10 +702,12 @@ func TestChatwootPromotePendingConflictKeepsRealKey(t *testing.T) {
 
 	instances := NewInstanceRepository(pool)
 	messages := NewMessageRepository(pool)
+	owner := createTestOwner(t, pool)
 	instance, err := instances.Create(ctx, model.Instance{
-		ID:         uuid.New(),
-		Name:       "chatwoot-conflict",
-		Connection: model.InstanceConnection{Status: "disconnected"},
+		ID:          uuid.New(),
+		Name:        "chatwoot-conflict",
+		OwnerUserID: &owner.ID,
+		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)

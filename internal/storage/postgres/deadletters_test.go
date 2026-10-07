@@ -19,10 +19,12 @@ func TestDeadLetterRecordAndDedupe(t *testing.T) {
 	}
 
 	instances := NewInstanceRepository(pool)
+	owner := createTestOwner(t, pool)
 	instance, err := instances.Create(ctx, model.Instance{
-		ID:         uuid.New(),
-		Name:       "dead-letter",
-		Connection: model.InstanceConnection{Status: "disconnected"},
+		ID:          uuid.New(),
+		Name:        "dead-letter",
+		OwnerUserID: &owner.ID,
+		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
@@ -86,18 +88,21 @@ func TestDeadLetterRetentionCapsPerInstance(t *testing.T) {
 	}
 
 	instances := NewInstanceRepository(pool)
+	owner := createTestOwner(t, pool)
 	instance, err := instances.Create(ctx, model.Instance{
-		ID:         uuid.New(),
-		Name:       "capped",
-		Connection: model.InstanceConnection{Status: "disconnected"},
+		ID:          uuid.New(),
+		Name:        "capped",
+		OwnerUserID: &owner.ID,
+		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
 	}
 	other, err := instances.Create(ctx, model.Instance{
-		ID:         uuid.New(),
-		Name:       "untouched",
-		Connection: model.InstanceConnection{Status: "disconnected"},
+		ID:          uuid.New(),
+		Name:        "untouched",
+		OwnerUserID: &owner.ID,
+		Connection:  model.InstanceConnection{Status: "disconnected"},
 	})
 	if err != nil {
 		t.Fatalf("create other instance: %v", err)

@@ -53,8 +53,10 @@ func NewInstanceRepository(pool *pgxpool.Pool) *InstanceRepository {
 
 // Create persists the identity row plus its connection and webhook
 // satellites in one transaction, and returns the aggregate with database
-// timestamps. A nil OwnerUserID stores NULL (legacy rows); the service always
-// supplies an owner for new rows. A nil Webhook.URL stores NULL (unset) and a
+// timestamps. Ownership is mandatory: OwnerUserID must reference an existing
+// user — a nil owner or an unknown owner fails with
+// storage.ErrOwnerRequired, and the restrictive FK keeps the owner alive as
+// long as the instance exists. A nil Webhook.URL stores NULL (unset) and a
 // nil Events slice falls back to the canonical default, matching the
 // migration defaults.
 func (r *InstanceRepository) Create(ctx context.Context, instance model.Instance) (*model.Instance, error) {
@@ -513,12 +515,23 @@ func mapInstanceError(op string, err error) error {
 		switch pgErr.Code {
 		case "23505":
 			switch pgErr.ConstraintName {
+			case "instances_name_key":
+				return fmt.Errorf("%s: %w", op, storage.ErrInstanceNameTaken)
 			case "instances_external_ref_key":
 				return fmt.Errorf("%s: %w", op, storage.ErrExternalRefTaken)
 			case "instance_connections_device_jid_uidx":
 				return fmt.Errorf("%s: %w", op, storage.ErrDeviceJIDTaken)
 			}
+		case "23502":
+			if pgErr.ColumnName == "owner_user_id" {
+				return fmt.Errorf("%s: %w", op, storage.ErrOwnerRequired)
+			}
 		case "23503":
+			if pgErr.TableName == "instances" {
+				// The only FK on instances is owner_user_id: a violation
+				// means the supplied owner does not exist.
+				return fmt.Errorf("%s: %w", op, storage.ErrOwnerRequired)
+			}
 			// A foreign-key violation on a satellite write means the owning
 			// instance row is gone: the caller sees ErrNotFound.
 			return fmt.Errorf("%s: %w", op, storage.ErrNotFound)

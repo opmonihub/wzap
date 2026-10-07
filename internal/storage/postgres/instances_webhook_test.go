@@ -21,8 +21,9 @@ func TestInstanceRepositoryWebhookRoundtrip(t *testing.T) {
 	repo := NewInstanceRepository(pool)
 
 	url := "https://hooks.example.com/wzap"
+	owner := createTestOwner(t, pool)
 	created, err := repo.Create(ctx, model.Instance{
-		ID: uuid.New(), Name: "webhook",
+		ID: uuid.New(), Name: "webhook", OwnerUserID: &owner.ID,
 		Connection: model.InstanceConnection{Status: "disconnected"},
 		Webhook: model.InstanceWebhook{
 			URL: &url, IsEnabled: true,

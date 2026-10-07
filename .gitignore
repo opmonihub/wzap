@@ -26,3 +26,4 @@ build-errors.log
 docs/superpowers/
 # Local example repos for exploration (never commit).
 /research/
+.superpowers/

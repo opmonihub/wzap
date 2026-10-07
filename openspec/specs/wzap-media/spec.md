@@ -22,7 +22,7 @@ Mensagens com mídia SHALL ter o conteúdo baixado automaticamente até o limite
 
 ### Requirement: Armazenamento com integridade
 
-A mídia armazenada MUST registrar tipo, tamanho, nome quando houver e checksum, permitindo verificar integridade. Os bytes SHALL ser armazenados no MinIO e identificados por bucket e chave de objeto únicos; referências à mídia SHALL conservar seu UUID e escopo de instância. Migração de arquivos locais MUST verificar conteúdo antes de trocar a referência persistida.
+A mídia armazenada MUST registrar tipo, tamanho, nome quando houver e checksum, permitindo verificar integridade. Os bytes SHALL ser armazenados no MinIO e identificados por bucket e chave de objeto únicos; referências à mídia SHALL conservar seu UUID e escopo de instância. Migração de arquivos locais MUST verificar conteúdo antes de trocar a referência persistida. A migração MUST distinguir arquivo ausente de arquivo ilegível: um arquivo que existe mas não pode ser lido (permissão negada, erro de I/O) e uma chave de objeto que escapa do diretório de dados MUST falhar a migração para aquela row; uma row sem arquivo local MUST ser conferida contra o bucket registrado e, ausente também o objeto, MUST falhar a migração. O comando de migração MUST NOT terminar com sucesso enquanto houver mídia sob sua responsabilidade sem nenhuma cópia acessível.
 
 #### Scenario: Mídia armazenada
 
@@ -33,6 +33,21 @@ A mídia armazenada MUST registrar tipo, tamanho, nome quando houver e checksum,
 
 - **WHEN** um arquivo local existente é transferido para o MinIO
 - **THEN** conserva UUID, tamanho e checksum após verificação, mantendo as referências de mensagens
+
+#### Scenario: Arquivo ilegível não é ignorado
+
+- **WHEN** um arquivo local existente não pode ser lido (permissão negada ou erro de I/O)
+- **THEN** a migração falha para aquela row nomeando a mídia, segue com as demais e o comando não reporta sucesso
+
+#### Scenario: Row sem nenhuma cópia
+
+- **WHEN** uma row de mídia não tem arquivo local e o bucket registrado nela também não contém o objeto
+- **THEN** a migração falha para aquela row, reportando a mídia sem nenhuma cópia acessível
+
+#### Scenario: Arquivo ausente já migrado
+
+- **WHEN** o arquivo local de uma row foi removido pela limpeza e o bucket registrado já contém o objeto
+- **THEN** a row é pulada sem erro e sem reenvio
 
 ### Requirement: Download autenticado
 

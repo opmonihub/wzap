@@ -119,9 +119,20 @@ Públicas sem credencial: `GET /healthz`, `GET /readyz`, o console em
 regras de autenticação acima).
 
 Subcomandos do binário: `wzap serve` (padrão), `wzap migrate` (aplica as
-migrações e sai), `wzap media-migrate` (migra bytes de mídia legados para o
-object store quando `WZAP_S3_ENDPOINT` está configurado) e `wzap healthcheck`
-(chama `/readyz` em loopback e sai `0`/`1`; é o healthcheck do container).
+migrações e sai), `wzap media-migrate` (transfere mídia local para o object
+store quando `WZAP_S3_ENDPOINT` está configurado, verificando SHA-256;
+arquivos ilegíveis e rows sem cópia — sem arquivo e sem objeto no bucket —
+falham o comando por linha) e `wzap healthcheck` (chama `/readyz` em loopback
+e sai `0`/`1`; é o healthcheck do container).
+
+O corte do remodel de storage tem um gate na migração `00010`: divergências
+de identidade (`whatsapp_jid` vs `device_jid`) registradas em
+`remodel_report` (`device_jid_conflicts`) bloqueiam `wzap migrate` e o boot
+com `WZAP_AUTO_MIGRATE=true` até resolução explícita — o erro lista os casos;
+o operador reconcilia `instance_connections.device_jid`, marca a row como
+resolvida (`UPDATE remodel_report SET resolved_at = now() WHERE category =
+'device_jid_conflicts' AND ref_id = ...`) e roda `wzap migrate` novamente. A
+row fica como histórico de auditoria.
 
 ### Contas (só key global ou sessão `admin`; sem registro público)
 

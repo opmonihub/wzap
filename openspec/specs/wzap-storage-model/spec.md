@@ -31,9 +31,19 @@ Uma mensagem SHALL referenciar opcionalmente uma mídia da mesma instância; uma
 
 ### Requirement: Migração verificável sem fabricação de dados
 
-A migração MUST detectar referências órfãs, dispositivos divergentes e estados incompatíveis antes do corte e MUST preservar os dados para tratamento explícito. Datas de erro desconhecidas e identificadores externos ausentes MUST NOT ser fabricados.
+A migração MUST detectar referências órfãs, dispositivos divergentes e estados incompatíveis antes do corte e MUST preservar os dados para tratamento explícito. Datas de erro desconhecidas e identificadores externos ausentes MUST NOT ser fabricados. Uma divergência entre identidades de dispositivo (`whatsapp_jid` vs `device_jid`) SHALL ser registrada no relatório de auditoria com ambos os valores e MUST bloquear o corte: o comando de migração e o boot com migração automática MUST falhar enquanto a divergência não tiver resolução explícita registrada no relatório. A resolução MUST permanecer no relatório como histórico de auditoria, com a marca de quando foi registrada.
 
 #### Scenario: Vínculo antigo não recuperável
 
 - **WHEN** a auditoria encontra uma referência de mídia cujo registro e objeto já foram removidos
 - **THEN** o corte não prossegue sem a política documentada de tratamento e nenhum checksum ou arquivo fictício é criado
+
+#### Scenario: Divergência de identidade bloqueia o corte
+
+- **WHEN** a migração registra divergência entre `whatsapp_jid` e `device_jid` e a migração completa é executada sem resolução explícita
+- **THEN** o comando de migração e o boot com migração automática falham nomeando os casos divergentes, o banco permanece na versão anterior ao gate e a row de divergência é preservada no relatório
+
+#### Scenario: Resolução explícita libera o corte
+
+- **WHEN** o operador reconcilia a identidade e marca a divergência como resolvida no relatório de auditoria
+- **THEN** a migração completa atravessa o gate e a row de divergência permanece no relatório com ambos os valores e a marca de resolução

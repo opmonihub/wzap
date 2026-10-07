@@ -920,7 +920,9 @@ func TestHandleMessageDedupsViaPostgresCorrelation(t *testing.T) {
 	if err := postgres.Migrate(ctx, pool); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	cfgRepo, msgRepo := postgres.NewChatwootRepositories(pool, nil)
+	// Tokens persist only as AES-256-GCM ciphertext, so even this test
+	// wiring needs a valid 32-byte repository key.
+	cfgRepo, msgRepo := postgres.NewChatwootRepositories(pool, []byte("0123456789abcdef0123456789abcdef"))
 	instanceID := uuid.New()
 	owner, err := postgres.NewUserRepository(pool).Create(ctx, model.User{ID: uuid.New(), Email: "mirror-owner@example.test", PasswordHash: "hash", Role: "user"})
 	if err != nil {

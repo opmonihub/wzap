@@ -11,8 +11,8 @@ import (
 
 // SealedTokenPrefix marks a stored Chatwoot token as AES-GCM ciphertext. The
 // token column keeps holding text, so sealed values need no schema change;
-// rows without the prefix are legacy plaintext and keep reading through
-// OpenToken unchanged.
+// non-empty stored values always carry the prefix — plaintext storage has
+// no compatibility mode.
 const SealedTokenPrefix = "enc:v1:"
 
 // SealToken encrypts a Chatwoot token with key (exactly 32 bytes, AES-256)
@@ -35,13 +35,16 @@ func SealToken(plaintext string, key []byte) (string, error) {
 	return SealedTokenPrefix + base64.StdEncoding.EncodeToString(sealed), nil
 }
 
-// OpenToken recovers the plaintext of a stored Chatwoot token with key. Rows
-// without the prefix pass through untouched (legacy plaintext, readable with
-// or without a configured key); sealed rows require the 32-byte key and fail
-// closed on tampering or a wrong key.
+// OpenToken recovers the plaintext of a stored Chatwoot token with key.
+// Empty tokens read back empty (disabled configs carry none); every
+// non-empty stored value must be the authenticated envelope and fails
+// closed on tampering, a wrong key, or a legacy plaintext row.
 func OpenToken(stored string, key []byte) (string, error) {
+	if stored == "" {
+		return "", nil
+	}
 	if !strings.HasPrefix(stored, SealedTokenPrefix) {
-		return stored, nil
+		return "", fmt.Errorf("open chatwoot token: legacy plaintext token without the sealed envelope")
 	}
 	aead, err := tokenAEAD(key)
 	if err != nil {

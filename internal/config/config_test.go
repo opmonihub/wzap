@@ -76,6 +76,7 @@ func TestLoadFullConfig(t *testing.T) {
 		"WZAP_LOG_FORMAT":                  "text",
 		"WZAP_AUTO_MIGRATE":                "false",
 		"WZAP_CHATWOOT_ENABLED":            "true",
+		"WZAP_CHATWOOT_TOKEN_KEY":          "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
 		"WZAP_CHATWOOT_BOT_CONTACT":        "123456",
 		"WZAP_CHATWOOT_MESSAGE_READ":       "true",
 		"WZAP_CHATWOOT_MESSAGE_DELETE":     "true",
@@ -124,6 +125,7 @@ func TestLoadFullConfig(t *testing.T) {
 			MessageDelete:     true,
 			ImportDBURL:       "postgres://chatwoot:secret@db:5432/chatwoot",
 			ImportPlaceholder: true,
+			TokenKey:          "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
 		},
 		S3: S3{
 			Endpoint:  "http://minio:9000",
@@ -437,6 +439,8 @@ func TestLoadChatwootValid(t *testing.T) {
 	clearWZAPEnv(t)
 	setRequiredEnv(t)
 	t.Setenv("WZAP_CHATWOOT_ENABLED", "true")
+	// base64 of 32 0x01 bytes; an enabled connector requires the seal key.
+	t.Setenv("WZAP_CHATWOOT_TOKEN_KEY", "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=")
 	t.Setenv("WZAP_CHATWOOT_BOT_CONTACT", "123456")
 	t.Setenv("WZAP_CHATWOOT_MESSAGE_READ", "true")
 	t.Setenv("WZAP_CHATWOOT_MESSAGE_DELETE", "1")
@@ -446,7 +450,10 @@ func TestLoadChatwootValid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	want := Chatwoot{Enabled: true, BotContact: "123456", MessageRead: true, MessageDelete: true, ImportPlaceholder: true}
+	want := Chatwoot{
+		Enabled: true, BotContact: "123456", MessageRead: true, MessageDelete: true,
+		ImportPlaceholder: true, TokenKey: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
+	}
 	if got.Chatwoot != want {
 		t.Errorf("Load().Chatwoot = %+v, want %+v", got.Chatwoot, want)
 	}
@@ -509,6 +516,33 @@ func TestLoadChatwootTokenKeyRejectsMalformed(t *testing.T) {
 				t.Errorf("Load() error = %q, want it to mention WZAP_CHATWOOT_TOKEN_KEY", err)
 			}
 		})
+	}
+}
+
+func TestLoadChatwootEnabledRequiresTokenKey(t *testing.T) {
+	clearWZAPEnv(t)
+	setRequiredEnv(t)
+	t.Setenv("WZAP_CHATWOOT_ENABLED", "true")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("Load() error = nil with chatwoot enabled, want error naming WZAP_CHATWOOT_TOKEN_KEY")
+	}
+	if !strings.Contains(err.Error(), "WZAP_CHATWOOT_TOKEN_KEY") {
+		t.Errorf("Load() error = %q, want it to mention WZAP_CHATWOOT_TOKEN_KEY", err)
+	}
+}
+
+func TestLoadChatwootDisabledWithoutTokenKeyLoads(t *testing.T) {
+	clearWZAPEnv(t)
+	setRequiredEnv(t)
+
+	got, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v, want disabled chatwoot to load without WZAP_CHATWOOT_TOKEN_KEY", err)
+	}
+	if got.Chatwoot.TokenKey != "" {
+		t.Errorf("Load().Chatwoot.TokenKey = %q, want empty when WZAP_CHATWOOT_TOKEN_KEY is absent", got.Chatwoot.TokenKey)
 	}
 }
 

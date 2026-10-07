@@ -71,17 +71,24 @@ func TestOpenTokenRejectsTamperedCiphertext(t *testing.T) {
 	}
 }
 
-func TestOpenTokenPassesPlaintextThrough(t *testing.T) {
+// TestOpenTokenRejectsLegacyPlaintext pins the mandatory-cipher contract:
+// empty tokens read back as empty (disabled configs carry none) and any
+// non-empty stored value must carry the sealed envelope — legacy plaintext
+// rows no longer read through.
+func TestOpenTokenRejectsLegacyPlaintext(t *testing.T) {
 	key := testTokenKey(t)
-	for _, stored := range []string{"", "legacy-plaintext-token"} {
-		got, err := OpenToken(stored, key)
-		if err != nil {
-			t.Errorf("OpenToken(%q) error = %v, want plaintext passthrough", stored, err)
-			continue
-		}
-		if got != stored {
-			t.Errorf("OpenToken(%q) = %q, want passthrough", stored, got)
-		}
+	got, err := OpenToken("", key)
+	if err != nil {
+		t.Fatalf("OpenToken(\"\") error = %v, want empty passthrough", err)
+	}
+	if got != "" {
+		t.Errorf("OpenToken(\"\") = %q, want empty", got)
+	}
+	if _, err := OpenToken("legacy-plaintext-token", key); err == nil {
+		t.Error("OpenToken(legacy plaintext) = nil, want failure (plaintext storage removed)")
+	}
+	if _, err := OpenToken("legacy-plaintext-token", nil); err == nil {
+		t.Error("OpenToken(legacy plaintext, nil key) = nil, want failure (plaintext storage removed)")
 	}
 }
 

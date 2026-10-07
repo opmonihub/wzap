@@ -54,8 +54,9 @@ type S3 struct {
 // Chatwoot Postgres URI for history import; empty disables the import.
 // ImportPlaceholder turns content-less history messages into a placeholder
 // text instead of skipping them. TokenKey is the base64-encoded 32-byte key
-// sealing per-instance Chatwoot tokens at rest; empty keeps legacy
-// plaintext storage.
+// sealing per-instance Chatwoot tokens at rest; it is required whenever the
+// connector is enabled and rejects any value that is not base64 of exactly
+// 32 bytes.
 type Chatwoot struct {
 	Enabled           bool
 	BotContact        string
@@ -142,6 +143,11 @@ func Load() (Config, error) {
 		if err != nil || len(raw) != 32 {
 			problems = append(problems, "WZAP_CHATWOOT_TOKEN_KEY must be base64-encoded 32 bytes")
 		}
+	} else if cfg.Chatwoot.Enabled {
+		// Tokens persist only as AES-256-GCM ciphertext, so enabling the
+		// connector without the seal key is a configuration error, not a
+		// degraded plaintext mode.
+		problems = append(problems, "WZAP_CHATWOOT_TOKEN_KEY is required when WZAP_CHATWOOT_ENABLED is true")
 	}
 
 	cfg.S3.Endpoint = os.Getenv("WZAP_S3_ENDPOINT")

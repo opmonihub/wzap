@@ -8,10 +8,23 @@ import (
 
 	"github.com/google/uuid"
 
+	chatwootcfg "wzap/internal/chatwoot/config"
 	"wzap/internal/model"
 	"wzap/internal/storage"
 	"wzap/internal/storage/postgres/postgrestest"
 )
+
+// testChatwootTokenKey returns a valid 32-byte AES-256 key for repository
+// tests: tokens are always sealed at rest, so any test persisting a token
+// needs a real key.
+func testChatwootTokenKey(t *testing.T) []byte {
+	t.Helper()
+	key := []byte("0123456789abcdef0123456789abcdef")
+	if len(key) != 32 {
+		t.Fatalf("test key length = %d, want 32", len(key))
+	}
+	return key
+}
 
 func TestChatwootConfigPutAndGet(t *testing.T) {
 	ctx := context.Background()
@@ -32,7 +45,7 @@ func TestChatwootConfigPutAndGet(t *testing.T) {
 		t.Fatalf("create instance: %v", err)
 	}
 
-	cfgRepo, _ := NewChatwootRepositories(pool, nil)
+	cfgRepo, _ := NewChatwootRepositories(pool, testChatwootTokenKey(t))
 	want := model.ChatwootConfig{
 		InstanceID:          instance.ID,
 		Enabled:             true,
@@ -402,7 +415,7 @@ func TestChatwootConfigTokenSealedAtRest(t *testing.T) {
 		t.Fatalf("create instance: %v", err)
 	}
 
-	key := []byte("0123456789abcdef0123456789abcdef")
+	key := testChatwootTokenKey(t)
 	cfgRepo, _ := NewChatwootRepositories(pool, key)
 	stored, err := cfgRepo.Put(ctx, model.ChatwootConfig{
 		InstanceID: instance.ID,
@@ -438,9 +451,22 @@ func TestChatwootConfigTokenSealedAtRest(t *testing.T) {
 	if _, err := wrongRepo.Get(ctx, instance.ID); err == nil {
 		t.Error("Get with wrong key = nil, want authentication failure")
 	}
+
+	// Tampering with the stored ciphertext must fail closed: reads
+	// authenticate before decrypting, so a corrupted envelope never opens.
+	if _, err := pool.Exec(ctx, `UPDATE chatwoot_configs SET token = $1 WHERE instance_id = $2`,
+		chatwootcfg.SealedTokenPrefix+"AAAA", instance.ID); err != nil {
+		t.Fatalf("tamper stored token: %v", err)
+	}
+	if _, err := cfgRepo.Get(ctx, instance.ID); err == nil {
+		t.Error("Get tampered ciphertext = nil, want authentication failure")
+	}
 }
 
-func TestChatwootConfigBackfillTokenSeal(t *testing.T) {
+// TestChatwootConfigPutRejectsNonEmptyTokenWithoutKey pins the mandatory
+// cipher contract at the write boundary: a non-empty token without a
+// repository key is refused instead of persisting plaintext.
+func TestChatwootConfigPutRejectsNonEmptyTokenWithoutKey(t *testing.T) {
 	ctx := context.Background()
 	pool := postgrestest.NewPool(t)
 	if err := Migrate(ctx, pool); err != nil {
@@ -449,41 +475,113 @@ func TestChatwootConfigBackfillTokenSeal(t *testing.T) {
 
 	instances := NewInstanceRepository(pool)
 	owner := createTestOwner(t, pool)
-	// The instance itself is owned; "unsealed" refers to its token being
-	// stored as plaintext, which BackfillTokenSeal seals.
-	unsealed, err := instances.Create(ctx, model.Instance{ID: uuid.New(), Name: "chatwoot-unsealed", OwnerUserID: &owner.ID, Connection: model.InstanceConnection{Status: "disconnected"}})
+	instance, err := instances.Create(ctx, model.Instance{
+		ID:          uuid.New(),
+		Name:        "chatwoot-nokey",
+		OwnerUserID: &owner.ID,
+		Connection:  model.InstanceConnection{Status: "disconnected"},
+	})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
 	}
+
 	plainRepo, _ := NewChatwootRepositories(pool, nil)
 	if _, err := plainRepo.Put(ctx, model.ChatwootConfig{
-		InstanceID: unsealed.ID, Enabled: true, URL: "https://chatwoot.example.com", AccountID: "42", Token: "legacy-token",
-	}); err != nil {
-		t.Fatalf("Put plaintext: %v", err)
+		InstanceID: instance.ID,
+		Enabled:    true,
+		URL:        "https://chatwoot.example.com",
+		AccountID:  "42",
+		Token:      "secret-token",
+	}); err == nil {
+		t.Error("Put non-empty token without key = nil, want refusal")
 	}
 
-	key := []byte("0123456789abcdef0123456789abcdef")
-	keyedRepo, _ := NewChatwootRepositories(pool, key)
-	sealed, err := keyedRepo.BackfillTokenSeal(ctx)
+	var raw string
+	if err := pool.QueryRow(ctx, `SELECT token FROM chatwoot_configs WHERE instance_id = $1`, instance.ID).Scan(&raw); err == nil && raw != "" {
+		t.Errorf("refused Put persisted token %q, want no row", raw)
+	}
+}
+
+// TestChatwootConfigPutEmptyTokenWithoutKeySucceeds pins the other side of
+// the contract: a disabled config carries no token, so it persists without
+// a key and reads back empty.
+func TestChatwootConfigPutEmptyTokenWithoutKeySucceeds(t *testing.T) {
+	ctx := context.Background()
+	pool := postgrestest.NewPool(t)
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatalf("migrate test schema: %v", err)
+	}
+
+	instances := NewInstanceRepository(pool)
+	owner := createTestOwner(t, pool)
+	instance, err := instances.Create(ctx, model.Instance{
+		ID:          uuid.New(),
+		Name:        "chatwoot-empty",
+		OwnerUserID: &owner.ID,
+		Connection:  model.InstanceConnection{Status: "disconnected"},
+	})
 	if err != nil {
-		t.Fatalf("BackfillTokenSeal: %v", err)
+		t.Fatalf("create instance: %v", err)
 	}
-	if sealed != 1 {
-		t.Errorf("BackfillTokenSeal sealed = %d, want 1", sealed)
-	}
-	got, err := keyedRepo.Get(ctx, unsealed.ID)
+
+	plainRepo, _ := NewChatwootRepositories(pool, nil)
+	stored, err := plainRepo.Put(ctx, model.ChatwootConfig{
+		InstanceID: instance.ID,
+		URL:        "https://chatwoot.example.com",
+		AccountID:  "42",
+	})
 	if err != nil {
-		t.Fatalf("Get after backfill: %v", err)
+		t.Fatalf("Put disabled config without key: %v", err)
 	}
-	if got.Token != "legacy-token" {
-		t.Errorf("Get Token = %q, want the legacy plaintext token opened", got.Token)
+	if stored.Token != "" {
+		t.Errorf("Put Token = %q, want empty", stored.Token)
 	}
-	again, err := keyedRepo.BackfillTokenSeal(ctx)
+
+	got, err := plainRepo.Get(ctx, instance.ID)
 	if err != nil {
-		t.Fatalf("BackfillTokenSeal again: %v", err)
+		t.Fatalf("Get: %v", err)
 	}
-	if again != 0 {
-		t.Errorf("BackfillTokenSeal again = %d, want 0 (idempotent)", again)
+	if got.Token != "" {
+		t.Errorf("Get Token = %q, want empty (no key required without a token)", got.Token)
+	}
+}
+
+// TestChatwootConfigGetRejectsLegacyPlaintextRow pins that plaintext
+// storage no longer reads through: a row seeded with an unsealed token
+// fails to open with or without a repository key.
+func TestChatwootConfigGetRejectsLegacyPlaintextRow(t *testing.T) {
+	ctx := context.Background()
+	pool := postgrestest.NewPool(t)
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatalf("migrate test schema: %v", err)
+	}
+
+	instances := NewInstanceRepository(pool)
+	owner := createTestOwner(t, pool)
+	instance, err := instances.Create(ctx, model.Instance{
+		ID:          uuid.New(),
+		Name:        "chatwoot-legacy",
+		OwnerUserID: &owner.ID,
+		Connection:  model.InstanceConnection{Status: "disconnected"},
+	})
+	if err != nil {
+		t.Fatalf("create instance: %v", err)
+	}
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO chatwoot_configs (instance_id, is_enabled, url, account_id, token, ignored_jids)
+		 VALUES ($1, true, 'https://chatwoot.example.com', '42', 'legacy-plaintext-token', '{}')`,
+		instance.ID); err != nil {
+		t.Fatalf("seed legacy plaintext row: %v", err)
+	}
+
+	keyedRepo, _ := NewChatwootRepositories(pool, testChatwootTokenKey(t))
+	if _, err := keyedRepo.Get(ctx, instance.ID); err == nil {
+		t.Error("Get legacy plaintext row with key = nil, want failure (plaintext storage removed)")
+	}
+
+	plainRepo, _ := NewChatwootRepositories(pool, nil)
+	if _, err := plainRepo.Get(ctx, instance.ID); err == nil {
+		t.Error("Get legacy plaintext row without key = nil, want failure (plaintext storage removed)")
 	}
 }
 

@@ -234,22 +234,6 @@ func serve() error {
 		return err
 	}
 	chatwootConfigs, chatwootMessages := postgres.NewChatwootRepositories(pool, chatwootTokenKey)
-	if chatwootTokenKey != nil {
-		// One-time seal of tokens written before the key existed. Best
-		// effort: reads keep working through the plaintext passthrough,
-		// so a backfill failure warns instead of failing boot.
-		backfillCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		sealed, backfillErr := chatwootConfigs.BackfillTokenSeal(backfillCtx)
-		cancel()
-		switch {
-		case backfillErr != nil:
-			log.Warn().Err(backfillErr).Msg("chatwoot token backfill failed, plaintext rows remain")
-		case sealed > 0:
-			log.Info().Int64("sealed", sealed).Msg("chatwoot tokens sealed at rest")
-		}
-	} else if cfg.Chatwoot.Enabled {
-		log.Warn().Msg("chatwoot tokens stored in plaintext: set WZAP_CHATWOOT_TOKEN_KEY to seal tokens at rest")
-	}
 	var mirrorWorker *mirror.Worker
 	// The history importer backs the manual REST trigger, the post-pairing
 	// auto import and the lost-messages cron. Without the import URI every
@@ -751,10 +735,11 @@ func readyURL(addr string) (string, error) {
 }
 
 // decodeChatwootTokenKey decodes the validated WZAP_CHATWOOT_TOKEN_KEY into
-// the 32-byte seal for the config repository. Empty stays nil (legacy
-// plaintext storage); a malformed value fails boot naming the variable even
-// though config.Load already validates the shape (defense in depth across
-// the wiring boundary).
+// the 32-byte seal for the config repository. Empty stays nil, which only
+// stores tokenless (disabled) configs — a non-empty token is refused at
+// write time. A malformed value fails boot naming the variable even though
+// config.Load already validates the shape (defense in depth across the
+// wiring boundary).
 func decodeChatwootTokenKey(cfg config.Config) ([]byte, error) {
 	if cfg.Chatwoot.TokenKey == "" {
 		return nil, nil

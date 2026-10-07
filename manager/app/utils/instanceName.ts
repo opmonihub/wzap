@@ -30,8 +30,5 @@ export function instanceNameErrorKey(error: { status: number, code: string }): s
   if (error.status === 409 && error.code === 'instance_name_taken') {
     return 'instances.fields.nameTaken'
   }
-  if (error.status === 409 && error.code === 'instance_name_ambiguous') {
-    return 'instances.fields.nameAmbiguous'
-  }
   return undefined
 }

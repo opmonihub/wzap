@@ -56,7 +56,6 @@ test('renames preserve exact input and validate changes rather than trimmed equi
 test('name validation and conflicts use name messages without swallowing other errors', () => {
   assert.equal(instanceNameErrorKey({ status: 422, code: 'invalid_instance_name' }), 'instances.fields.nameHint')
   assert.equal(instanceNameErrorKey({ status: 409, code: 'instance_name_taken' }), 'instances.fields.nameTaken')
-  assert.equal(instanceNameErrorKey({ status: 409, code: 'instance_name_ambiguous' }), 'instances.fields.nameAmbiguous')
   assert.equal(instanceNameErrorKey({ status: 409, code: 'conflict' }), undefined)
   assert.equal(instanceNameErrorKey({ status: 500, code: 'instance_name_taken' }), undefined)
 })

@@ -41,9 +41,8 @@ export type VisionScope = 'global' | 'instance'
 // Connection state reported by the API for an instance.
 export type InstanceStatus = 'disconnected' | 'pairing' | 'connected' | 'error'
 
-// Structured failure of a connection or a send: code from the closed
-// catalog (legacy_error for migrated free text), the human-readable message
-// and occurred_at (null for legacy errors whose time is unknown).
+// Structured failure of a connection or a send: code from the closed catalog,
+// the human-readable message and occurred_at (null when the time is unknown).
 export interface LastError {
   code: string
   message: string
@@ -696,7 +695,6 @@ export interface RevokeInput {
 // 409/422 instead. Mirrors revokeResponse in internal/httpapi/lifecycle.go.
 export interface RevokeResult {
   revoked: boolean
-  reason?: string
 }
 
 export interface MarkReadInput {

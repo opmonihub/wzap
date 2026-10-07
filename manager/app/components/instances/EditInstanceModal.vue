@@ -100,7 +100,7 @@ function friendlySaveError(error: ApiError): string {
 
         <UFormField
           :label="t('instances.fields.name')"
-          :description="`${t('instances.fields.nameHint')} ${t('instances.fields.nameLegacyHint')}`"
+          :description="t('instances.fields.nameHint')"
           name="name"
           required
         >

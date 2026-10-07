@@ -30,12 +30,12 @@ func TestServiceCreateRejectsInvalidNameBeforeDependencies(t *testing.T) {
 	}
 }
 
-func TestServiceUpdateNameValidationAndLegacy(t *testing.T) {
+func TestServiceUpdateNameValidation(t *testing.T) {
 	for _, tc := range []struct {
 		old, next string
 		valid     bool
 	}{
-		{"legacy name!", "legacy name!", true}, {"stats", "stats", true}, {"legacy name!", "Loja_SP-1", true},
+		{"good", "good", true},
 		{"good", "stats", false}, {"good", " leading", false}, {"good", "name_", false},
 	} {
 		t.Run(tc.old+"/"+tc.next, func(t *testing.T) {

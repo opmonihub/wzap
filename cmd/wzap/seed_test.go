@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -11,6 +12,7 @@ import (
 	"wzap/internal/auth"
 	"wzap/internal/config"
 	"wzap/internal/model"
+	"wzap/internal/storage"
 	"wzap/internal/storage/postgres"
 	"wzap/internal/storage/postgres/postgrestest"
 )
@@ -69,6 +71,56 @@ func createSeedInstance(t *testing.T, instances *postgres.InstanceRepository, ow
 		t.Fatalf("create instance %q: OwnerUserID = %v, want %s", name, instance.OwnerUserID, owner.ID)
 	}
 	return instance
+}
+
+// TestSeedAdminCreatesNoInstances verifies the seed touches only users. It
+// never creates instances, and the repository rejects ownerless persistence
+// with storage.ErrOwnerRequired — so the empty instance table after seed is
+// final and the seed could never have populated it legitimately.
+func TestSeedAdminCreatesNoInstances(t *testing.T) {
+	ctx := context.Background()
+	_, users, instances := newSeedRepos(t)
+
+	if err := seedAdmin(ctx, seedTestConfig("admin@example.com", "s3cret-password"), users, zerolog.Nop()); err != nil {
+		t.Fatalf("seedAdmin: %v", err)
+	}
+
+	created, err := instances.List(ctx)
+	if err != nil {
+		t.Fatalf("List after seed: %v", err)
+	}
+	if len(created) != 0 {
+		t.Errorf("instances after seed = %d, want 0 (seed never creates instances)", len(created))
+	}
+
+	// Persistence without a valid owner is impossible (repository-level
+	// enforcement): neither a nil owner nor an unknown owner persists.
+	unknownID := uuid.New()
+	for _, tt := range []struct {
+		name  string
+		owner *uuid.UUID
+	}{
+		{name: "nil owner", owner: nil},
+		{name: "unknown owner", owner: &unknownID},
+	} {
+		_, err := instances.Create(ctx, model.Instance{
+			ID:          uuid.New(),
+			Name:        "ownerless-" + tt.name,
+			OwnerUserID: tt.owner,
+			Connection:  model.InstanceConnection{Status: "disconnected"},
+		})
+		if !errors.Is(err, storage.ErrOwnerRequired) {
+			t.Errorf("Create(%s) error = %v, want ErrOwnerRequired", tt.name, err)
+		}
+	}
+
+	created, err = instances.List(ctx)
+	if err != nil {
+		t.Fatalf("List after rejected creates: %v", err)
+	}
+	if len(created) != 0 {
+		t.Errorf("instances after rejected creates = %d, want 0 (nothing persisted)", len(created))
+	}
 }
 
 func TestSeedAdminEmptyWithEnvs(t *testing.T) {
@@ -140,6 +192,16 @@ func TestSeedAdminNonEmptyWithEnvs(t *testing.T) {
 	}
 	if count != 1 {
 		t.Errorf("users count = %d, want 1 (seed is a no-op, never duplicates)", count)
+	}
+
+	// The seed creates no instances on restart either: the instance table
+	// still holds exactly the pre-existing row.
+	remaining, err := instances.List(ctx)
+	if err != nil {
+		t.Fatalf("List after seed: %v", err)
+	}
+	if len(remaining) != 1 {
+		t.Errorf("instances after seed = %d, want 1 (seed never creates instances)", len(remaining))
 	}
 
 	// The existing owner keeps his instance: ownership is immutable.

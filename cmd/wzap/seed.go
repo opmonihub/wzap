@@ -16,7 +16,9 @@ import (
 // seedAdmin creates the initial admin from WZAP_ADMIN_EMAIL and
 // WZAP_ADMIN_PASSWORD when the users table is empty. It is a no-op when users
 // already exist (never duplicating the admin) and when both admin variables
-// are unset. A half-configured seed warns, creates nothing and lets boot
+// are unset. It touches only users: it never creates, adopts or backfills
+// instances — every instance already carries its mandatory owner. A
+// half-configured seed warns, creates nothing and lets boot
 // proceed.
 func seedAdmin(ctx context.Context, cfg config.Config, users storage.UserRepository, log zerolog.Logger) error {
 	count, err := users.Count(ctx)

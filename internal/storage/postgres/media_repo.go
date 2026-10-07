@@ -100,41 +100,6 @@ func (r *MediaRepository) MarkObjectDeleted(ctx context.Context, id uuid.UUID, a
 	return nil
 }
 
-// SetBucket rewrites the bucket a media object lives in, recording where a
-// migrated upload actually landed. Returns storage.ErrNotFound when the row
-// is absent.
-func (r *MediaRepository) SetBucket(ctx context.Context, id uuid.UUID, bucket string) error {
-	tag, err := r.pool.Exec(ctx,
-		`UPDATE media SET bucket = $2 WHERE id = $1`, id, bucket)
-	if err != nil {
-		return fmt.Errorf("set media bucket: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("set media bucket: %w", storage.ErrNotFound)
-	}
-	return nil
-}
-
-// ListInstancesWithMedia returns the distinct instance ids that own at least
-// one media row.
-func (r *MediaRepository) ListInstancesWithMedia(ctx context.Context) ([]uuid.UUID, error) {
-	rows, err := r.pool.Query(ctx, `SELECT DISTINCT instance_id FROM media ORDER BY instance_id`)
-	if err != nil {
-		return nil, fmt.Errorf("list media instances: %w", err)
-	}
-	defer rows.Close()
-
-	ids := []uuid.UUID{}
-	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("scan media instance: %w", err)
-		}
-		ids = append(ids, id)
-	}
-	return ids, rows.Err()
-}
-
 // Delete removes one media row or returns storage.ErrNotFound.
 func (r *MediaRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	tag, err := r.pool.Exec(ctx, `DELETE FROM media WHERE id = $1`, id)

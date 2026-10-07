@@ -19,9 +19,9 @@
 
 ## 4. Contrato REST e idempotência
 
-- [ ] 4.1 Remover conversores e respostas especiais de replay histórico preservando status/corpo originais, autorização, TTL, fingerprints e liberação de chaves, verificando testes de idempotência atuais incluindo aliases, concorrência e ausência de segundo efeito.
-- [ ] 4.2 Remover legacy_error e assegurar código/mensagem/instante reais em falhas atuais, verificando testes de conexão, envio, outbox, dead letters e DTOs sem fabricação de timestamps.
-- [ ] 4.3 Remover o campo reservado de revogação e manter sucesso data.revoked e falhas atuais, verificando os testes de lifecycle e fixtures do contrato HTTP.
+- [x] 4.1 Remover conversores e respostas especiais de replay histórico preservando status/corpo originais, autorização, TTL, fingerprints e liberação de chaves, verificando testes de idempotência atuais incluindo aliases, concorrência e ausência de segundo efeito.
+- [x] 4.2 Remover legacy_error e assegurar código/mensagem/instante reais em falhas atuais, verificando testes de conexão, envio, outbox, dead letters e DTOs sem fabricação de timestamps.
+- [x] 4.3 Remover o campo reservado de revogação e manter sucesso data.revoked e falhas atuais, verificando os testes de lifecycle e fixtures do contrato HTTP.
 - [ ] 4.4 Retirar testes de envelopes históricos preservando contratos e privacidade atuais, verificando `go test ./internal/httpapi ./internal/message ./internal/app ./internal/session/... -count=1`.
 
 ## 5. Mídia e Manager

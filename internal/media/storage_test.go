@@ -99,29 +99,6 @@ func (f *fakeMediaRepo) MarkObjectDeleted(_ context.Context, id uuid.UUID, at ti
 	return nil
 }
 
-func (f *fakeMediaRepo) SetBucket(_ context.Context, id uuid.UUID, bucket string) error {
-	record, ok := f.records[id]
-	if !ok {
-		return storage.ErrNotFound
-	}
-	record.Bucket = bucket
-	f.records[id] = record
-	return nil
-}
-
-func (f *fakeMediaRepo) ListInstancesWithMedia(context.Context) ([]uuid.UUID, error) {
-	seen := map[uuid.UUID]struct{}{}
-	ids := []uuid.UUID{}
-	for _, record := range f.records {
-		if _, ok := seen[record.InstanceID]; ok {
-			continue
-		}
-		seen[record.InstanceID] = struct{}{}
-		ids = append(ids, record.InstanceID)
-	}
-	return ids, nil
-}
-
 func (f *fakeMediaRepo) DeleteByInstance(_ context.Context, instanceID uuid.UUID) (int64, error) {
 	if f.deleteErr != nil {
 		return 0, f.deleteErr

@@ -129,14 +129,6 @@ type MediaRepository interface {
 	// removal is confirmed, preserving the metadata. It returns ErrNotFound
 	// when the row is absent.
 	MarkObjectDeleted(ctx context.Context, id uuid.UUID, at time.Time) error
-	// SetBucket rewrites the bucket a media object lives in, so a row keeps
-	// recording where the content actually is (e.g. after MigrateLocalFiles
-	// uploads a local file into the configured bucket). It returns
-	// ErrNotFound when the row is absent.
-	SetBucket(ctx context.Context, id uuid.UUID, bucket string) error
-	// ListInstancesWithMedia returns the distinct instance ids owning at
-	// least one media row, for migrations and reconciliations.
-	ListInstancesWithMedia(ctx context.Context) ([]uuid.UUID, error)
 	// Delete removes one media row. It returns ErrNotFound when it is absent.
 	Delete(ctx context.Context, id uuid.UUID) error
 	// DeleteByInstance removes every media row of instanceID.

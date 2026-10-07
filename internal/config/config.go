@@ -122,6 +122,11 @@ func Load() (Config, error) {
 	if cfg.JWTSecret != "" && len(cfg.JWTSecret) < minJWTSecretLength {
 		problems = append(problems, fmt.Sprintf("WZAP_JWT_SECRET must be at least %d characters", minJWTSecretLength))
 	}
+	switch cfg.LogFormat {
+	case "json", "console":
+	default:
+		problems = append(problems, fmt.Sprintf("WZAP_LOG_FORMAT must be one of json, console, got %q", cfg.LogFormat))
+	}
 
 	cfg.EventRetentionDays = positiveIntValue("WZAP_EVENT_RETENTION_DAYS", defaultEventRetentionDays, &problems)
 	cfg.MediaTTLSeconds = positiveIntValue("WZAP_MEDIA_TTL_SECONDS", defaultMediaTTLSeconds, &problems)

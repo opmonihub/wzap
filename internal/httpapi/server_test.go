@@ -99,21 +99,33 @@ func TestNewAPIGroupRequiresAuth(t *testing.T) {
 	})
 }
 
-func TestLegacyAPIPrefixAnswersNotFound(t *testing.T) {
+func TestLegacyAPIPrefixFollowsGenericRouting(t *testing.T) {
 	srv := newTestServer(t)
 
-	for name, token := range map[string]string{"with credential": testToken, "without credential": ""} {
-		t.Run(name, func(t *testing.T) {
-			rec := serve(t, srv, http.MethodGet, "/api/v1/instances", token)
+	t.Run("without credential is unauthorized", func(t *testing.T) {
+		rec := serve(t, srv, http.MethodGet, "/api/v1/instances", "")
 
-			if rec.Code != http.StatusNotFound {
-				t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
-			}
-			if code := errorCode(t, rec.Body.Bytes()); code != "not_found" {
-				t.Errorf("error code = %q, want %q", code, "not_found")
-			}
-		})
-	}
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+		}
+		if code := errorCode(t, rec.Body.Bytes()); code != "unauthorized" {
+			t.Errorf("error code = %q, want %q", code, "unauthorized")
+		}
+	})
+
+	t.Run("with credential is enveloped not found", func(t *testing.T) {
+		rec := serve(t, srv, http.MethodGet, "/api/v1/instances", testToken)
+
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+		}
+		if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+			t.Errorf("Content-Type = %q, want application/json", ct)
+		}
+		if code := errorCode(t, rec.Body.Bytes()); code != "not_found" {
+			t.Errorf("error code = %q, want %q", code, "not_found")
+		}
+	})
 }
 
 func TestAPIFallbackAnswersErrorEnvelope(t *testing.T) {

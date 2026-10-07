@@ -62,37 +62,15 @@ func TestNewConsoleFormat(t *testing.T) {
 	}
 }
 
-func TestNewTextAliasEmitsDeprecation(t *testing.T) {
+func TestNewTextFormatRejected(t *testing.T) {
 	var buf bytes.Buffer
-	l, err := newWithWriter("info", "text", &buf)
-	if err != nil {
-		t.Fatalf("newWithWriter(info, text): unexpected error: %v", err)
+	if _, err := newWithWriter("info", "text", &buf); err == nil {
+		t.Fatal("newWithWriter(info, text): expected error, got nil")
+	} else if !strings.Contains(err.Error(), "WZAP_LOG_FORMAT") {
+		t.Errorf("error does not name WZAP_LOG_FORMAT: %v", err)
 	}
-	lowered := strings.ToLower(buf.String())
-	if !strings.Contains(lowered, "deprecat") {
-		t.Fatalf("text alias emitted no deprecation warning: %q", buf.String())
-	}
-	if !strings.Contains(buf.String(), "console") {
-		t.Errorf("deprecation warning does not point at console: %q", buf.String())
-	}
-	buf.Reset()
-	l.Info().Msg("still-readable")
-	if !strings.Contains(buf.String(), "still-readable") {
-		t.Errorf("text alias logger unusable: %q", buf.String())
-	}
-}
-
-func TestNewTextAliasDeprecationVisibleAtErrorLevel(t *testing.T) {
-	var buf bytes.Buffer
-	l, err := newWithWriter("error", "text", &buf)
-	if err != nil {
-		t.Fatalf("newWithWriter(error, text): unexpected error: %v", err)
-	}
-	if lowered := strings.ToLower(buf.String()); !strings.Contains(lowered, "deprecat") {
-		t.Fatalf("error+text emitted no visible deprecation warning: %q", buf.String())
-	}
-	if got := l.GetLevel(); got != zerolog.ErrorLevel {
-		t.Errorf("GetLevel() = %v, want error (gate must be kept)", got)
+	if buf.Len() != 0 {
+		t.Errorf("rejected format wrote output: %q", buf.String())
 	}
 }
 
@@ -107,10 +85,12 @@ func TestNewInvalidLevel(t *testing.T) {
 }
 
 func TestNewInvalidFormat(t *testing.T) {
-	if _, err := New("info", "xml"); err == nil {
-		t.Fatal("expected error for invalid format, got nil")
-	} else if !strings.Contains(err.Error(), "WZAP_LOG_FORMAT") {
-		t.Errorf("error does not name WZAP_LOG_FORMAT: %v", err)
+	for _, format := range []string{"xml", "text", "", "pretty"} {
+		if _, err := New("info", format); err == nil {
+			t.Errorf("format %q: expected error, got nil", format)
+		} else if !strings.Contains(err.Error(), "WZAP_LOG_FORMAT") {
+			t.Errorf("format %q: error does not name WZAP_LOG_FORMAT: %v", format, err)
+		}
 	}
 }
 

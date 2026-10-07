@@ -73,7 +73,7 @@ func TestLoadFullConfig(t *testing.T) {
 		"WZAP_OUTBOX_WORKERS":              "2",
 		"WZAP_HUMANIZE":                    "true",
 		"WZAP_LOG_LEVEL":                   "debug",
-		"WZAP_LOG_FORMAT":                  "text",
+		"WZAP_LOG_FORMAT":                  "console",
 		"WZAP_AUTO_MIGRATE":                "false",
 		"WZAP_CHATWOOT_ENABLED":            "true",
 		"WZAP_CHATWOOT_TOKEN_KEY":          "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
@@ -116,7 +116,7 @@ func TestLoadFullConfig(t *testing.T) {
 		OutboxWorkers:      2,
 		Humanize:           true,
 		LogLevel:           "debug",
-		LogFormat:          "text",
+		LogFormat:          "console",
 		AutoMigrate:        false,
 		Chatwoot: Chatwoot{
 			Enabled:           true,
@@ -241,17 +241,21 @@ func TestLoadEmptyRequiredTreatedAsMissing(t *testing.T) {
 	}
 }
 
-func TestLoadIgnoresLegacyServiceToken(t *testing.T) {
-	clearWZAPEnv(t)
-	setRequiredEnv(t)
-	t.Setenv("WZAP_SERVICE_TOKEN", "legacy-token")
+func TestLoadRejectsInvalidLogFormat(t *testing.T) {
+	for _, format := range []string{"text", "xml", "pretty"} {
+		t.Run(format, func(t *testing.T) {
+			clearWZAPEnv(t)
+			setRequiredEnv(t)
+			t.Setenv("WZAP_LOG_FORMAT", format)
 
-	got, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error = %v, want lingering WZAP_SERVICE_TOKEN to be silently ignored", err)
-	}
-	if got.APIKey != "test-api-key" {
-		t.Errorf("Load().APIKey = %q, want %q", got.APIKey, "test-api-key")
+			_, err := Load()
+			if err == nil {
+				t.Fatalf("Load() error = nil with format %q, want error naming WZAP_LOG_FORMAT", format)
+			}
+			if !strings.Contains(err.Error(), "WZAP_LOG_FORMAT") {
+				t.Errorf("Load() error = %q, want it to mention WZAP_LOG_FORMAT", err)
+			}
+		})
 	}
 }
 

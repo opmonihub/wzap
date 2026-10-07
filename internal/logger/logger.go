@@ -17,9 +17,7 @@ import (
 )
 
 // New builds the canonical service logger for the given level
-// (debug, info, warn, error) and format (json, console, text).
-// The legacy text format is an alias of console and emits one deprecation
-// Warn via a separate dep logger.
+// (debug, info, warn, error) and format (json, console).
 func New(level, format string) (zerolog.Logger, error) {
 	return newWithWriter(level, format, os.Stdout)
 }
@@ -40,14 +38,8 @@ func newWithWriter(level, format string, out io.Writer) (zerolog.Logger, error) 
 		l = zerolog.New(out).With().Timestamp().Logger().Level(lvl)
 	case "console":
 		l = newConsole(out, lvl)
-	case "text":
-		// The deprecation Warn bypasses the configured gate so it stays
-		// visible even at error level; the returned logger keeps the gate.
-		dep := newConsole(out, zerolog.DebugLevel)
-		dep.Warn().Msg(`WZAP_LOG_FORMAT "text" is deprecated, use "console"`)
-		l = newConsole(out, lvl)
 	default:
-		return zerolog.Nop(), fmt.Errorf("invalid WZAP_LOG_FORMAT %q: must be one of json, console, text", format)
+		return zerolog.Nop(), fmt.Errorf("invalid WZAP_LOG_FORMAT %q: must be one of json, console", format)
 	}
 	return l, nil
 }

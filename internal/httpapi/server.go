@@ -65,13 +65,6 @@ func New(cfg config.Config, log zerolog.Logger, deps Deps) *http.Server {
 	mux.Handle("/manager/", manager.Handler())
 	mux.Handle("GET /manager", manager.Handler())
 
-	// The legacy /api/v1 prefix is gone: every path under it answers the
-	// shared 404 envelope, with or without credential. This subtree pattern
-	// is more specific than "/" below, so it wins for legacy paths.
-	mux.Handle("/api/v1/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		Error(w, r, http.StatusNotFound, "not_found", "route not found")
-	}))
-
 	api := &instanceMux{ServeMux: http.NewServeMux(), instances: deps.Instances}
 	// instanceAgg builds the aggregated instance DTO (integration + settings)
 	// shared by the create/list/get/update handlers; its per-block failures

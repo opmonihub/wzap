@@ -75,6 +75,11 @@ Todo tipo rico é construtível no upstream pinado; o serviço MUST NOT
 emitir `501` por tipo não suportado neste aceite (suporte documentado por
 operação no Swagger).
 
+#### Scenario: Tipo rico documentado
+
+- **WHEN** o cliente envia um tipo rico documentado no Swagger para instância conectada
+- **THEN** o aceite não responde `501` para o tipo
+
 ### Requirement: Entrada de mensagem rica
 
 Votos de enquete, reações recebidas e respostas de lista/botão SHALL gerar

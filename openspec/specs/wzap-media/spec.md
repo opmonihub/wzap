@@ -22,12 +22,17 @@ Mensagens com mídia SHALL ter o conteúdo baixado automaticamente até o limite
 
 ### Requirement: Armazenamento com integridade
 
-A mídia armazenada MUST registrar tipo, tamanho, nome quando houver e checksum, permitindo verificar integridade.
+A mídia armazenada MUST registrar tipo, tamanho, nome quando houver e checksum, permitindo verificar integridade. Os bytes SHALL ser armazenados no MinIO e identificados por bucket e chave de objeto únicos; referências à mídia SHALL conservar seu UUID e escopo de instância. Migração de arquivos locais MUST verificar conteúdo antes de trocar a referência persistida.
 
 #### Scenario: Mídia armazenada
 
 - **WHEN** uma mídia é armazenada
-- **THEN** seus metadados e checksum ficam registrados e associados à mensagem
+- **THEN** seus metadados e checksum ficam registrados e o objeto correspondente pode ser lido pelo fluxo autorizado
+
+#### Scenario: Arquivo legado migrado
+
+- **WHEN** um arquivo local existente é transferido para o MinIO
+- **THEN** conserva UUID, tamanho e checksum após verificação, mantendo as referências de mensagens
 
 ### Requirement: Download autenticado
 
@@ -45,12 +50,17 @@ O acesso à mídia SHALL exigir autenticação de serviço; mídia inexistente o
 
 ### Requirement: Expiração e limpeza
 
-Mídias MUST expirar após o período configurado, e arquivos e registros expirados SHALL ser removidos periodicamente.
+Mídias MUST expirar após o período configurado. Objetos expirados SHALL ser removidos periodicamente, preservando metadados e vínculos das mensagens; object_deleted_at SHALL registrar a confirmação da exclusão do objeto. Falhas de exclusão MUST permanecer recuperáveis para nova tentativa.
 
 #### Scenario: Mídia expirada
 
 - **WHEN** o período de retenção termina
-- **THEN** a mídia deixa de estar disponível e seus arquivos são removidos
+- **THEN** a mídia deixa de estar disponível para download e seu objeto é removido, com metadados e referências preservados
+
+#### Scenario: Falha ao excluir objeto
+
+- **WHEN** o MinIO não confirma a exclusão
+- **THEN** o registro continua pendente de limpeza e pode ser tentado novamente
 
 ### Requirement: Upload para envio
 
@@ -69,3 +79,12 @@ Identificadores de mídia MUST ser opacos e não sequenciais, dificultando acess
 
 - **WHEN** uma mídia é criada
 - **THEN** seu identificador não revela sequência nem conteúdo previsível
+
+### Requirement: Infraestrutura de mídia aprovada
+
+A integração SHALL usar exatamente a imagem docker.io/cccs/minio fixada ao digest sha256:68eefa6a5ccd82178a872b2d1012687d0ac9b1afa848a1e56f55fa5f1efcb081, a rede existente do projeto e credenciais configuradas pelo ambiente. Essa referência fixada por digest SUPERSEDE a tag quay.io/minio/minio citada em registros anteriores desta capability. A disponibilidade da imagem MUST ser validada antes do teste de integração e da implantação; nenhuma tag alternativa está autorizada por este registro.
+
+#### Scenario: Imagem solicitada indisponível
+
+- **WHEN** a imagem exata não pode ser obtida e verificada
+- **THEN** a implantação fica pendente sem substituição silenciosa por outra imagem

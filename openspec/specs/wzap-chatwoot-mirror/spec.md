@@ -34,19 +34,19 @@ Texto, imagem, vídeo, áudio, documento, figurinha, contato (simples e lista), 
 - **WHEN** chega um tipo sem mapeamento
 - **THEN** o evento é pulado com `warn` e o worker segue
 
-### Requirement: Mídia via armazenamento local
+### Requirement: Mídia via armazenamento de objetos
 
-Mídia inbound SHALL ser enviada ao Chatwoot a partir dos bytes do `media.Storage` (referência do evento); `media_omitted` SHALL repassar o motivo sem falhar o espelho do texto.
+Mídia inbound SHALL ser enviada ao Chatwoot a partir dos bytes do objeto identificado pela referência do evento. media_omitted SHALL repassar o motivo sem impedir o espelho do texto.
 
 #### Scenario: Mídia espelhada
 
-- **WHEN** mensagem com mídia armazenada espelha
-- **THEN** o anexo aparece na conversa com o conteúdo
+- **WHEN** uma mensagem com mídia disponível é espelhada
+- **THEN** o anexo aparece na conversa com o mesmo conteúdo
 
 #### Scenario: Mídia omitida
 
-- **WHEN** o evento marca `media_omitted`
-- **THEN** só o texto espelha, sem erro
+- **WHEN** o evento marca media_omitted
+- **THEN** só o texto é espelhado sem falhar por ausência do anexo
 
 ### Requirement: Edição, remoção e leitura
 
@@ -75,3 +75,12 @@ Edição SHALL criar mensagem "editada" vinculada ao original; remoção SHALL a
 
 - **WHEN** novo QR de pareamento surge
 - **THEN** a imagem + instruções chegam na conversa operacional
+
+### Requirement: Correlações sem dependência de histórico geral
+
+Correlação de entrada e edição SHALL conservar a chave WhatsApp e o ID externo do Chatwoot sem exigir mensagem na fila. As chaves de edição MUST NOT ser confundidas com identificadores reais de envio.
+
+#### Scenario: Edição recebida
+
+- **WHEN** uma edição é espelhada com uma chave composta de deduplicação
+- **THEN** sua correlação permanece distinta do original sem criar mensagem artificial na fila

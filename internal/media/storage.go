@@ -398,12 +398,13 @@ func (s *Storage) removeCacheFile(rel string) error {
 	return nil
 }
 
-// MigrateLocalFiles uploads every media whose local file exists under the
-// data dir and whose object is absent from the store, verifying the SHA-256
-// of the local content before accepting it. The local file stays in place:
-// it is the recovery path until the cutover is rehearsed and the cleanup
-// step of the deployment removes it. Returns the count of uploaded objects.
-// It is a no-op in filesystem mode (nothing to migrate).
+// MigrateLocalFiles uploads every media whose content still lives only as a
+// local file under the data dir — the object is absent from the bucket
+// recorded on the row — verifying the SHA-256 of the local content before
+// accepting it. The local file stays in place: it is the recovery path until
+// the cutover is rehearsed and the cleanup step of the deployment removes
+// it. Returns the count of uploaded objects. It is a no-op in filesystem
+// mode (nothing to migrate).
 //
 // Buckets: the existence probe runs on the bucket recorded on the row (the
 // metadata authority), so a row whose object already lives in its own bucket
@@ -412,16 +413,24 @@ func (s *Storage) removeCacheFile(rel string) error {
 // and the row is rewritten to record where the object landed, exactly like
 // Save. A filesystem-era row (bucket "local") or a row backfilled with
 // another deployment's bucket has no object yet; uploading into its stale
-// bucket would strand media behind a bucket nobody provisioned. Error
-// behavior, per row: any error — an absent or unreachable bucket, access
-// denial, a failed upload, a failed row rewrite — is aggregated as a
-// per-row failure, returned joined with the partial count, while the loop
-// always continues to the remaining rows. One stuck row can therefore
-// neither abort the batch nor trap the migration in a re-upload loop.
-// Reruns are idempotent and converge: a rewritten row is recognized by the
-// probe and skipped, a row whose rewrite failed is re-uploaded (same key,
-// same bytes) and rewritten again, and the local file is kept as the
-// recovery path throughout.
+// bucket would strand media behind a bucket nobody provisioned.
+//
+// Error behavior, per row: any error — an absent or unreachable bucket,
+// access denial, a failed upload, a failed row rewrite, a local file that
+// exists but cannot be read (permission denied, I/O error, wrong file
+// type), an object key that escapes the data dir, or a row with no copy at
+// all (no local file and no object in the recorded bucket) — is aggregated
+// as a per-row failure, returned joined with the partial count, while the
+// loop always continues to the remaining rows. One stuck row can therefore
+// neither abort the batch nor trap the migration in a re-upload loop, and
+// the command's exit status cannot turn green while media it was
+// responsible for stays unreachable in the object store. A missing local
+// file is NOT an error when the row's bucket holds the object (already
+// migrated; the cleanup removed the file) — the probe decides, so a row is
+// only skipped with a confirmed copy. Reruns are idempotent and converge: a
+// rewritten row is recognized by the probe and skipped, a row whose rewrite
+// failed is re-uploaded (same key, same bytes) and rewritten again, and the
+// local file is kept as the recovery path throughout.
 func (s *Storage) MigrateLocalFiles(ctx context.Context, onProgress func(done, total int)) (int, error) {
 	if s.objects == nil {
 		return 0, nil
@@ -451,12 +460,35 @@ func (s *Storage) MigrateLocalFiles(ctx context.Context, onProgress func(done, t
 		}
 		localPath, err := s.path(record.ObjectKey)
 		if err != nil {
+			// An escaping key is row corruption, not a missing file: the
+			// migration reports the row instead of silently dropping it.
+			failures = append(failures, fmt.Errorf("media %s: resolve local path: %w", record.ID, err))
 			continue
 		}
-		data, err := os.ReadFile(localPath)
-		if err != nil {
-			// No local copy: either already migrated (file removed) or never
-			// stored locally. Nothing to do.
+		data, readErr := os.ReadFile(localPath)
+		if readErr != nil {
+			if !errors.Is(readErr, fs.ErrNotExist) {
+				// The file is there but cannot be read (permission denied,
+				// I/O error, wrong file type): its bytes cannot be verified
+				// or uploaded, so the row fails — skipping it would release
+				// a cutover that leaves the media unreachable.
+				failures = append(failures, fmt.Errorf("media %s: read local file: %w", record.ID, readErr))
+				continue
+			}
+			// No local file: either already migrated (the cleanup removed
+			// it) or never transferred. The row bucket — the metadata
+			// authority — decides: object present means migrated and the
+			// row is skipped; object absent means the row has no copy
+			// anywhere and the migration fails for it instead of letting
+			// the media vanish from the result.
+			exists, probeErr := s.objects.Exists(ctx, record.Bucket, record.ObjectKey)
+			if probeErr != nil {
+				failures = append(failures, fmt.Errorf("media %s: %w", record.ID, probeErr))
+				continue
+			}
+			if !exists {
+				failures = append(failures, fmt.Errorf("media %s: no local file and no object in bucket %q", record.ID, record.Bucket))
+			}
 			continue
 		}
 		if record.SHA256 != "" {

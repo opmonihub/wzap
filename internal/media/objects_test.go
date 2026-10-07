@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -808,6 +809,184 @@ func TestMigrateLocalFilesSkipsChecksumMismatch(t *testing.T) {
 	}
 	if objects.has(bad.ObjectKey) {
 		t.Error("corrupt file was uploaded")
+	}
+}
+
+// TestMigrateLocalFilesFailsOnUnreadableFile pins the error policy of the
+// migration: a local file that exists but cannot be read (permission denied,
+// I/O error, wrong file type) is a per-row failure, never a silent skip —
+// releasing the cutover on the command's exit status must not leave media
+// unreachable in the object store.
+func TestMigrateLocalFilesFailsOnUnreadableFile(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo := newFakeMediaRepo()
+	objects := newFakeObjects()
+	store := NewStorage(dir, repo, 1<<20, time.Hour)
+	store.SetObjects(objects)
+	instanceID := uuid.New()
+
+	stuck := model.Media{
+		ID:         uuid.New(),
+		InstanceID: instanceID,
+		Direction:  "inbound",
+		Mimetype:   "image/png",
+		SizeBytes:  7,
+		Bucket:     "wzap-media",
+		ObjectKey:  filepath.Join("media", instanceID.String(), "stuck"),
+		SHA256:     "anything",
+		ExpiresAt:  time.Now().Add(time.Hour),
+	}
+	if _, err := repo.Create(ctx, stuck); err != nil {
+		t.Fatalf("seed stuck row: %v", err)
+	}
+	// A directory where the file should be makes os.ReadFile fail with
+	// "is a directory" — an environment-independent read failure that is
+	// NOT a missing-file error.
+	if err := os.MkdirAll(filepath.Join(dir, stuck.ObjectKey), 0o755); err != nil {
+		t.Fatalf("create unreadable path: %v", err)
+	}
+
+	migrated, err := store.MigrateLocalFiles(ctx, nil)
+	if err == nil {
+		t.Error("MigrateLocalFiles succeeded with an unreadable local file")
+	} else if !strings.Contains(err.Error(), stuck.ID.String()) {
+		t.Errorf("migration error %v does not name the stuck media %s", err, stuck.ID)
+	}
+	if migrated != 0 {
+		t.Errorf("migrated = %d, want 0", migrated)
+	}
+	if objects.has(stuck.ObjectKey) {
+		t.Error("unreadable file was uploaded")
+	}
+	if n := objects.putCalls(); n != 0 {
+		t.Errorf("Put calls = %d, want 0 (row failed before upload)", n)
+	}
+}
+
+// TestMigrateLocalFilesFailsWhenNoCopyExists pins the no-copy report: a row
+// without a local file whose recorded bucket holds no object has no copy
+// anywhere; the migration must fail for it instead of finishing green and
+// releasing a cutover that loses the media.
+func TestMigrateLocalFilesFailsWhenNoCopyExists(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo := newFakeMediaRepo()
+	objects := newFakeObjects()
+	store := NewStorage(dir, repo, 1<<20, time.Hour)
+	store.SetObjects(objects)
+	instanceID := uuid.New()
+
+	lost := model.Media{
+		ID:         uuid.New(),
+		InstanceID: instanceID,
+		Direction:  "inbound",
+		Mimetype:   "image/png",
+		SizeBytes:  4,
+		Bucket:     "wzap-media",
+		ObjectKey:  filepath.Join("media", instanceID.String(), "lost"),
+		SHA256:     "anything",
+		ExpiresAt:  time.Now().Add(time.Hour),
+	}
+	if _, err := repo.Create(ctx, lost); err != nil {
+		t.Fatalf("seed lost row: %v", err)
+	}
+	// No local file, no object anywhere: the row has no copy.
+
+	migrated, err := store.MigrateLocalFiles(ctx, nil)
+	if err == nil {
+		t.Error("MigrateLocalFiles succeeded with a row that has no copy anywhere")
+	} else if !strings.Contains(err.Error(), lost.ID.String()) || !strings.Contains(err.Error(), "no local file") {
+		t.Errorf("migration error %v does not name the lost media and the missing copy", err)
+	}
+	if migrated != 0 {
+		t.Errorf("migrated = %d, want 0", migrated)
+	}
+	if n := objects.putCalls(); n != 0 {
+		t.Errorf("Put calls = %d, want 0 (nothing to upload)", n)
+	}
+}
+
+// TestMigrateLocalFilesSkipsMissingFileWithRowBucketObject pins the benign
+// half of the missing-file branch: a row whose local file was removed by the
+// cleanup but whose recorded bucket holds the object is already migrated and
+// is skipped without failure and without any upload.
+func TestMigrateLocalFilesSkipsMissingFileWithRowBucketObject(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo := newFakeMediaRepo()
+	objects := newFakeObjects()
+	store := NewStorage(dir, repo, 1<<20, time.Hour)
+	store.SetObjects(objects)
+	instanceID := uuid.New()
+
+	migrated := model.Media{
+		ID:         uuid.New(),
+		InstanceID: instanceID,
+		Direction:  "inbound",
+		Mimetype:   "image/png",
+		SizeBytes:  6,
+		Bucket:     "wzap-media",
+		ObjectKey:  filepath.Join("media", instanceID.String(), "cleaned-up"),
+		SHA256:     "anything",
+		ExpiresAt:  time.Now().Add(time.Hour),
+	}
+	if _, err := repo.Create(ctx, migrated); err != nil {
+		t.Fatalf("seed cleaned-up row: %v", err)
+	}
+	// The cleanup removed the local file; the object lives in the row bucket.
+	objects.seed("wzap-media", migrated.ObjectKey, []byte("bytes!"))
+
+	done, err := store.MigrateLocalFiles(ctx, nil)
+	if err != nil {
+		t.Fatalf("MigrateLocalFiles: %v", err)
+	}
+	if done != 0 {
+		t.Errorf("migrated = %d, want 0 (object already present)", done)
+	}
+	if n := objects.putCalls(); n != 0 {
+		t.Errorf("Put calls = %d, want 0 (row skipped)", n)
+	}
+}
+
+// TestMigrateLocalFilesFailsOnCorruptObjectKey pins the path-resolution
+// failure: an object key that escapes the data dir cannot be resolved to a
+// local path; the migration reports the row instead of silently skipping it.
+func TestMigrateLocalFilesFailsOnCorruptObjectKey(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo := newFakeMediaRepo()
+	objects := newFakeObjects()
+	store := NewStorage(dir, repo, 1<<20, time.Hour)
+	store.SetObjects(objects)
+	instanceID := uuid.New()
+
+	corrupt := model.Media{
+		ID:         uuid.New(),
+		InstanceID: instanceID,
+		Direction:  "inbound",
+		Mimetype:   "image/png",
+		SizeBytes:  1,
+		Bucket:     "wzap-media",
+		ObjectKey:  "../escape",
+		SHA256:     "anything",
+		ExpiresAt:  time.Now().Add(time.Hour),
+	}
+	if _, err := repo.Create(ctx, corrupt); err != nil {
+		t.Fatalf("seed corrupt row: %v", err)
+	}
+
+	migrated, err := store.MigrateLocalFiles(ctx, nil)
+	if err == nil {
+		t.Error("MigrateLocalFiles succeeded with an object key that escapes the data dir")
+	} else if !strings.Contains(err.Error(), corrupt.ID.String()) {
+		t.Errorf("migration error %v does not name the corrupt media %s", err, corrupt.ID)
+	}
+	if migrated != 0 {
+		t.Errorf("migrated = %d, want 0", migrated)
+	}
+	if n := objects.putCalls(); n != 0 {
+		t.Errorf("Put calls = %d, want 0 (row failed before upload)", n)
 	}
 }
 

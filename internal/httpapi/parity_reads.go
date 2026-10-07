@@ -484,6 +484,16 @@ func handleGetBlocklist(instances InstanceService, log zerolog.Logger) http.Hand
 	}
 }
 
+// newStatusPrivacyResponse maps the own status audience to its JSON
+// representation, normalizing a nil JIDs slice to an empty one.
+func newStatusPrivacyResponse(privacy session.StatusPrivacy) statusPrivacyResponse {
+	jids := privacy.JIDs
+	if jids == nil {
+		jids = []string{}
+	}
+	return statusPrivacyResponse{Mode: privacy.Mode, JIDs: jids}
+}
+
 // handleGetStatusPrivacy answers the own status audience. A disconnected
 // session answers 409.
 //
@@ -513,11 +523,7 @@ func handleGetStatusPrivacy(instances InstanceService, log zerolog.Logger) http.
 			writeInstanceError(w, r, err)
 			return
 		}
-		jids := privacy.JIDs
-		if jids == nil {
-			jids = []string{}
-		}
-		JSON(w, r, http.StatusOK, statusPrivacyResponse{Mode: privacy.Mode, JIDs: jids})
+		JSON(w, r, http.StatusOK, newStatusPrivacyResponse(privacy))
 	}
 }
 

@@ -45,11 +45,13 @@ type fakeRepo struct {
 	listContext context.Context
 	listCalls   int
 
-	createCalls        []model.Instance
-	updateCalls        []updateIdentityCall
-	setWebhookCalls    []setWebhookCall
-	setConnectionCalls []setConnectionCall
-	deleteCalls        []uuid.UUID
+	createCalls                 []model.Instance
+	updateCalls                 []updateIdentityCall
+	setWebhookCalls             []setWebhookCall
+	setConnectionCalls          []setConnectionCall
+	setDefaultDisappearingErr   error
+	setDefaultDisappearingCalls []setDefaultDisappearingCall
+	deleteCalls                 []uuid.UUID
 
 	order *[]string
 }
@@ -74,6 +76,13 @@ type setConnectionCall struct {
 	id     uuid.UUID
 	status string
 	jid    string
+}
+
+// setDefaultDisappearingCall is one recorded SetDefaultDisappearing
+// invocation.
+type setDefaultDisappearingCall struct {
+	id       uuid.UUID
+	duration time.Duration
 }
 
 func newFakeRepo(instances ...model.Instance) *fakeRepo {
@@ -176,6 +185,23 @@ func (r *fakeRepo) SetWebhook(_ context.Context, id uuid.UUID, url *string, enab
 	instance.Webhook.URL = url
 	instance.Webhook.IsEnabled = enabled
 	instance.Webhook.Events = events
+	r.instances[id] = instance
+	return nil
+}
+
+// SetDefaultDisappearing records the call and stores the persisted echo on
+// the instance, or returns the forced error when set.
+func (r *fakeRepo) SetDefaultDisappearing(_ context.Context, id uuid.UUID, duration time.Duration) error {
+	r.setDefaultDisappearingCalls = append(r.setDefaultDisappearingCalls, setDefaultDisappearingCall{id: id, duration: duration})
+	if r.setDefaultDisappearingErr != nil {
+		return r.setDefaultDisappearingErr
+	}
+	instance, ok := r.instances[id]
+	if !ok {
+		return fmt.Errorf("set instance default disappearing: %w", storage.ErrNotFound)
+	}
+	stored := duration
+	instance.DefaultDisappearing = &stored
 	r.instances[id] = instance
 	return nil
 }

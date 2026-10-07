@@ -467,6 +467,14 @@
       "loadFailed": "Could not load the privacy settings.",
       "atLeastOne": "Change at least one field."
     },
+    "settings": {
+      "cardTitle": "WhatsApp settings",
+      "hint": "Read-only snapshot from the connected phone. Blocks show Not set while the instance is disconnected or a value could not be loaded.",
+      "profileName": "Profile name",
+      "statusPrivacy": "Status updates audience",
+      "statusPrivacyJids": "{count} contact(s)",
+      "defaultDisappearing": "Default disappearing timer"
+    },
     "chatwoot": {
       "cardTitle": "Chatwoot",
       "disabled": "Chatwoot is disabled on this service. Configuration is unavailable.",

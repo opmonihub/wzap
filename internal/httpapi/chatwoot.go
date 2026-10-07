@@ -82,9 +82,12 @@ type chatwootSetRequest struct {
 // chatwootConfigResponse is the GET/PUT /instances/{id}/chatwoot body (the
 // public §6 shape): the stored connector with the remodeled flag names plus
 // the computed webhook_url. The token field never exists on reads — it is
-// write-only, so it is not serialized at all.
+// write-only, so it is not serialized at all. instance_id is present on the
+// standalone route and omitted (omitempty) in the nested
+// integration.chatwoot_config copy of an instance, where data.instance.id
+// already carries it.
 type chatwootConfigResponse struct {
-	InstanceID       string   `json:"instance_id"`
+	InstanceID       string   `json:"instance_id,omitempty"`
 	IsEnabled        bool     `json:"is_enabled"`
 	URL              string   `json:"url"`
 	AccountID        string   `json:"account_id"`

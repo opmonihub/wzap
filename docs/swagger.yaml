@@ -389,12 +389,14 @@ definitions:
         type: string
       id:
         type: string
+      integration:
+        $ref: '#/definitions/httpapi.integrationResponse'
       name:
         type: string
+      settings:
+        $ref: '#/definitions/httpapi.settingsResponse'
       updated_at:
         type: string
-      webhook:
-        $ref: '#/definitions/httpapi.webhookResponse'
     type: object
   httpapi.instanceStatsResponse:
     properties:
@@ -404,6 +406,13 @@ definitions:
         type: object
       total:
         type: integer
+    type: object
+  httpapi.integrationResponse:
+    properties:
+      chatwoot_config:
+        $ref: '#/definitions/httpapi.chatwootConfigResponse'
+      webhook:
+        $ref: '#/definitions/httpapi.webhookResponse'
     type: object
   httpapi.joinGroupRequest:
     properties:
@@ -823,6 +832,22 @@ definitions:
         type: string
       to:
         type: string
+    type: object
+  httpapi.settingsResponse:
+    properties:
+      default_disappearing:
+        description: |-
+          DefaultDisappearing is the persisted echo of the last successful
+          default-disappearing write, in the textual form the PUT accepts (a Go
+          duration; canonical spellings 0, 24h, 168h, 2160h). Null means never
+          configured and is distinct from the stored off value "0".
+        type: string
+      privacy:
+        $ref: '#/definitions/httpapi.privacyResponse'
+      profile:
+        $ref: '#/definitions/httpapi.profileResponse'
+      status_privacy:
+        $ref: '#/definitions/httpapi.statusPrivacyResponse'
     type: object
   httpapi.statsEnvelope:
     properties:
@@ -1389,6 +1414,9 @@ paths:
     post:
       consumes:
       - application/json
+      description: 'Answers with the aggregated instance DTO: the webhook block nests
+        under integration and the nullable settings blocks under settings (both null
+        on a fresh instance except the persisted default_disappearing echo).'
       parameters:
       - description: Instance payload
         in: body
@@ -1400,7 +1428,8 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created, wrapped in the data envelope
+          description: Created instance plus its one-time key, wrapped in the data
+            envelope
           headers:
             X-Request-Id:
               description: Correlation id, generated when absent

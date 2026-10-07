@@ -473,6 +473,7 @@ const docTemplate = `{
                         "apikey": []
                     }
                 ],
+                "description": "Answers with the aggregated instance DTO: the webhook block nests under integration and the nullable settings blocks under settings (both null on a fresh instance except the persisted default_disappearing echo).",
                 "consumes": [
                     "application/json"
                 ],
@@ -496,7 +497,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created, wrapped in the data envelope",
+                        "description": "Created instance plus its one-time key, wrapped in the data envelope",
                         "schema": {
                             "allOf": [
                                 {
@@ -12327,14 +12328,17 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "integration": {
+                    "$ref": "#/definitions/httpapi.integrationResponse"
+                },
                 "name": {
                     "type": "string"
                 },
+                "settings": {
+                    "$ref": "#/definitions/httpapi.settingsResponse"
+                },
                 "updated_at": {
                     "type": "string"
-                },
-                "webhook": {
-                    "$ref": "#/definitions/httpapi.webhookResponse"
                 }
             }
         },
@@ -12349,6 +12353,17 @@ const docTemplate = `{
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "httpapi.integrationResponse": {
+            "type": "object",
+            "properties": {
+                "chatwoot_config": {
+                    "$ref": "#/definitions/httpapi.chatwootConfigResponse"
+                },
+                "webhook": {
+                    "$ref": "#/definitions/httpapi.webhookResponse"
                 }
             }
         },
@@ -13002,6 +13017,24 @@ const docTemplate = `{
                 },
                 "to": {
                     "type": "string"
+                }
+            }
+        },
+        "httpapi.settingsResponse": {
+            "type": "object",
+            "properties": {
+                "default_disappearing": {
+                    "description": "DefaultDisappearing is the persisted echo of the last successful\ndefault-disappearing write, in the textual form the PUT accepts (a Go\nduration; canonical spellings 0, 24h, 168h, 2160h). Null means never\nconfigured and is distinct from the stored off value \"0\".",
+                    "type": "string"
+                },
+                "privacy": {
+                    "$ref": "#/definitions/httpapi.privacyResponse"
+                },
+                "profile": {
+                    "$ref": "#/definitions/httpapi.profileResponse"
+                },
+                "status_privacy": {
+                    "$ref": "#/definitions/httpapi.statusPrivacyResponse"
                 }
             }
         },

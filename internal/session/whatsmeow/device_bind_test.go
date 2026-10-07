@@ -47,6 +47,9 @@ func (s *stubInstanceRepo) UpdateIdentity(context.Context, uuid.UUID, string, st
 func (s *stubInstanceRepo) SetWebhook(context.Context, uuid.UUID, *string, bool, []string) error {
 	panic("unexpected")
 }
+func (s *stubInstanceRepo) SetDefaultDisappearing(context.Context, uuid.UUID, time.Duration) error {
+	panic("unexpected")
+}
 func (s *stubInstanceRepo) SetConnection(context.Context, uuid.UUID, string, string) error {
 	panic("unexpected")
 }

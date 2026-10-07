@@ -626,6 +626,10 @@ func (r *fakeInstanceRepo) SetWebhook(context.Context, uuid.UUID, *string, bool,
 	return errors.New("fakeInstanceRepo.SetWebhook: unexpected call")
 }
 
+func (r *fakeInstanceRepo) SetDefaultDisappearing(context.Context, uuid.UUID, time.Duration) error {
+	return errors.New("fakeInstanceRepo.SetDefaultDisappearing: unexpected call")
+}
+
 func (r *fakeInstanceRepo) SetConnection(context.Context, uuid.UUID, string, string) error {
 	return errors.New("fakeInstanceRepo.SetConnection: unexpected call")
 }

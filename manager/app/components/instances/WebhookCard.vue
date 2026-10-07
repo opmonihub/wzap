@@ -33,9 +33,9 @@ const schema = z.object({
 })
 type Schema = z.output<typeof schema>
 const state = reactive<Partial<Schema>>({
-  url: props.instance.webhook.url ?? '',
-  enabled: props.instance.webhook.enabled,
-  events: [...props.instance.webhook.events]
+  url: props.instance.integration.webhook.url ?? '',
+  enabled: props.instance.integration.webhook.enabled,
+  events: [...props.instance.integration.webhook.events]
 })
 const saving = ref(false)
 const failure = ref<string | null>(null)
@@ -88,9 +88,9 @@ async function onSave(event: FormSubmitEvent<Schema>) {
 // A fresh instance row (after pairing reloads or navigation) replaces the
 // edited values with the stored configuration.
 watch(() => props.instance.id, () => {
-  state.url = props.instance.webhook.url ?? ''
-  state.enabled = props.instance.webhook.enabled
-  state.events = [...props.instance.webhook.events]
+  state.url = props.instance.integration.webhook.url ?? ''
+  state.enabled = props.instance.integration.webhook.enabled
+  state.events = [...props.instance.integration.webhook.events]
   failure.value = null
 })
 </script>

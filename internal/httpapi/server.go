@@ -73,11 +73,20 @@ func New(cfg config.Config, log zerolog.Logger, deps Deps) *http.Server {
 	}))
 
 	api := &instanceMux{ServeMux: http.NewServeMux(), instances: deps.Instances}
-	api.HandleFunc("POST /instances", handleCreateInstance(deps.Instances, deps.Users, deps.Keys, cfg.MaxInstances))
+	// instanceAgg builds the aggregated instance DTO (integration + settings)
+	// shared by the create/list/get/update handlers; its per-block failures
+	// degrade to null blocks without failing the response.
+	instanceAgg := instanceConfigAggregator{
+		instances: deps.Instances,
+		configs:   deps.ChatwootConfigs,
+		publicURL: publicURLForChatwoot(cfg, deps),
+		log:       log,
+	}
+	api.HandleFunc("POST /instances", handleCreateInstance(instanceAgg, deps.Users, deps.Keys, cfg.MaxInstances))
 	api.HandleFunc("GET /instances/stats", handleInstanceStats(deps.Instances))
-	api.HandleFunc("GET /instances", handleListInstances(deps.Instances))
-	api.HandleFunc("GET /instances/{id}", handleGetInstance(deps.Instances))
-	api.HandleFunc("PATCH /instances/{id}", handleUpdateInstance(deps.Instances))
+	api.HandleFunc("GET /instances", handleListInstances(instanceAgg))
+	api.HandleFunc("GET /instances/{id}", handleGetInstance(instanceAgg))
+	api.HandleFunc("PATCH /instances/{id}", handleUpdateInstance(instanceAgg))
 	api.HandleFunc("DELETE /instances/{id}", handleDeleteInstance(deps.Instances))
 	api.HandleFunc("POST /instances/{id}/apikey/rotate", handleRotateAPIKey(deps.Instances, deps.Keys))
 	api.HandleFunc("DELETE /instances/{id}/apikey", handleRevokeAPIKey(deps.Instances, deps.Keys))

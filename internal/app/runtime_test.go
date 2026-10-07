@@ -86,6 +86,10 @@ func (r *runtimeRepo) SetWebhook(context.Context, uuid.UUID, *string, bool, []st
 	return errors.New("runtimeRepo.SetWebhook: unexpected call")
 }
 
+func (r *runtimeRepo) SetDefaultDisappearing(context.Context, uuid.UUID, time.Duration) error {
+	return errors.New("runtimeRepo.SetDefaultDisappearing: unexpected call")
+}
+
 func (r *runtimeRepo) Delete(context.Context, uuid.UUID) error {
 	return errors.New("runtimeRepo.Delete: unexpected call")
 }

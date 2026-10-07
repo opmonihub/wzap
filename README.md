@@ -175,11 +175,11 @@ renomear, o nome antigo retorna `404` e o novo compartilha o replay existente.
 
 | Método e rota | Corpo/Resposta |
 | --- | --- |
-| `POST /instances` | `{"name","external_ref"?,"owner_user_id"?,"webhook_*"?}` → `201` com a instância, o dono e `instance_api_key` em claro **uma única vez**; `external_ref` duplicada → `409`; acima da cota → `403 quota_exceeded`. O dono é a sessão criadora, ou o admin mais antigo (sobrescrevível por `owner_user_id` só global/admin) na criação por key global. |
-| `GET /instances` | `200` com `{"data":{"items":[...]}}`, contendo todas as instâncias autorizadas, ordenadas por criação e id decrescentes. Contas `user` recebem só as próprias; instance key → `403`. |
+| `POST /instances` | `{"name","external_ref"?,"owner_user_id"?,"webhook"?}` com `webhook:{url,enabled,events}` → `201` com `data.instance` (representação agregada abaixo) e `instance_api_key` em claro **uma única vez**; `external_ref` duplicada → `409`; acima da cota → `403 quota_exceeded`. O dono é a sessão criadora, ou o admin mais antigo (sobrescrevível por `owner_user_id` só global/admin) na criação por key global. |
+| `GET /instances` | `200` com `{"data":{"items":[{"instance":...}]}}`, contendo todas as instâncias autorizadas na representação agregada abaixo, ordenadas por criação e id decrescentes. Contas `user` recebem só as próprias; instance key → `403`. |
 | `GET /instances/stats` | `200` com `{total, by_status}`; query opcional `instance` aceita UUID ou nome. Instance key → `403`. |
-| `GET /instances/{id}` | `200` com a instância (dono + webhook, nunca a key); `404` se não existir (id malformado também é `404`); instância de outro dono → `403`. |
-| `PATCH /instances/{id}` | `{"name"?,"external_ref"?,"webhook_url"?,"webhook_enabled"?,"webhook_events"?}` → `200`; `external_ref` vazia limpa a referência; webhook inválido → `422`. |
+| `GET /instances/{id}` | `200` com `{"data":{"instance":...}}` na representação agregada abaixo (nunca a key); `404` se não existir (id malformado também é `404`); instância de outro dono → `403`. |
+| `PATCH /instances/{id}` | `{"name"?,"external_ref"?,"webhook"?}` com `webhook:{url,enabled,events}` → `200` com `data.instance` agregado; `external_ref` vazia limpa a referência; `url:""` limpa a URL e `events:[]` limpa a assinatura; webhook inválido → `422`. |
 | `DELETE /instances/{id}` | `204`; encerra a sessão e apaga mensagens e mídias; operações seguintes → `404`. |
 | `POST /instances/{id}/apikey/rotate` | Só global/admin → `200` com a nova key em claro uma vez; a antiga morre na hora. Serve de backfill para instâncias antigas sem key. |
 | `DELETE /instances/{id}/apikey` | Só global/admin → `204`; a instância volta a responder só pela global até nova rotação. |
@@ -195,6 +195,53 @@ antigas `limit` e `cursor` são ignoradas, inclusive valores inválidos. Uma
 coleção grande produz uma resposta maior, sem limite oculto. Mensagens, grupos
 e newsletters mantêm seus contratos de paginação.
 
+**BREAKING:** `webhook` saiu da raiz de `instance` e existe só em
+`integration.webhook`. `GET /instances`, `GET /instances/{id}`,
+`POST /instances` e `PATCH /instances/{id}` devolvem também
+`integration.chatwoot_config` (`null` sem configuração persistida) e
+`settings`. `settings.default_disappearing` ecoa o último valor aceito por
+`PUT /instances/{id}/chats/default-disappearing` (`0`, `24h`, `168h` ou
+`2160h`) e é `null` quando nunca configurado. `settings.profile`,
+`settings.privacy` e `settings.status_privacy` são objetos só quando
+`connection.status` é `connected`; caso contrário, ou se a fonte falhar, o
+bloco é `null` e a leitura da instância continua.
+
+**BREAKING:** o bloco `webhook` saiu da raiz da instância e passou a
+`integration.webhook` (o contrato cortado em 2026-10-06 o tinha na raiz; o
+consumidor deve ler `instance.integration.webhook`). A representação pública
+da instância — em `data.instance` e em `data.items[].instance`, inclusive nas
+respostas de create e update — ficou:
+
+```json
+{"id": "...", "name": "...",
+ "connection": {"status": "...", "last_error": {...}|null, "last_connected_at": "..."},
+ "integration": {
+   "webhook": {"enabled": false, "url": null, "events": ["message", "..."]},
+   "chatwoot_config": {"is_enabled": false, "...": "..."} | null
+ },
+ "settings": {
+   "default_disappearing": "0" | "24h" | "168h" | "2160h" | null,
+   "profile": {"name": "...", "status_text": "...", "photo_url": "..."} | null,
+   "privacy": {"last_seen": "...", "profile_photo": "...", "status": "...",
+               "read_receipts": "...", "groups_add": "..."} | null,
+   "status_privacy": {"mode": "...", "...": "..."} | null
+ },
+ "created_at": "...", "updated_at": "..."}
+```
+
+Semântica de `null` por bloco: `integration.chatwoot_config` é `null` quando
+nunca houve configuração Chatwoot persistida (o `GET /instances/{id}/chatwoot`
+próprio continua sintetizando um config desabilitado — o agregado não);
+`settings.default_disappearing` ecoa o literal aceito pelo último
+`PUT /instances/{id}/chats/default-disappearing` e é `null` enquanto nunca
+configurado (distinto de `"0"` = desligado); os blocos vivos `profile`,
+`privacy` e `status_privacy` só são buscados com `connection.status ==
+"connected"` e vêm `null` nos demais estados ou quando a fonte falha — a
+indisponibilidade de um bloco nunca derruba a leitura nem os demais itens da
+listagem (montagem com concorrência limitada por requisição). Campos internos
+seguem ocultos: `external_ref`, `owner_user_id`, `whatsapp_jid`/`device_jid`,
+hashes e o token Chatwoot (write-only) não aparecem em nenhum bloco.
+
 Estados de instância: `disconnected`, `pairing`, `connected`, `error`. Restrição
 de conta vira `error` com motivo e **não** reconecta automaticamente; queda
 transitória reconecta com espera crescente.
@@ -207,8 +254,8 @@ estado; acima da cota a criação responde `403 quota_exceeded`. Contas
 ### Webhooks
 
 Cada instância tem webhook próprio (`webhook_url`, `webhook_enabled`,
-`webhook_events`, gerenciáveis no create/update/get por quem opera a
-instância). `events` aceita os 4 tipos padrão (`message`, `receipt`,
+`webhook_events`, gerenciáveis no create/update por quem opera a
+instância; nas leituras o bloco vive em `integration.webhook`). `events` aceita os 4 tipos padrão (`message`, `receipt`,
 `connection`, `message.status`) mais os opt-in das novas famílias
 (`poll.vote`, `message.reaction`, `interactive.response`,
 `group.participants`, `group.info`, `call.offer`); omitir `webhook_events`

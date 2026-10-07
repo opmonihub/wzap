@@ -86,6 +86,45 @@ func TestDisappearingTimers(t *testing.T) {
 	}
 }
 
+// The default disappearing PUT keeps a persisted echo of the last applied
+// timer: it is written only after the upstream accepted the change, so a
+// session failure leaves the stored echo untouched and off (0) stays
+// distinguishable from never configured (nil).
+func TestSetDefaultDisappearingTimerPersistsEcho(t *testing.T) {
+	inst, repo := newParityTestInstance(t)
+	mgr := sessiontest.New(nil)
+	sess := sessiontest.NewSession(inst.ID, nil)
+	mgr.Put(inst.ID, sess)
+	svc := NewService(repo, mgr, nil, nil, nil, testLogger())
+	ctx := context.Background()
+
+	sess.ChatSettingsErr = session.ErrNotConnected
+	if err := svc.SetDefaultDisappearingTimer(ctx, inst.ID, 24*time.Hour); !errors.Is(err, ErrNotConnected) {
+		t.Fatalf("offline err = %v, want ErrNotConnected", err)
+	}
+	if calls := repo.setDefaultDisappearingCalls; len(calls) != 0 {
+		t.Fatalf("persisted %+v despite the session failure", calls)
+	}
+
+	sess.ChatSettingsErr = nil
+	for _, d := range []time.Duration{24 * time.Hour, 0} {
+		if err := svc.SetDefaultDisappearingTimer(ctx, inst.ID, d); err != nil {
+			t.Fatalf("SetDefaultDisappearingTimer %v: %v", d, err)
+		}
+	}
+	calls := repo.setDefaultDisappearingCalls
+	if len(calls) != 2 || calls[0].duration != 24*time.Hour || calls[1].duration != 0 {
+		t.Fatalf("persisted echo calls = %+v, want [24h 0]", calls)
+	}
+	stored, err := repo.Get(ctx, inst.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if stored.DefaultDisappearing == nil || *stored.DefaultDisappearing != 0 {
+		t.Errorf("stored echo = %v, want 0 (off), distinct from never configured", stored.DefaultDisappearing)
+	}
+}
+
 func TestSubscribePresence(t *testing.T) {
 	inst, repo := newParityTestInstance(t)
 	mgr := sessiontest.New(nil)

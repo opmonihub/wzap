@@ -76,18 +76,43 @@ export interface WebhookConfig {
   events: string[]
 }
 
+// Integration blocks aggregated on every instance read (BREAKING: the
+// webhook configuration moved here from the instance root).
+// chatwoot_config mirrors GET /instances/{id}/chatwoot minus instance_id
+// (the instance already carries its own id) and stays null when no connector
+// config is stored; the write-only Chatwoot token never appears here either.
+export interface InstanceIntegration {
+  webhook: WebhookConfig
+  chatwoot_config: InstanceChatwootConfig | null
+}
+
+// Read-only account settings snapshot aggregated on every instance read.
+// Each block is null when the instance is disconnected or the block fetch
+// failed — the aggregate never fails as a whole. Write paths are unchanged:
+// PATCH /instances/{id}/profile, PUT /instances/{id}/privacy and PUT
+// /instances/{id}/chats/default-disappearing remain the only mutators.
+export interface InstanceSettings {
+  // Echo of the last PUT duration literal ("0", "24h", "168h", "2160h");
+  // null when the timer was never configured.
+  default_disappearing: string | null
+  profile: Profile | null
+  privacy: Privacy | null
+  status_privacy: StatusPrivacy | null
+}
+
 // Instance as answered by GET /instances and GET /instances/{id} under
 // data.instance, and nested under data.items[].instance in the collection.
 // Mirrors instanceResponse in internal/httpapi/dto.go: identity plus the
-// nested connection and webhook blocks and the timestamps. Internal fields
-// (device_jid, external_ref, owner_user_id, key hashes) never leave the
-// service; the instance API key is returned in clear exactly once by the
-// create and rotate answers below.
+// nested connection, integration and settings blocks and the timestamps.
+// Internal fields (device_jid, external_ref, owner_user_id, key hashes) never
+// leave the service; the instance API key is returned in clear exactly once
+// by the create and rotate answers below.
 export interface Instance {
   id: string
   name: string
   connection: ConnectionInfo
-  webhook: WebhookConfig
+  integration: InstanceIntegration
+  settings: InstanceSettings
   created_at: string
   updated_at: string
 }
@@ -147,8 +172,8 @@ export interface ConnectionStatus {
 }
 
 // Webhook block of the create/PATCH instance payloads, mirroring the public
-// instance.webhook sub-object. Omitted fields keep their stored value: a
-// missing url stays unset, url:"" clears it and events:[] clears the
+// instance.integration.webhook sub-object. Omitted fields keep their stored
+// value: a missing url stays unset, url:"" clears it and events:[] clears the
 // subscription.
 export interface WebhookInput {
   url?: string
@@ -512,6 +537,16 @@ export interface Privacy {
   groups_add: string
 }
 
+// Own status audience as answered by GET /instances/{id}/status/privacy and
+// mirrored read-only in instance.settings.status_privacy. Mirrors
+// statusPrivacyResponse in internal/httpapi/parity_reads.go: mode is the
+// upstream audience literal and jids lists the explicit contacts when the
+// audience is customized (empty otherwise).
+export interface StatusPrivacy {
+  mode: string
+  jids: string[]
+}
+
 export interface PairPhoneResult {
   pairing_code: string
   expires_at: string
@@ -540,6 +575,11 @@ export interface ChatwootConfig {
   ignored_jids: string[]
   webhook_url: string
 }
+
+// Chatwoot connector config nested under instance.integration.chatwoot_config
+// (instance reads): the GET/PUT chatwoot shape minus instance_id, nullable
+// when the instance carries no stored connector config.
+export type InstanceChatwootConfig = Omit<ChatwootConfig, 'instance_id'>
 
 export interface ChatwootConfigEnvelope {
   chatwoot_config: ChatwootConfig

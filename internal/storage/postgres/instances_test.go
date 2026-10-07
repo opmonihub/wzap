@@ -584,3 +584,75 @@ func TestInstanceRepositoryDelete(t *testing.T) {
 		t.Errorf("Delete twice error = %v, want ErrNotFound", err)
 	}
 }
+
+// TestInstanceRepositoryDefaultDisappearing pins the persisted echo of the
+// default disappearing timer on its dedicated satellite: nil when never
+// configured (distinct from the stored "off" zero), carried by every
+// aggregate read, and upserted by SetDefaultDisappearing without touching the
+// identity, connection or webhook columns.
+func TestInstanceRepositoryDefaultDisappearing(t *testing.T) {
+	ctx := context.Background()
+	pool := newTestPool(t)
+	repo := NewInstanceRepository(pool)
+
+	created := createTestInstance(t, repo, "timers", "timers-ref")
+	if created.DefaultDisappearing != nil {
+		t.Fatalf("Create echo = %v, want nil (never configured)", created.DefaultDisappearing)
+	}
+	got, err := repo.Get(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.DefaultDisappearing != nil {
+		t.Fatalf("Get echo = %v, want nil (never configured)", got.DefaultDisappearing)
+	}
+
+	if err := repo.SetDefaultDisappearing(ctx, created.ID, 24*time.Hour); err != nil {
+		t.Fatalf("SetDefaultDisappearing(24h): %v", err)
+	}
+	got, err = repo.Get(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("Get after SetDefaultDisappearing: %v", err)
+	}
+	if got.DefaultDisappearing == nil || *got.DefaultDisappearing != 24*time.Hour {
+		t.Errorf("Get echo = %v, want 24h", got.DefaultDisappearing)
+	}
+	if got.Name != "timers" || got.ExternalRef != "timers-ref" {
+		t.Errorf("SetDefaultDisappearing touched identity fields: %+v", got)
+	}
+
+	// The echo travels with the collection read too.
+	listed, err := repo.List(ctx)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	found := false
+	for i := range listed {
+		if listed[i].ID != created.ID {
+			continue
+		}
+		found = true
+		if listed[i].DefaultDisappearing == nil || *listed[i].DefaultDisappearing != 24*time.Hour {
+			t.Errorf("List echo = %v, want 24h", listed[i].DefaultDisappearing)
+		}
+	}
+	if !found {
+		t.Error("List is missing the instance")
+	}
+
+	// Off (0) is a stored value, still distinct from never configured.
+	if err := repo.SetDefaultDisappearing(ctx, created.ID, 0); err != nil {
+		t.Fatalf("SetDefaultDisappearing(0): %v", err)
+	}
+	got, err = repo.Get(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("Get after off: %v", err)
+	}
+	if got.DefaultDisappearing == nil || *got.DefaultDisappearing != 0 {
+		t.Errorf("Get off echo = %v, want 0", got.DefaultDisappearing)
+	}
+
+	if err := repo.SetDefaultDisappearing(ctx, uuid.New(), 24*time.Hour); !errors.Is(err, storage.ErrNotFound) {
+		t.Errorf("SetDefaultDisappearing(unknown) error = %v, want ErrNotFound", err)
+	}
+}

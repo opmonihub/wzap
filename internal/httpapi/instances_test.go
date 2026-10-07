@@ -1131,9 +1131,9 @@ func TestInstancesGet(t *testing.T) {
 
 // TestInstancesGetPublicShape pins the remodeled fixture: the instance nests
 // under data.instance, connection exposes the structured last_error (legacy
-// text maps to legacy_error with occurred_at null) and webhook travels as
-// the nested block — while external_ref, owner_user_id and device/whatsapp
-// JIDs never leave the service.
+// text maps to legacy_error with occurred_at null) and the webhook travels as
+// the nested integration block — while external_ref, owner_user_id and
+// device/whatsapp JIDs never leave the service.
 func TestInstancesGetPublicShape(t *testing.T) {
 	lastConnectedAt := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
 	owner := uuid.New()
@@ -1174,8 +1174,8 @@ func TestInstancesGetPublicShape(t *testing.T) {
 	if got.Connection.LastConnectedAt == nil || !got.Connection.LastConnectedAt.Equal(lastConnectedAt) {
 		t.Errorf("data.instance.connection.last_connected_at = %v, want %v", got.Connection.LastConnectedAt, lastConnectedAt)
 	}
-	if !got.Webhook.Enabled || !reflect.DeepEqual(got.Webhook.Events, []string{"message"}) {
-		t.Errorf("data.instance.webhook = %+v, want enabled with [message]", got.Webhook)
+	if !got.Integration.Webhook.Enabled || !reflect.DeepEqual(got.Integration.Webhook.Events, []string{"message"}) {
+		t.Errorf("data.instance.integration.webhook = %+v, want enabled with [message]", got.Integration.Webhook)
 	}
 	for _, leaked := range []string{`"external_ref"`, `"owner_user_id"`, `"device_jid"`, `"whatsapp_jid"`, `"api_key_hash"`} {
 		if strings.Contains(rec.Body.String(), leaked) {

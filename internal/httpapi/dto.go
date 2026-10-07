@@ -76,6 +76,56 @@ func newWebhookResponse(hook model.InstanceWebhook) webhookResponse {
 	return webhookResponse{Enabled: hook.IsEnabled, URL: hook.URL, Events: events}
 }
 
+// integrationResponse groups the connector configuration of an instance: the
+// delivery webhook (always present) and the optional Chatwoot connector
+// config (null when the instance was never configured). The nested Chatwoot
+// copy drops its instance_id (already at data.instance.id) and never carries
+// the write-only token.
+type integrationResponse struct {
+	Webhook        webhookResponse         `json:"webhook"`
+	ChatwootConfig *chatwootConfigResponse `json:"chatwoot_config"`
+}
+
+// settingsResponse is the settings aggregate of an instance. Every block is
+// nullable on its own: the live blocks (profile, privacy, status_privacy) are
+// read only while the instance is connected and degrade to null on any read
+// failure, and default_disappearing is null until the default timer was
+// configured at least once.
+type settingsResponse struct {
+	// DefaultDisappearing is the persisted echo of the last successful
+	// default-disappearing write, in the textual form the PUT accepts (a Go
+	// duration; canonical spellings 0, 24h, 168h, 2160h). Null means never
+	// configured and is distinct from the stored off value "0".
+	DefaultDisappearing *string                `json:"default_disappearing"`
+	Profile             *profileResponse       `json:"profile"`
+	Privacy             *privacyResponse       `json:"privacy"`
+	StatusPrivacy       *statusPrivacyResponse `json:"status_privacy"`
+}
+
+// defaultDisappearingText renders the persisted default disappearing echo in
+// the textual form the PUT accepts (a Go duration). The four allowlist values
+// render with their canonical spellings; anything else falls back to the Go
+// duration string. Nil (never configured) renders as null.
+func defaultDisappearingText(duration *time.Duration) *string {
+	if duration == nil {
+		return nil
+	}
+	var text string
+	switch *duration {
+	case 0:
+		text = "0"
+	case 24 * time.Hour:
+		text = "24h"
+	case 168 * time.Hour:
+		text = "168h"
+	case 2160 * time.Hour:
+		text = "2160h"
+	default:
+		text = duration.String()
+	}
+	return &text
+}
+
 // Resource envelopes (matrix §1): persisted entities always travel under
 // data.<entity> on single reads/writes and under data.items[] on
 // collections. Commands keep their flat data object.
@@ -104,27 +154,39 @@ type channelEnvelope struct {
 }
 
 // instanceResponse is the public representation of an instance: identity,
-// the nested connection and webhook blocks and the timestamps. Internal
-// fields (device_jid, external_ref, owner_user_id, key hashes) never
-// leave the service.
+// the nested connection block, the integration block (webhook plus optional
+// Chatwoot config), the nullable settings blocks and the timestamps.
+// Internal fields (device_jid, whatsapp_jid, external_ref, owner_user_id, key
+// hashes, Chatwoot token) never leave the service. The webhook block moved
+// under integration (BREAKING); it is no longer an instance root key.
 type instanceResponse struct {
-	ID         string             `json:"id"`
-	Name       string             `json:"name"`
-	Connection connectionResponse `json:"connection"`
-	Webhook    webhookResponse    `json:"webhook"`
-	CreatedAt  time.Time          `json:"created_at"`
-	UpdatedAt  time.Time          `json:"updated_at"`
+	ID          string              `json:"id"`
+	Name        string              `json:"name"`
+	Connection  connectionResponse  `json:"connection"`
+	Integration integrationResponse `json:"integration"`
+	Settings    settingsResponse    `json:"settings"`
+	CreatedAt   time.Time           `json:"created_at"`
+	UpdatedAt   time.Time           `json:"updated_at"`
 }
 
-// newInstanceResponse maps a stored instance to its public DTO.
+// newInstanceResponse maps a stored instance to the pure part of its public
+// DTO: identity, connection, integration.webhook and the persisted
+// settings.default_disappearing echo. The remaining blocks stay null until
+// the handler aggregation fills them (integration.chatwoot_config from the
+// config store; the live settings blocks only while connected).
 func newInstanceResponse(inst *model.Instance) instanceResponse {
 	return instanceResponse{
 		ID:         inst.ID.String(),
 		Name:       inst.Name,
 		Connection: newConnectionResponse(inst.Connection),
-		Webhook:    newWebhookResponse(inst.Webhook),
-		CreatedAt:  inst.CreatedAt,
-		UpdatedAt:  inst.UpdatedAt,
+		Integration: integrationResponse{
+			Webhook: newWebhookResponse(inst.Webhook),
+		},
+		Settings: settingsResponse{
+			DefaultDisappearing: defaultDisappearingText(inst.DefaultDisappearing),
+		},
+		CreatedAt: inst.CreatedAt,
+		UpdatedAt: inst.UpdatedAt,
 	}
 }
 
@@ -141,11 +203,12 @@ type instanceListResponse struct {
 	Items []instanceEnvelope `json:"items"`
 }
 
-// newCreateInstanceResponse maps a created instance and its one-time
-// plaintext key to the 201 body. The key travels in this response only.
-func newCreateInstanceResponse(inst *model.Instance, key string) createInstanceResponse {
+// newCreateInstanceResponse maps an already-aggregated instance DTO and its
+// one-time plaintext key to the 201 body. The key travels in this response
+// only.
+func newCreateInstanceResponse(inst instanceResponse, key string) createInstanceResponse {
 	return createInstanceResponse{
-		Instance:       newInstanceResponse(inst),
+		Instance:       inst,
 		InstanceAPIKey: key,
 	}
 }

@@ -2,7 +2,7 @@
 import { ApiError } from '~/composables/useApi'
 import { useConfirmDelete } from '~/components/instances/ConfirmDelete'
 import OneTimeKeyDisplay from '~/components/instances/OneTimeKeyDisplay.vue'
-import type { Instance, RotatedInstanceKey } from '~/types/api'
+import type { Instance, RotatedInstanceKey, StatusPrivacy } from '~/types/api'
 
 const props = defineProps<{
   instance: Instance
@@ -77,10 +77,75 @@ async function onRevoke() {
 watch(() => props.instance.id, (nextId: string) => {
   keySeen.value = hasSeenInstanceKey(nextId)
 }, { immediate: true })
+
+// Compact read-only snapshot of instance.settings (aggregated on reads, null
+// per block while the instance is disconnected or a block fetch failed).
+// Purely presentational: profile/privacy edits stay under the Profile
+// section and the default disappearing timer has no write flow here.
+function audienceLabel(value: string | null | undefined): string {
+  switch (value) {
+    case 'all':
+      return t('instances.privacy.allowAll')
+    case 'contacts':
+      return t('instances.privacy.allowContacts')
+    case 'contact_blacklist':
+      return t('instances.privacy.allowBlacklist')
+    case 'none':
+      return t('instances.privacy.allowNone')
+    default:
+      return value || t('common.notSet')
+  }
+}
+
+function statusPrivacyLabel(value: StatusPrivacy | null): string {
+  if (!value) {
+    return t('common.notSet')
+  }
+  return value.jids.length > 0
+    ? `${value.mode} · ${t('instances.settings.statusPrivacyJids', { count: value.jids.length })}`
+    : value.mode
+}
+
+const settingsRows = computed(() => {
+  const settings = props.instance.settings
+  return [
+    { key: 'profileName', label: t('instances.settings.profileName'), value: settings.profile?.name || t('common.notSet') },
+    { key: 'statusText', label: t('instances.profile.recado'), value: settings.profile?.status_text || t('common.notSet') },
+    { key: 'lastSeen', label: t('instances.privacy.lastSeen'), value: audienceLabel(settings.privacy?.last_seen) },
+    { key: 'profilePhoto', label: t('instances.privacy.profilePhoto'), value: audienceLabel(settings.privacy?.profile_photo) },
+    { key: 'status', label: t('instances.privacy.status'), value: audienceLabel(settings.privacy?.status) },
+    { key: 'readReceipts', label: t('instances.privacy.readReceipts'), value: audienceLabel(settings.privacy?.read_receipts) },
+    { key: 'groupsAdd', label: t('instances.privacy.groupsAdd'), value: audienceLabel(settings.privacy?.groups_add) },
+    { key: 'statusPrivacy', label: t('instances.settings.statusPrivacy'), value: statusPrivacyLabel(settings.status_privacy) },
+    { key: 'defaultDisappearing', label: t('instances.settings.defaultDisappearing'), value: settings.default_disappearing || t('common.notSet') }
+  ]
+})
 </script>
 
 <template>
   <div class="flex w-full min-w-0 flex-col gap-4 sm:gap-6">
+    <UPageCard :title="t('instances.settings.cardTitle')" variant="subtle" data-testid="instance-settings-card">
+      <div class="flex flex-col gap-3">
+        <p class="text-sm text-muted">
+          {{ t('instances.settings.hint') }}
+        </p>
+        <dl class="flex flex-col gap-3 text-sm sm:gap-2">
+          <div
+            v-for="row in settingsRows"
+            :key="row.key"
+            class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
+          >
+            <dt class="shrink-0 text-muted">
+              {{ row.label }}
+            </dt>
+            <dd class="min-w-0 break-all text-highlighted sm:text-right">
+              {{ row.value }}
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </UPageCard>
+
     <UPageCard v-if="isAdmin" :title="t('instances.key.cardTitle')" variant="subtle">
       <div class="flex flex-col gap-4">
         <UAlert

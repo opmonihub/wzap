@@ -51,7 +51,8 @@ type InstanceWebhook struct {
 // Instance is a WhatsApp instance registered with the wzap service. It is an
 // aggregate: the row in instances carries the identity (name, external_ref,
 // owner, key hash) while Connection and Webhook are the satellite rows read
-// together with it.
+// together with it. DefaultDisappearing is the scalar of the small
+// instance_chat_settings satellite, read with the same aggregate.
 type Instance struct {
 	ID          uuid.UUID
 	Name        string
@@ -65,9 +66,14 @@ type Instance struct {
 	// Webhook is the instance_webhooks satellite: delivery configuration
 	// written only by the webhook command. The instance key hash is never
 	// exposed here; it stays inside the API key repository methods.
-	Webhook   InstanceWebhook
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Webhook InstanceWebhook
+	// DefaultDisappearing is the persisted echo of the last successful
+	// default-disappearing timer write (instance_chat_settings satellite),
+	// written only by that command. Nil means never configured and is
+	// distinct from the stored off value of zero.
+	DefaultDisappearing *time.Duration
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 // BoundDeviceJID returns the whatsmeow device identity bound to the

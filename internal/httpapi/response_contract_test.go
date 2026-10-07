@@ -370,13 +370,38 @@ func requireContractEntity(t *testing.T, data map[string]any, entity string) {
 	}
 	switch entity {
 	case "instance":
-		requireContractKeys(t, object, "id,name,connection,webhook,created_at,updated_at")
+		requireContractKeys(t, object, "id,name,connection,integration,settings,created_at,updated_at")
 		requireContractEntity(t, object, "connection")
-		hook, ok := object["webhook"].(map[string]any)
+		integration, ok := object["integration"].(map[string]any)
 		if !ok {
-			t.Fatal("missing webhook")
+			t.Fatal("missing integration")
+		}
+		requireContractKeys(t, integration, "webhook,chatwoot_config")
+		hook, ok := integration["webhook"].(map[string]any)
+		if !ok {
+			t.Fatal("missing integration.webhook")
 		}
 		requireContractKeys(t, hook, "enabled,url,events")
+		if nested, ok := integration["chatwoot_config"].(map[string]any); ok {
+			// The nested copy drops instance_id (already at data.instance.id)
+			// and the write-only token, like the standalone config body minus
+			// its instance id.
+			requireContractKeys(t, nested, "is_enabled,url,account_id,inbox_name,is_sign_enabled,sign_delimiter,is_reopen_enabled,is_pending_enabled,is_merge_enabled,is_import_contacts,is_import_messages,import_days,is_auto_create,organization,logo,ignored_jids,webhook_url")
+		}
+		settings, ok := object["settings"].(map[string]any)
+		if !ok {
+			t.Fatal("missing settings")
+		}
+		requireContractKeys(t, settings, "default_disappearing,profile,privacy,status_privacy")
+		if nested, ok := settings["profile"].(map[string]any); ok {
+			requireContractKeys(t, nested, "name,status_text,photo_url")
+		}
+		if nested, ok := settings["privacy"].(map[string]any); ok {
+			requireContractKeys(t, nested, "last_seen,profile_photo,status,read_receipts,groups_add")
+		}
+		if nested, ok := settings["status_privacy"].(map[string]any); ok {
+			requireContractKeys(t, nested, "mode,jids")
+		}
 	case "message":
 		requireContractKeys(t, object, "id,instance_id,message_type,recipient_jid,send_status,wa_id,media_id,retry_count,last_error,next_attempt_at,delivered_at,read_at,created_at,updated_at")
 	case "accepted_message":

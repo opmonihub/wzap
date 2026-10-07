@@ -17,21 +17,24 @@ import (
 	"wzap/internal/webhook"
 )
 
-// instanceColumns reads the identity row joined with its connection and
-// webhook satellites. Both satellites are created with the identity, so the
-// LEFT JOINs always pair; the COALESCEs only defend against rows inserted by
-// direct SQL outside the repository (tests seeding minimal identities).
+// instanceColumns reads the identity row joined with its connection, webhook
+// and chat-settings satellites. The satellites are created with the identity
+// or on first write of their concern, so the LEFT JOINs pair or read NULL; the
+// COALESCEs only defend against rows inserted by direct SQL outside the
+// repository (tests seeding minimal identities).
 const instanceColumns = `i.id, i.name, COALESCE(i.external_ref, '') AS external_ref, ` +
 	`COALESCE(c.device_jid, '') AS device_jid, COALESCE(c.status, 'disconnected') AS status, ` +
 	`c.last_connected_at, c.last_error_code, c.last_error_message, c.last_error_at, ` +
 	`i.owner_user_id, w.url AS webhook_url, ` +
 	`COALESCE(w.is_enabled, false) AS webhook_enabled, ` +
 	`COALESCE(w.events, '{message,receipt,connection,message.status}'::text[]) AS webhook_events, ` +
+	`s.default_disappearing_seconds, ` +
 	`i.created_at, i.updated_at`
 
 const instanceJoin = ` FROM instances i ` +
 	`LEFT JOIN instance_connections c ON c.instance_id = i.id ` +
-	`LEFT JOIN instance_webhooks w ON w.instance_id = i.id`
+	`LEFT JOIN instance_webhooks w ON w.instance_id = i.id ` +
+	`LEFT JOIN instance_chat_settings s ON s.instance_id = i.id`
 
 const listInstancesQuery = `SELECT ` + instanceColumns + instanceJoin +
 	` ORDER BY i.created_at DESC, i.id DESC`
@@ -330,6 +333,30 @@ func (r *InstanceRepository) SetWebhook(ctx context.Context, id uuid.UUID, url *
 	return nil
 }
 
+// SetDefaultDisappearing upserts the persisted echo of the default
+// disappearing timer on the instance_chat_settings satellite, never touching
+// identity, connection or webhook columns. The row is created on first write;
+// a zero duration stores the off value (not NULL: NULL means never
+// configured). It reports storage.ErrNotFound when the instance does not
+// exist.
+func (r *InstanceRepository) SetDefaultDisappearing(ctx context.Context, id uuid.UUID, duration time.Duration) error {
+	tag, err := r.pool.Exec(ctx, `
+		INSERT INTO instance_chat_settings (instance_id, default_disappearing_seconds)
+		VALUES ($1, $2)
+		ON CONFLICT (instance_id) DO UPDATE
+		SET default_disappearing_seconds = EXCLUDED.default_disappearing_seconds,
+		    updated_at = now()`,
+		id, int64(duration/time.Second),
+	)
+	if err != nil {
+		return mapInstanceError("set instance default disappearing", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("set instance default disappearing: %w", storage.ErrNotFound)
+	}
+	return nil
+}
+
 // BackfillOwner claims every legacy instance with a NULL owner for owner and
 // returns how many rows were claimed. Instances that already have an owner are
 // never touched: ownership is immutable.
@@ -395,20 +422,22 @@ func scanInstance(scanner rowScanner) (*model.Instance, error) {
 
 func scanInstanceRow(scanner rowScanner, instance *model.Instance) error {
 	var (
-		deviceJID       string
-		status          string
-		lastConnectedAt *time.Time
-		lastErrCode     *string
-		lastErrMessage  *string
-		lastErrAt       *time.Time
-		webhookURL      *string
-		webhookEnabled  bool
-		webhookEvents   []string
+		deviceJID                  string
+		status                     string
+		lastConnectedAt            *time.Time
+		lastErrCode                *string
+		lastErrMessage             *string
+		lastErrAt                  *time.Time
+		webhookURL                 *string
+		webhookEnabled             bool
+		webhookEvents              []string
+		defaultDisappearingSeconds *int64
 	)
 	if err := scanner.Scan(
 		&instance.ID, &instance.Name, &instance.ExternalRef,
 		&deviceJID, &status, &lastConnectedAt, &lastErrCode, &lastErrMessage, &lastErrAt,
 		&instance.OwnerUserID, &webhookURL, &webhookEnabled, &webhookEvents,
+		&defaultDisappearingSeconds,
 		&instance.CreatedAt, &instance.UpdatedAt,
 	); err != nil {
 		return err
@@ -431,6 +460,12 @@ func scanInstanceRow(scanner rowScanner, instance *model.Instance) error {
 		URL:        webhookURL,
 		IsEnabled:  webhookEnabled,
 		Events:     webhookEvents,
+	}
+	if defaultDisappearingSeconds != nil {
+		duration := time.Duration(*defaultDisappearingSeconds) * time.Second
+		instance.DefaultDisappearing = &duration
+	} else {
+		instance.DefaultDisappearing = nil
 	}
 	return nil
 }
@@ -474,12 +509,19 @@ func mapInstanceError(op string, err error) error {
 		return fmt.Errorf("%s: %w", op, storage.ErrNotFound)
 	}
 	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-		switch pgErr.ConstraintName {
-		case "instances_external_ref_key":
-			return fmt.Errorf("%s: %w", op, storage.ErrExternalRefTaken)
-		case "instance_connections_device_jid_uidx":
-			return fmt.Errorf("%s: %w", op, storage.ErrDeviceJIDTaken)
+	if errors.As(err, &pgErr) {
+		switch pgErr.Code {
+		case "23505":
+			switch pgErr.ConstraintName {
+			case "instances_external_ref_key":
+				return fmt.Errorf("%s: %w", op, storage.ErrExternalRefTaken)
+			case "instance_connections_device_jid_uidx":
+				return fmt.Errorf("%s: %w", op, storage.ErrDeviceJIDTaken)
+			}
+		case "23503":
+			// A foreign-key violation on a satellite write means the owning
+			// instance row is gone: the caller sees ErrNotFound.
+			return fmt.Errorf("%s: %w", op, storage.ErrNotFound)
 		}
 	}
 	return fmt.Errorf("%s: %w", op, err)

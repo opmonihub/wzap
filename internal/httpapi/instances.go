@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/auth"
 	"wzap/internal/instance"
@@ -101,6 +103,128 @@ type InstanceService interface {
 // drift at build time.
 var _ InstanceService = (*instance.Service)(nil)
 
+// instanceAggregateConcurrency bounds how many instances the list endpoint
+// aggregates at the same time. The Chatwoot lookup and the live settings
+// reads are per-instance calls; the bound keeps one slow instance from
+// serializing (or saturating) the whole listing.
+const instanceAggregateConcurrency = 8
+
+// instanceConfigAggregator assembles the non-identity blocks of the public
+// instance DTO from their own sources: integration.chatwoot_config from the
+// Chatwoot config store and the live settings blocks (profile, privacy,
+// status_privacy) from the session service, which answers only while the
+// instance is connected. Every block degrades to null on a read failure (a
+// warn is logged): the aggregate response never fails because one source is
+// down. A nil configs store reads as "never configured" (null).
+type instanceConfigAggregator struct {
+	instances InstanceService
+	configs   ChatwootConfigStore
+	publicURL string
+	log       zerolog.Logger
+}
+
+// build assembles the aggregated public DTO of one stored instance.
+func (a instanceConfigAggregator) build(ctx context.Context, inst *model.Instance) instanceResponse {
+	response := newInstanceResponse(inst)
+	response.Integration.ChatwootConfig = a.chatwootConfig(ctx, inst.ID)
+	// The live blocks are fetched only while connected: a disconnected
+	// session answers 409 on its own routes and the aggregate must not
+	// cascade that into a listing of mixed states. The three reads run
+	// together; each failure becomes a null block and never a failed read.
+	if inst.Connection.Status != "connected" {
+		return response
+	}
+	var (
+		profile       *profileResponse
+		privacy       *privacyResponse
+		statusPrivacy *statusPrivacyResponse
+		wg            sync.WaitGroup
+	)
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		got, err := a.instances.GetProfile(ctx, inst.ID)
+		if err != nil {
+			a.warn(inst.ID, "profile", err)
+			return
+		}
+		value := newProfileResponse(got)
+		profile = &value
+	}()
+	go func() {
+		defer wg.Done()
+		got, err := a.instances.GetPrivacy(ctx, inst.ID)
+		if err != nil {
+			a.warn(inst.ID, "privacy", err)
+			return
+		}
+		value := newPrivacyResponse(got)
+		privacy = &value
+	}()
+	go func() {
+		defer wg.Done()
+		got, err := a.instances.GetStatusPrivacy(ctx, inst.ID)
+		if err != nil {
+			a.warn(inst.ID, "status_privacy", err)
+			return
+		}
+		value := newStatusPrivacyResponse(got)
+		statusPrivacy = &value
+	}()
+	wg.Wait()
+	response.Settings.Profile = profile
+	response.Settings.Privacy = privacy
+	response.Settings.StatusPrivacy = statusPrivacy
+	return response
+}
+
+// buildAll aggregates every instance with bounded concurrency, preserving
+// the input order, so one slow instance cannot serialize the whole list.
+func (a instanceConfigAggregator) buildAll(ctx context.Context, items []model.Instance) []instanceEnvelope {
+	envelopes := make([]instanceEnvelope, len(items))
+	sem := make(chan struct{}, instanceAggregateConcurrency)
+	var wg sync.WaitGroup
+	for i := range items {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(index int) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			envelopes[index] = instanceEnvelope{Instance: a.build(ctx, &items[index])}
+		}(i)
+	}
+	wg.Wait()
+	return envelopes
+}
+
+// chatwootConfig reads the stored Chatwoot connector of an instance as the
+// nested integration block: null when none is stored (the same unset state
+// the standalone route answers as a disabled default) and null on a read
+// failure. The nested copy drops the instance_id — data.instance.id already
+// carries it — and never holds the write-only token.
+func (a instanceConfigAggregator) chatwootConfig(ctx context.Context, id uuid.UUID) *chatwootConfigResponse {
+	if a.configs == nil {
+		return nil
+	}
+	cfg, err := a.configs.Get(ctx, id)
+	if err != nil {
+		if !errors.Is(err, storage.ErrNotFound) {
+			a.warn(id, "chatwoot_config", err)
+		}
+		return nil
+	}
+	response := newChatwootConfigResponse(cfg, chatwootWebhookURL(a.publicURL, id))
+	response.InstanceID = ""
+	return &response
+}
+
+// warn records a degraded aggregate block: the response still succeeds with
+// the block set to null.
+func (a instanceConfigAggregator) warn(id uuid.UUID, block string, err error) {
+	a.log.Warn().Str("instance_id", id.String()).Str("block", block).Err(err).
+		Msg("instance aggregate block unavailable")
+}
+
 // webhookInput is the nested webhook block of the instance write payloads
 // (matrix PATCH/POST /instances: the request mirrors the public
 // instance.webhook sub-object). Pointers keep an omitted field distinct from
@@ -155,12 +279,13 @@ type updateInstanceRequest struct {
 // concurrent creates may both pass and both insert; no locking is built.
 //
 // @Summary Create an instance
+// @Description Answers with the aggregated instance DTO: the webhook block nests under integration and the nullable settings blocks under settings (both null on a fresh instance except the persisted default_disappearing echo).
 // @Tags instances
 // @Accept json
 // @Produce json
 // @Security apikey
 // @Param request body createInstanceRequest true "Instance payload"
-// @Success 201 {object} envelope{data=createInstanceResponse} "Created, wrapped in the data envelope"
+// @Success 201 {object} envelope{data=createInstanceResponse} "Created instance plus its one-time key, wrapped in the data envelope"
 // @Failure 400 {object} errorEnvelope "Malformed body"
 // @Failure 401 {object} errorEnvelope "Missing or invalid credential"
 // @Failure 403 {object} errorEnvelope "Forbidden or quota exceeded"
@@ -170,7 +295,8 @@ type updateInstanceRequest struct {
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances [post]
-func handleCreateInstance(instances InstanceService, users storage.UserRepository, keys storage.APIKeyRepository, maxInstances int) http.HandlerFunc {
+func handleCreateInstance(agg instanceConfigAggregator, users storage.UserRepository, keys storage.APIKeyRepository, maxInstances int) http.HandlerFunc {
+	instances := agg.instances
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := authorizeCollection(r); err != nil {
 			writeForbidden(w, r)
@@ -247,7 +373,7 @@ func handleCreateInstance(instances InstanceService, users storage.UserRepositor
 			return
 		}
 		webhook.Keys.Store(created.ID, key)
-		JSON(w, r, http.StatusCreated, newCreateInstanceResponse(created, key))
+		JSON(w, r, http.StatusCreated, newCreateInstanceResponse(agg.build(r.Context(), created), key))
 	}
 }
 
@@ -331,6 +457,8 @@ type instanceStatsResponse struct {
 // handleListInstances answers every authorized instance. An
 // instance key owns no collection view and answers 403; a user session sees
 // exactly its own rows while the global scope and admin sessions see all.
+// The aggregated DTO enriches the live settings blocks concurrently with a
+// bounded worker pool, degrading any failing block to null.
 //
 // @Summary List instances
 // @Tags instances
@@ -342,7 +470,8 @@ type instanceStatsResponse struct {
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances [get]
-func handleListInstances(instances InstanceService) http.HandlerFunc {
+func handleListInstances(agg instanceConfigAggregator) http.HandlerFunc {
+	instances := agg.instances
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := authorizeCollection(r); err != nil {
 			writeForbidden(w, r)
@@ -361,10 +490,7 @@ func handleListInstances(instances InstanceService) http.HandlerFunc {
 			items = nil
 		}
 
-		response := instanceListResponse{Items: make([]instanceEnvelope, 0, len(items))}
-		for i := range items {
-			response.Items = append(response.Items, instanceEnvelope{Instance: newInstanceResponse(&items[i])})
-		}
+		response := instanceListResponse{Items: agg.buildAll(r.Context(), items)}
 		JSON(w, r, http.StatusOK, response)
 	}
 }
@@ -454,7 +580,8 @@ func handleInstanceStats(instances InstanceService) http.HandlerFunc {
 // @Failure 409 {object} errorEnvelope "instance_name_ambiguous: legacy name matches multiple instances"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id} [get]
-func handleGetInstance(instances InstanceService) http.HandlerFunc {
+func handleGetInstance(agg instanceConfigAggregator) http.HandlerFunc {
+	instances := agg.instances
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := instanceID(w, r)
 		if !ok {
@@ -473,7 +600,7 @@ func handleGetInstance(instances InstanceService) http.HandlerFunc {
 			writeForbidden(w, r)
 			return
 		}
-		JSON(w, r, http.StatusOK, instanceEnvelope{Instance: newInstanceResponse(found)})
+		JSON(w, r, http.StatusOK, instanceEnvelope{Instance: agg.build(r.Context(), found)})
 	}
 }
 
@@ -499,7 +626,8 @@ func handleGetInstance(instances InstanceService) http.HandlerFunc {
 // @Failure 500 {object} errorEnvelope "Internal error"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /instances/{id} [patch]
-func handleUpdateInstance(instances InstanceService) http.HandlerFunc {
+func handleUpdateInstance(agg instanceConfigAggregator) http.HandlerFunc {
+	instances := agg.instances
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := instanceID(w, r)
 		if !ok {
@@ -544,7 +672,7 @@ func handleUpdateInstance(instances InstanceService) http.HandlerFunc {
 			writeInstanceError(w, r, err)
 			return
 		}
-		JSON(w, r, http.StatusOK, instanceEnvelope{Instance: newInstanceResponse(updated)})
+		JSON(w, r, http.StatusOK, instanceEnvelope{Instance: agg.build(r.Context(), updated)})
 	}
 }
 

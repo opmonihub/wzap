@@ -74,8 +74,10 @@ func (s *Service) SetDisappearingTimer(ctx context.Context, id uuid.UUID, chatJI
 }
 
 // SetDefaultDisappearingTimer sets the default disappearing timer for new
-// chats. A duration off the allowlist is ErrInvalidInput before the session
-// is touched. Error mapping follows RevokeMessage.
+// chats and persists the echo of the applied value (read back as
+// settings.default_disappearing). A duration off the allowlist is
+// ErrInvalidInput before the session is touched. Error mapping follows
+// RevokeMessage; a failed echo persist answers 500.
 func (s *Service) SetDefaultDisappearingTimer(ctx context.Context, id uuid.UUID, duration time.Duration) error {
 	if !validDisappearingDuration(duration) {
 		return fmt.Errorf("set default disappearing timer: %w", ErrInvalidInput)
@@ -91,6 +93,13 @@ func (s *Service) SetDefaultDisappearingTimer(ctx context.Context, id uuid.UUID,
 	}
 	if err := sess.SetDefaultDisappearingTimer(ctx, duration); err != nil {
 		return mapSessionError("set default disappearing timer", err)
+	}
+	// Persist the echo of the applied timer so settings.default_disappearing
+	// can report it later (instance_chat_settings satellite). The write runs
+	// only after the upstream accepted the change; a failed persist fails the
+	// call (500) so the stored echo never drifts from what was applied.
+	if err := s.repo.SetDefaultDisappearing(ctx, id, duration); err != nil {
+		return mapError("set default disappearing timer", err)
 	}
 	return nil
 }

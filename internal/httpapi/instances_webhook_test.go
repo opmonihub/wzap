@@ -68,19 +68,23 @@ func newWebhookRoundTripFake() *webhookRoundTripFake {
 	return f
 }
 
-// webhookData decodes data.instance.webhook of rec into a raw field map.
+// webhookData decodes data.instance.integration.webhook of rec into a raw
+// field map (the webhook block moved under integration in the aggregated
+// shape).
 func webhookData(t *testing.T, body []byte) map[string]any {
 	t.Helper()
 	var payload struct {
 		Data struct {
 			Instance struct {
-				ID      string         `json:"id"`
-				Webhook map[string]any `json:"webhook"`
+				ID          string `json:"id"`
+				Integration struct {
+					Webhook map[string]any `json:"webhook"`
+				} `json:"integration"`
 			} `json:"instance"`
 		} `json:"data"`
 	}
 	decodeJSON(t, body, &payload)
-	return payload.Data.Instance.Webhook
+	return payload.Data.Instance.Integration.Webhook
 }
 
 // instanceData decodes data.instance of rec into a raw field map.
@@ -120,13 +124,13 @@ func TestInstancesCreateWithWebhookRoundTrip(t *testing.T) {
 
 	data := webhookData(t, rec.Body.Bytes())
 	if data["url"] != "https://hooks.example.com/wzap" {
-		t.Errorf("data.instance.webhook.url = %v, want the configured URL", data["url"])
+		t.Errorf("data.instance.integration.webhook.url = %v, want the configured URL", data["url"])
 	}
 	if data["enabled"] != true {
-		t.Errorf("data.instance.webhook.enabled = %v, want true", data["enabled"])
+		t.Errorf("data.instance.integration.webhook.enabled = %v, want true", data["enabled"])
 	}
 	if !reflect.DeepEqual(data["events"], []any{"message", "receipt"}) {
-		t.Errorf("data.instance.webhook.events = %v, want [message receipt]", data["events"])
+		t.Errorf("data.instance.integration.webhook.events = %v, want [message receipt]", data["events"])
 	}
 	id, _ := instanceData(t, rec.Body.Bytes())["id"].(string)
 
@@ -178,13 +182,13 @@ func TestInstancesUpdateWebhookDisablesAndNarrows(t *testing.T) {
 
 	data := webhookData(t, updated.Body.Bytes())
 	if data["url"] != "https://hooks.example.com/wzap" {
-		t.Errorf("data.instance.webhook.url = %v, want the stored URL kept", data["url"])
+		t.Errorf("data.instance.integration.webhook.url = %v, want the stored URL kept", data["url"])
 	}
 	if data["enabled"] != false {
-		t.Errorf("data.instance.webhook.enabled = %v, want false", data["enabled"])
+		t.Errorf("data.instance.integration.webhook.enabled = %v, want false", data["enabled"])
 	}
 	if !reflect.DeepEqual(data["events"], []any{"receipt"}) {
-		t.Errorf("data.instance.webhook.events = %v, want [receipt]", data["events"])
+		t.Errorf("data.instance.integration.webhook.events = %v, want [receipt]", data["events"])
 	}
 }
 

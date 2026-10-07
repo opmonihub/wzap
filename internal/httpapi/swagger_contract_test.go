@@ -215,6 +215,8 @@ func TestSwaggerTypedPayloadsAndExceptions(t *testing.T) {
 		{"/healthz", "get", "200", "", "status", "string"},
 		{"/readyz", "get", "503", "", "checks", "object"},
 		{"/instances/{id}", "get", "200", "instance", "id", "string"},
+		{"/instances/{id}", "get", "200", "instance", "integration", "object"},
+		{"/instances/{id}", "get", "200", "instance", "settings", "object"},
 		{"/instances/{id}/messages/text", "post", "202", "message", "id", "string"},
 		{"/instances/{id}/chatwoot/import", "post", "202", "", "imported", "integer"},
 		{"/instances/{id}/chatwoot/command", "post", "200", "", "ok", "boolean"},
@@ -230,8 +232,11 @@ func TestSwaggerTypedPayloadsAndExceptions(t *testing.T) {
 			if test.via != "" {
 				payload = resolveSwaggerSchema(t, doc, payload.Properties[test.via])
 			}
-			if payload.Properties[test.field].Type != test.fieldType {
-				t.Errorf("data.%s.%s type = %q, want %q", test.via, test.field, payload.Properties[test.field].Type, test.fieldType)
+			// Resolve the field first: swaggo encodes named struct types as
+			// $ref, and the contract asserts the documented type either way.
+			fieldSchema := resolveSwaggerSchema(t, doc, payload.Properties[test.field])
+			if fieldSchema.Type != test.fieldType {
+				t.Errorf("data.%s.%s type = %q, want %q", test.via, test.field, fieldSchema.Type, test.fieldType)
 			}
 		})
 	}
@@ -246,6 +251,40 @@ func TestSwaggerTypedPayloadsAndExceptions(t *testing.T) {
 		config := resolveSwaggerSchema(t, doc, payload.Properties["chatwoot_config"])
 		if _, ok := config.Properties["token"]; ok {
 			t.Error("GET chatwoot must not expose the token")
+		}
+	})
+	// The aggregated instance shape (BREAKING): the webhook block lives under
+	// integration and the settings blocks are documented with their nullable
+	// per-block semantics, while the write-only token stays out of the nested
+	// config.
+	t.Run("instance aggregated blocks", func(t *testing.T) {
+		response := doc.Paths["/instances/{id}"]["get"].Responses["200"]
+		if response.Schema == nil {
+			t.Fatal("missing response schema")
+		}
+		envelope := resolveSwaggerSchema(t, doc, *response.Schema)
+		data := resolveSwaggerSchema(t, doc, envelope.Properties["data"])
+		object := resolveSwaggerSchema(t, doc, data.Properties["instance"])
+		if _, ok := object.Properties["webhook"]; ok {
+			t.Error("webhook must move under integration (BREAKING), not the instance root")
+		}
+		integration := resolveSwaggerSchema(t, doc, object.Properties["integration"])
+		if _, ok := integration.Properties["webhook"]; !ok {
+			t.Error("integration.webhook must be documented")
+		}
+		nested := resolveSwaggerSchema(t, doc, integration.Properties["chatwoot_config"])
+		if _, ok := nested.Properties["token"]; ok {
+			t.Error("nested chatwoot_config must not expose the token")
+		}
+		settings := resolveSwaggerSchema(t, doc, object.Properties["settings"])
+		if settings.Properties["default_disappearing"].Type != "string" {
+			t.Errorf("settings.default_disappearing type = %q, want string", settings.Properties["default_disappearing"].Type)
+		}
+		for _, field := range []string{"profile", "privacy", "status_privacy"} {
+			block := resolveSwaggerSchema(t, doc, settings.Properties[field])
+			if len(block.Properties) == 0 {
+				t.Errorf("settings.%s must be a documented object", field)
+			}
 		}
 	})
 	for _, test := range []struct{ path, entity, itemField string }{

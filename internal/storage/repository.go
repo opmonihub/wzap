@@ -40,8 +40,9 @@ var (
 )
 
 // InstanceRepository persists WhatsApp instances. The aggregate reads join the
-// identity row (instances) with its two satellites (instance_connections and
-// instance_webhooks), both created together with the identity. Writes are
+// identity row (instances) with its satellites (instance_connections,
+// instance_webhooks and the small instance_chat_settings), all created
+// together with the identity or on first write of their concern. Writes are
 // split per concern so an identity edit can never overwrite a concurrent
 // connection transition (the lost-update bug of the snapshot UPDATE). List
 // returns every instance ordered by created_at descending, then id
@@ -76,6 +77,12 @@ type InstanceRepository interface {
 	// SetWebhook replaces the webhook configuration of an instance in place,
 	// never touching identity or connection columns.
 	SetWebhook(ctx context.Context, id uuid.UUID, url *string, enabled bool, events []string) error
+	// SetDefaultDisappearing persists the echo of the default disappearing
+	// timer on the instance_chat_settings satellite (created on first write),
+	// never touching identity, connection or webhook columns. A zero duration
+	// stores the off value and stays distinct from NULL, which means never
+	// configured. It reports ErrNotFound when the instance does not exist.
+	SetDefaultDisappearing(ctx context.Context, id uuid.UUID, duration time.Duration) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 

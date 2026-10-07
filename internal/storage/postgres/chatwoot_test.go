@@ -449,13 +449,15 @@ func TestChatwootConfigBackfillTokenSeal(t *testing.T) {
 
 	instances := NewInstanceRepository(pool)
 	owner := createTestOwner(t, pool)
-	legacy, err := instances.Create(ctx, model.Instance{ID: uuid.New(), Name: "chatwoot-legacy", OwnerUserID: &owner.ID, Connection: model.InstanceConnection{Status: "disconnected"}})
+	// The instance itself is owned; "unsealed" refers to its token being
+	// stored as plaintext, which BackfillTokenSeal seals.
+	unsealed, err := instances.Create(ctx, model.Instance{ID: uuid.New(), Name: "chatwoot-unsealed", OwnerUserID: &owner.ID, Connection: model.InstanceConnection{Status: "disconnected"}})
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
 	}
 	plainRepo, _ := NewChatwootRepositories(pool, nil)
 	if _, err := plainRepo.Put(ctx, model.ChatwootConfig{
-		InstanceID: legacy.ID, Enabled: true, URL: "https://chatwoot.example.com", AccountID: "42", Token: "legacy-token",
+		InstanceID: unsealed.ID, Enabled: true, URL: "https://chatwoot.example.com", AccountID: "42", Token: "legacy-token",
 	}); err != nil {
 		t.Fatalf("Put plaintext: %v", err)
 	}
@@ -469,12 +471,12 @@ func TestChatwootConfigBackfillTokenSeal(t *testing.T) {
 	if sealed != 1 {
 		t.Errorf("BackfillTokenSeal sealed = %d, want 1", sealed)
 	}
-	got, err := keyedRepo.Get(ctx, legacy.ID)
+	got, err := keyedRepo.Get(ctx, unsealed.ID)
 	if err != nil {
 		t.Fatalf("Get after backfill: %v", err)
 	}
 	if got.Token != "legacy-token" {
-		t.Errorf("Get Token = %q, want the legacy plaintext opened", got.Token)
+		t.Errorf("Get Token = %q, want the legacy plaintext token opened", got.Token)
 	}
 	again, err := keyedRepo.BackfillTokenSeal(ctx)
 	if err != nil {

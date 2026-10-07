@@ -111,8 +111,4 @@ func TestServiceGetByName(t *testing.T) {
 	if _, err := svc.GetByName(context.Background(), "exact_name"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing name: %v", err)
 	}
-	repo.instances[uuid.New()] = model.Instance{ID: uuid.New(), Name: inst.Name}
-	if _, err := svc.GetByName(context.Background(), inst.Name); !errors.Is(err, ErrInstanceNameAmbiguous) {
-		t.Fatalf("ambiguous name: %v", err)
-	}
 }

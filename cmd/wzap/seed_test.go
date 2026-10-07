@@ -52,37 +52,32 @@ func createSeedUser(t *testing.T, users *postgres.UserRepository, email string) 
 	return user
 }
 
-func createLegacyInstance(t *testing.T, instances *postgres.InstanceRepository, name string) *model.Instance {
+// createSeedInstance creates an owned instance: ownership is mandatory in the
+// fresh baseline, so every fixture carries an existing owner.
+func createSeedInstance(t *testing.T, instances *postgres.InstanceRepository, owner *model.User, name string) *model.Instance {
 	t.Helper()
 
-	instance, err := instances.Create(context.Background(), model.Instance{ID: uuid.New(), Name: name, Connection: model.InstanceConnection{Status: "disconnected"}})
+	instance, err := instances.Create(context.Background(), model.Instance{
+		ID:          uuid.New(),
+		Name:        name,
+		OwnerUserID: &owner.ID,
+		Connection:  model.InstanceConnection{Status: "disconnected"},
+	})
 	if err != nil {
 		t.Fatalf("create instance %q: %v", name, err)
 	}
-	if instance.OwnerUserID != nil {
-		t.Fatalf("create instance %q: OwnerUserID = %v, want nil (legacy row)", name, instance.OwnerUserID)
+	if instance.OwnerUserID == nil || *instance.OwnerUserID != owner.ID {
+		t.Fatalf("create instance %q: OwnerUserID = %v, want %s", name, instance.OwnerUserID, owner.ID)
 	}
 	return instance
 }
 
-func setSeedOwner(t *testing.T, pool *pgxpool.Pool, instanceID, ownerID uuid.UUID) {
-	t.Helper()
-
-	if _, err := pool.Exec(context.Background(),
-		`UPDATE instances SET owner_user_id = $2 WHERE id = $1`, instanceID, ownerID); err != nil {
-		t.Fatalf("set instance owner: %v", err)
-	}
-}
-
 func TestSeedAdminEmptyWithEnvs(t *testing.T) {
 	ctx := context.Background()
-	_, users, instances := newSeedRepos(t)
-
-	first := createLegacyInstance(t, instances, "legacy-one")
-	second := createLegacyInstance(t, instances, "legacy-two")
+	_, users, _ := newSeedRepos(t)
 
 	cfg := seedTestConfig("admin@example.com", "s3cret-password")
-	if err := seedAdmin(ctx, cfg, users, instances, zerolog.Nop()); err != nil {
+	if err := seedAdmin(ctx, cfg, users, noopBackfiller{}, zerolog.Nop()); err != nil {
 		t.Fatalf("seedAdmin: %v", err)
 	}
 
@@ -110,25 +105,13 @@ func TestSeedAdminEmptyWithEnvs(t *testing.T) {
 	if err := auth.CheckPassword(admin.PasswordHash, "s3cret-password"); err != nil {
 		t.Errorf("CheckPassword(admin hash): %v, want the seed password to verify", err)
 	}
-
-	for _, id := range []uuid.UUID{first.ID, second.ID} {
-		got, err := instances.Get(ctx, id)
-		if err != nil {
-			t.Fatalf("Get(%s) after seed: %v", id, err)
-		}
-		if got.OwnerUserID == nil || *got.OwnerUserID != admin.ID {
-			t.Errorf("Get(%s) OwnerUserID = %v, want seeded admin %s", id, got.OwnerUserID, admin.ID)
-		}
-	}
 }
 
 func TestSeedAdminEmptyWithoutEnvs(t *testing.T) {
 	ctx := context.Background()
-	_, users, instances := newSeedRepos(t)
+	_, users, _ := newSeedRepos(t)
 
-	legacy := createLegacyInstance(t, instances, "legacy")
-
-	if err := seedAdmin(ctx, seedTestConfig("", ""), users, instances, zerolog.Nop()); err != nil {
+	if err := seedAdmin(ctx, seedTestConfig("", ""), users, noopBackfiller{}, zerolog.Nop()); err != nil {
 		t.Fatalf("seedAdmin: %v", err)
 	}
 
@@ -139,26 +122,16 @@ func TestSeedAdminEmptyWithoutEnvs(t *testing.T) {
 	if count != 0 {
 		t.Errorf("users count = %d, want 0 (no envs, nothing created)", count)
 	}
-
-	got, err := instances.Get(ctx, legacy.ID)
-	if err != nil {
-		t.Fatalf("Get(legacy) after seed: %v", err)
-	}
-	if got.OwnerUserID != nil {
-		t.Errorf("Get(legacy) OwnerUserID = %v, want nil (no admin to claim it)", got.OwnerUserID)
-	}
 }
 
 func TestSeedAdminNonEmptyWithEnvs(t *testing.T) {
 	ctx := context.Background()
-	pool, users, instances := newSeedRepos(t)
+	_, users, instances := newSeedRepos(t)
 
 	existing := createSeedUser(t, users, "owner@example.com")
-	legacy := createLegacyInstance(t, instances, "legacy")
-	owned := createLegacyInstance(t, instances, "owned")
-	setSeedOwner(t, pool, owned.ID, existing.ID)
+	owned := createSeedInstance(t, instances, existing, "owned")
 
-	if err := seedAdmin(ctx, seedTestConfig("admin@example.com", "s3cret-password"), users, instances, zerolog.Nop()); err != nil {
+	if err := seedAdmin(ctx, seedTestConfig("admin@example.com", "s3cret-password"), users, noopBackfiller{}, zerolog.Nop()); err != nil {
 		t.Fatalf("seedAdmin: %v", err)
 	}
 
@@ -170,17 +143,8 @@ func TestSeedAdminNonEmptyWithEnvs(t *testing.T) {
 		t.Errorf("users count = %d, want 1 (seed is a no-op, never duplicates)", count)
 	}
 
-	// Owners are untouched: the NULL-owner row stays NULL and the owned row
-	// keeps its owner. Ownership is immutable.
-	got, err := instances.Get(ctx, legacy.ID)
-	if err != nil {
-		t.Fatalf("Get(legacy) after seed: %v", err)
-	}
-	if got.OwnerUserID != nil {
-		t.Errorf("Get(legacy) OwnerUserID = %v, want nil (untouched)", got.OwnerUserID)
-	}
-
-	got, err = instances.Get(ctx, owned.ID)
+	// The existing owner keeps his instance: ownership is immutable.
+	got, err := instances.Get(ctx, owned.ID)
 	if err != nil {
 		t.Fatalf("Get(owned) after seed: %v", err)
 	}
@@ -193,10 +157,10 @@ func TestSeedAdminNonEmptyWithoutEnvs(t *testing.T) {
 	ctx := context.Background()
 	_, users, instances := newSeedRepos(t)
 
-	createSeedUser(t, users, "owner@example.com")
-	legacy := createLegacyInstance(t, instances, "legacy")
+	existing := createSeedUser(t, users, "owner@example.com")
+	owned := createSeedInstance(t, instances, existing, "owned")
 
-	if err := seedAdmin(ctx, seedTestConfig("", ""), users, instances, zerolog.Nop()); err != nil {
+	if err := seedAdmin(ctx, seedTestConfig("", ""), users, noopBackfiller{}, zerolog.Nop()); err != nil {
 		t.Fatalf("seedAdmin: %v", err)
 	}
 
@@ -208,12 +172,12 @@ func TestSeedAdminNonEmptyWithoutEnvs(t *testing.T) {
 		t.Errorf("users count = %d, want 1", count)
 	}
 
-	got, err := instances.Get(ctx, legacy.ID)
+	got, err := instances.Get(ctx, owned.ID)
 	if err != nil {
-		t.Fatalf("Get(legacy) after seed: %v", err)
+		t.Fatalf("Get(owned) after seed: %v", err)
 	}
-	if got.OwnerUserID != nil {
-		t.Errorf("Get(legacy) OwnerUserID = %v, want nil (untouched)", got.OwnerUserID)
+	if got.OwnerUserID == nil || *got.OwnerUserID != existing.ID {
+		t.Errorf("Get(owned) OwnerUserID = %v, want untouched %s", got.OwnerUserID, existing.ID)
 	}
 }
 
@@ -230,13 +194,11 @@ func TestSeedAdminHalfConfigured(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			_, users, instances := newSeedRepos(t)
-
-			legacy := createLegacyInstance(t, instances, "legacy")
+			_, users, _ := newSeedRepos(t)
 
 			// A half-configured seed warns, creates nothing and lets boot
 			// proceed: the nil error is the assertion that boot continues.
-			if err := seedAdmin(ctx, seedTestConfig(tt.email, tt.password), users, instances, zerolog.Nop()); err != nil {
+			if err := seedAdmin(ctx, seedTestConfig(tt.email, tt.password), users, noopBackfiller{}, zerolog.Nop()); err != nil {
 				t.Fatalf("seedAdmin(half-configured) = %v, want nil (boot proceeds)", err)
 			}
 
@@ -246,14 +208,6 @@ func TestSeedAdminHalfConfigured(t *testing.T) {
 			}
 			if count != 0 {
 				t.Errorf("users count = %d, want 0 (half-configured seed creates nothing)", count)
-			}
-
-			got, err := instances.Get(ctx, legacy.ID)
-			if err != nil {
-				t.Fatalf("Get(legacy) after seed: %v", err)
-			}
-			if got.OwnerUserID != nil {
-				t.Errorf("Get(legacy) OwnerUserID = %v, want nil (untouched)", got.OwnerUserID)
 			}
 		})
 	}
@@ -267,9 +221,17 @@ func (f errBackfiller) BackfillOwner(context.Context, uuid.UUID) (int64, error) 
 	return 0, f.err
 }
 
+// noopBackfiller is an ownerBackfiller that claims nothing: the fresh
+// baseline has no ownerless rows to backfill.
+type noopBackfiller struct{}
+
+func (noopBackfiller) BackfillOwner(context.Context, uuid.UUID) (int64, error) {
+	return 0, nil
+}
+
 func TestSeedAdminBackfillFailureRollsBackAdmin(t *testing.T) {
 	ctx := context.Background()
-	_, users, instances := newSeedRepos(t)
+	_, users, _ := newSeedRepos(t)
 
 	cfg := seedTestConfig("admin@example.com", "s3cret-password")
 	boom := errors.New("backfill boom")
@@ -291,7 +253,7 @@ func TestSeedAdminBackfillFailureRollsBackAdmin(t *testing.T) {
 		t.Fatalf("users count = %d, want 0 (failed backfill rolls the admin back)", count)
 	}
 
-	if err := seedAdmin(ctx, cfg, users, instances, zerolog.Nop()); err != nil {
+	if err := seedAdmin(ctx, cfg, users, noopBackfiller{}, zerolog.Nop()); err != nil {
 		t.Fatalf("seedAdmin(retry with working backfiller): %v", err)
 	}
 	admin, err := users.GetByEmail(ctx, "admin@example.com")

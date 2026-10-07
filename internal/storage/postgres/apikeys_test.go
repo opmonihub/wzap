@@ -140,8 +140,8 @@ func TestAPIKeyCounts(t *testing.T) {
 	setInstanceOwner(t, pool, a2.ID, ownerA.ID)
 	setInstanceOwner(t, pool, b1.ID, ownerB.ID)
 
-	legacy := createTestInstance(t, pool, instances, "legacy", "legacy-ref")
-	_ = legacy
+	// Extra instance with its own owner: it must still count towards the totals.
+	createTestInstance(t, pool, instances, "extra", "extra-ref")
 
 	total, err = keys.CountAll(ctx)
 	if err != nil {
@@ -191,7 +191,7 @@ func TestInstanceRepositoryReadsProductColumns(t *testing.T) {
 		t.Errorf("OwnerUserID = %v, want the stored owner", got.OwnerUserID)
 	}
 	if got.Webhook.URL != nil {
-		t.Errorf("WebhookURL = %v, want nil for legacy instance", got.Webhook.URL)
+		t.Errorf("WebhookURL = %v, want nil for a fresh instance", got.Webhook.URL)
 	}
 	if got.Webhook.IsEnabled {
 		t.Error("WebhookEnabled = true, want false by default")

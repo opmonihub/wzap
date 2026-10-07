@@ -143,3 +143,11 @@ direct Chatwoot Postgres SQL (`internal/chatwoot/import`, inert without
   change directory.
 - Treat `tasks.md` as the scope contract. Mark an item complete only after its
   specified verification succeeds.
+
+## Cursor Cloud specific instructions
+
+- Docker is not installed. Postgres 18 and NATS 2.11 (JetStream) are shared with the opmoni checkout and started by the environment `start` script.
+- Local URLs: Postgres `postgres://wzap:secret@127.0.0.1:5432/wzap?sslmode=disable`, integration tests `postgres://wzap:secret@127.0.0.1:5432/wzap_test?sslmode=disable` (`WZAP_TEST_DATABASE_URL`), NATS `nats://127.0.0.1:4222` (`WZAP_TEST_NATS_URL`). The database name for tests must end in `_test`.
+- The service listens on `0.0.0.0:8081` (tmux session `wzap`). Dev credentials match compose: API key `dev-wzap-token`, manager `admin@example.com` / `dev-admin-password`. An instance named `escritorio-demo` is already created and disconnected.
+- `~/.local/bin/wzap` is built by `install` with the embedded manager. After Go or `manager/` changes, rebuild with `CGO_ENABLED=0 go build -o ~/.local/bin/wzap ./cmd/wzap` and restart the `wzap` tmux session.
+- Checks that pass here: `go vet ./...`, `golangci-lint run` (v2.13.2), `go test ./... -count=1` with `WZAP_TEST_DATABASE_URL` set, and `go build ./...`. `pnpm --dir manager build` uses the repo's pnpm 11 via corepack on Node 22.

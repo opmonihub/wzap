@@ -33,26 +33,32 @@ campos e `event_id` estável (enviado como `Nats-Msg-Id`) estão preservados
 |---|---|---|
 | Todas as tarefas de comportamento verificadas | comprovado | tasks 1.x–5.3 com gates por tarefa; revisão 6.1 ampla (3 áreas) + onda de fix + re-review 6/6 ADDRESSED (`task-18-gates-report.md`, `fix-6.1-report.md`, `progress.md`) |
 | Backups e recuperação ensaiados | comprovado | dump fresco + `gzip -t` do artefato histórico + restauração em clone B idêntica ao baseline (ver "Ensaio de recuperação") |
-| Imagem exata comprovada | comprovado | `docker.io/cccs/minio@sha256:68eefa6a5ccd82178a872b2d1012687d0ac9b1afa848a1e56f55fa5f1efcb081` (digest pinado nos 3 compose files; recheck local + container `wzap-minio-verify` rodando `RELEASE.2024-12-18T13-15-44Z`) |
+| Imagem exata comprovada | comprovado | `docker.io/cccs/minio@sha256:68eefa6a5ccd82178a872b2d1012687d0ac9b1afa848a1e56f55fa5f1efcb081` (digest pinado em 3 ocorrências de 2 arquivos: `docker-compose.yml:38,59` e `docker-compose.dev.yml:46`; recheck local + container `wzap-minio-verify` rodando `RELEASE.2024-12-18T13-15-44Z`) |
 | Nenhuma referência órfã ou divergência sem tratamento | comprovado com ressalva | órfãos de mídia anulados e reportados (`remodel_report.orphan_media_refs=3`, `media_chatwoot_markers=1`, `legacy_connection_errors=2`); divergência `device_jid` não bloqueia o corte — ver DEFER 1 |
 | Cobertura de todas as rotas | comprovado | 88/88 rotas registradas no Swagger (task 5.3); suíte de contrato com 89 fixtures por operação da matriz (task 5.1) |
 | Manager e Swagger compatíveis | comprovado | manager test/typecheck/lint/build verdes (gates 6.1 + fix wave); Swagger regenerado e testado (5.3, `6862b5d`) |
 | Eventos v1 preservados | comprovado | envelopes/subjects intocados pela change; fixtures v1 inalteradas; publisher real exercitado em NATS isolado (gate 3) |
 | Nenhum replay produz efeito duplicado | comprovado | ensaio ao vivo: replays com `X-Idempotent-Replay`, `message_queue` com delta 0 em todos os demos; suíte cobre o caminho 202-armazenado |
 
-## Gates re-executados na etapa 6.2 (HEAD `49a0024`)
+## Gates re-executados na etapa 6.2
 
-Justificativa da re-execução: os commits `ad75dbb` e `49a0024` (fix round 2 de
-`internal/media`, em voo paralelo durante esta task) entraram depois dos gates
-6.1 (`6862b5d`) e da re-execução do fix wave (`e9ee04b`).
+Justificativa da re-execução: os commits `ad75dbb` (somente `internal/media/**`)
+e `49a0024` (também `internal/storage/repository.go` e
+`internal/storage/postgres/media_repo.go` + testes — o repositório de mídia),
+do fix round 2 em voo paralelo durante esta task, entraram depois dos gates
+6.1 (`6862b5d`) e da re-execução do fix wave (`e9ee04b`). A ordem CI completa
+do plano (etapa 6, passo 2: `go vet` → `golangci-lint run` → `go test` →
+`go build`) está coberta e certificada neste estado final.
 
 | Comando | Resultado |
 |---|---|
 | `gofmt -l .` | vazio |
 | `go vet ./...` | pass |
+| `golangci-lint run` | **1 issue (errcheck)** no HEAD `7e0c33e`: `internal/media/objects_test.go:691`, `rc.Close()` sem checagem (herdado do fix round 2) — corrigido para `_ = rc.Close()` (estilo já usado no arquivo) e re-executado: **0 issues.** |
 | `go test ./... -count=1` (unit, sem vars de integração) | pass — 27 pacotes `ok`; `internal/storage/postgres` roda skipped (0.087s) sem `WZAP_TEST_DATABASE_URL` |
 | `WZAP_TEST_DATABASE_URL='postgres://wzap:secret@127.0.0.1:5435/wzap_test?sslmode=disable' go test ./... -count=1` | pass — integração real: `internal/storage/postgres ok 115.9s`, `cmd/wzap ok 34.5s`, `internal/httpapi ok 26.5s`, `chatwoot/import ok 21.0s`, `session/whatsmeow ok 16.7s` (2864+ testes, schemas isolados) |
 | `WZAP_TEST_S3_ENDPOINT='http://127.0.0.1:19000' go test ./internal/media/ -run TestObjectStoreS3Integration -count=1` | PASS — MinIO real (`wzap-minio-verify`, digest pinado) |
+| `go build ./...` | pass (em `7e0c33e` e re-executado após a correção de errcheck) |
 
 Gates 6.1 originais (`task-18-gates-report.md`, em `6862b5d`): gofmt/vet/lint(0
 issues)/build/unit; Postgres real `wzap_test@5435`; NATS isolado `4324`
@@ -60,7 +66,10 @@ issues)/build/unit; Postgres real `wzap_test@5435`; NATS isolado `4324`
 MinIO `wzap-minio-verify@19000`; manager test/typecheck/lint/build. Re-execução
 do fix wave (`fix-6.1-report.md`, em `e9ee04b`) refez gofmt/vet/lint/build/unit
 + Postgres real + manager test/typecheck/lint. NATS não foi re-executado em
-6.2 (nenhum commit tocou `internal/events` além de docstrings; o gate 3 cobre).
+6.2: os commits pós-gates (`ad75dbb`, `49a0024`) tocaram `internal/media` e o
+repositório de mídia em `internal/storage` (`repository.go`,
+`postgres/media_repo.go`), e nenhum deles alterou caminhos de `internal/events`
+(além das docstrings do fix wave); o gate 3 cobre.
 
 ## Ensaio de corte e recuperação (6.2)
 

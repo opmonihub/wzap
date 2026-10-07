@@ -27,7 +27,7 @@ func TestDTOContractStructuredErrors(t *testing.T) {
 		want             any
 	}{
 		{name: "none"},
-		{name: "legacy", code: "legacy_error", text: "qr code expired", want: map[string]any{"code": "legacy_error", "message": "qr code expired", "occurred_at": nil}},
+		{name: "without timestamp", code: "session_rejected", text: "qr code expired", want: map[string]any{"code": "session_rejected", "message": "qr code expired", "occurred_at": nil}},
 		{name: "recorded", code: "session_rejected", text: "session rejected", at: &at, want: map[string]any{"code": "session_rejected", "message": "session rejected", "occurred_at": "2026-10-06T10:00:00Z"}},
 	}
 	for _, tc := range cases {
@@ -68,7 +68,7 @@ func TestDTOContractMessageReceiptAndErrorFields(t *testing.T) {
 		want                   any
 	}{
 		{name: "queued"},
-		{name: "legacy", text: "send timed out", want: map[string]any{"code": "legacy_error", "message": "send timed out", "occurred_at": nil}},
+		{name: "message without code", text: "send timed out", want: nil},
 		{name: "recorded", code: "send_retry", text: "retry", waID: "wamid.1", at: &at, want: map[string]any{"code": "send_retry", "message": "retry", "occurred_at": "2026-10-06T10:00:00Z"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

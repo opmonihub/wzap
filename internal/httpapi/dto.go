@@ -2,8 +2,7 @@ package httpapi
 
 // Public DTOs of the remodeled contract (response-matrix rules §3–§7).
 // Resource entities nest under data.<entity>; commands keep their flat
-// result objects. last_error is either a structured object or null —
-// legacy rows surface as {code:"legacy_error", message, occurred_at:null}.
+// result objects. last_error is either a structured object or null.
 
 import (
 	"time"
@@ -14,9 +13,8 @@ import (
 )
 
 // lastErrorResponse is the structured failure of a connection or a send:
-// code from the closed catalog (legacy_error for migrated free text),
-// message the human-readable cause, occurred_at the recorded instant
-// (null for legacy errors whose time is unknown).
+// code from the closed catalog, message the human-readable cause,
+// occurred_at the recorded instant (null when unknown).
 type lastErrorResponse struct {
 	Code       string     `json:"code"`
 	Message    string     `json:"message"`
@@ -264,12 +262,8 @@ func newMessageResponse(msg *model.OutboundMessage) messageResponse {
 		waID = &msg.WhatsAppMessageID
 	}
 	var lastErr *lastErrorResponse
-	if msg.LastError != "" || msg.LastErrorCode != "" {
-		code := msg.LastErrorCode
-		if code == "" {
-			code = "legacy_error"
-		}
-		lastErr = &lastErrorResponse{Code: code, Message: msg.LastError, OccurredAt: msg.LastErrorAt}
+	if msg.LastErrorCode != "" {
+		lastErr = &lastErrorResponse{Code: msg.LastErrorCode, Message: msg.LastError, OccurredAt: msg.LastErrorAt}
 	}
 	return messageResponse{
 		ID:            msg.ID.String(),

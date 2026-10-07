@@ -164,7 +164,7 @@ func TestRuntimeOnConnectionUpdatesInstanceAndEnqueuesEvent(t *testing.T) {
 	repo := newRuntimeRepo(model.Instance{
 		ID:         id,
 		Name:       "loja",
-		Connection: model.InstanceConnection{Status: string(session.StatusDisconnected), DeviceJID: "5511@wa", LastError: &model.InstanceError{Code: "legacy_error", Message: "old failure"}},
+		Connection: model.InstanceConnection{Status: string(session.StatusDisconnected), DeviceJID: "5511@wa", LastError: &model.InstanceError{Code: "session_rejected", Message: "old failure"}},
 	})
 	writer := &fakeWriter{}
 	runtime := NewRuntime(repo, writer, nil, nil, "", 0, zerolog.Nop())

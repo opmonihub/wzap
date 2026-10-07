@@ -1130,8 +1130,7 @@ func TestInstancesGet(t *testing.T) {
 }
 
 // TestInstancesGetPublicShape pins the remodeled fixture: the instance nests
-// under data.instance, connection exposes the structured last_error (legacy
-// text maps to legacy_error with occurred_at null) and the webhook travels as
+// under data.instance, connection exposes the structured last_error and the webhook travels as
 // the nested integration block — while external_ref, owner_user_id and
 // device/whatsapp JIDs never leave the service.
 func TestInstancesGetPublicShape(t *testing.T) {
@@ -1146,7 +1145,7 @@ func TestInstancesGetPublicShape(t *testing.T) {
 			Status:          "error",
 			DeviceJID:       "5511@s.whatsapp.net",
 			LastConnectedAt: &lastConnectedAt,
-			LastError:       &model.InstanceError{Code: "legacy_error", Message: "qr code expired"},
+			LastError:       &model.InstanceError{Code: "session_rejected", Message: "qr code expired"},
 		},
 		Webhook: model.InstanceWebhook{
 			IsEnabled: true,
@@ -1167,9 +1166,9 @@ func TestInstancesGetPublicShape(t *testing.T) {
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
 	got := payload.Data.Instance
-	if got.Connection.LastError == nil || got.Connection.LastError.Code != "legacy_error" ||
+	if got.Connection.LastError == nil || got.Connection.LastError.Code != "session_rejected" ||
 		got.Connection.LastError.Message != "qr code expired" || got.Connection.LastError.OccurredAt != nil {
-		t.Errorf("data.instance.connection.last_error = %+v, want legacy_error with null occurred_at", got.Connection.LastError)
+		t.Errorf("data.instance.connection.last_error = %+v, want session_rejected with null occurred_at", got.Connection.LastError)
 	}
 	if got.Connection.LastConnectedAt == nil || !got.Connection.LastConnectedAt.Equal(lastConnectedAt) {
 		t.Errorf("data.instance.connection.last_connected_at = %v, want %v", got.Connection.LastConnectedAt, lastConnectedAt)

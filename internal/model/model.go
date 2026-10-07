@@ -9,10 +9,8 @@ import (
 )
 
 // InstanceError is the structured failure recorded on a satellite table:
-// code is the typed catalog entry (legacy_error when a pre-remodel row only
-// carried free text), message the human-readable cause and at the instant it
-// happened (nil for legacy errors whose occurrence time is unknown — never
-// inferred from updated_at).
+// code is the typed catalog entry, message the human-readable cause and at
+// the instant it happened (nil when unknown — never inferred from updated_at).
 type InstanceError struct {
 	Code    string
 	Message string

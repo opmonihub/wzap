@@ -380,14 +380,12 @@ func TestGetMessage(t *testing.T) {
 			RecipientJID:      "5547988359190@s.whatsapp.net",
 			Status:            "sent",
 			WhatsAppMessageID: "wamid-1",
-			// A pre-remodel row carries free text only: the public
-			// last_error surfaces it as legacy_error with no invented
-			// occurrence time.
-			LastError:   "boom",
-			Attempts:    2,
-			DeliveredAt: &deliveredAt,
-			CreatedAt:   deliveredAt,
-			UpdatedAt:   deliveredAt,
+			LastError:         "boom",
+			LastErrorCode:     "send_failed",
+			Attempts:          2,
+			DeliveredAt:       &deliveredAt,
+			CreatedAt:         deliveredAt,
+			UpdatedAt:         deliveredAt,
 		}, nil
 	}}
 
@@ -417,8 +415,8 @@ func TestGetMessage(t *testing.T) {
 	if msg.WAID == nil || *msg.WAID != "wamid-1" {
 		t.Errorf("data.message.wa_id = %v, want %q", msg.WAID, "wamid-1")
 	}
-	if msg.LastError == nil || msg.LastError.Code != "legacy_error" || msg.LastError.Message != "boom" || msg.LastError.OccurredAt != nil {
-		t.Errorf("data.message.last_error = %+v, want legacy_error boom with null occurred_at", msg.LastError)
+	if msg.LastError == nil || msg.LastError.Code != "send_failed" || msg.LastError.Message != "boom" {
+		t.Errorf("data.message.last_error = %+v, want send_failed boom", msg.LastError)
 	}
 	if msg.RetryCount != 2 {
 		t.Errorf("data.message.retry_count = %d, want 2", msg.RetryCount)

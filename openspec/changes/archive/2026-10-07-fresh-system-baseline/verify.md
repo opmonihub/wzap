@@ -55,3 +55,8 @@ Evidence collected 2026-10-07 from worktree `codex/fresh-system-baseline` after 
 
 - **Status:** **PENDING** — no dedicated WhatsApp test number / QR session available in this environment.
 - **Evidence:** Pairing, outbound send, and inbound webhook delivery were not exercised; do not claim E2E pass.
+
+## Addendum — post-archive readiness (`7bd6b20`)
+
+- **Behavior:** `migrationsApplied` rejects readiness when `goose_db_version` max `version_id` exceeds the embedded baseline (single migration `00001_init.sql`, latest version 1) with `incompatible migration version … fresh install required` (`internal/httpapi/health.go`).
+- **Test:** `WZAP_TEST_DATABASE_URL='postgres://wzap:secret@127.0.0.1:5435/wzap_test?sslmode=disable' go test ./internal/httpapi -run TestMigrationsAppliedRejectsIncompatibleGooseVersion -count=1` — pass.

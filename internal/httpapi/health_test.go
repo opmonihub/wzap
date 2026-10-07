@@ -185,6 +185,40 @@ func TestNewCheckerRunsNamedProbes(t *testing.T) {
 	}
 }
 
+func TestMigrationsAppliedRejectsIncompatibleGooseVersion(t *testing.T) {
+	pool := postgrestest.NewPool(t)
+	ctx := context.Background()
+
+	_, err := pool.Exec(ctx, `
+		CREATE TABLE goose_db_version (
+			id SERIAL PRIMARY KEY,
+			version_id BIGINT NOT NULL,
+			is_applied BOOLEAN NOT NULL,
+			tstamp TIMESTAMP DEFAULT now()
+		)`)
+	if err != nil {
+		t.Fatalf("create goose_db_version: %v", err)
+	}
+	const legacyVersion int64 = 2
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO goose_db_version (version_id, is_applied)
+		VALUES ($1, true)`, legacyVersion); err != nil {
+		t.Fatalf("seed goose_db_version: %v", err)
+	}
+
+	err = migrationsApplied(ctx, pool)
+	if err == nil {
+		t.Fatal("migrationsApplied succeeded with goose version above embedded baseline")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "incompatible migration version") {
+		t.Errorf("error = %q, want incompatible migration version", msg)
+	}
+	if !strings.Contains(msg, "fresh install required") {
+		t.Errorf("error = %q, want fresh install required", msg)
+	}
+}
+
 func TestCheckerReportsMigrationState(t *testing.T) {
 	pool := postgrestest.NewPool(t)
 	ctx := context.Background()

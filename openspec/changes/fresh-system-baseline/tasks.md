@@ -5,15 +5,15 @@
 
 ## 2. Schema inicial e identidade
 
-- [ ] 2.1 Substituir a cadeia histórica por uma migração inicial das 15 tabelas atuais e retirar relatórios/gates/backfills, verificando catálogo, instalação vazia e repetição segura com `go test ./internal/storage/postgres -run TestMigrate -count=1` e Postgres `_test` configurado.
-- [ ] 2.2 Exigir ownership existente e nomes globalmente únicos com exclusão restrita do dono, verificando constraints, claims concorrentes e isolamento com os testes reais de repositórios em schemas isolados.
-- [ ] 2.3 Remover fixtures/testes de upgrade e tolerância histórica e adaptar fixtures válidas ao modelo novo, verificando `go test ./internal/storage/... -count=1` com Postgres `_test` configurado.
-- [ ] 2.4 Remover ambiguidade e exceções de nomes históricos preservando UUID/nome exato, reservas, renomeação, quotas e autorização, verificando `go test ./internal/instance ./internal/httpapi -count=1`.
+- [x] 2.1 Substituir a cadeia histórica por uma migração inicial das 15 tabelas atuais e retirar relatórios/gates/backfills, verificando catálogo, instalação vazia e repetição segura com `go test ./internal/storage/postgres -run TestMigrate -count=1` e Postgres `_test` configurado.
+- [x] 2.2 Exigir ownership existente e nomes globalmente únicos com exclusão restrita do dono, verificando constraints, claims concorrentes e isolamento com os testes reais de repositórios em schemas isolados.
+- [x] 2.3 Remover fixtures/testes de upgrade e tolerância histórica e adaptar fixtures válidas ao modelo novo, verificando `go test ./internal/storage/... -count=1` com Postgres `_test` configurado.
+- [x] 2.4 Remover ambiguidade e exceções de nomes históricos preservando UUID/nome exato, reservas, renomeação, quotas e autorização, verificando `go test ./internal/instance ./internal/httpapi -count=1`.
 
 ## 3. Boot, credenciais, configuração e eventos
 
-- [ ] 3.1 Simplificar o seed para criar somente o primeiro admin e retirar adoção/compensações de ownership, verificando os testes de seed, criação sem dono válido e reinício com contas existentes.
-- [ ] 3.2 Exigir chave Chatwoot quando habilitado e cifrar tokens não vazios sem passthrough ou backfill, verificando chave ausente/inválida, round-trip, adulteração, configuração desligada e ausência de segredos em respostas com testes de configuração e repositórios reais.
+- [x] 3.1 Simplificar o seed para criar somente o primeiro admin e retirar adoção/compensações de ownership, verificando os testes de seed, criação sem dono válido e reinício com contas existentes.
+- [x] 3.2 Exigir chave Chatwoot quando habilitado e cifrar tokens não vazios sem passthrough ou backfill, verificando chave ausente/inválida, round-trip, adulteração, configuração desligada e ausência de segredos em respostas com testes de configuração e repositórios reais.
 - [ ] 3.3 Retirar alias `text`, referências a envs anteriores e handler dedicado de prefixo antigo, verificando apenas json/console válidos e os testes genéricos de autenticação e routing.
 - [ ] 3.4 Remover a limpeza vestigial de publicações e seu contrato sem efeito preservando outbox pendente, retries e event_id, verificando `go test ./internal/events ./internal/webhook -count=1` e a integração NATS dedicada.
 

@@ -913,11 +913,9 @@ func TestFingerprintLargeBodyFallsBackToRouteAndKeepsBody(t *testing.T) {
 	}
 }
 
-// TestIdempotencyUnconvertibleReplayAnswers410 pins the closed policy for
-// legacy cached bodies: a stored response that no longer converts to the
-// current contract (truncated, empty or not an API envelope) answers 410
-// Gone and never replays the raw bytes or re-runs the effect.
-func TestIdempotencyUnconvertibleReplayAnswers410(t *testing.T) {
+// TestIdempotencyReplayReturnsStoredBytesPassthrough pins that replay never
+// re-runs the handler and returns the cached status and body verbatim.
+func TestIdempotencyReplayReturnsStoredBytesPassthrough(t *testing.T) {
 	id := uuid.New()
 	request := idempotencyRequest(id, "key-old", `{"to":"5547"}`)
 	fingerprint, cleanup, err := fingerprintRequest(request, testMultipartBytes)
@@ -951,14 +949,12 @@ func TestIdempotencyUnconvertibleReplayAnswers410(t *testing.T) {
 			if calls != 0 {
 				t.Errorf("handler calls = %d, want 0 (the effect never re-runs)", calls)
 			}
-			if rec.Code != http.StatusGone {
-				t.Errorf("status = %d, want 410", rec.Code)
+			if rec.Code != http.StatusAccepted {
+				t.Errorf("status = %d, want 202", rec.Code)
 			}
-			if code := errorCode(t, rec.Body.Bytes()); code != "idempotency_response_expired" {
-				t.Errorf("error code = %q, want idempotency_response_expired", code)
+			if !bytes.Equal(rec.Body.Bytes(), body) {
+				t.Errorf("body = %q, want stored %q", rec.Body.Bytes(), body)
 			}
-			// The key stays owned: the caller decides, the fingerprint is not
-			// silently reacquired by the same content.
 			if len(repo.releases) != 0 {
 				t.Errorf("Release calls = %d, want the key kept", len(repo.releases))
 			}
@@ -967,7 +963,7 @@ func TestIdempotencyUnconvertibleReplayAnswers410(t *testing.T) {
 }
 
 // TestIdempotencyReplayAcceptsBothEnvelopes pins that a stored {"data":...}
-// or {"error":{"code","message"}} body is convertible and replays as stored.
+// or {"error":{"code","message"}} body replays as stored.
 func TestIdempotencyReplayAcceptsBothEnvelopes(t *testing.T) {
 	id := uuid.New()
 	request := idempotencyRequest(id, "key-env", `{"to":"5547"}`)
@@ -996,40 +992,5 @@ func TestIdempotencyReplayAcceptsBothEnvelopes(t *testing.T) {
 		if rec.Body.String() != string(body) {
 			t.Errorf("replay body = %q, want the stored %q", rec.Body.String(), body)
 		}
-	}
-}
-
-// A legacy {message_id,status} replay converts to the accepted message with
-// the same UUID and only real fields.
-func TestIdempotencyReplayConvertsLegacyAcceptedBody(t *testing.T) {
-	id := uuid.New()
-	messageID := uuid.New()
-	fingerprint, cleanup, err := fingerprintRequest(idempotencyRequest(id, "key-legacy", `{"to":"5547"}`), testMultipartLimit)
-	if err != nil {
-		t.Fatalf("fingerprintRequest: %v", err)
-	}
-	if cleanup != nil {
-		defer cleanup()
-	}
-	repo := newFakeIdempotency()
-	repo.putRecord(model.IdempotencyRecord{
-		InstanceID: id, Key: "key-legacy", Fingerprint: fingerprint,
-		Status: "completed", ResponseStatus: http.StatusAccepted,
-		ResponseBody: []byte(`{"data":{"message_id":"` + messageID.String() + `","status":"queued"}}`),
-	})
-	rec := serveIdempotency(repo, countingHandler(new(int), http.StatusAccepted, "new"),
-		idempotencyRequest(id, "key-legacy", `{"to":"5547"}`))
-	if rec.Code != http.StatusAccepted {
-		t.Fatalf("status = %d, want 202: %s", rec.Code, rec.Body.String())
-	}
-	var payload map[string]map[string]map[string]any
-	decodeJSON(t, rec.Body.Bytes(), &payload)
-	msg := payload["data"]["message"]
-	requireContractKeys(t, msg, "id,instance_id,send_status,media_id")
-	if msg["id"] != messageID.String() || msg["instance_id"] != id.String() || msg["send_status"] != "queued" || msg["media_id"] != nil {
-		t.Errorf("converted message = %v", msg)
-	}
-	if strings.Contains(rec.Body.String(), "0001-01-01") {
-		t.Errorf("converted body carries a zero timestamp: %s", rec.Body.String())
 	}
 }

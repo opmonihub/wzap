@@ -1,7 +1,8 @@
 # wzap-newsletter-ops Specification
 
 ## Purpose
-TBD - created by archiving change whatsmeow-parity-routes. Update Purpose after archive.
+
+Operar canais/newsletters WhatsApp (seguir, silenciar, reações e visualizações) por instância conectada.
 
 ## Requirements
 

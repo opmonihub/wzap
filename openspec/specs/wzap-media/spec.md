@@ -20,35 +20,6 @@ Mensagens com mídia SHALL ter o conteúdo baixado automaticamente até o limite
 - **WHEN** chega mídia maior que o limite configurado
 - **THEN** o evento é publicado com indicação de mídia omitida
 
-### Requirement: Armazenamento com integridade
-
-A mídia armazenada MUST registrar tipo, tamanho, nome quando houver e checksum, permitindo verificar integridade. Os bytes SHALL ser armazenados no MinIO e identificados por bucket e chave de objeto únicos; referências à mídia SHALL conservar seu UUID e escopo de instância. Migração de arquivos locais MUST verificar conteúdo antes de trocar a referência persistida. A migração MUST distinguir arquivo ausente de arquivo ilegível: um arquivo que existe mas não pode ser lido (permissão negada, erro de I/O) e uma chave de objeto que escapa do diretório de dados MUST falhar a migração para aquela row; uma row sem arquivo local MUST ser conferida contra o bucket registrado e, ausente também o objeto, MUST falhar a migração. O comando de migração MUST NOT terminar com sucesso enquanto houver mídia sob sua responsabilidade sem nenhuma cópia acessível.
-
-#### Scenario: Mídia armazenada
-
-- **WHEN** uma mídia é armazenada
-- **THEN** seus metadados e checksum ficam registrados e o objeto correspondente pode ser lido pelo fluxo autorizado
-
-#### Scenario: Arquivo legado migrado
-
-- **WHEN** um arquivo local existente é transferido para o MinIO
-- **THEN** conserva UUID, tamanho e checksum após verificação, mantendo as referências de mensagens
-
-#### Scenario: Arquivo ilegível não é ignorado
-
-- **WHEN** um arquivo local existente não pode ser lido (permissão negada ou erro de I/O)
-- **THEN** a migração falha para aquela row nomeando a mídia, segue com as demais e o comando não reporta sucesso
-
-#### Scenario: Row sem nenhuma cópia
-
-- **WHEN** uma row de mídia não tem arquivo local e o bucket registrado nela também não contém o objeto
-- **THEN** a migração falha para aquela row, reportando a mídia sem nenhuma cópia acessível
-
-#### Scenario: Arquivo ausente já migrado
-
-- **WHEN** o arquivo local de uma row foi removido pela limpeza e o bucket registrado já contém o objeto
-- **THEN** a row é pulada sem erro e sem reenvio
-
 ### Requirement: Download autenticado
 
 O acesso à mídia SHALL exigir autenticação de serviço; mídia inexistente ou expirada MUST responder `404`; a resposta MUST informar o tipo de conteúdo correto.
@@ -65,16 +36,16 @@ O acesso à mídia SHALL exigir autenticação de serviço; mídia inexistente o
 
 ### Requirement: Expiração e limpeza
 
-Mídias MUST expirar após o período configurado. Objetos expirados SHALL ser removidos periodicamente, preservando metadados e vínculos das mensagens; object_deleted_at SHALL registrar a confirmação da exclusão do objeto. Falhas de exclusão MUST permanecer recuperáveis para nova tentativa.
+Mídias MUST expirar após o período configurado. Conteúdos expirados SHALL ser removidos periodicamente, preservando metadados e vínculos das mensagens; object_deleted_at SHALL registrar a confirmação da exclusão do conteúdo. Falhas de exclusão MUST permanecer recuperáveis para nova tentativa.
 
 #### Scenario: Mídia expirada
 
 - **WHEN** o período de retenção termina
-- **THEN** a mídia deixa de estar disponível para download e seu objeto é removido, com metadados e referências preservados
+- **THEN** a mídia deixa de estar disponível para download e seus bytes são removidos, com metadados e referências preservados
 
 #### Scenario: Falha ao excluir objeto
 
-- **WHEN** o MinIO não confirma a exclusão
+- **WHEN** o backend selecionado não confirma a exclusão
 - **THEN** o registro continua pendente de limpeza e pode ser tentado novamente
 
 ### Requirement: Upload para envio
@@ -103,3 +74,41 @@ A integração SHALL usar exatamente a imagem docker.io/cccs/minio fixada ao dig
 
 - **WHEN** a imagem exata não pode ser obtida e verificada
 - **THEN** a implantação fica pendente sem substituição silenciosa por outra imagem
+
+### Requirement: Seleção estável de backend
+
+A seleção de backend SHALL ocorrer pela configuração no início do processo. S3 configurado MUST NOT ser substituído por disco em falhas de inicialização, leitura, gravação ou exclusão. Disco em modo S3 SHALL servir apenas como cache temporário para consumidores que precisam de arquivo. Transferência automática de registros entre backends MUST NOT existir.
+
+#### Scenario: S3 indisponível no boot
+
+- **WHEN** o endpoint S3 está configurado e o bucket não pode ser preparado
+- **THEN** a inicialização falha com erro de mídia sem iniciar em modo local
+
+#### Scenario: Falha de escrita S3
+
+- **WHEN** o backend S3 falha durante uma gravação
+- **THEN** a operação informa erro e não grava uma cópia persistente em disco como alternativa
+
+#### Scenario: Cache temporário
+
+- **WHEN** um envio em modo S3 precisa de um arquivo local
+- **THEN** o arquivo é materializado do objeto como cache descartável sem mudar seu backend persistente
+
+### Requirement: Integridade de mídia no backend selecionado
+
+A mídia armazenada MUST registrar tipo, tamanho, nome quando houver, checksum, UUID e escopo de instância. Bytes SHALL ser armazenados no backend selecionado para a instalação: S3/MinIO quando WZAP_S3_ENDPOINT estiver configurado e disco local quando estiver ausente. Registros novos MUST identificar explicitamente bucket e chave de conteúdo; operações S3 MUST usar o bucket registrado, sem reconstrução de referências históricas.
+
+#### Scenario: Mídia em S3
+
+- **WHEN** uma mídia é criada em instalação com S3 configurado
+- **THEN** seus bytes são gravados no bucket configurado e seus metadados, checksum e bucket ficam registrados
+
+#### Scenario: Mídia em disco
+
+- **WHEN** uma mídia é criada sem endpoint S3 configurado
+- **THEN** seus bytes são gravados no diretório local configurado com metadados e checksum persistidos
+
+#### Scenario: Bucket registrado
+
+- **WHEN** o bucket padrão configurado muda e uma mídia da mesma instalação ainda referencia outro bucket
+- **THEN** leitura e exclusão S3 usam o bucket registrado naquela mídia

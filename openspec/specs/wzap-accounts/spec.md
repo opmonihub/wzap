@@ -50,7 +50,7 @@ MUST invalidá-la para uso posterior.
 
 Quando nenhuma conta existir, o serviço SHALL criar a conta `admin` inicial a
 partir da configuração de ambiente no boot; sem essa configuração, nenhuma
-conta SHALL ser criada automaticamente.
+conta SHALL ser criada automaticamente. O seed MUST criar somente a conta inicial, sem adotar, alterar ou reparar ownership de instâncias.
 
 #### Scenario: Boot com seed configurado
 
@@ -61,6 +61,11 @@ conta SHALL ser criada automaticamente.
 
 - **WHEN** o serviço inicia sem contas e sem a configuração de seed
 - **THEN** nenhuma conta é criada e o login segue respondendo `401`
+
+#### Scenario: Seed já realizado
+
+- **WHEN** o serviço inicia com contas já existentes
+- **THEN** não cria outro admin nem altera os donos de instâncias
 
 ### Requirement: Ownership de instâncias
 

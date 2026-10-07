@@ -1,7 +1,8 @@
 # wzap-message-edits Specification
 
 ## Purpose
-TBD - created by archiving change whatsmeow-parity-routes. Update Purpose after archive.
+
+Editar mensagens enviadas no WhatsApp quando a instância está conectada e a mensagem ainda é editável.
 
 ## Requirements
 

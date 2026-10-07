@@ -34,24 +34,6 @@ Respostas públicas de instância MUST omitir whatsapp_jid, device_jid, external
 - **WHEN** o operador consulta uma instância com integração Chatwoot configurada
 - **THEN** obtém integration.chatwoot_config sem o token e sem referência externa, proprietário, JIDs internos ou hashes
 
-### Requirement: Erros públicos estruturados
-
-Erros de conexão e envio SHALL ser objetos com code, message e occurred_at ou null quando ausentes. Um erro legado com data desconhecida SHALL conservar sua mensagem com code legacy_error e occurred_at null.
-
-#### Scenario: Erro legado
-
-- **WHEN** uma instância possui somente um texto legado de falha
-- **THEN** sua resposta usa legacy_error, preserva o texto e informa occurred_at null
-
-### Requirement: Replay sem repetir efeitos
-
-Uma resposta idempotente legada SHALL ser adaptada ao contrato atual conservando identificador, status HTTP e resultado da operação. A conversão MUST NOT executar a operação novamente, eliminar o cache indiscriminadamente ou devolver campos públicos removidos.
-
-#### Scenario: Mensagem aceita antes do corte
-
-- **WHEN** uma requisição autorizada repete a mesma chave e conteúdo de uma mensagem aceita antes da remodelagem
-- **THEN** recebe o resultado convertido com o mesmo identificador sem um segundo envio
-
 ### Requirement: Contratos externos preservados
 
 Downloads, respostas sem corpo, HTML e confirmações externas SHALL conservar seus formatos próprios. A remodelagem REST MUST preservar event_version 1, IDs, payloads e strings de erro/motivo dos eventos NATS e webhooks.
@@ -79,3 +61,36 @@ Downloads, respostas sem corpo, HTML e confirmações externas SHALL conservar s
 
 - **WHEN** a instância nunca teve configuração Chatwoot persistida
 - **THEN** `integration.chatwoot_config` é `null`
+
+### Requirement: Erros estruturados do contrato vigente
+
+**BREAKING:** erros de conexão e envio SHALL ser objetos com code, message e occurred_at, ou null quando não houver erro. Falhas produzidas pelo sistema atual MUST registrar código específico, mensagem e instante de ocorrência, sem inferência de código a partir de texto histórico. Dados internos e segredos MUST NOT aparecer no erro público.
+
+#### Scenario: Falha atual
+
+- **WHEN** uma operação de conexão ou envio registra uma falha
+- **THEN** a resposta apresenta o código, mensagem e instante registrados para aquela falha
+
+#### Scenario: Sem falha registrada
+
+- **WHEN** uma instância ou mensagem não tem erro registrado
+- **THEN** last_error é null
+
+### Requirement: Replay do resultado atual armazenado
+
+**BREAKING:** a resposta idempotente SHALL reproduzir o status HTTP e o corpo armazenados pelo contrato atual, sem conversão de formato, leitura substitutiva do recurso ou repetição da operação. A autorização atual MUST ser verificada antes do replay; identificadores, headers de correlação e indicador de replay SHALL preservar sua semântica. Corrupção de um resultado armazenado MUST produzir erro interno sem reexecutar a operação.
+
+#### Scenario: Resultado armazenado
+
+- **WHEN** um cliente atualmente autorizado repete a chave e conteúdo de uma operação concluída
+- **THEN** recebe o mesmo status HTTP e corpo armazenado com indicador de replay, sem segundo efeito
+
+#### Scenario: Estado posterior do recurso
+
+- **WHEN** o recurso muda depois de a resposta original ser armazenada e ocorre replay autorizado
+- **THEN** a resposta mantém o resultado original sem reconstruí-lo a partir do estado novo
+
+#### Scenario: Autorização atual insuficiente
+
+- **WHEN** um cliente sem escopo atual tenta obter uma resposta armazenada
+- **THEN** recebe 403 sem exposição do resultado

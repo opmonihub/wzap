@@ -1,7 +1,8 @@
 # wzap-contacts-directory Specification
 
 ## Purpose
-TBD - created by archiving change whatsmeow-parity-routes. Update Purpose after archive.
+
+Expor metadados de contatos WhatsApp (foto, dispositivos, perfil comercial) para integrações autorizadas por instância.
 
 ## Requirements
 

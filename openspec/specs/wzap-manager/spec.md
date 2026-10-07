@@ -357,22 +357,6 @@ A seção de grupos SHALL recusar a busca quando o campo de JID está vazio ou s
 - **WHEN** a conta aciona a busca de grupo com o campo de JID vazio
 - **THEN** o console não emite `GET` de grupo e mostra o erro de identificador ausente sem trocar o grupo em tela
 
-### Requirement: Instance name form validation
-
-Create, edit and overview forms SHALL explain and validate the same name grammar and reserved names as the API. Editing SHALL permit an exactly unchanged legacy name, without trimming or silently renaming it. Name-conflict errors SHALL be distinguished from external-reference conflicts.
-
-#### Scenario: Invalid new name
-- **WHEN** a user enters spaces, accents, invalid punctuation, an overlong value or a reserved name
-- **THEN** the form explains the rule and prevents submission
-
-#### Scenario: Legacy name unchanged
-- **WHEN** a user edits another field while retaining the original legacy name
-- **THEN** the unchanged name is omitted or retained exactly and the unrelated update remains possible
-
-#### Scenario: Name already occupied
-- **WHEN** the API returns instance_name_taken
-- **THEN** the form reports the instance-name conflict instead of an external-reference conflict
-
 ### Requirement: Consulta única da coleção de instâncias
 
 O Manager SHALL obter a coleção completa com uma única chamada GET /instances sem limit ou cursor para a lista de instâncias, métricas do overview e contagem de uso por conta. A lista SHALL manter busca, filtros, ordenação e paginação visual local, sem botão para carregar páginas do servidor.
@@ -386,3 +370,29 @@ O Manager SHALL obter a coleção completa com uma única chamada GET /instances
 
 - **WHEN** o administrador carrega o uso de instâncias por conta
 - **THEN** a contagem usa todos os itens de uma única consulta GET /instances
+
+### Requirement: Contrato vigente nas mensagens e tipos
+
+O Manager SHALL representar exclusivamente os DTOs atuais e os erros produzidos pelo contrato vigente, sem textos de preservação histórica ou interpretação de envelopes antigos. Falhas atuais MUST continuar visíveis com a mensagem retornada pela API, respeitando os escopos e a privacidade.
+
+#### Scenario: Falha atual exibida
+
+- **WHEN** uma operação atual retorna um erro estruturado
+- **THEN** o Manager informa a falha e a mensagem do servidor sem inventar tradução de erro histórico
+
+#### Scenario: Formulário de nome
+
+- **WHEN** o operador abre criação ou edição de instância
+- **THEN** as orientações descrevem somente nomes válidos e conflitos do contrato atual
+
+### Requirement: Validação atual de nomes nos formulários
+
+Create, edit and overview forms SHALL explain and validate the same name grammar and reserved names as the API. Every submitted name SHALL satisfy the current grammar; forms MUST NOT offer historical-name exceptions, trimming or silent renaming. Name-conflict errors SHALL be distinguished from external-reference conflicts.
+
+#### Scenario: Invalid new name
+- **WHEN** a user enters spaces, accents, invalid punctuation, an overlong value or a reserved name
+- **THEN** the form explains the rule and prevents submission
+
+#### Scenario: Name already occupied
+- **WHEN** the API returns instance_name_taken
+- **THEN** the form reports the instance-name conflict instead of an external-reference conflict

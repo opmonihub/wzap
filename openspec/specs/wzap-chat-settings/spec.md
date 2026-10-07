@@ -1,7 +1,8 @@
 # wzap-chat-settings Specification
 
 ## Purpose
-TBD - created by archiving change whatsmeow-parity-routes. Update Purpose after archive.
+
+Ler e configurar opções de conversa por chat (mensagens que desaparecem e leitura) para instâncias conectadas.
 
 ## Requirements
 

@@ -1,7 +1,8 @@
 # wzap-group-moderation Specification
 
 ## Purpose
-TBD - created by archiving change whatsmeow-parity-routes. Update Purpose after archive.
+
+Moderar grupos WhatsApp (participantes, convites, configurações e foto) por instância conectada.
 
 ## Requirements
 

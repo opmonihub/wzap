@@ -20,25 +20,6 @@ Permitir que o backend envie mensagens por uma instância conectada de forma ass
 - **WHEN** o cliente envia mensagem para instância disconnected
 - **THEN** recebe 409 e nada é enfileirado
 
-### Requirement: Idempotência de envio
-
-Requisições de envio SHALL aceitar Idempotency-Key. Mesmo conteúdo SHALL recuperar o resultado anterior marcado como replay; chave com conteúdo diferente MUST responder 422; concorrência com a mesma chave MUST responder 409. Sem chave o comportamento é normal. Respostas antigas SHALL ser convertidas para o novo contrato mantendo o UUID sem reexecutar o envio.
-
-#### Scenario: Replay idempotente
-
-- **WHEN** o cliente repete o envio com a mesma chave e conteúdo
-- **THEN** recupera o mesmo UUID em data.message com indicador de replay sem nova mensagem
-
-#### Scenario: Conflito de conteúdo
-
-- **WHEN** o cliente repete a chave com conteúdo diferente
-- **THEN** recebe 422 e a mensagem original permanece intacta
-
-#### Scenario: Replay de contrato legado
-
-- **WHEN** o cache contém o antigo message_id de uma operação concluída
-- **THEN** a resposta atual conserva esse UUID como id sem executar o envio outra vez
-
 ### Requirement: Normalização de destinatário
 
 O serviço SHALL normalizar o destinatário para o identificador canônico do WhatsApp, aplicando a regra brasileira do 9º dígito, e MUST responder `422` quando o número não existir na plataforma.
@@ -120,3 +101,22 @@ Respostas de mensagens SHALL distinguir id interno e wa_id externo, usar message
 
 - **WHEN** o WhatsApp confirma um envio
 - **THEN** a consulta identifica o mesmo UUID interno e o wa_id retornado, conservando datas e escopo da instância
+
+### Requirement: Idempotência do contrato vigente
+
+Requisições de envio SHALL aceitar Idempotency-Key. Mesmo conteúdo SHALL recuperar o resultado anterior marcado como replay; chave com conteúdo diferente MUST responder 422; concorrência com a mesma chave MUST responder 409. Sem chave o comportamento é normal. O replay SHALL devolver o status HTTP e o corpo armazenados no contrato atual sem conversão, reenvio ou criação de nova mensagem.
+
+#### Scenario: Replay idempotente
+
+- **WHEN** o cliente repete o envio com a mesma chave e conteúdo
+- **THEN** recupera o mesmo UUID em data.message com indicador de replay sem nova mensagem
+
+#### Scenario: Conflito de conteúdo
+
+- **WHEN** o cliente repete a chave com conteúdo diferente
+- **THEN** recebe 422 e a mensagem original permanece intacta
+
+#### Scenario: Chave em processamento
+
+- **WHEN** dois envios concorrentes disputam a mesma chave e conteúdo
+- **THEN** a requisição concorrente recebe 409 e apenas a operação que adquiriu a chave pode produzir o envio

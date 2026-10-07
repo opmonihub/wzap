@@ -33,14 +33,14 @@
 
 ## 6. Gates e revisão antes do reset
 
-- [ ] 6.1 Executar gofmt limpo, `go vet ./...`, golangci-lint v2.13.2, `go test ./... -count=1` com WZAP_TEST_DATABASE_URL configurada e `go build ./...`, registrando comandos, versões, serviços alcançados e resultados reais.
-- [ ] 6.2 Executar integrações em broker NATS e bucket S3 dedicados junto dos gates completos do Manager e Swagger, registrando serviços reais separados de fakes e cenários não exercitados.
-- [ ] 6.3 Revisar o diff e inventário para confirmar retirada de todo suporte histórico e preservação de segurança, import operacional e pending:{uuid}, registrando evidências file:line e resolvendo findings antes do reset.
+- [x] 6.1 Executar gofmt limpo, `go vet ./...`, golangci-lint v2.13.2, `go test ./... -count=1` com WZAP_TEST_DATABASE_URL configurada e `go build ./...`, registrando comandos, versões, serviços alcançados e resultados reais.
+- [x] 6.2 Executar integrações em broker NATS e bucket S3 dedicados junto dos gates completos do Manager e Swagger, registrando serviços reais separados de fakes e cenários não exercitados.
+- [x] 6.3 Revisar o diff e inventário para confirmar retirada de todo suporte histórico e preservação de segurança, import operacional e pending:{uuid}, registrando evidências file:line e resolvendo findings antes do reset.
 
 ## 7. Reset local sem backup e fechamento
 
-- [ ] 7.1 Após os gates, parar a única réplica local e remover somente wzap_pgdata, wzap_natsdata, wzap_miniodata e wzap_media sem backup, verificando mounts e a ausência desses quatro volumes antes da recriação.
-- [ ] 7.2 Reconstruir e iniciar uma única réplica com volumes vazios e recriar wzap_test, verificando `/healthz`, `/readyz`, seed, login, criação de instância e mídia no ambiente novo.
-- [ ] 7.3 Validar novo pareamento, envio e webhook reais com número de teste, registrando evidência de QR/sessão, mensagem e entrega sem expor dados pessoais ou segredos e deixando a tarefa pendente se o número não estiver disponível.
-- [ ] 7.4 Produzir verify.md com sete checks e retrospective.md após a aplicação e revisão, verificando cobertura de todas as tarefas, falhas resolvidas e distinção entre integrações reais, fakes e skips.
-- [ ] 7.5 Sincronizar deltas e atualizar Purpose das specs principais que descrevem remodelagem, arquivando somente após concluir tarefas, verify e retrospective e verificar `openspec validate --all --strict`.
+- [x] 7.1 Após os gates, parar a única réplica local e remover somente wzap_pgdata, wzap_natsdata, wzap_miniodata e wzap_media sem backup, verificando mounts e a ausência desses quatro volumes antes da recriação.
+- [x] 7.2 Reconstruir e iniciar uma única réplica com volumes vazios e recriar wzap_test, verificando `/healthz`, `/readyz`, seed, login, criação de instância e mídia no ambiente novo.
+- [ ] 7.3 Validar novo pareamento, envio e webhook reais com número de teste, registrando evidência de QR/sessão, mensagem e entrega sem expor dados pessoais ou segredos e deixando a tarefa pendente se o número não estiver disponível. **PENDING:** sem número de teste WhatsApp neste ambiente (ver verify.md check 7).
+- [x] 7.4 Produzir verify.md com sete checks e retrospective.md após a aplicação e revisão, verificando cobertura de todas as tarefas, falhas resolvidas e distinção entre integrações reais, fakes e skips.
+- [x] 7.5 Sincronizar deltas e atualizar Purpose das specs principais que descrevem remodelagem, arquivando somente após concluir tarefas, verify e retrospective e verificar `openspec validate --all --strict`.

@@ -1,7 +1,8 @@
 # wzap-blocklist Specification
 
 ## Purpose
-TBD - created by archiving change whatsmeow-parity-routes. Update Purpose after archive.
+
+Consultar e alterar a lista de contatos bloqueados de uma instância conectada via API autenticada.
 
 ## Requirements
 

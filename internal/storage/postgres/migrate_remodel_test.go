@@ -57,7 +57,11 @@ func migrateToVersion(t *testing.T, ctx context.Context, pool *pgxpool.Pool, ver
 }
 
 // seedAndUpgrade migrates the schema to the pre-remodel baseline (00007),
-// seeds the remodel fixtures and applies the remodel migration on top.
+// seeds the remodel fixtures and applies the remodel data migration (00008)
+// plus the resolution marker (00009) on top. The cutover gate (00010) is
+// deliberately not applied here: the fixtures include a divergent device
+// JID, so the full migrate stays blocked until an explicit resolution is
+// recorded — that loop is exercised in TestMigrateDeviceJIDGateBlocksCutover.
 func seedAndUpgrade(t *testing.T) (*pgxpool.Pool, context.Context, postgrestest.RemodelFixtures) {
 	t.Helper()
 
@@ -67,10 +71,37 @@ func seedAndUpgrade(t *testing.T) (*pgxpool.Pool, context.Context, postgrestest.
 	migrateToVersion(t, ctx, pool, 7)
 	fx := postgrestest.SeedRemodelFixtures(t, pool)
 
-	if err := Migrate(ctx, pool); err != nil {
-		t.Fatalf("remodel migrate: %v", err)
-	}
+	migrateToVersion(t, ctx, pool, 9)
 	return pool, ctx, fx
+}
+
+// resolveDeviceJIDConflicts performs the operator step the 00010 gate
+// documents: after reconciling the identity, each device_jid_conflicts row
+// is marked resolved. The fixtures keep the device_jid 00008 chose, so this
+// only records the acknowledgment — the reconciliation itself would be an
+// UPDATE on instance_connections.
+func resolveDeviceJIDConflicts(t *testing.T, ctx context.Context, pool *pgxpool.Pool, fx postgrestest.RemodelFixtures) {
+	t.Helper()
+
+	if _, err := pool.Exec(ctx, `
+		UPDATE remodel_report SET resolved_at = now()
+		WHERE category = 'device_jid_conflicts' AND ref_id = $1`,
+		fx.InstanceDivergentJIDID); err != nil {
+		t.Fatalf("mark device_jid conflict resolved: %v", err)
+	}
+}
+
+// appliedVersion returns the highest applied goose version.
+func appliedVersion(t *testing.T, ctx context.Context, pool *pgxpool.Pool) int64 {
+	t.Helper()
+
+	var version int64
+	if err := pool.QueryRow(ctx, `
+		SELECT coalesce(max(version_id), 0) FROM goose_db_version WHERE is_applied`).
+		Scan(&version); err != nil {
+		t.Fatalf("read goose version: %v", err)
+	}
+	return version
 }
 
 // TestMigrateRemodelFresh applies every migration on an empty schema and
@@ -297,6 +328,18 @@ func TestMigrateRemodelFresh(t *testing.T) {
 	if got := dead["id"]; got.udtName != "uuid" {
 		t.Errorf("webhook_dead_letters.id = type %s, want uuid", got.udtName)
 	}
+
+	// The audit table carries the explicit-resolution marker of the cutover
+	// gate (00009); the gate itself (00010) passes on an empty database.
+	report := tableColumns(t, ctx, pool, "remodel_report")
+	for _, col := range []string{"category", "ref_id", "detail", "created_at", "resolved_at"} {
+		if _, ok := report[col]; !ok {
+			t.Errorf("remodel_report.%s missing", col)
+		}
+	}
+	if got := report["resolved_at"]; got.dataType != "timestamp with time zone" || got.isNullable != "YES" {
+		t.Errorf("remodel_report.resolved_at = type %s nullable %s, want timestamptz NULL", got.dataType, got.isNullable)
+	}
 }
 
 // TestMigrateRemodelUpgrade is the acceptance test of the task: it seeds the
@@ -373,8 +416,10 @@ func TestMigrateRemodelUpgrade(t *testing.T) {
 		t.Errorf("legacy device_jid = %v, want whatsapp_jid fallback", legacyDeviceJID)
 	}
 
-	// Divergent whatsapp_jid vs device_jid: device_jid wins, conflict is
-	// reported, migration does not fail and nothing is silently dropped.
+	// Divergent whatsapp_jid vs device_jid: device_jid wins and the conflict
+	// is reported by 00008; the cutover itself stays blocked by the 00010
+	// gate until explicit resolution (TestMigrateDeviceJIDGateBlocksCutover)
+	// and nothing is silently dropped.
 	var divDeviceJID *string
 	if err := pool.QueryRow(ctx,
 		`SELECT device_jid FROM instance_connections WHERE instance_id = $1`,
@@ -793,11 +838,109 @@ func TestMigrateRemodelUpgrade(t *testing.T) {
 	}
 }
 
+// TestMigrateDeviceJIDGateBlocksCutover pins the gate the approved design
+// requires ("divergências entram no relatório e bloqueiam o corte até
+// resolução explícita — nunca escolher silenciosamente"): 00008 records the
+// conflict and keeps the preferred device_jid, then the 00010 gate fails the
+// full migrate while the conflict row is unresolved — aborting `wzap
+// migrate` and a boot with WZAP_AUTO_MIGRATE=true — and only an explicit
+// operator resolution (identity reconciled, report row marked resolved)
+// lets the migration complete, preserving the conflict row as audit
+// history.
+func TestMigrateDeviceJIDGateBlocksCutover(t *testing.T) {
+	pool, ctx, fx := seedAndUpgrade(t) // schema at version 9, conflict recorded
+
+	// The resolved_at marker (00009) exists even though the gate (00010) has
+	// not applied yet: the marker is its own migration so the operator loop
+	// can record resolutions after a failed gate attempt.
+	resolvedAt := tableColumns(t, ctx, pool, "remodel_report")["resolved_at"]
+	if resolvedAt.dataType != "timestamp with time zone" {
+		t.Errorf("remodel_report.resolved_at = %q, want timestamp with time zone", resolvedAt.dataType)
+	}
+	if resolvedAt.isNullable != "YES" {
+		t.Errorf("remodel_report.resolved_at nullable = %s, want YES (unresolved rows are the gate condition)", resolvedAt.isNullable)
+	}
+
+	var conflictRows int
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*) FROM remodel_report
+		WHERE category = 'device_jid_conflicts' AND resolved_at IS NULL`).
+		Scan(&conflictRows); err != nil {
+		t.Fatalf("count unresolved conflicts: %v", err)
+	}
+	if conflictRows != 1 {
+		t.Fatalf("unresolved device_jid_conflicts rows = %d, want 1 (00008 recorded the divergence)", conflictRows)
+	}
+
+	// The gate aborts the migrate while the conflict is unresolved.
+	err := Migrate(ctx, pool)
+	if err == nil {
+		t.Fatal("Migrate succeeded with an unresolved device_jid_conflicts row, want the cutover gate to block it")
+	}
+	if !strings.Contains(err.Error(), "device JID divergence") {
+		t.Errorf("gate error does not name the divergence gate: %v", err)
+	}
+	if !strings.Contains(err.Error(), fx.InstanceDivergentJIDID.String()) {
+		t.Errorf("gate error does not name the divergent instance %s: %v", fx.InstanceDivergentJIDID, err)
+	}
+	if got := appliedVersion(t, ctx, pool); got != 9 {
+		t.Errorf("goose version after blocked migrate = %d, want 9 (gate migration rolled back, marker below it stays)", got)
+	}
+	var stillUnresolved int
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*) FROM remodel_report
+		WHERE category = 'device_jid_conflicts' AND ref_id = $1 AND resolved_at IS NULL`,
+		fx.InstanceDivergentJIDID).Scan(&stillUnresolved); err != nil {
+		t.Fatalf("check conflict row after blocked migrate: %v", err)
+	}
+	if stillUnresolved != 1 {
+		t.Error("conflict row changed by the blocked migrate, want it preserved as evidence")
+	}
+
+	// Operator loop: reconcile the identity (the fixtures keep the
+	// device_jid 00008 chose) and record the explicit resolution, then the
+	// migrate completes through the gate.
+	resolveDeviceJIDConflicts(t, ctx, pool, fx)
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatalf("Migrate after resolving the conflict: %v", err)
+	}
+	if got := appliedVersion(t, ctx, pool); got != 10 {
+		t.Errorf("goose version after resolved migrate = %d, want 10", got)
+	}
+
+	// The resolution is an acknowledgment, not an erasure: the audit row
+	// survives with both candidate JIDs and the resolution timestamp.
+	var detailWA, detailDevice *string
+	var resolved *time.Time
+	if err := pool.QueryRow(ctx, `
+		SELECT detail->>'whatsapp_jid', detail->>'device_jid', resolved_at
+		FROM remodel_report
+		WHERE category = 'device_jid_conflicts' AND ref_id = $1`,
+		fx.InstanceDivergentJIDID).Scan(&detailWA, &detailDevice, &resolved); err != nil {
+		t.Fatalf("read conflict row after resolution: %v", err)
+	}
+	if detailWA == nil || *detailWA != "5511777770003:7@s.whatsapp.net" ||
+		detailDevice == nil || *detailDevice != "5511777770003:99@s.whatsapp.net" {
+		t.Errorf("conflict detail = whatsapp_jid %v device_jid %v, want both candidates preserved", detailWA, detailDevice)
+	}
+	if resolved == nil {
+		t.Error("resolved_at = NULL after resolution, want the acknowledgment timestamp")
+	}
+}
+
 // TestMigrateRemodelDown applies the remodel then rolls it back; the Down
 // must leave the pre-remodel table set (renamed tables back, satellites
-// dropped) without touching whatsmeow/goose bookkeeping.
+// dropped) without touching whatsmeow/goose bookkeeping. The schema goes
+// through the 00010 gate first (the fixtures' divergence needs an explicit
+// resolution) so the Down also reverses the gate migration and the
+// resolved_at column.
 func TestMigrateRemodelDown(t *testing.T) {
-	pool, ctx, _ := seedAndUpgrade(t)
+	pool, ctx, fx := seedAndUpgrade(t)
+
+	resolveDeviceJIDConflicts(t, ctx, pool, fx)
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatalf("migrate through the gate: %v", err)
+	}
 
 	db := stdlib.OpenDBFromPool(pool)
 	defer func() { _ = db.Close() }()

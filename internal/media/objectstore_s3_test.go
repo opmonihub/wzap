@@ -54,18 +54,18 @@ func TestObjectStoreS3Integration(t *testing.T) {
 
 	key := "test/" + uuid.NewString() + ".bin"
 	payload := []byte("wzap integration payload \x00\x01\x02")
-	if err := store.Put(ctx, "", key, payload, "application/octet-stream"); err != nil {
+	if err := store.Put(ctx, bucket, key, payload, "application/octet-stream"); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cleanupCancel()
-		if err := store.Delete(cleanupCtx, "", key); err != nil {
+		if err := store.Delete(cleanupCtx, bucket, key); err != nil {
 			t.Errorf("cleanup Delete: %v", err)
 		}
 	})
 
-	exists, err := store.Exists(ctx, "", key)
+	exists, err := store.Exists(ctx, bucket, key)
 	if err != nil {
 		t.Fatalf("Exists: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestObjectStoreS3Integration(t *testing.T) {
 		t.Fatalf("Exists = false after Put")
 	}
 
-	body, err := store.Get(ctx, "", key)
+	body, err := store.Get(ctx, bucket, key)
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
@@ -86,23 +86,23 @@ func TestObjectStoreS3Integration(t *testing.T) {
 		t.Fatalf("body = %q, want %q", got, payload)
 	}
 
-	if err := store.Delete(ctx, "", key); err != nil {
+	if err := store.Delete(ctx, bucket, key); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
-	exists, err = store.Exists(ctx, "", key)
+	exists, err = store.Exists(ctx, bucket, key)
 	if err != nil {
 		t.Fatalf("Exists after Delete: %v", err)
 	}
 	if exists {
 		t.Fatalf("Exists = true after Delete")
 	}
-	if _, err := store.Get(ctx, "", key); !errors.Is(err, ErrNotFound) {
+	if _, err := store.Get(ctx, bucket, key); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("Get after Delete err = %v, want ErrNotFound", err)
 	}
-	if err := store.Delete(ctx, "", key); err != nil {
+	if err := store.Delete(ctx, bucket, key); err != nil {
 		t.Fatalf("Delete absent key: %v", err)
 	}
-	if _, err := store.Get(ctx, "", "test/"+uuid.NewString()+".bin"); !errors.Is(err, ErrNotFound) {
+	if _, err := store.Get(ctx, bucket, "test/"+uuid.NewString()+".bin"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("Get missing key err = %v, want ErrNotFound", err)
 	}
 }

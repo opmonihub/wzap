@@ -1,11 +1,4 @@
-# wzap-message-edits Specification
-
-## Purpose
-
-Permitir editar texto próprio já enviado por instância conectada, com a
-mesma idempotência dos envios.
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Edição de texto próprio
 

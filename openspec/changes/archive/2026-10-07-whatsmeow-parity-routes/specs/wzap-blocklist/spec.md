@@ -1,10 +1,4 @@
-# wzap-blocklist Specification
-
-## Purpose
-
-Permitir consultar, bloquear e desbloquear contatos por instância conectada.
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Consulta da lista de bloqueados
 

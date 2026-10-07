@@ -1,11 +1,4 @@
-# wzap-chat-settings Specification
-
-## Purpose
-
-Permitir ajustar conversas: temporizador de desaparecimento, privacidade de
-status (leitura) e assinatura pontual de presença, por instância conectada.
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Temporizador por conversa e padrão
 

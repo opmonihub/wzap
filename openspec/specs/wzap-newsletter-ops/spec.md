@@ -1,9 +1,7 @@
 # wzap-newsletter-ops Specification
 
 ## Purpose
-
-Permitir operar canais além de seguir/listar: criar, silenciar, marcar
-visualização, reagir e ler mensagens, por instância conectada.
+TBD - created by archiving change whatsmeow-parity-routes. Update Purpose after archive.
 
 ## Requirements
 

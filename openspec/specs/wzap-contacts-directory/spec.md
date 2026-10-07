@@ -1,10 +1,7 @@
 # wzap-contacts-directory Specification
 
 ## Purpose
-
-Permitir consultar o diretório de contatos (existência, dispositivos, foto
-alheia, perfil business) e o link próprio de contato, por instância
-conectada.
+TBD - created by archiving change whatsmeow-parity-routes. Update Purpose after archive.
 
 ## Requirements
 

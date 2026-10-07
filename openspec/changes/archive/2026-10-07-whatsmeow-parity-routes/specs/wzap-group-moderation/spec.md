@@ -1,11 +1,4 @@
-# wzap-group-moderation Specification
-
-## Purpose
-
-Permitir moderar grupos: pedidos de entrada, travas, inventário próprio e
-prévia de convite, por instância conectada.
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Lista de grupos da instância
 

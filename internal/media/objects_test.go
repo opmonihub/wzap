@@ -688,7 +688,7 @@ func TestMigrateLocalFilesUploadsIntoConfiguredBucketAndRewritesRow(t *testing.T
 		t.Fatalf("Open after migration: %v", err)
 	}
 	got, _ := io.ReadAll(rc)
-	rc.Close()
+	_ = rc.Close()
 	if string(got) != string(content) {
 		t.Errorf("Open content = %q, want %q", got, content)
 	}

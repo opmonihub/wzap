@@ -184,6 +184,9 @@ func TestStorageSaveAndOpen(t *testing.T) {
 	if saved.SizeBytes != int64(len(payload)) {
 		t.Errorf("Save: SizeBytes = %d, want %d", saved.SizeBytes, len(payload))
 	}
+	if saved.Bucket != "local" {
+		t.Errorf("Save: Bucket = %q, want local for disk-only storage", saved.Bucket)
+	}
 	wantHash := sha256.Sum256(payload)
 	if saved.SHA256 != hex.EncodeToString(wantHash[:]) {
 		t.Errorf("Save: SHA256 = %q, want %q", saved.SHA256, hex.EncodeToString(wantHash[:]))

@@ -22,8 +22,7 @@ import (
 // The bucket of an operation comes from the media row: the row is the
 // metadata authority, so reads and deletes must target the bucket recorded
 // when the object was written, never whatever bucket the service is
-// configured with today. An empty bucket falls back to the configured one
-// (legacy rows that predate the bucket column).
+// configured with today.
 type Objects interface {
 	// Bucket returns the configured bucket name stored on every media row.
 	Bucket() string
@@ -113,8 +112,7 @@ func (s *ObjectStore) EnsureBucket(ctx context.Context) error {
 
 // Put uploads data into bucket under objectKey. A re-put overwrites the
 // object, which is safe because object keys embed a fresh media UUID. The
-// bucket follows the same rule as Get/Delete/Exists: the row value wins and
-// an empty one falls back to the configured bucket.
+// bucket follows the same rule as Get/Delete/Exists: the row value wins.
 func (s *ObjectStore) Put(ctx context.Context, bucket, objectKey string, data []byte, mimeType string) error {
 	input := &s3.PutObjectInput{
 		Bucket: aws.String(s.bucketOf(bucket)),
@@ -130,13 +128,9 @@ func (s *ObjectStore) Put(ctx context.Context, bucket, objectKey string, data []
 	return nil
 }
 
-// bucketOf resolves the target bucket of a row-carried operation: the row
-// value wins and an empty one falls back to the configured bucket.
+// bucketOf returns the bucket recorded on the media row for the operation.
 func (s *ObjectStore) bucketOf(bucket string) string {
-	if bucket != "" {
-		return bucket
-	}
-	return s.bucket
+	return bucket
 }
 
 // Get streams the object from bucket. A missing key reports ErrNotFound so

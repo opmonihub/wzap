@@ -18,8 +18,7 @@ import (
 )
 
 // fakeObjects is an in-memory Objects for object-store tests. Objects are
-// keyed by (bucket, objectKey); an empty bucket argument resolves to the
-// configured bucket, mirroring the real store's row-value fallback.
+// keyed by (bucket, objectKey) exactly as the real store uses row buckets.
 type fakeObjects struct {
 	mu        sync.Mutex
 	bucket    string
@@ -38,12 +37,8 @@ func newFakeObjects() *fakeObjects {
 
 func (f *fakeObjects) Bucket() string { return f.bucket }
 
-// fullKey composes the internal (bucket, key) identity, resolving an empty
-// bucket to the configured one exactly like the real store.
+// fullKey composes the internal (bucket, key) identity.
 func (f *fakeObjects) fullKey(bucket, key string) string {
-	if bucket == "" {
-		bucket = f.bucket
-	}
 	return bucket + "\x00" + key
 }
 
@@ -116,11 +111,10 @@ func (f *fakeObjects) Exists(_ context.Context, bucket, key string) (bool, error
 }
 
 func (f *fakeObjects) has(key string) bool {
-	return f.hasIn("", key)
+	return f.hasIn(f.bucket, key)
 }
 
-// hasIn reports whether (bucket, key) exists, with the same empty-bucket
-// fallback as the store operations.
+// hasIn reports whether (bucket, key) exists.
 func (f *fakeObjects) hasIn(bucket, key string) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -165,6 +159,25 @@ func TestStorageSaveUploadsObjectAndRow(t *testing.T) {
 	}
 	if files := countFiles(t, dir); files != 0 {
 		t.Errorf("object mode wrote %d local file(s); the data dir is cache-only", files)
+	}
+}
+
+func TestStorageSaveS3PutFailureDoesNotWriteLocalFile(t *testing.T) {
+	dir := t.TempDir()
+	repo := newFakeMediaRepo()
+	objects := newFakeObjects()
+	objects.putErr = errors.New("s3 unavailable")
+	store := NewStorage(dir, repo, 1<<20, time.Hour)
+	store.SetObjects(objects)
+
+	if _, err := store.Save(context.Background(), uuid.New(), "inbound", "", "image/png", "x.png", []byte("data")); err == nil {
+		t.Fatal("Save: expected S3 put failure")
+	}
+	if len(repo.records) != 0 {
+		t.Errorf("records = %d, want none after failed put", len(repo.records))
+	}
+	if count := countFiles(t, dir); count != 0 {
+		t.Errorf("wrote %d local file(s), want none when object put fails", count)
 	}
 }
 
@@ -278,7 +291,7 @@ func TestStoragePathMaterializesCacheFile(t *testing.T) {
 	}
 	// A second call serves the cache without a fresh object fetch: drop the
 	// object and confirm Path still resolves from the cache.
-	objects.drop("", saved.ObjectKey)
+	objects.drop(saved.Bucket, saved.ObjectKey)
 	if _, _, err := store.Path(ctx, saved.ID); err != nil {
 		t.Errorf("Path with missing object but warm cache: %v", err)
 	}
@@ -393,7 +406,7 @@ func TestStorageDeleteExpiredIdempotentWhenObjectAlreadyGone(t *testing.T) {
 	record.ExpiresAt = now.Add(-time.Minute)
 	repo.records[saved.ID] = record
 	// The object vanished out of band: delete still counts as confirmed.
-	objects.drop("", saved.ObjectKey)
+	objects.drop(saved.Bucket, saved.ObjectKey)
 
 	removed, err := store.DeleteExpired(ctx, now)
 	if err != nil {
@@ -412,8 +425,6 @@ func TestStorageDeleteExpiredIdempotentWhenObjectAlreadyGone(t *testing.T) {
 // configured one. An upgrade running with a different WZAP_S3_BUCKET must
 // not delete objects out of the bucket they were written to — deleting from
 // the wrong bucket orphans real objects while stamping the rows as gone.
-// A row with an empty bucket (pre-remodel legacy) falls back to the
-// configured bucket.
 func TestStorageDeleteExpiredUsesRowBucket(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
@@ -440,27 +451,11 @@ func TestStorageDeleteExpiredUsesRowBucket(t *testing.T) {
 	}
 	objects.seed("wzap-media-legacy", legacyKey, []byte("real object"))
 	// Same key in the currently configured bucket: must survive untouched.
-	objects.seed("", legacyKey, []byte("innocent neighbor"))
-
-	// Pre-remodel row with an empty bucket: falls back to the configured one.
-	emptyKey := filepath.Join("media", uuid.NewString(), "empty-bucket")
-	empty := model.Media{
-		ID:         uuid.New(),
-		InstanceID: uuid.New(),
-		Direction:  "inbound",
-		Mimetype:   "image/png",
-		SizeBytes:  1,
-		Bucket:     "",
-		ObjectKey:  emptyKey,
-		ExpiresAt:  now.Add(-time.Minute),
-	}
-	if _, err := repo.Create(ctx, empty); err != nil {
-		t.Fatalf("seed empty-bucket row: %v", err)
-	}
-	objects.seed("", emptyKey, []byte("configured bucket object"))
+	objects.seed(objects.bucket, legacyKey, []byte("innocent neighbor"))
 
 	// Current row saved through the storage itself.
-	fresh, err := store.Save(ctx, empty.InstanceID, "inbound", "", "image/png", "f.png", []byte("z"))
+	instanceID := uuid.New()
+	fresh, err := store.Save(ctx, instanceID, "inbound", "", "image/png", "f.png", []byte("z"))
 	if err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -472,8 +467,8 @@ func TestStorageDeleteExpiredUsesRowBucket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DeleteExpired: %v", err)
 	}
-	if removed != 3 {
-		t.Errorf("removed = %d, want 3", removed)
+	if removed != 2 {
+		t.Errorf("removed = %d, want 2", removed)
 	}
 
 	// The legacy object was deleted from its own row bucket.
@@ -484,23 +479,15 @@ func TestStorageDeleteExpiredUsesRowBucket(t *testing.T) {
 		t.Error("delete did not target the row bucket wzap-media-legacy")
 	}
 	// The configured bucket never saw a delete for that key.
-	if !objects.hasIn("", legacyKey) {
+	if !objects.hasIn(objects.bucket, legacyKey) {
 		t.Error("object in the configured bucket was deleted by the legacy row")
 	}
-	if objects.deletedFrom("", legacyKey) {
+	if objects.deletedFrom(objects.bucket, legacyKey) {
 		t.Error("a delete was issued against the configured bucket for the legacy row key")
 	}
 
-	// The empty-bucket row fell back to the configured bucket.
-	if objects.hasIn("", emptyKey) {
-		t.Error("empty-bucket row object still present in the configured bucket")
-	}
-	if !objects.deletedFrom("", emptyKey) {
-		t.Error("delete did not fall back to the configured bucket for the empty bucket")
-	}
-
 	// Every processed row is marked deleted exactly against its real object.
-	for _, row := range []model.Media{legacy, empty, repo.records[fresh.ID]} {
+	for _, row := range []model.Media{legacy, repo.records[fresh.ID]} {
 		if repo.records[row.ID].ObjectDeletedAt == nil {
 			t.Errorf("row %s missing object_deleted_at", row.ID)
 		}

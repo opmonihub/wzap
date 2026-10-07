@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
 	"wzap/internal/instance"
 )
 
@@ -16,14 +17,13 @@ import (
 // routes.
 func callServer(t *testing.T, svc *fakeInstanceService) *http.Server {
 	t.Helper()
-	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken},
+	return httpapi.New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    svc,
 		})
 }
-
 func TestCallReject(t *testing.T) {
 	t.Run("active call answers rejected true", func(t *testing.T) {
 		id := uuid.New()

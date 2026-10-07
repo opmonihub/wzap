@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -10,32 +10,23 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
+	"wzap/internal/config"
+	"wzap/internal/httpapi"
+	"wzap/internal/httpapi/channels"
+	"wzap/internal/httpapi/chats"
+	"wzap/internal/httpapi/contacts"
+	"wzap/internal/httpapi/groups"
+	"wzap/internal/httpapi/representation"
 	"wzap/internal/instance"
 	"wzap/internal/session"
 )
 
-// parityReadsServer wires every Fase-1 read handler at its future route behind
-// the production auth chain so the tests exercise the same boundary Task 9
-// will register in server.go. Registering them together also surfaces any Go
-// ServeMux pattern conflict before the wiring lands.
-func parityReadsServer(t *testing.T, svc InstanceService) *http.Server {
-	t.Helper()
-	log := zerolog.Nop()
-	mux := http.NewServeMux()
-	mux.Handle("GET /instances/{id}/groups", handleListJoinedGroups(svc, log))
-	mux.Handle("GET /instances/{id}/groups/invite-preview", handleInvitePreview(svc, log))
-	mux.Handle("POST /instances/{id}/contacts/check", handleCheckContacts(svc, log))
-	mux.Handle("GET /instances/{id}/contacts/{jid}/devices", handleContactDevices(svc, log))
-	mux.Handle("GET /instances/{id}/contacts/{jid}/photo", handleContactPhoto(svc, log))
-	mux.Handle("GET /instances/{id}/contacts/{jid}/business", handleContactBusiness(svc, log))
-	mux.Handle("GET /instances/{id}/blocklist", handleGetBlocklist(svc, log))
-	mux.Handle("GET /instances/{id}/status/privacy", handleGetStatusPrivacy(svc, log))
-	mux.Handle("GET /instances/{id}/chats/{chat}/disappearing", handleGetDisappearing(svc, log))
-	mux.Handle("GET /instances/{id}/newsletters/{channel}/messages", handleGetNewsletterMessages(svc, log))
-	mux.Handle("GET /instances/{id}/newsletters/{channel}/updates", handleGetNewsletterUpdates(svc, log))
-	return &http.Server{Handler: RequestID(Authenticate(testToken, nil, "")(mux))}
-}
+// The test server exercises resource operations through the production router.
 
+func parityReadsServer(t *testing.T, svc httpapi.InstanceService) *http.Server {
+	t.Helper()
+	return httpapi.New(config.Config{APIKey: testToken}, zerolog.Nop(), httpapi.Deps{Instances: svc})
+}
 func TestListJoinedGroups(t *testing.T) {
 	t.Run("connected answers a page with next cursor", func(t *testing.T) {
 		id := uuid.New()
@@ -59,11 +50,11 @@ func TestListJoinedGroups(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data joinedGroupsResponse `json:"data"`
+			Data groups.JoinedGroupsResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if len(payload.Data.Items) != 1 || payload.Data.Items[0].Group.JID != "120363000000000001@g.us" {
-			t.Errorf("data.items = %+v, want the single group under items[].group", payload.Data.Items)
+		if len(payload.Data.Groups) != 1 || payload.Data.Groups[0].JID != "120363000000000001@g.us" {
+			t.Errorf("data.items = %+v, want the single group under items[].group", payload.Data.Groups)
 		}
 		if payload.Data.NextCursor == "" {
 			t.Error("data.next_cursor is empty, want the page cursor")
@@ -84,7 +75,6 @@ func TestListJoinedGroups(t *testing.T) {
 		}
 	})
 }
-
 func TestCheckContacts(t *testing.T) {
 	t.Run("valid batch answers one result per phone", func(t *testing.T) {
 		id := uuid.New()
@@ -108,21 +98,20 @@ func TestCheckContacts(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data checkContactsResponse `json:"data"`
+			Data contacts.CheckContactsResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if len(payload.Data.Items) != 2 {
-			t.Fatalf("data.items length = %d, want 2", len(payload.Data.Items))
+		if len(payload.Data.Contacts) != 2 {
+			t.Fatalf("data.items length = %d, want 2", len(payload.Data.Contacts))
 		}
-		if payload.Data.Items[0].JID != "5511999999999@s.whatsapp.net" || !payload.Data.Items[0].IsOnWhatsApp {
-			t.Errorf("data.items[0] = %+v, want the registered contact", payload.Data.Items[0])
+		if payload.Data.Contacts[0].JID != "5511999999999@s.whatsapp.net" || !payload.Data.Contacts[0].IsOnWhatsApp {
+			t.Errorf("data.items[0] = %+v, want the registered contact", payload.Data.Contacts[0])
 		}
-		if payload.Data.Items[1].IsOnWhatsApp {
-			t.Errorf("data.items[1] = %+v, want is_on_whatsapp false", payload.Data.Items[1])
+		if payload.Data.Contacts[1].IsOnWhatsApp {
+			t.Errorf("data.items[1] = %+v, want is_on_whatsapp false", payload.Data.Contacts[1])
 		}
 	})
 }
-
 func TestCheckContactsRejects51(t *testing.T) {
 	svc := &fakeInstanceService{}
 	phones := make([]string, 0, 51)
@@ -140,7 +129,6 @@ func TestCheckContactsRejects51(t *testing.T) {
 		t.Errorf("CheckContacts calls = %d, want none above the 50 cap", len(svc.checkContactsCalls))
 	}
 }
-
 func TestCheckContactsRejectsEmpty(t *testing.T) {
 	svc := &fakeInstanceService{}
 	rec := serveJSON(t, parityReadsServer(t, svc), http.MethodPost,
@@ -154,7 +142,6 @@ func TestCheckContactsRejectsEmpty(t *testing.T) {
 		t.Errorf("CheckContacts calls = %d, want none on an empty batch", len(svc.checkContactsCalls))
 	}
 }
-
 func TestInvitePreview(t *testing.T) {
 	t.Run("valid code answers the preview without joining", func(t *testing.T) {
 		svc := &fakeInstanceService{
@@ -172,7 +159,7 @@ func TestInvitePreview(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data groupEnvelope `json:"data"`
+			Data representation.GroupEnvelope `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if payload.Data.Group.JID != "120363000000000001@g.us" {
@@ -207,7 +194,6 @@ func TestInvitePreview(t *testing.T) {
 		}
 	})
 }
-
 func TestContactDirectoryReads(t *testing.T) {
 	const contact = "5511999999999@s.whatsapp.net"
 
@@ -227,7 +213,7 @@ func TestContactDirectoryReads(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data contactDevicesResponse `json:"data"`
+			Data contacts.ContactDevicesResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if len(payload.Data.Devices) != 2 {
@@ -248,7 +234,7 @@ func TestContactDirectoryReads(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data contactPhotoResponse `json:"data"`
+			Data contacts.ContactPhotoResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if payload.Data.URL != "https://example.com/photo.jpg" || payload.Data.Version != "v3" {
@@ -269,7 +255,7 @@ func TestContactDirectoryReads(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data contactBusinessResponse `json:"data"`
+			Data contacts.ContactBusinessResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if payload.Data.Name != "Loja" {
@@ -294,7 +280,6 @@ func TestContactDirectoryReads(t *testing.T) {
 		}
 	})
 }
-
 func TestGetBlocklist(t *testing.T) {
 	svc := &fakeInstanceService{
 		getBlocklistFn: func(context.Context, uuid.UUID) ([]string, error) {
@@ -308,14 +293,13 @@ func TestGetBlocklist(t *testing.T) {
 		t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 	}
 	var payload struct {
-		Data blocklistResponse `json:"data"`
+		Data contacts.BlocklistResponse `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if len(payload.Data.Items) != 1 {
-		t.Errorf("data.items = %v, want the blocked JID", payload.Data.Items)
+	if len(payload.Data.BlockedJIDs) != 1 {
+		t.Errorf("data.items = %v, want the blocked JID", payload.Data.BlockedJIDs)
 	}
 }
-
 func TestGetStatusPrivacy(t *testing.T) {
 	svc := &fakeInstanceService{
 		getStatusPrivacyFn: func(context.Context, uuid.UUID) (session.StatusPrivacy, error) {
@@ -329,7 +313,7 @@ func TestGetStatusPrivacy(t *testing.T) {
 		t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 	}
 	var payload struct {
-		Data statusPrivacyResponse `json:"data"`
+		Data representation.StatusPrivacyResponse `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
 	if payload.Data.Mode != "contacts" {
@@ -339,7 +323,6 @@ func TestGetStatusPrivacy(t *testing.T) {
 		t.Error("data.jids is null, want an empty array")
 	}
 }
-
 func TestGetDisappearing(t *testing.T) {
 	const chat = "5511999999999@s.whatsapp.net"
 
@@ -359,7 +342,7 @@ func TestGetDisappearing(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data disappearingResponse `json:"data"`
+			Data chats.DisappearingResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if !payload.Data.Found || payload.Data.DurationSeconds != 86400 {
@@ -367,7 +350,6 @@ func TestGetDisappearing(t *testing.T) {
 		}
 	})
 }
-
 func TestGetNewsletterMessages(t *testing.T) {
 	t.Run("channel page answers items with next cursor", func(t *testing.T) {
 		now := time.Now().UTC().Truncate(time.Second)
@@ -391,11 +373,11 @@ func TestGetNewsletterMessages(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data newsletterMessagesResponse `json:"data"`
+			Data channels.NewsletterMessagesResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if len(payload.Data.Items) != 1 || payload.Data.Items[0].ServerID != "srv-1" {
-			t.Errorf("data.items = %+v, want the message", payload.Data.Items)
+		if len(payload.Data.Messages) != 1 || payload.Data.Messages[0].ServerID != "srv-1" {
+			t.Errorf("data.items = %+v, want the message", payload.Data.Messages)
 		}
 		if payload.Data.NextCursor != "cursor-1" {
 			t.Errorf("data.next_cursor = %q, want cursor-1", payload.Data.NextCursor)
@@ -416,7 +398,6 @@ func TestGetNewsletterMessages(t *testing.T) {
 		}
 	})
 }
-
 func TestGetNewsletterUpdates(t *testing.T) {
 	svc := &fakeInstanceService{
 		getNewsletterUpdatesFn: func(_ context.Context, _ uuid.UUID, channel string) ([]session.NewsletterMessage, error) {
@@ -433,10 +414,10 @@ func TestGetNewsletterUpdates(t *testing.T) {
 		t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 	}
 	var payload struct {
-		Data newsletterUpdatesResponse `json:"data"`
+		Data channels.NewsletterUpdatesResponse `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if len(payload.Data.Items) != 1 || payload.Data.Items[0].ServerID != "srv-9" {
-		t.Errorf("data.items = %+v, want the update", payload.Data.Items)
+	if len(payload.Data.Messages) != 1 || payload.Data.Messages[0].ServerID != "srv-9" {
+		t.Errorf("data.items = %+v, want the update", payload.Data.Messages)
 	}
 }

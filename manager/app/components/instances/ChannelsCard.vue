@@ -34,9 +34,9 @@ async function refresh() {
   failure.value = null
   try {
     const page = await channels.listNewsletters(props.instanceId)
-    followed.value = page.items.map(item => item.channel)
+    followed.value = page.channels
     const listed = await channels.listStatuses(props.instanceId)
-    statuses.value = listed.items
+    statuses.value = listed.statuses
   } catch (error) {
     failure.value = error instanceof ApiError ? error.message : t('instances.messages.loadFailed')
   }

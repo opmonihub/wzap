@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -14,6 +14,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"wzap/internal/httpapi/groups"
+	"wzap/internal/httpapi/representation"
 	"wzap/internal/instance"
 	"wzap/internal/model"
 )
@@ -22,7 +24,6 @@ import (
 func escapeJID(jid string) string {
 	return url.PathEscape(jid)
 }
-
 func serveGroupPhoto(t *testing.T, srv *http.Server, method, path string, body []byte, contentType string) *httptest.ResponseRecorder {
 	t.Helper()
 	var reader io.Reader
@@ -38,7 +39,6 @@ func serveGroupPhoto(t *testing.T, srv *http.Server, method, path string, body [
 	srv.Handler.ServeHTTP(rec, req)
 	return rec
 }
-
 func TestGroupCreate(t *testing.T) {
 	t.Run("connected answers created with group and invite", func(t *testing.T) {
 		id := uuid.New()
@@ -65,7 +65,7 @@ func TestGroupCreate(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusCreated, rec.Body.String())
 		}
 		var payload struct {
-			Data groupEnvelope `json:"data"`
+			Data representation.GroupEnvelope `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if payload.Data.Group.JID != testChatGroup {
@@ -97,7 +97,7 @@ func TestGroupCreate(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusCreated, rec.Body.String())
 		}
 		var payload struct {
-			Data groupEnvelope `json:"data"`
+			Data representation.GroupEnvelope `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if payload.Data.Group.JID != testChatGroup {
@@ -158,7 +158,6 @@ func TestGroupCreate(t *testing.T) {
 		}
 	})
 }
-
 func TestGroupGet(t *testing.T) {
 	t.Run("known group answers the group", func(t *testing.T) {
 		id := uuid.New()
@@ -187,7 +186,7 @@ func TestGroupGet(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data groupEnvelope `json:"data"`
+			Data representation.GroupEnvelope `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if payload.Data.Group.Name != "Time do churrasco" {
@@ -218,7 +217,6 @@ func TestGroupGet(t *testing.T) {
 		}
 	})
 }
-
 func TestGroupUpdate(t *testing.T) {
 	t.Run("subject and description update answers the command flag", func(t *testing.T) {
 		id := uuid.New()
@@ -241,7 +239,7 @@ func TestGroupUpdate(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data groupUpdatedResponse `json:"data"`
+			Data groups.GroupUpdatedResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if !payload.Data.Updated {
@@ -263,7 +261,6 @@ func TestGroupUpdate(t *testing.T) {
 		}
 	})
 }
-
 func TestGroupParticipants(t *testing.T) {
 	for _, action := range []string{"add", "remove", "promote", "demote"} {
 		t.Run(action+" applies", func(t *testing.T) {
@@ -318,7 +315,6 @@ func TestGroupParticipants(t *testing.T) {
 		}
 	})
 }
-
 func TestGroupInvite(t *testing.T) {
 	t.Run("invite consult answers the code", func(t *testing.T) {
 		svc := &fakeInstanceService{
@@ -333,7 +329,7 @@ func TestGroupInvite(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data groupInviteResponse `json:"data"`
+			Data groups.GroupInviteResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if payload.Data.InviteCode != "invite-code-1" {
@@ -354,7 +350,7 @@ func TestGroupInvite(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data groupInviteResponse `json:"data"`
+			Data groups.GroupInviteResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if payload.Data.InviteCode != "invite-code-2" {
@@ -379,7 +375,7 @@ func TestGroupInvite(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data groupJoinResponse `json:"data"`
+			Data groups.GroupJoinResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if payload.Data.JID != testChatGroup {
@@ -411,7 +407,7 @@ func TestGroupInvite(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data groupLeaveResponse `json:"data"`
+			Data groups.GroupLeaveResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if !payload.Data.Left {
@@ -422,7 +418,6 @@ func TestGroupInvite(t *testing.T) {
 		}
 	})
 }
-
 func TestSetGroupPhoto(t *testing.T) {
 	t.Run("invalid image bytes answer unprocessable", func(t *testing.T) {
 		id := uuid.New()
@@ -443,7 +438,6 @@ func TestSetGroupPhoto(t *testing.T) {
 		}
 	})
 }
-
 func TestGroupPhoto(t *testing.T) {
 	t.Run("image bytes update the photo", func(t *testing.T) {
 		id := uuid.New()

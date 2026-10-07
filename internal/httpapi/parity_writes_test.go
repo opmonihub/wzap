@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -9,29 +9,21 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
+	"wzap/internal/config"
+	"wzap/internal/httpapi"
+	"wzap/internal/httpapi/channels"
+	"wzap/internal/httpapi/chats"
+	"wzap/internal/httpapi/contacts"
+	"wzap/internal/httpapi/representation"
 	"wzap/internal/instance"
 )
 
-// parityWritesServer wires every Fase 2-3 write handler at its future route
-// behind the production auth chain so the tests exercise the same boundary
-// Task 9 will register in server.go. Registering them together also surfaces
-// any Go ServeMux pattern conflict before the wiring lands.
-func parityWritesServer(t *testing.T, svc InstanceService) *http.Server {
-	t.Helper()
-	log := zerolog.Nop()
-	mux := http.NewServeMux()
-	mux.Handle("POST /instances/{id}/blocklist", handleUpdateBlocklist(svc, log))
-	mux.Handle("PUT /instances/{id}/chats/{chat}/disappearing", handleSetDisappearing(svc, log))
-	mux.Handle("PUT /instances/{id}/chats/default-disappearing", handleSetDefaultDisappearing(svc, log))
-	mux.Handle("POST /instances/{id}/contacts/{jid}/subscribe", handleSubscribePresence(svc, log))
-	mux.Handle("GET /instances/{id}/contact-link", handleContactLink(svc, log))
-	mux.Handle("POST /instances/{id}/newsletters", handleCreateNewsletter(svc, log))
-	mux.Handle("POST /instances/{id}/newsletters/{channel}/mute", handleMuteNewsletter(svc, log))
-	mux.Handle("POST /instances/{id}/newsletters/{channel}/viewed", handleMarkNewsletterViewed(svc, log))
-	mux.Handle("POST /instances/{id}/newsletters/{channel}/reactions", handleReactNewsletter(svc, log))
-	return &http.Server{Handler: RequestID(Authenticate(testToken, nil, "")(mux))}
-}
+// The test server exercises resource operations through the production router.
 
+func parityWritesServer(t *testing.T, svc httpapi.InstanceService) *http.Server {
+	t.Helper()
+	return httpapi.New(config.Config{APIKey: testToken}, zerolog.Nop(), httpapi.Deps{Instances: svc})
+}
 func TestUpdateBlocklist(t *testing.T) {
 	t.Run("block answers updated", func(t *testing.T) {
 		id := uuid.New()
@@ -62,7 +54,6 @@ func TestUpdateBlocklist(t *testing.T) {
 		}
 	})
 }
-
 func TestDisappearingRejectsBadDuration(t *testing.T) {
 	id := uuid.New()
 	svc := &fakeInstanceService{}
@@ -74,7 +65,6 @@ func TestDisappearingRejectsBadDuration(t *testing.T) {
 		t.Errorf("SetDisappearingTimer calls = %d, want none outside the allowlist", len(svc.setDisappearingTimerCalls))
 	}
 }
-
 func TestSetDisappearing(t *testing.T) {
 	t.Run("24h acknowledges the updated timer", func(t *testing.T) {
 		id := uuid.New()
@@ -87,7 +77,7 @@ func TestSetDisappearing(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data disappearingUpdatedResponse `json:"data"`
+			Data chats.DisappearingUpdatedResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if !payload.Data.Updated {
@@ -112,7 +102,6 @@ func TestSetDisappearing(t *testing.T) {
 		}
 	})
 }
-
 func TestSubscribePresence(t *testing.T) {
 	svc := &fakeInstanceService{}
 	rec := serveJSON(t, parityWritesServer(t, svc), http.MethodPost,
@@ -122,7 +111,7 @@ func TestSubscribePresence(t *testing.T) {
 		t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 	}
 	var payload struct {
-		Data subscribePresenceResponse `json:"data"`
+		Data contacts.SubscribePresenceResponse `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
 	if !payload.Data.Subscribed {
@@ -132,7 +121,6 @@ func TestSubscribePresence(t *testing.T) {
 		t.Errorf("SubscribePresence calls = %d, want exactly 1 (no heartbeat)", len(svc.subscribePresenceCalls))
 	}
 }
-
 func TestContactLink(t *testing.T) {
 	t.Run("plain answers the link", func(t *testing.T) {
 		svc := &fakeInstanceService{
@@ -150,7 +138,7 @@ func TestContactLink(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data contactLinkResponse `json:"data"`
+			Data contacts.ContactLinkResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if payload.Data.Link != "https://wa.me/qr/link-1" {
@@ -175,7 +163,6 @@ func TestContactLink(t *testing.T) {
 		}
 	})
 }
-
 func TestCreateNewsletter(t *testing.T) {
 	id := uuid.New()
 	svc := &fakeInstanceService{
@@ -191,14 +178,13 @@ func TestCreateNewsletter(t *testing.T) {
 		t.Fatalf("status = %d, want 201 (body %q)", rec.Code, rec.Body.String())
 	}
 	var payload struct {
-		Data channelEnvelope `json:"data"`
+		Data representation.ChannelEnvelope `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
 	if payload.Data.Channel.Channel != "123@newsletter" || payload.Data.Channel.Title != "Comunidade" {
 		t.Errorf("data = %+v, want the created channel under data.channel", payload.Data)
 	}
 }
-
 func TestCreateNewsletterRejectsBlankTitle(t *testing.T) {
 	svc := &fakeInstanceService{}
 	rec := serveJSON(t, parityWritesServer(t, svc), http.MethodPost,
@@ -211,7 +197,6 @@ func TestCreateNewsletterRejectsBlankTitle(t *testing.T) {
 		t.Errorf("CreateNewsletter calls = %d, want none on a blank title", len(svc.createNewsletterCalls))
 	}
 }
-
 func TestCreateNewsletterRejectsLongDescription(t *testing.T) {
 	svc := &fakeInstanceService{}
 	rec := serveJSON(t, parityWritesServer(t, svc), http.MethodPost,
@@ -225,7 +210,6 @@ func TestCreateNewsletterRejectsLongDescription(t *testing.T) {
 		t.Errorf("CreateNewsletter calls = %d, want none above 500 runes", len(svc.createNewsletterCalls))
 	}
 }
-
 func TestMuteNewsletter(t *testing.T) {
 	svc := &fakeInstanceService{}
 	rec := serveJSON(t, parityWritesServer(t, svc), http.MethodPost,
@@ -236,7 +220,7 @@ func TestMuteNewsletter(t *testing.T) {
 		t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 	}
 	var payload struct {
-		Data muteNewsletterResponse `json:"data"`
+		Data channels.MuteNewsletterResponse `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
 	if !payload.Data.Muted {
@@ -246,7 +230,6 @@ func TestMuteNewsletter(t *testing.T) {
 		t.Errorf("MuteNewsletter calls = %+v, want one mute", svc.muteNewsletterCalls)
 	}
 }
-
 func TestMarkNewsletterViewed(t *testing.T) {
 	t.Run("batch answers viewed", func(t *testing.T) {
 		svc := &fakeInstanceService{}
@@ -276,7 +259,6 @@ func TestMarkNewsletterViewed(t *testing.T) {
 		}
 	})
 }
-
 func TestReactNewsletter(t *testing.T) {
 	t.Run("reaction answers reacted", func(t *testing.T) {
 		svc := &fakeInstanceService{}

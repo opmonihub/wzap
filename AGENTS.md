@@ -31,6 +31,12 @@ subcommands). Package boundaries:
   `apikey:` header: global key or per-instance key), RBAC/ownership
   enforcement, and idempotency middleware. Routes live at the root (no
   prefix); `/healthz`, `/readyz`, `/swagger/*`, and `/manager/` are public.
+  Chi v5.3.2 is the only router, using standard net/http handlers. The root
+  composes core/representation and resource packages instances, messages,
+  groups, contacts, channels, chats, statuses, profile, users, authsession,
+  media and chatwoot; resources own handlers and route registration and do
+  not import the root composition package. Messages use
+  `/instances/{instance}/messages/{id}` with distinct ancestor/resource IDs.
 - `internal/auth/` owns password hashing (bcrypt), instance key minting, and
   session JWTs; `internal/webhook/` owns per-instance webhook config
   validation, delivery (envelope + raw `event`, `apikey:` header), and the
@@ -103,6 +109,17 @@ direct Chatwoot Postgres SQL (`internal/chatwoot/import`, inert without
   + `X-Request-Id`) and the versioned event contract (`event_version: 1`,
   stable `event_id` sent as `Nats-Msg-Id`) documented in `README.md` and
   `openspec/specs/`. Mark breaking contract changes with **BREAKING**.
+- REST collections use direct named arrays under data: instances, users,
+  groups, messages, channels, statuses, contacts and blocked_jids. Channel
+  updates return messages. next_cursor is a sibling of the collection and
+  omitted when there is no next page. Individual endpoints keep envelopes.
+- Required arrays are non-nil, have no omitempty, and serialize empty as [];
+  preserve required false, 0 and "0". Optional absent fields/objects are
+  omitted; use pointers for meaningful absence and optional timestamps.
+  integration.webhook remains mandatory when disabled, including events.
+  settings and chatwoot_config are omitted when unavailable. Internal fields
+  and secrets remain excluded; GET /instances has no server pagination.
+  JSON property order is not a contract requirement.
 - Delivery is at-least-once; event IDs must remain stable across retries and
   consumers dedupe by `event_id`.
 - The supported runtime is one replica; locks are process-local.

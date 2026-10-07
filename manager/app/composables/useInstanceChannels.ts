@@ -30,7 +30,7 @@ export function useInstanceChannels() {
   }
 
   // GET /instances/{id}/newsletters/{channel} nests the channel under
-  // data.channel; the list nests every element under data.items[].channel.
+  // data.channel; the list contains direct channels under data.channels[].
   async function getNewsletter(instanceId: string, channel: string): Promise<Newsletter> {
     return (await api<NewsletterEnvelope>(`/instances/${instanceId}/newsletters/${encodeURIComponent(channel.trim())}`)).channel
   }

@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -18,7 +18,6 @@ func TestParityRequiresAuth(t *testing.T) {
 		t.Fatalf("status = %d, want 401 (body %q)", rec.Code, rec.Body.String())
 	}
 }
-
 func TestParityEnvelopeAndRequestID(t *testing.T) {
 	id := uuid.New()
 	svc := &fakeInstanceService{

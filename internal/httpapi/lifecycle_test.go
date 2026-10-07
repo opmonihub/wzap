@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"wzap/internal/httpapi/chats"
+	"wzap/internal/httpapi/messages"
 	"wzap/internal/instance"
 	"wzap/internal/model"
 )
@@ -29,7 +31,7 @@ func TestRevoke(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data revokeResponse `json:"data"`
+			Data messages.RevokeResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if !payload.Data.Revoked {
@@ -119,7 +121,6 @@ func TestRevoke(t *testing.T) {
 		}
 	})
 }
-
 func TestMarkRead(t *testing.T) {
 	t.Run("direct chat without sender completes with the chat", func(t *testing.T) {
 		id := uuid.New()
@@ -132,7 +133,7 @@ func TestMarkRead(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data markReadResponse `json:"data"`
+			Data chats.MarkReadResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if !payload.Data.MarkedRead {

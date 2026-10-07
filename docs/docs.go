@@ -35,7 +35,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.loginRequest"
+                            "$ref": "#/definitions/authsession.LoginRequest"
                         }
                     }
                 ],
@@ -45,13 +45,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.meEnvelope"
+                                            "$ref": "#/definitions/authsession.MeEnvelope"
                                         }
                                     }
                                 }
@@ -71,7 +71,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -83,7 +83,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Invalid credentials",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -95,7 +95,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -107,7 +107,7 @@ const docTemplate = `{
                     "429": {
                         "description": "Login rate limit exceeded",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -119,7 +119,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -147,13 +147,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.logoutResponse"
+                                            "$ref": "#/definitions/authsession.LogoutResponse"
                                         }
                                     }
                                 }
@@ -189,13 +189,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.meEnvelope"
+                                            "$ref": "#/definitions/authsession.MeEnvelope"
                                         }
                                     }
                                 }
@@ -211,7 +211,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid session",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -223,7 +223,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -287,7 +287,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Connector disabled or invalid body (including oversized body)",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -299,7 +299,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Invalid or missing instance",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -311,7 +311,7 @@ const docTemplate = `{
                     "409": {
                         "description": "instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -323,7 +323,7 @@ const docTemplate = `{
                     "429": {
                         "description": "Per-instance webhook rate limit exceeded",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -335,7 +335,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -363,7 +363,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
@@ -410,13 +410,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.instanceListResponse"
+                                            "$ref": "#/definitions/representation.InstanceListResponse"
                                         }
                                     }
                                 }
@@ -432,7 +432,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -444,7 +444,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Instance keys own no collection view",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -456,7 +456,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -473,7 +473,7 @@ const docTemplate = `{
                         "apikey": []
                     }
                 ],
-                "description": "Answers with the aggregated instance DTO: the webhook block nests under integration and the nullable settings blocks under settings (both null on a fresh instance except the persisted default_disappearing echo).",
+                "description": "Answers with the aggregated instance DTO: the webhook block nests under integration and the optional settings blocks under settings (optional blocks omitted on an unconfigured instance except the persisted default_disappearing echo).",
                 "consumes": [
                     "application/json"
                 ],
@@ -491,7 +491,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.createInstanceRequest"
+                            "$ref": "#/definitions/instances.CreateInstanceRequest"
                         }
                     }
                 ],
@@ -501,13 +501,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.createInstanceResponse"
+                                            "$ref": "#/definitions/representation.CreateInstanceResponse"
                                         }
                                     }
                                 }
@@ -523,7 +523,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -535,7 +535,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -547,7 +547,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Forbidden or quota exceeded",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -559,7 +559,7 @@ const docTemplate = `{
                     "409": {
                         "description": "instance_name_taken: name already taken, or external ref already taken",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -571,7 +571,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -583,7 +583,7 @@ const docTemplate = `{
                     "422": {
                         "description": "invalid_instance_name: invalid/reserved name; unknown owner or invalid webhook config",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -595,7 +595,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -635,13 +635,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.statsEnvelope"
+                                            "$ref": "#/definitions/representation.StatsEnvelope"
                                         }
                                     }
                                 }
@@ -657,7 +657,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -669,7 +669,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Instance keys own no collection view, or target not owned",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -681,7 +681,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Target instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -693,7 +693,7 @@ const docTemplate = `{
                     "409": {
                         "description": "instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -705,7 +705,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -746,13 +746,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.instanceEnvelope"
+                                            "$ref": "#/definitions/representation.InstanceEnvelope"
                                         }
                                     }
                                 }
@@ -768,7 +768,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -780,7 +780,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -792,7 +792,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -804,7 +804,7 @@ const docTemplate = `{
                     "409": {
                         "description": "instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -816,7 +816,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -862,7 +862,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -874,7 +874,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -886,7 +886,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -898,7 +898,7 @@ const docTemplate = `{
                     "409": {
                         "description": "instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -910,7 +910,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -951,7 +951,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.updateInstanceRequest"
+                            "$ref": "#/definitions/instances.UpdateInstanceRequest"
                         }
                     }
                 ],
@@ -961,13 +961,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.instanceEnvelope"
+                                            "$ref": "#/definitions/representation.InstanceEnvelope"
                                         }
                                     }
                                 }
@@ -983,7 +983,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body or invalid cursor",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -995,7 +995,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1007,7 +1007,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1019,7 +1019,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1031,7 +1031,7 @@ const docTemplate = `{
                     "409": {
                         "description": "instance_name_taken: name already taken, or external ref already taken; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1043,7 +1043,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1055,7 +1055,7 @@ const docTemplate = `{
                     "422": {
                         "description": "invalid_instance_name: invalid/reserved changed name, or invalid webhook config",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1067,7 +1067,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1115,7 +1115,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1127,7 +1127,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Requires global or admin scope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1139,7 +1139,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1151,7 +1151,7 @@ const docTemplate = `{
                     "409": {
                         "description": "instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1163,7 +1163,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1204,13 +1204,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.rotateAPIKeyResponse"
+                                            "$ref": "#/definitions/instances.RotateAPIKeyResponse"
                                         }
                                     }
                                 }
@@ -1226,7 +1226,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1238,7 +1238,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Requires global or admin scope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1250,7 +1250,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1262,7 +1262,7 @@ const docTemplate = `{
                     "409": {
                         "description": "instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1274,7 +1274,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1315,13 +1315,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.blocklistResponse"
+                                            "$ref": "#/definitions/contacts.BlocklistResponse"
                                         }
                                     }
                                 }
@@ -1337,7 +1337,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1349,7 +1349,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1361,7 +1361,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1373,7 +1373,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1385,7 +1385,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1426,7 +1426,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.updateBlocklistRequest"
+                            "$ref": "#/definitions/contacts.UpdateBlocklistRequest"
                         }
                     }
                 ],
@@ -1436,13 +1436,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.blocklistUpdateResponse"
+                                            "$ref": "#/definitions/contacts.BlocklistUpdateResponse"
                                         }
                                     }
                                 }
@@ -1458,7 +1458,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1470,7 +1470,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1482,7 +1482,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1494,7 +1494,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1506,7 +1506,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1518,7 +1518,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1530,7 +1530,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Unknown action or invalid JID",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1542,7 +1542,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1585,7 +1585,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.rejectCallRequest"
+                            "$ref": "#/definitions/instances.RejectCallRequest"
                         }
                     }
                 ],
@@ -1595,13 +1595,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.rejectCallResponse"
+                                            "$ref": "#/definitions/instances.RejectCallResponse"
                                         }
                                     }
                                 }
@@ -1617,7 +1617,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1629,7 +1629,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1641,7 +1641,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1653,7 +1653,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1665,7 +1665,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1677,7 +1677,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1689,7 +1689,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Missing call id or caller",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1701,7 +1701,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1713,7 +1713,7 @@ const docTemplate = `{
                     "501": {
                         "description": "Upstream cannot reject the call",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1756,7 +1756,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.disappearingRequest"
+                            "$ref": "#/definitions/chats.DisappearingRequest"
                         }
                     }
                 ],
@@ -1766,13 +1766,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.disappearingUpdatedResponse"
+                                            "$ref": "#/definitions/chats.DisappearingUpdatedResponse"
                                         }
                                     }
                                 }
@@ -1788,7 +1788,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1800,7 +1800,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1812,7 +1812,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1824,7 +1824,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1836,7 +1836,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1848,7 +1848,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1860,7 +1860,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Duration outside the allowlist",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1872,7 +1872,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1915,7 +1915,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.markReadRequest"
+                            "$ref": "#/definitions/chats.MarkReadRequest"
                         }
                     }
                 ],
@@ -1925,13 +1925,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.markReadResponse"
+                                            "$ref": "#/definitions/chats.MarkReadResponse"
                                         }
                                     }
                                 }
@@ -1947,7 +1947,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1959,7 +1959,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1971,7 +1971,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1983,7 +1983,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -1995,7 +1995,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2007,7 +2007,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2019,7 +2019,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid chat, message id, or missing group sender",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2031,7 +2031,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2079,13 +2079,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.disappearingResponse"
+                                            "$ref": "#/definitions/chats.DisappearingResponse"
                                         }
                                     }
                                 }
@@ -2101,7 +2101,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2113,7 +2113,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2125,7 +2125,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2137,7 +2137,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2149,7 +2149,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid chat",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2161,7 +2161,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2209,7 +2209,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.disappearingRequest"
+                            "$ref": "#/definitions/chats.DisappearingRequest"
                         }
                     }
                 ],
@@ -2219,13 +2219,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.disappearingUpdatedResponse"
+                                            "$ref": "#/definitions/chats.DisappearingUpdatedResponse"
                                         }
                                     }
                                 }
@@ -2241,7 +2241,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2253,7 +2253,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2265,7 +2265,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2277,7 +2277,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2289,7 +2289,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2301,7 +2301,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2313,7 +2313,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid chat or duration outside the allowlist",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2325,7 +2325,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2367,13 +2367,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.chatwootConfigEnvelope"
+                                            "$ref": "#/definitions/representation.ChatwootConfigEnvelope"
                                         }
                                     }
                                 }
@@ -2389,7 +2389,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Connector disabled, malformed request or invalid instance ID",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2401,7 +2401,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2413,7 +2413,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2425,7 +2425,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2437,7 +2437,7 @@ const docTemplate = `{
                     "409": {
                         "description": "instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2449,7 +2449,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2491,7 +2491,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.chatwootSetRequest"
+                            "$ref": "#/definitions/chatwoot.ChatwootSetRequest"
                         }
                     }
                 ],
@@ -2501,13 +2501,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.chatwootConfigEnvelope"
+                                            "$ref": "#/definitions/representation.ChatwootConfigEnvelope"
                                         }
                                     }
                                 }
@@ -2523,7 +2523,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Connector disabled, malformed request or invalid instance ID",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2535,7 +2535,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2547,7 +2547,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2559,7 +2559,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2571,7 +2571,7 @@ const docTemplate = `{
                     "409": {
                         "description": "instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2583,7 +2583,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2595,7 +2595,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid configuration or field type",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2607,7 +2607,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2651,7 +2651,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.chatwootCommandRequest"
+                            "$ref": "#/definitions/chatwoot.ChatwootCommandRequest"
                         }
                     }
                 ],
@@ -2661,7 +2661,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
@@ -2688,7 +2688,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Connector disabled, malformed request or invalid instance ID",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2700,7 +2700,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2712,7 +2712,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2724,7 +2724,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance or required connector config not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2736,7 +2736,7 @@ const docTemplate = `{
                     "409": {
                         "description": "instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2748,7 +2748,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2760,7 +2760,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2802,7 +2802,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
@@ -2829,7 +2829,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Connector disabled, malformed request or invalid instance ID",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2841,7 +2841,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2853,7 +2853,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2865,7 +2865,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance or required connector config not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2877,7 +2877,7 @@ const docTemplate = `{
                     "409": {
                         "description": "instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2889,7 +2889,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2930,13 +2930,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.connectResponse"
+                                            "$ref": "#/definitions/instances.ConnectResponse"
                                         }
                                     }
                                 }
@@ -2952,7 +2952,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2964,7 +2964,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2976,7 +2976,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -2988,7 +2988,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance already connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3000,7 +3000,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3047,13 +3047,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.contactLinkResponse"
+                                            "$ref": "#/definitions/contacts.ContactLinkResponse"
                                         }
                                     }
                                 }
@@ -3069,7 +3069,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3081,7 +3081,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3093,7 +3093,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3105,7 +3105,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3117,7 +3117,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3160,7 +3160,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.checkContactsRequest"
+                            "$ref": "#/definitions/contacts.CheckContactsRequest"
                         }
                     }
                 ],
@@ -3170,13 +3170,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.checkContactsResponse"
+                                            "$ref": "#/definitions/contacts.CheckContactsResponse"
                                         }
                                     }
                                 }
@@ -3192,7 +3192,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3204,7 +3204,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3216,7 +3216,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3228,7 +3228,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3240,7 +3240,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3252,7 +3252,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3264,7 +3264,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Empty batch or above the 50 cap",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3276,7 +3276,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3324,13 +3324,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.contactBusinessResponse"
+                                            "$ref": "#/definitions/contacts.ContactBusinessResponse"
                                         }
                                     }
                                 }
@@ -3346,7 +3346,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3358,7 +3358,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3370,7 +3370,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance or contact not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3382,7 +3382,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3394,7 +3394,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Malformed JID",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3406,7 +3406,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3454,13 +3454,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.contactDevicesResponse"
+                                            "$ref": "#/definitions/contacts.ContactDevicesResponse"
                                         }
                                     }
                                 }
@@ -3476,7 +3476,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3488,7 +3488,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3500,7 +3500,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance or contact not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3512,7 +3512,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3524,7 +3524,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Malformed JID",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3536,7 +3536,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3584,13 +3584,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.contactPhotoResponse"
+                                            "$ref": "#/definitions/contacts.ContactPhotoResponse"
                                         }
                                     }
                                 }
@@ -3606,7 +3606,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3618,7 +3618,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3630,7 +3630,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance or contact not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3642,7 +3642,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3654,7 +3654,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Malformed JID",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3666,7 +3666,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3714,13 +3714,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.subscribePresenceResponse"
+                                            "$ref": "#/definitions/contacts.SubscribePresenceResponse"
                                         }
                                     }
                                 }
@@ -3736,7 +3736,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3748,7 +3748,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3760,7 +3760,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance or contact not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3772,7 +3772,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3784,7 +3784,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Malformed JID",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3796,7 +3796,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3844,7 +3844,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3856,7 +3856,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3868,7 +3868,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3880,7 +3880,7 @@ const docTemplate = `{
                     "409": {
                         "description": "instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3892,7 +3892,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3945,13 +3945,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.joinedGroupsResponse"
+                                            "$ref": "#/definitions/groups.JoinedGroupsResponse"
                                         }
                                     }
                                 }
@@ -3967,7 +3967,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3979,7 +3979,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -3991,7 +3991,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4003,7 +4003,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4015,7 +4015,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4056,7 +4056,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.createGroupRequest"
+                            "$ref": "#/definitions/groups.CreateGroupRequest"
                         }
                     }
                 ],
@@ -4066,13 +4066,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.groupEnvelope"
+                                            "$ref": "#/definitions/representation.GroupEnvelope"
                                         }
                                     }
                                 }
@@ -4088,7 +4088,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4100,7 +4100,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4112,7 +4112,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4124,7 +4124,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4136,7 +4136,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4148,7 +4148,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4160,7 +4160,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid name or participants",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4172,7 +4172,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4220,13 +4220,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.groupEnvelope"
+                                            "$ref": "#/definitions/representation.GroupEnvelope"
                                         }
                                     }
                                 }
@@ -4242,7 +4242,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4254,7 +4254,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4266,7 +4266,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4278,7 +4278,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4290,7 +4290,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid or expired invite",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4302,7 +4302,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4345,7 +4345,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.joinGroupRequest"
+                            "$ref": "#/definitions/groups.JoinGroupRequest"
                         }
                     }
                 ],
@@ -4355,13 +4355,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.groupJoinResponse"
+                                            "$ref": "#/definitions/groups.GroupJoinResponse"
                                         }
                                     }
                                 }
@@ -4377,7 +4377,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4389,7 +4389,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4401,7 +4401,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4413,7 +4413,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found, or unknown invite",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4425,7 +4425,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4437,7 +4437,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4449,7 +4449,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid invite code",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4461,7 +4461,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4509,13 +4509,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.groupEnvelope"
+                                            "$ref": "#/definitions/representation.GroupEnvelope"
                                         }
                                     }
                                 }
@@ -4531,7 +4531,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4543,7 +4543,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4555,7 +4555,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4567,7 +4567,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4579,7 +4579,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4627,7 +4627,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.updateGroupRequest"
+                            "$ref": "#/definitions/groups.UpdateGroupRequest"
                         }
                     }
                 ],
@@ -4637,13 +4637,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.groupUpdatedResponse"
+                                            "$ref": "#/definitions/groups.GroupUpdatedResponse"
                                         }
                                     }
                                 }
@@ -4659,7 +4659,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4671,7 +4671,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4683,7 +4683,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner, or no group permission",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4695,7 +4695,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4707,7 +4707,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4719,7 +4719,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4731,7 +4731,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Empty patch or invalid values",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4743,7 +4743,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4791,13 +4791,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.groupInviteResponse"
+                                            "$ref": "#/definitions/groups.GroupInviteResponse"
                                         }
                                     }
                                 }
@@ -4813,7 +4813,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4825,7 +4825,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner, or no group permission",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4837,7 +4837,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4849,7 +4849,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4861,7 +4861,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4909,13 +4909,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.groupInviteResponse"
+                                            "$ref": "#/definitions/groups.GroupInviteResponse"
                                         }
                                     }
                                 }
@@ -4931,7 +4931,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4943,7 +4943,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner, or no group permission",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4955,7 +4955,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4967,7 +4967,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -4979,7 +4979,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5027,13 +5027,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.groupLeaveResponse"
+                                            "$ref": "#/definitions/groups.GroupLeaveResponse"
                                         }
                                     }
                                 }
@@ -5049,7 +5049,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5061,7 +5061,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5073,7 +5073,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5085,7 +5085,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5097,7 +5097,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5147,7 +5147,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.updateParticipantsRequest"
+                            "$ref": "#/definitions/groups.UpdateParticipantsRequest"
                         }
                     }
                 ],
@@ -5157,13 +5157,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.groupUpdatedResponse"
+                                            "$ref": "#/definitions/groups.GroupUpdatedResponse"
                                         }
                                     }
                                 }
@@ -5179,7 +5179,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5191,7 +5191,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5203,7 +5203,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner, or no group permission",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5215,7 +5215,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5227,7 +5227,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5239,7 +5239,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5251,7 +5251,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Unknown action or invalid participants",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5263,7 +5263,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5323,13 +5323,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.groupUpdatedResponse"
+                                            "$ref": "#/definitions/groups.GroupUpdatedResponse"
                                         }
                                     }
                                 }
@@ -5345,7 +5345,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5357,7 +5357,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner, or no group permission",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5369,7 +5369,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5381,7 +5381,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5393,7 +5393,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Image exceeds the cap",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5405,7 +5405,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Missing or non image body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5417,7 +5417,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5465,13 +5465,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.groupRequestsResponse"
+                                            "$ref": "#/definitions/groups.GroupRequestsResponse"
                                         }
                                     }
                                 }
@@ -5487,7 +5487,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5499,7 +5499,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner, or no group permission",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5511,7 +5511,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5523,7 +5523,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5535,7 +5535,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5589,7 +5589,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.updateGroupRequestsRequest"
+                            "$ref": "#/definitions/groups.UpdateGroupRequestsRequest"
                         }
                     }
                 ],
@@ -5599,13 +5599,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.groupUpdatedResponse"
+                                            "$ref": "#/definitions/groups.GroupUpdatedResponse"
                                         }
                                     }
                                 }
@@ -5621,7 +5621,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5633,7 +5633,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5645,7 +5645,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner, or no group permission",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5657,7 +5657,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5669,7 +5669,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5681,7 +5681,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5693,7 +5693,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Unknown action or invalid participants",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5705,7 +5705,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5755,7 +5755,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.updateGroupSettingsRequest"
+                            "$ref": "#/definitions/groups.UpdateGroupSettingsRequest"
                         }
                     }
                 ],
@@ -5765,13 +5765,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.groupUpdatedResponse"
+                                            "$ref": "#/definitions/groups.GroupUpdatedResponse"
                                         }
                                     }
                                 }
@@ -5787,7 +5787,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5799,7 +5799,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5811,7 +5811,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner, or no group permission",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5823,7 +5823,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance or group not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5835,7 +5835,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5847,7 +5847,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5859,7 +5859,7 @@ const docTemplate = `{
                     "422": {
                         "description": "No fields or value outside the allowlist",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -5871,1485 +5871,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/instances/{id}/messages": {
-            "get": {
-                "security": [
-                    {
-                        "apikey": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "messages"
-                ],
-                "summary": "List messages",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Instance UUID or name (exact, case-sensitive)",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Page size, default 50, max 100",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Opaque pagination cursor",
-                        "name": "cursor",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "One page, wrapped in the data envelope",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/httpapi.envelope"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/httpapi.messageListResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid cursor",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Missing or invalid credential",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Not the owner",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Instance not found",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "409": {
-                        "description": "instance_name_taken: name already in use",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal error",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "apikey": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "messages"
-                ],
-                "summary": "Send a rich message",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Idempotency key, 24h replay per instance",
-                        "name": "Idempotency-Key",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Instance UUID or name (exact, case-sensitive)",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Rich payload: type poll|reaction|list|buttons plus its fields",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.sendMessageRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "202": {
-                        "description": "Accepted, wrapped in the data envelope",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/httpapi.envelope"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/httpapi.messageAcceptedResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Malformed body",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Missing or invalid credential",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Not the owner",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Instance not found",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "409": {
-                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "413": {
-                        "description": "Body exceeds the 1 MiB limit",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Invalid content, unknown number, unsupported type, or reused key",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal error",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "503": {
-                        "description": "Number resolution unavailable",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/instances/{id}/messages/contact": {
-            "post": {
-                "security": [
-                    {
-                        "apikey": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "messages"
-                ],
-                "summary": "Send a contact message",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Idempotency key, 24h replay per instance",
-                        "name": "Idempotency-Key",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Instance UUID or name (exact, case-sensitive)",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Contact payload",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.sendContactRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "202": {
-                        "description": "Accepted, wrapped in the data envelope",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/httpapi.envelope"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/httpapi.messageAcceptedResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Malformed body",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Missing or invalid credential",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Not the owner",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Instance not found",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "409": {
-                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "413": {
-                        "description": "Body exceeds the 1 MiB limit",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Invalid content, unknown number, or reused key",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal error",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "503": {
-                        "description": "Number resolution unavailable",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/instances/{id}/messages/edit": {
-            "post": {
-                "security": [
-                    {
-                        "apikey": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "messages"
-                ],
-                "summary": "Edit a sent text message",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Idempotency key, 24h replay per instance",
-                        "name": "Idempotency-Key",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Instance UUID or name (exact, case-sensitive)",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Edit payload",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.editMessageRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Edited, wrapped in the data envelope",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/httpapi.envelope"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/httpapi.editMessageResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Malformed body",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Missing or invalid credential",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Not the owner",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Instance or message not found",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "409": {
-                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "413": {
-                        "description": "Body exceeds the 1 MiB limit",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Invalid text, target, or reused key",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal error",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/instances/{id}/messages/location": {
-            "post": {
-                "security": [
-                    {
-                        "apikey": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "messages"
-                ],
-                "summary": "Send a location message",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Idempotency key, 24h replay per instance",
-                        "name": "Idempotency-Key",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Instance UUID or name (exact, case-sensitive)",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Location payload",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.sendLocationRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "202": {
-                        "description": "Accepted, wrapped in the data envelope",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/httpapi.envelope"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/httpapi.messageAcceptedResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Malformed body",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Missing or invalid credential",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Not the owner",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Instance not found",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "409": {
-                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "413": {
-                        "description": "Body exceeds the 1 MiB limit",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Invalid content, unknown number, or reused key",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal error",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "503": {
-                        "description": "Number resolution unavailable",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/instances/{id}/messages/media": {
-            "post": {
-                "security": [
-                    {
-                        "apikey": []
-                    }
-                ],
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "messages"
-                ],
-                "summary": "Send a media message",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Idempotency key, 24h replay per instance",
-                        "name": "Idempotency-Key",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Instance UUID or name (exact, case-sensitive)",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Recipient phone",
-                        "name": "to",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Media kind: image, video, audio, document or sticker (webp only, stored apart from media)",
-                        "name": "type",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Caption",
-                        "name": "caption",
-                        "in": "formData"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Override filename",
-                        "name": "filename",
-                        "in": "formData"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Push-to-talk flag for audio",
-                        "name": "ptt",
-                        "in": "formData"
-                    },
-                    {
-                        "type": "file",
-                        "description": "Media file",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "202": {
-                        "description": "Accepted, wrapped in the data envelope",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/httpapi.envelope"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/httpapi.messageAcceptedResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid multipart body",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Missing or invalid credential",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Not the owner",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Instance not found",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "409": {
-                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Invalid file, mismatched type, or reused key",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal error",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "503": {
-                        "description": "Number resolution unavailable",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/instances/{id}/messages/revoke": {
-            "post": {
-                "security": [
-                    {
-                        "apikey": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "messages"
-                ],
-                "summary": "Revoke a sent message",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Instance UUID or name (exact, case-sensitive)",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Revoke payload",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.revokeRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Revoked, wrapped in the data envelope",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/httpapi.envelope"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/httpapi.revokeResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Malformed body",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Missing or invalid credential",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Not the owner",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Instance not found",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "409": {
-                        "description": "Instance not connected; instance_name_taken: name already in use",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "413": {
-                        "description": "Body exceeds the 1 MiB limit",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Invalid chat or message id",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal error",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/instances/{id}/messages/text": {
-            "post": {
-                "security": [
-                    {
-                        "apikey": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "messages"
-                ],
-                "summary": "Send a text message",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Idempotency key, 24h replay per instance",
-                        "name": "Idempotency-Key",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Instance UUID or name (exact, case-sensitive)",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Text payload",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.sendTextRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "202": {
-                        "description": "Accepted, wrapped in the data envelope",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/httpapi.envelope"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/httpapi.messageAcceptedResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Malformed body",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Missing or invalid credential",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Not the owner",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Instance not found",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "409": {
-                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "413": {
-                        "description": "Body exceeds the 1 MiB limit",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Invalid content, unknown number, or reused key",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal error",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "503": {
-                        "description": "Number resolution unavailable",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/instances/{id}/messages/{message_id}": {
-            "get": {
-                "security": [
-                    {
-                        "apikey": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "messages"
-                ],
-                "summary": "Get a message",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Instance UUID or name (exact, case-sensitive)",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Message ID (UUID)",
-                        "name": "message_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Message, wrapped in the data envelope",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/httpapi.envelope"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/httpapi.messageEnvelope"
-                                        }
-                                    }
-                                }
-                            ]
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Missing or invalid credential",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Not the owner",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Instance or message not found",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "409": {
-                        "description": "instance_name_taken: name already in use",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
-                        },
-                        "headers": {
-                            "X-Request-Id": {
-                                "type": "string",
-                                "description": "Correlation id, generated when absent"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal error",
-                        "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7402,13 +5924,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.newsletterListResponse"
+                                            "$ref": "#/definitions/channels.NewsletterListResponse"
                                         }
                                     }
                                 }
@@ -7424,7 +5946,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7436,7 +5958,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7448,7 +5970,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7460,7 +5982,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7472,7 +5994,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7513,7 +6035,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.createNewsletterRequest"
+                            "$ref": "#/definitions/channels.CreateNewsletterRequest"
                         }
                     }
                 ],
@@ -7523,13 +6045,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.channelEnvelope"
+                                            "$ref": "#/definitions/representation.ChannelEnvelope"
                                         }
                                     }
                                 }
@@ -7545,7 +6067,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7557,7 +6079,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7569,7 +6091,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7581,7 +6103,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7593,7 +6115,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7605,7 +6127,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7617,7 +6139,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid title or description",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7629,7 +6151,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7672,7 +6194,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.followNewsletterRequest"
+                            "$ref": "#/definitions/channels.FollowNewsletterRequest"
                         }
                     }
                 ],
@@ -7682,13 +6204,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.newsletterFollowResponse"
+                                            "$ref": "#/definitions/channels.NewsletterFollowResponse"
                                         }
                                     }
                                 }
@@ -7704,7 +6226,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7716,7 +6238,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7728,7 +6250,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7740,7 +6262,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found, or unknown channel",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7752,7 +6274,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7764,7 +6286,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7776,7 +6298,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid channel",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7788,7 +6310,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7831,7 +6353,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.followNewsletterRequest"
+                            "$ref": "#/definitions/channels.FollowNewsletterRequest"
                         }
                     }
                 ],
@@ -7841,13 +6363,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.newsletterFollowResponse"
+                                            "$ref": "#/definitions/channels.NewsletterFollowResponse"
                                         }
                                     }
                                 }
@@ -7863,7 +6385,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7875,7 +6397,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7887,7 +6409,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7899,7 +6421,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found, or unknown channel",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7911,7 +6433,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7923,7 +6445,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7935,7 +6457,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid channel",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7947,7 +6469,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -7995,13 +6517,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.channelEnvelope"
+                                            "$ref": "#/definitions/representation.ChannelEnvelope"
                                         }
                                     }
                                 }
@@ -8017,7 +6539,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8029,7 +6551,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8041,7 +6563,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found, or unknown channel",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8053,7 +6575,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8065,7 +6587,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8125,13 +6647,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.newsletterMessagesResponse"
+                                            "$ref": "#/definitions/channels.NewsletterMessagesResponse"
                                         }
                                     }
                                 }
@@ -8147,7 +6669,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8159,7 +6681,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8171,7 +6693,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found, or unknown channel",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8183,7 +6705,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8195,7 +6717,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid channel",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8207,7 +6729,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8257,7 +6779,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.muteNewsletterRequest"
+                            "$ref": "#/definitions/channels.MuteNewsletterRequest"
                         }
                     }
                 ],
@@ -8267,13 +6789,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.muteNewsletterResponse"
+                                            "$ref": "#/definitions/channels.MuteNewsletterResponse"
                                         }
                                     }
                                 }
@@ -8289,7 +6811,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8301,7 +6823,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8313,7 +6835,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8325,7 +6847,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found, or unknown channel",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8337,7 +6859,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8349,7 +6871,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8361,7 +6883,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid channel",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8373,7 +6895,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8423,7 +6945,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.reactNewsletterRequest"
+                            "$ref": "#/definitions/channels.ReactNewsletterRequest"
                         }
                     }
                 ],
@@ -8433,13 +6955,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.newsletterReactResponse"
+                                            "$ref": "#/definitions/channels.NewsletterReactResponse"
                                         }
                                     }
                                 }
@@ -8455,7 +6977,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8467,7 +6989,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8479,7 +7001,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8491,7 +7013,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found, or unknown message",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8503,7 +7025,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8515,7 +7037,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8527,7 +7049,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Missing server id",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8539,7 +7061,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8587,13 +7109,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.newsletterUpdatesResponse"
+                                            "$ref": "#/definitions/channels.NewsletterUpdatesResponse"
                                         }
                                     }
                                 }
@@ -8609,7 +7131,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8621,7 +7143,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8633,7 +7155,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found, or unknown channel",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8645,7 +7167,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8657,7 +7179,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid channel",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8669,7 +7191,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8719,7 +7241,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.markNewsletterViewedRequest"
+                            "$ref": "#/definitions/channels.MarkNewsletterViewedRequest"
                         }
                     }
                 ],
@@ -8729,13 +7251,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.newsletterViewedResponse"
+                                            "$ref": "#/definitions/channels.NewsletterViewedResponse"
                                         }
                                     }
                                 }
@@ -8751,7 +7273,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8763,7 +7285,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8775,7 +7297,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8787,7 +7309,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found, or unknown channel",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8799,7 +7321,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8811,7 +7333,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8823,7 +7345,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Empty batch or above the 100 cap",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8835,7 +7357,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8878,7 +7400,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.numberCheckRequest"
+                            "$ref": "#/definitions/contacts.NumberCheckRequest"
                         }
                     }
                 ],
@@ -8888,13 +7410,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.numberCheckResponse"
+                                            "$ref": "#/definitions/contacts.NumberCheckResponse"
                                         }
                                     }
                                 }
@@ -8910,7 +7432,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body or missing phone",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8922,7 +7444,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8934,7 +7456,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8946,7 +7468,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8958,7 +7480,7 @@ const docTemplate = `{
                     "409": {
                         "description": "instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8970,7 +7492,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8982,7 +7504,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -8994,7 +7516,7 @@ const docTemplate = `{
                     "503": {
                         "description": "Number resolution unavailable",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9037,7 +7559,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.pairPhoneRequest"
+                            "$ref": "#/definitions/instances.PairPhoneRequest"
                         }
                     }
                 ],
@@ -9047,13 +7569,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.pairPhoneResponse"
+                                            "$ref": "#/definitions/instances.PairPhoneResponse"
                                         }
                                     }
                                 }
@@ -9069,7 +7591,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9081,7 +7603,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9093,7 +7615,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9105,7 +7627,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9117,7 +7639,7 @@ const docTemplate = `{
                     "409": {
                         "description": "No open pairing channel, or already connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9129,7 +7651,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9141,7 +7663,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid phone number",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9153,7 +7675,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9196,7 +7718,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.presenceRequest"
+                            "$ref": "#/definitions/instances.PresenceRequest"
                         }
                     }
                 ],
@@ -9206,13 +7728,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.presenceResponse"
+                                            "$ref": "#/definitions/instances.PresenceResponse"
                                         }
                                     }
                                 }
@@ -9228,7 +7750,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9240,7 +7762,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9252,7 +7774,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9264,7 +7786,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9276,7 +7798,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9288,7 +7810,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9300,7 +7822,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid chat or unknown state",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9312,7 +7834,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9353,13 +7875,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.privacyResponse"
+                                            "$ref": "#/definitions/representation.PrivacyResponse"
                                         }
                                     }
                                 }
@@ -9375,7 +7897,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9387,7 +7909,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9399,7 +7921,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9411,7 +7933,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9423,7 +7945,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9465,7 +7987,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.updatePrivacyRequest"
+                            "$ref": "#/definitions/profile.UpdatePrivacyRequest"
                         }
                     }
                 ],
@@ -9475,13 +7997,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.privacyResponse"
+                                            "$ref": "#/definitions/representation.PrivacyResponse"
                                         }
                                     }
                                 }
@@ -9497,7 +8019,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9509,7 +8031,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9521,7 +8043,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9533,7 +8055,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9545,7 +8067,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9557,7 +8079,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9569,7 +8091,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Empty patch or values outside the allowlists",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9581,7 +8103,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9622,13 +8144,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.profileResponse"
+                                            "$ref": "#/definitions/representation.ProfileResponse"
                                         }
                                     }
                                 }
@@ -9644,7 +8166,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9656,7 +8178,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9668,7 +8190,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9680,7 +8202,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9692,7 +8214,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9733,7 +8255,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.updateProfileRequest"
+                            "$ref": "#/definitions/profile.UpdateProfileRequest"
                         }
                     }
                 ],
@@ -9743,13 +8265,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.profileResponse"
+                                            "$ref": "#/definitions/representation.ProfileResponse"
                                         }
                                     }
                                 }
@@ -9765,7 +8287,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9777,7 +8299,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9789,7 +8311,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9801,7 +8323,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9813,7 +8335,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9825,7 +8347,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9837,7 +8359,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Empty patch or values outside the allowlists",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9849,7 +8371,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9861,7 +8383,7 @@ const docTemplate = `{
                     "501": {
                         "description": "Upstream cannot apply the name change; when name is present nothing is applied, including status_text",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9914,13 +8436,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.profilePhotoResponse"
+                                            "$ref": "#/definitions/profile.ProfilePhotoResponse"
                                         }
                                     }
                                 }
@@ -9936,7 +8458,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9948,7 +8470,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9960,7 +8482,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9972,7 +8494,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9984,7 +8506,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Image exceeds the cap",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -9996,7 +8518,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Missing or non image body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10008,7 +8530,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10020,7 +8542,7 @@ const docTemplate = `{
                     "501": {
                         "description": "Upstream cannot apply the photo",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10061,13 +8583,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.connectResponse"
+                                            "$ref": "#/definitions/instances.ConnectResponse"
                                         }
                                     }
                                 }
@@ -10083,7 +8605,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10095,7 +8617,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10107,7 +8629,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10119,7 +8641,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance already connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10131,7 +8653,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10172,13 +8694,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.statusResponse"
+                                            "$ref": "#/definitions/instances.StatusResponse"
                                         }
                                     }
                                 }
@@ -10194,7 +8716,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10206,7 +8728,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10218,7 +8740,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10230,7 +8752,7 @@ const docTemplate = `{
                     "409": {
                         "description": "instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10242,7 +8764,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10283,13 +8805,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.statusPrivacyResponse"
+                                            "$ref": "#/definitions/representation.StatusPrivacyResponse"
                                         }
                                     }
                                 }
@@ -10305,7 +8827,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10317,7 +8839,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10329,7 +8851,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10341,7 +8863,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10353,7 +8875,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10394,13 +8916,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.statusListResponse"
+                                            "$ref": "#/definitions/statuses.StatusListResponse"
                                         }
                                     }
                                 }
@@ -10416,7 +8938,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10428,7 +8950,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10440,7 +8962,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10452,7 +8974,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10464,7 +8986,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10512,7 +9034,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.publishStatusRequest"
+                            "$ref": "#/definitions/statuses.PublishStatusRequest"
                         }
                     }
                 ],
@@ -10522,13 +9044,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.statusPublishResponse"
+                                            "$ref": "#/definitions/statuses.StatusPublishResponse"
                                         }
                                     }
                                 }
@@ -10544,7 +9066,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10556,7 +9078,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10568,7 +9090,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10580,7 +9102,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10592,7 +9114,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10604,7 +9126,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10616,7 +9138,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid type or text, or reused key",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10628,7 +9150,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10699,13 +9221,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.statusPublishResponse"
+                                            "$ref": "#/definitions/statuses.StatusPublishResponse"
                                         }
                                     }
                                 }
@@ -10721,7 +9243,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid multipart body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10733,7 +9255,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10745,7 +9267,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10757,7 +9279,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10769,7 +9291,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10781,7 +9303,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid file, mismatched type, or reused key",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10793,7 +9315,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10841,13 +9363,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.statusDeleteResponse"
+                                            "$ref": "#/definitions/statuses.StatusDeleteResponse"
                                         }
                                     }
                                 }
@@ -10863,7 +9385,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10875,7 +9397,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10887,7 +9409,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Instance or status not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10899,7 +9421,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Instance not connected; instance_name_taken: name already in use",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -10911,7 +9433,1485 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{instance}/messages": {
+            "get": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "List messages",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
+                        "name": "instance",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size, default 50, max 100",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Opaque pagination cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "One page, wrapped in the data envelope",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/core.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/representation.MessageListResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid cursor",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "instance_name_taken: name already in use",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Send a rich message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Idempotency key, 24h replay per instance",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
+                        "name": "instance",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Rich payload: type poll|reaction|list|buttons plus its fields",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/messages.SendMessageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted, wrapped in the data envelope",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/core.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/representation.MessageAcceptedResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid content, unknown number, unsupported type, or reused key",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Number resolution unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{instance}/messages/contact": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Send a contact message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Idempotency key, 24h replay per instance",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
+                        "name": "instance",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Contact payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/messages.SendContactRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted, wrapped in the data envelope",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/core.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/representation.MessageAcceptedResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid content, unknown number, or reused key",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Number resolution unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{instance}/messages/edit": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Edit a sent text message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Idempotency key, 24h replay per instance",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
+                        "name": "instance",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Edit payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/messages.EditMessageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Edited, wrapped in the data envelope",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/core.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/messages.EditMessageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Instance or message not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid text, target, or reused key",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{instance}/messages/location": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Send a location message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Idempotency key, 24h replay per instance",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
+                        "name": "instance",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Location payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/messages.SendLocationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted, wrapped in the data envelope",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/core.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/representation.MessageAcceptedResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid content, unknown number, or reused key",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Number resolution unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{instance}/messages/media": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Send a media message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Idempotency key, 24h replay per instance",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
+                        "name": "instance",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Recipient phone",
+                        "name": "to",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Media kind: image, video, audio, document or sticker (webp only, stored apart from media)",
+                        "name": "type",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Caption",
+                        "name": "caption",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Override filename",
+                        "name": "filename",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Push-to-talk flag for audio",
+                        "name": "ptt",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Media file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted, wrapped in the data envelope",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/core.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/representation.MessageAcceptedResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid multipart body",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid file, mismatched type, or reused key",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Number resolution unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{instance}/messages/revoke": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Revoke a sent message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
+                        "name": "instance",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Revoke payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/messages.RevokeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Revoked, wrapped in the data envelope",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/core.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/messages.RevokeResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected; instance_name_taken: name already in use",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid chat or message id",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{instance}/messages/text": {
+            "post": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Send a text message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Idempotency key, 24h replay per instance",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
+                        "name": "instance",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Text payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/messages.SendTextRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted, wrapped in the data envelope",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/core.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/representation.MessageAcceptedResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not connected, or key already in flight; instance_name_taken: name already in use",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "413": {
+                        "description": "Body exceeds the 1 MiB limit",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid content, unknown number, or reused key",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Number resolution unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{instance}/messages/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "apikey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Get a message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance UUID or name (exact, case-sensitive)",
+                        "name": "instance",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Message ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Message, wrapped in the data envelope",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/core.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/representation.MessageEnvelope"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credential",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Instance or message not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "instance_name_taken: name already in use",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "type": "string",
+                                "description": "Correlation id, generated when absent"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11031,7 +11031,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Raw media bytes with the stored media Content-Type, outside the JSON envelope",
+                        "description": "Raw media bytes with the stored media Content-Type, outside the core.JSON core.Envelope",
                         "schema": {
                             "type": "file"
                         },
@@ -11061,7 +11061,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11073,7 +11073,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Not the owner",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11085,7 +11085,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Media not found or expired",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11097,7 +11097,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11125,7 +11125,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
@@ -11149,7 +11149,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
@@ -11191,13 +11191,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.userListResponse"
+                                            "$ref": "#/definitions/users.UserListResponse"
                                         }
                                     }
                                 }
@@ -11213,7 +11213,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11225,7 +11225,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Requires global or admin scope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11237,7 +11237,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11271,7 +11271,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.createUserRequest"
+                            "$ref": "#/definitions/users.CreateUserRequest"
                         }
                     }
                 ],
@@ -11281,13 +11281,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.userResponseEnvelope"
+                                            "$ref": "#/definitions/users.UserResponseEnvelope"
                                         }
                                     }
                                 }
@@ -11303,7 +11303,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11315,7 +11315,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11327,7 +11327,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Requires global or admin scope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11339,7 +11339,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Email already taken",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11351,7 +11351,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11363,7 +11363,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid email, password, role or quota",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11375,7 +11375,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11416,13 +11416,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.userResponseEnvelope"
+                                            "$ref": "#/definitions/users.UserResponseEnvelope"
                                         }
                                     }
                                 }
@@ -11438,7 +11438,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11450,7 +11450,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Requires global or admin scope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11462,7 +11462,7 @@ const docTemplate = `{
                     "404": {
                         "description": "User not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11474,7 +11474,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11520,7 +11520,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11532,7 +11532,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Requires global or admin scope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11544,7 +11544,7 @@ const docTemplate = `{
                     "404": {
                         "description": "User not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11556,7 +11556,7 @@ const docTemplate = `{
                     "409": {
                         "description": "User still owns instances",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11568,7 +11568,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11609,7 +11609,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.patchQuotaRequest"
+                            "$ref": "#/definitions/users.PatchQuotaRequest"
                         }
                     }
                 ],
@@ -11619,13 +11619,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/httpapi.envelope"
+                                    "$ref": "#/definitions/core.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httpapi.userResponseEnvelope"
+                                            "$ref": "#/definitions/users.UserResponseEnvelope"
                                         }
                                     }
                                 }
@@ -11641,7 +11641,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed body",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11653,7 +11653,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Missing or invalid credential",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11665,7 +11665,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Requires global or admin scope",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11677,7 +11677,7 @@ const docTemplate = `{
                     "404": {
                         "description": "User not found",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11689,7 +11689,7 @@ const docTemplate = `{
                     "413": {
                         "description": "Body exceeds the 1 MiB limit",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11701,7 +11701,7 @@ const docTemplate = `{
                     "422": {
                         "description": "Invalid instance quota",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11713,7 +11713,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/httpapi.errorEnvelope"
+                            "$ref": "#/definitions/core.ErrorEnvelope"
                         },
                         "headers": {
                             "X-Request-Id": {
@@ -11727,27 +11727,81 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "httpapi.acceptedMessageResponse": {
+        "authsession.IdentityResponse": {
             "type": "object",
+            "required": [
+                "email",
+                "id",
+                "role"
+            ],
             "properties": {
+                "email": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
-                "instance_id": {
-                    "type": "string"
-                },
-                "media_id": {
-                    "type": "string"
-                },
-                "send_status": {
+                "role": {
                     "type": "string"
                 }
             }
         },
-        "httpapi.blocklistResponse": {
+        "authsession.LoginRequest": {
             "type": "object",
             "properties": {
-                "items": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "authsession.LogoutResponse": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "authsession.MeEnvelope": {
+            "type": "object",
+            "required": [
+                "me"
+            ],
+            "properties": {
+                "me": {
+                    "$ref": "#/definitions/authsession.IdentityResponse"
+                }
+            }
+        },
+        "channels.CreateNewsletterRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "channels.FollowNewsletterRequest": {
+            "type": "object",
+            "properties": {
+                "channel": {
+                    "type": "string"
+                }
+            }
+        },
+        "channels.MarkNewsletterViewedRequest": {
+            "type": "object",
+            "properties": {
+                "server_ids": {
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -11755,23 +11809,200 @@ const docTemplate = `{
                 }
             }
         },
-        "httpapi.blocklistUpdateResponse": {
+        "channels.MuteNewsletterRequest": {
             "type": "object",
+            "properties": {
+                "muted": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "channels.MuteNewsletterResponse": {
+            "type": "object",
+            "required": [
+                "muted"
+            ],
+            "properties": {
+                "muted": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "channels.NewsletterFollowResponse": {
+            "type": "object",
+            "required": [
+                "followed"
+            ],
+            "properties": {
+                "followed": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "channels.NewsletterListResponse": {
+            "type": "object",
+            "required": [
+                "channels"
+            ],
+            "properties": {
+                "channels": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/representation.NewsletterResponse"
+                    }
+                },
+                "next_cursor": {
+                    "type": "string"
+                }
+            }
+        },
+        "channels.NewsletterMessageResponse": {
+            "type": "object",
+            "required": [
+                "content",
+                "server_id",
+                "timestamp"
+            ],
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "server_id": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "channels.NewsletterMessagesResponse": {
+            "type": "object",
+            "required": [
+                "messages"
+            ],
+            "properties": {
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/channels.NewsletterMessageResponse"
+                    }
+                },
+                "next_cursor": {
+                    "type": "string"
+                }
+            }
+        },
+        "channels.NewsletterReactResponse": {
+            "type": "object",
+            "required": [
+                "reacted"
+            ],
+            "properties": {
+                "reacted": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "channels.NewsletterUpdatesResponse": {
+            "type": "object",
+            "required": [
+                "messages"
+            ],
+            "properties": {
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/channels.NewsletterMessageResponse"
+                    }
+                }
+            }
+        },
+        "channels.NewsletterViewedResponse": {
+            "type": "object",
+            "required": [
+                "viewed"
+            ],
+            "properties": {
+                "viewed": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "channels.ReactNewsletterRequest": {
+            "type": "object",
+            "properties": {
+                "reaction": {
+                    "type": "string"
+                },
+                "server_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "chats.DisappearingRequest": {
+            "type": "object",
+            "properties": {
+                "duration": {
+                    "type": "string"
+                }
+            }
+        },
+        "chats.DisappearingResponse": {
+            "type": "object",
+            "required": [
+                "chat",
+                "duration_seconds",
+                "found"
+            ],
+            "properties": {
+                "chat": {
+                    "type": "string"
+                },
+                "duration_seconds": {
+                    "type": "integer"
+                },
+                "found": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "chats.DisappearingUpdatedResponse": {
+            "type": "object",
+            "required": [
+                "updated"
+            ],
             "properties": {
                 "updated": {
                     "type": "boolean"
                 }
             }
         },
-        "httpapi.channelEnvelope": {
+        "chats.MarkReadRequest": {
             "type": "object",
             "properties": {
-                "channel": {
-                    "$ref": "#/definitions/httpapi.newsletterResponse"
+                "chat": {
+                    "type": "string"
+                },
+                "message_id": {
+                    "type": "string"
+                },
+                "sender": {
+                    "type": "string"
                 }
             }
         },
-        "httpapi.chatwootCommandRequest": {
+        "chats.MarkReadResponse": {
+            "type": "object",
+            "required": [
+                "marked_read"
+            ],
+            "properties": {
+                "marked_read": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "chatwoot.ChatwootCommandRequest": {
             "type": "object",
             "properties": {
                 "command": {
@@ -11782,77 +12013,7 @@ const docTemplate = `{
                 }
             }
         },
-        "httpapi.chatwootConfigEnvelope": {
-            "type": "object",
-            "properties": {
-                "chatwoot_config": {
-                    "$ref": "#/definitions/httpapi.chatwootConfigResponse"
-                }
-            }
-        },
-        "httpapi.chatwootConfigResponse": {
-            "type": "object",
-            "properties": {
-                "account_id": {
-                    "type": "string"
-                },
-                "ignored_jids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "import_days": {
-                    "type": "integer"
-                },
-                "inbox_name": {
-                    "type": "string"
-                },
-                "instance_id": {
-                    "type": "string"
-                },
-                "is_auto_create": {
-                    "type": "boolean"
-                },
-                "is_enabled": {
-                    "type": "boolean"
-                },
-                "is_import_contacts": {
-                    "type": "boolean"
-                },
-                "is_import_messages": {
-                    "type": "boolean"
-                },
-                "is_merge_enabled": {
-                    "type": "boolean"
-                },
-                "is_pending_enabled": {
-                    "type": "boolean"
-                },
-                "is_reopen_enabled": {
-                    "type": "boolean"
-                },
-                "is_sign_enabled": {
-                    "type": "boolean"
-                },
-                "logo": {
-                    "type": "string"
-                },
-                "organization": {
-                    "type": "string"
-                },
-                "sign_delimiter": {
-                    "type": "string"
-                },
-                "url": {
-                    "type": "string"
-                },
-                "webhook_url": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.chatwootSetRequest": {
+        "chatwoot.ChatwootSetRequest": {
             "type": "object",
             "properties": {
                 "account_id": {
@@ -11912,7 +12073,32 @@ const docTemplate = `{
                 }
             }
         },
-        "httpapi.checkContactsRequest": {
+        "contacts.BlocklistResponse": {
+            "type": "object",
+            "required": [
+                "blocked_jids"
+            ],
+            "properties": {
+                "blocked_jids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "contacts.BlocklistUpdateResponse": {
+            "type": "object",
+            "required": [
+                "updated"
+            ],
+            "properties": {
+                "updated": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "contacts.CheckContactsRequest": {
             "type": "object",
             "properties": {
                 "phones": {
@@ -11923,47 +12109,28 @@ const docTemplate = `{
                 }
             }
         },
-        "httpapi.checkContactsResponse": {
+        "contacts.CheckContactsResponse": {
             "type": "object",
+            "required": [
+                "contacts"
+            ],
             "properties": {
-                "items": {
+                "contacts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/httpapi.contactCheckItem"
+                        "$ref": "#/definitions/contacts.ContactCheckItem"
                     }
                 }
             }
         },
-        "httpapi.connectResponse": {
+        "contacts.ContactBusinessResponse": {
             "type": "object",
-            "properties": {
-                "connection": {
-                    "$ref": "#/definitions/httpapi.pairingConnection"
-                }
-            }
-        },
-        "httpapi.connectionResponse": {
-            "type": "object",
-            "properties": {
-                "last_connected_at": {
-                    "type": "string"
-                },
-                "last_error": {
-                    "$ref": "#/definitions/httpapi.lastErrorResponse"
-                },
-                "qr_code": {
-                    "type": "string"
-                },
-                "qr_expires_at": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.contactBusinessResponse": {
-            "type": "object",
+            "required": [
+                "description",
+                "jid",
+                "name",
+                "verified_name"
+            ],
             "properties": {
                 "description": {
                     "type": "string"
@@ -11979,7 +12146,7 @@ const docTemplate = `{
                 }
             }
         },
-        "httpapi.contactCheckItem": {
+        "contacts.ContactCheckItem": {
             "type": "object",
             "properties": {
                 "is_on_whatsapp": {
@@ -11996,8 +12163,12 @@ const docTemplate = `{
                 }
             }
         },
-        "httpapi.contactDevicesResponse": {
+        "contacts.ContactDevicesResponse": {
             "type": "object",
+            "required": [
+                "devices",
+                "jid"
+            ],
             "properties": {
                 "devices": {
                     "type": "array",
@@ -12010,16 +12181,24 @@ const docTemplate = `{
                 }
             }
         },
-        "httpapi.contactLinkResponse": {
+        "contacts.ContactLinkResponse": {
             "type": "object",
+            "required": [
+                "link"
+            ],
             "properties": {
                 "link": {
                     "type": "string"
                 }
             }
         },
-        "httpapi.contactPhotoResponse": {
+        "contacts.ContactPhotoResponse": {
             "type": "object",
+            "required": [
+                "jid",
+                "url",
+                "version"
+            ],
             "properties": {
                 "jid": {
                     "type": "string"
@@ -12032,628 +12211,7 @@ const docTemplate = `{
                 }
             }
         },
-        "httpapi.createGroupRequest": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string"
-                },
-                "participants": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "httpapi.createInstanceRequest": {
-            "type": "object",
-            "properties": {
-                "external_ref": {
-                    "type": "string"
-                },
-                "name": {
-                    "description": "Globally unique, exact ASCII name: 1-64 letters/digits/hyphens/underscores, alphanumeric ends; stats and every UUID-parseable string are reserved.",
-                    "type": "string"
-                },
-                "owner_user_id": {
-                    "type": "string"
-                },
-                "webhook": {
-                    "$ref": "#/definitions/httpapi.webhookInput"
-                }
-            }
-        },
-        "httpapi.createInstanceResponse": {
-            "type": "object",
-            "properties": {
-                "instance": {
-                    "$ref": "#/definitions/httpapi.instanceResponse"
-                },
-                "instance_api_key": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.createNewsletterRequest": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "title": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.createUserRequest": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "instance_limit": {
-                    "type": "integer",
-                    "minimum": 0
-                },
-                "password": {
-                    "type": "string"
-                },
-                "role": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.disappearingRequest": {
-            "type": "object",
-            "properties": {
-                "duration": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.disappearingResponse": {
-            "type": "object",
-            "properties": {
-                "chat": {
-                    "type": "string"
-                },
-                "duration_seconds": {
-                    "type": "integer"
-                },
-                "found": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "httpapi.disappearingUpdatedResponse": {
-            "type": "object",
-            "properties": {
-                "updated": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "httpapi.editMessageRequest": {
-            "type": "object",
-            "properties": {
-                "chat": {
-                    "type": "string"
-                },
-                "message_id": {
-                    "type": "string"
-                },
-                "text": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.editMessageResponse": {
-            "type": "object",
-            "properties": {
-                "message_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.envelope": {
-            "type": "object",
-            "properties": {
-                "data": {}
-            }
-        },
-        "httpapi.errorBody": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "type": "string"
-                },
-                "message": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.errorEnvelope": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "$ref": "#/definitions/httpapi.errorBody"
-                }
-            }
-        },
-        "httpapi.followNewsletterRequest": {
-            "type": "object",
-            "properties": {
-                "channel": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.groupEnvelope": {
-            "type": "object",
-            "properties": {
-                "group": {
-                    "$ref": "#/definitions/httpapi.groupResponse"
-                }
-            }
-        },
-        "httpapi.groupInviteResponse": {
-            "type": "object",
-            "properties": {
-                "invite_code": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.groupJoinResponse": {
-            "type": "object",
-            "properties": {
-                "jid": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.groupLeaveResponse": {
-            "type": "object",
-            "properties": {
-                "left": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "httpapi.groupParticipantResponse": {
-            "type": "object",
-            "properties": {
-                "is_admin": {
-                    "type": "boolean"
-                },
-                "is_super_admin": {
-                    "type": "boolean"
-                },
-                "jid": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.groupRequestsResponse": {
-            "type": "object",
-            "properties": {
-                "participants": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/httpapi.groupParticipantResponse"
-                    }
-                }
-            }
-        },
-        "httpapi.groupResponse": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "invite_code": {
-                    "type": "string"
-                },
-                "jid": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "participant_count": {
-                    "type": "integer"
-                },
-                "participants": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/httpapi.groupParticipantResponse"
-                    }
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.groupUpdatedResponse": {
-            "type": "object",
-            "properties": {
-                "updated": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "httpapi.identityResponse": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "role": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.instanceEnvelope": {
-            "type": "object",
-            "properties": {
-                "instance": {
-                    "$ref": "#/definitions/httpapi.instanceResponse"
-                }
-            }
-        },
-        "httpapi.instanceListResponse": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/httpapi.instanceEnvelope"
-                    }
-                }
-            }
-        },
-        "httpapi.instanceResponse": {
-            "type": "object",
-            "properties": {
-                "connection": {
-                    "$ref": "#/definitions/httpapi.connectionResponse"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "integration": {
-                    "$ref": "#/definitions/httpapi.integrationResponse"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "settings": {
-                    "$ref": "#/definitions/httpapi.settingsResponse"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.instanceStatsResponse": {
-            "type": "object",
-            "properties": {
-                "by_status": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "integer"
-                    }
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "httpapi.integrationResponse": {
-            "type": "object",
-            "properties": {
-                "chatwoot_config": {
-                    "$ref": "#/definitions/httpapi.chatwootConfigResponse"
-                },
-                "webhook": {
-                    "$ref": "#/definitions/httpapi.webhookResponse"
-                }
-            }
-        },
-        "httpapi.joinGroupRequest": {
-            "type": "object",
-            "properties": {
-                "invite_code": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.joinedGroupsResponse": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/httpapi.groupEnvelope"
-                    }
-                },
-                "next_cursor": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.lastErrorResponse": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "type": "string"
-                },
-                "message": {
-                    "type": "string"
-                },
-                "occurred_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.loginRequest": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.logoutResponse": {
-            "type": "object",
-            "properties": {
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.markNewsletterViewedRequest": {
-            "type": "object",
-            "properties": {
-                "server_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "httpapi.markReadRequest": {
-            "type": "object",
-            "properties": {
-                "chat": {
-                    "type": "string"
-                },
-                "message_id": {
-                    "type": "string"
-                },
-                "sender": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.markReadResponse": {
-            "type": "object",
-            "properties": {
-                "marked_read": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "httpapi.meEnvelope": {
-            "type": "object",
-            "properties": {
-                "me": {
-                    "$ref": "#/definitions/httpapi.identityResponse"
-                }
-            }
-        },
-        "httpapi.messageAcceptedResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "$ref": "#/definitions/httpapi.acceptedMessageResponse"
-                }
-            }
-        },
-        "httpapi.messageEnvelope": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "$ref": "#/definitions/httpapi.messageResponse"
-                }
-            }
-        },
-        "httpapi.messageListResponse": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/httpapi.messageEnvelope"
-                    }
-                },
-                "next_cursor": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.messageResponse": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "delivered_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "instance_id": {
-                    "type": "string"
-                },
-                "last_error": {
-                    "$ref": "#/definitions/httpapi.lastErrorResponse"
-                },
-                "media_id": {
-                    "type": "string"
-                },
-                "message_type": {
-                    "type": "string"
-                },
-                "next_attempt_at": {
-                    "type": "string"
-                },
-                "read_at": {
-                    "type": "string"
-                },
-                "recipient_jid": {
-                    "type": "string"
-                },
-                "retry_count": {
-                    "type": "integer"
-                },
-                "send_status": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "wa_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.muteNewsletterRequest": {
-            "type": "object",
-            "properties": {
-                "muted": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "httpapi.muteNewsletterResponse": {
-            "type": "object",
-            "properties": {
-                "muted": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "httpapi.newsletterFollowResponse": {
-            "type": "object",
-            "properties": {
-                "followed": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "httpapi.newsletterListResponse": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/httpapi.channelEnvelope"
-                    }
-                },
-                "next_cursor": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.newsletterMessageResponse": {
-            "type": "object",
-            "properties": {
-                "content": {
-                    "type": "string"
-                },
-                "server_id": {
-                    "type": "string"
-                },
-                "timestamp": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.newsletterMessagesResponse": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/httpapi.newsletterMessageResponse"
-                    }
-                },
-                "next_cursor": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.newsletterReactResponse": {
-            "type": "object",
-            "properties": {
-                "reacted": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "httpapi.newsletterResponse": {
-            "type": "object",
-            "properties": {
-                "channel": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "follower_count": {
-                    "type": "integer"
-                },
-                "title": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.newsletterUpdatesResponse": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/httpapi.newsletterMessageResponse"
-                    }
-                }
-            }
-        },
-        "httpapi.newsletterViewedResponse": {
-            "type": "object",
-            "properties": {
-                "viewed": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "httpapi.numberCheckRequest": {
+        "contacts.NumberCheckRequest": {
             "type": "object",
             "properties": {
                 "phone": {
@@ -12661,8 +12219,13 @@ const docTemplate = `{
                 }
             }
         },
-        "httpapi.numberCheckResponse": {
+        "contacts.NumberCheckResponse": {
             "type": "object",
+            "required": [
+                "exists",
+                "jid",
+                "normalized"
+            ],
             "properties": {
                 "exists": {
                     "type": "boolean"
@@ -12675,435 +12238,18 @@ const docTemplate = `{
                 }
             }
         },
-        "httpapi.ownStatusResponse": {
+        "contacts.SubscribePresenceResponse": {
             "type": "object",
-            "properties": {
-                "caption": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "text": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.pairPhoneRequest": {
-            "type": "object",
-            "properties": {
-                "phone": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.pairPhoneResponse": {
-            "type": "object",
-            "properties": {
-                "expires_at": {
-                    "type": "string"
-                },
-                "pairing_code": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.pairingConnection": {
-            "type": "object",
-            "properties": {
-                "qr_code": {
-                    "type": "string"
-                },
-                "qr_expires_at": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.patchQuotaRequest": {
-            "type": "object",
-            "properties": {
-                "instance_limit": {
-                    "type": "integer",
-                    "minimum": 0
-                }
-            }
-        },
-        "httpapi.presenceRequest": {
-            "type": "object",
-            "properties": {
-                "chat": {
-                    "type": "string"
-                },
-                "state": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.presenceResponse": {
-            "type": "object",
-            "properties": {
-                "sent": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "httpapi.privacyResponse": {
-            "type": "object",
-            "properties": {
-                "groups_add": {
-                    "type": "string"
-                },
-                "last_seen": {
-                    "type": "string"
-                },
-                "profile_photo": {
-                    "type": "string"
-                },
-                "read_receipts": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.profilePhotoResponse": {
-            "type": "object",
-            "properties": {
-                "updated": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "httpapi.profileResponse": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string"
-                },
-                "photo_url": {
-                    "type": "string"
-                },
-                "status_text": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.publishStatusRequest": {
-            "type": "object",
-            "properties": {
-                "text": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.reactNewsletterRequest": {
-            "type": "object",
-            "properties": {
-                "reaction": {
-                    "type": "string"
-                },
-                "server_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.readiness": {
-            "type": "object",
-            "properties": {
-                "checks": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.rejectCallRequest": {
-            "type": "object",
-            "properties": {
-                "call_id": {
-                    "type": "string"
-                },
-                "from": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.rejectCallResponse": {
-            "type": "object",
-            "properties": {
-                "rejected": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "httpapi.revokeRequest": {
-            "type": "object",
-            "properties": {
-                "chat": {
-                    "type": "string"
-                },
-                "message_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.revokeResponse": {
-            "type": "object",
-            "properties": {
-                "revoked": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "httpapi.rotateAPIKeyResponse": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string"
-                },
-                "instance_api_key": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.sendButton": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string"
-                },
-                "title": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.sendContactRequest": {
-            "type": "object",
-            "properties": {
-                "display_name": {
-                    "type": "string"
-                },
-                "to": {
-                    "type": "string"
-                },
-                "vcard": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.sendListRow": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "title": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.sendListSection": {
-            "type": "object",
-            "properties": {
-                "rows": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/httpapi.sendListRow"
-                    }
-                },
-                "title": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.sendLocationRequest": {
-            "type": "object",
-            "properties": {
-                "latitude": {
-                    "type": "number"
-                },
-                "longitude": {
-                    "type": "number"
-                },
-                "to": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.sendMessageRequest": {
-            "type": "object",
-            "properties": {
-                "button_text": {
-                    "type": "string"
-                },
-                "buttons": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/httpapi.sendButton"
-                    }
-                },
-                "description": {
-                    "type": "string"
-                },
-                "emoji": {
-                    "type": "string"
-                },
-                "footer": {
-                    "type": "string"
-                },
-                "options": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "question": {
-                    "type": "string"
-                },
-                "sections": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/httpapi.sendListSection"
-                    }
-                },
-                "selectable_count": {
-                    "type": "integer"
-                },
-                "target": {
-                    "type": "string"
-                },
-                "text": {
-                    "type": "string"
-                },
-                "title": {
-                    "type": "string"
-                },
-                "to": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.sendTextRequest": {
-            "type": "object",
-            "properties": {
-                "text": {
-                    "type": "string"
-                },
-                "to": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.settingsResponse": {
-            "type": "object",
-            "properties": {
-                "default_disappearing": {
-                    "description": "DefaultDisappearing is the persisted echo of the last successful\ndefault-disappearing write, in the textual form the PUT accepts (a Go\nduration; canonical spellings 0, 24h, 168h, 2160h). Null means never\nconfigured and is distinct from the stored off value \"0\".",
-                    "type": "string"
-                },
-                "privacy": {
-                    "$ref": "#/definitions/httpapi.privacyResponse"
-                },
-                "profile": {
-                    "$ref": "#/definitions/httpapi.profileResponse"
-                },
-                "status_privacy": {
-                    "$ref": "#/definitions/httpapi.statusPrivacyResponse"
-                }
-            }
-        },
-        "httpapi.statsEnvelope": {
-            "type": "object",
-            "properties": {
-                "stats": {
-                    "$ref": "#/definitions/httpapi.instanceStatsResponse"
-                }
-            }
-        },
-        "httpapi.statusDeleteResponse": {
-            "type": "object",
-            "properties": {
-                "deleted": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "httpapi.statusListResponse": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/httpapi.ownStatusResponse"
-                    }
-                }
-            }
-        },
-        "httpapi.statusPrivacyResponse": {
-            "type": "object",
-            "properties": {
-                "jids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "mode": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.statusPublishResponse": {
-            "type": "object",
-            "properties": {
-                "message_id": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.statusResponse": {
-            "type": "object",
-            "properties": {
-                "connection": {
-                    "$ref": "#/definitions/httpapi.connectionResponse"
-                }
-            }
-        },
-        "httpapi.subscribePresenceResponse": {
-            "type": "object",
+            "required": [
+                "subscribed"
+            ],
             "properties": {
                 "subscribed": {
                     "type": "boolean"
                 }
             }
         },
-        "httpapi.updateBlocklistRequest": {
+        "contacts.UpdateBlocklistRequest": {
             "type": "object",
             "properties": {
                 "action": {
@@ -13114,7 +12260,135 @@ const docTemplate = `{
                 }
             }
         },
-        "httpapi.updateGroupRequest": {
+        "core.Envelope": {
+            "type": "object",
+            "required": [
+                "data"
+            ],
+            "properties": {
+                "data": {}
+            }
+        },
+        "core.ErrorBody": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "core.ErrorEnvelope": {
+            "type": "object",
+            "required": [
+                "error"
+            ],
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/core.ErrorBody"
+                }
+            }
+        },
+        "groups.CreateGroupRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "participants": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "groups.GroupInviteResponse": {
+            "type": "object",
+            "required": [
+                "invite_code"
+            ],
+            "properties": {
+                "invite_code": {
+                    "type": "string"
+                }
+            }
+        },
+        "groups.GroupJoinResponse": {
+            "type": "object",
+            "required": [
+                "jid"
+            ],
+            "properties": {
+                "jid": {
+                    "type": "string"
+                }
+            }
+        },
+        "groups.GroupLeaveResponse": {
+            "type": "object",
+            "required": [
+                "left"
+            ],
+            "properties": {
+                "left": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "groups.GroupRequestsResponse": {
+            "type": "object",
+            "required": [
+                "participants"
+            ],
+            "properties": {
+                "participants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/representation.GroupParticipantResponse"
+                    }
+                }
+            }
+        },
+        "groups.GroupUpdatedResponse": {
+            "type": "object",
+            "required": [
+                "updated"
+            ],
+            "properties": {
+                "updated": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "groups.JoinGroupRequest": {
+            "type": "object",
+            "properties": {
+                "invite_code": {
+                    "type": "string"
+                }
+            }
+        },
+        "groups.JoinedGroupsResponse": {
+            "type": "object",
+            "required": [
+                "groups"
+            ],
+            "properties": {
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/representation.GroupResponse"
+                    }
+                },
+                "next_cursor": {
+                    "type": "string"
+                }
+            }
+        },
+        "groups.UpdateGroupRequest": {
             "type": "object",
             "properties": {
                 "description": {
@@ -13125,7 +12399,7 @@ const docTemplate = `{
                 }
             }
         },
-        "httpapi.updateGroupRequestsRequest": {
+        "groups.UpdateGroupRequestsRequest": {
             "type": "object",
             "properties": {
                 "action": {
@@ -13139,7 +12413,7 @@ const docTemplate = `{
                 }
             }
         },
-        "httpapi.updateGroupSettingsRequest": {
+        "groups.UpdateGroupSettingsRequest": {
             "type": "object",
             "properties": {
                 "announce": {
@@ -13156,22 +12430,7 @@ const docTemplate = `{
                 }
             }
         },
-        "httpapi.updateInstanceRequest": {
-            "type": "object",
-            "properties": {
-                "external_ref": {
-                    "type": "string"
-                },
-                "name": {
-                    "description": "Actual renames follow the create name grammar and uniqueness rule; an exactly unchanged legacy name is accepted.",
-                    "type": "string"
-                },
-                "webhook": {
-                    "$ref": "#/definitions/httpapi.webhookInput"
-                }
-            }
-        },
-        "httpapi.updateParticipantsRequest": {
+        "groups.UpdateParticipantsRequest": {
             "type": "object",
             "properties": {
                 "action": {
@@ -13185,112 +12444,16 @@ const docTemplate = `{
                 }
             }
         },
-        "httpapi.updatePrivacyRequest": {
+        "httpapi.readiness": {
             "type": "object",
             "properties": {
-                "groups_add": {
-                    "type": "string"
-                },
-                "last_seen": {
-                    "type": "string"
-                },
-                "profile_photo": {
-                    "type": "string"
-                },
-                "read_receipts": {
-                    "type": "string"
+                "checks": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "status": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.updateProfileRequest": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string"
-                },
-                "status_text": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.userListResponse": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/httpapi.userResponseEnvelope"
-                    }
-                }
-            }
-        },
-        "httpapi.userResponse": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "instance_limit": {
-                    "type": "integer"
-                },
-                "instances_used": {
-                    "type": "integer"
-                },
-                "role": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.userResponseEnvelope": {
-            "type": "object",
-            "properties": {
-                "user": {
-                    "$ref": "#/definitions/httpapi.userResponse"
-                }
-            }
-        },
-        "httpapi.webhookInput": {
-            "type": "object",
-            "properties": {
-                "enabled": {
-                    "type": "boolean"
-                },
-                "events": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "url": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.webhookResponse": {
-            "type": "object",
-            "properties": {
-                "enabled": {
-                    "type": "boolean"
-                },
-                "events": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "url": {
                     "type": "string"
                 }
             }
@@ -13424,6 +12587,1130 @@ const docTemplate = `{
                 },
                 "type": {
                     "type": "string"
+                }
+            }
+        },
+        "instances.ConnectResponse": {
+            "type": "object",
+            "required": [
+                "connection"
+            ],
+            "properties": {
+                "connection": {
+                    "$ref": "#/definitions/representation.PairingConnection"
+                }
+            }
+        },
+        "instances.CreateInstanceRequest": {
+            "type": "object",
+            "properties": {
+                "external_ref": {
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Globally unique, exact ASCII name: 1-64 letters/digits/hyphens/underscores, alphanumeric ends; stats and every UUID-parseable string are reserved.",
+                    "type": "string"
+                },
+                "owner_user_id": {
+                    "type": "string"
+                },
+                "webhook": {
+                    "$ref": "#/definitions/instances.WebhookInput"
+                }
+            }
+        },
+        "instances.PairPhoneRequest": {
+            "type": "object",
+            "properties": {
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "instances.PairPhoneResponse": {
+            "type": "object",
+            "required": [
+                "expires_at",
+                "pairing_code"
+            ],
+            "properties": {
+                "expires_at": {
+                    "type": "string"
+                },
+                "pairing_code": {
+                    "type": "string"
+                }
+            }
+        },
+        "instances.PresenceRequest": {
+            "type": "object",
+            "properties": {
+                "chat": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
+        "instances.PresenceResponse": {
+            "type": "object",
+            "required": [
+                "sent"
+            ],
+            "properties": {
+                "sent": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "instances.RejectCallRequest": {
+            "type": "object",
+            "properties": {
+                "call_id": {
+                    "type": "string"
+                },
+                "from": {
+                    "type": "string"
+                }
+            }
+        },
+        "instances.RejectCallResponse": {
+            "type": "object",
+            "required": [
+                "rejected"
+            ],
+            "properties": {
+                "rejected": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "instances.RotateAPIKeyResponse": {
+            "type": "object",
+            "required": [
+                "id",
+                "instance_api_key"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "instance_api_key": {
+                    "type": "string"
+                }
+            }
+        },
+        "instances.StatusResponse": {
+            "type": "object",
+            "required": [
+                "connection"
+            ],
+            "properties": {
+                "connection": {
+                    "$ref": "#/definitions/representation.ConnectionResponse"
+                }
+            }
+        },
+        "instances.UpdateInstanceRequest": {
+            "type": "object",
+            "properties": {
+                "external_ref": {
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Actual renames follow the create name grammar and uniqueness rule; an exactly unchanged stored name is accepted.",
+                    "type": "string"
+                },
+                "webhook": {
+                    "$ref": "#/definitions/instances.WebhookInput"
+                }
+            }
+        },
+        "instances.WebhookInput": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "messages.EditMessageRequest": {
+            "type": "object",
+            "properties": {
+                "chat": {
+                    "type": "string"
+                },
+                "message_id": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "messages.EditMessageResponse": {
+            "type": "object",
+            "required": [
+                "message_id"
+            ],
+            "properties": {
+                "message_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "messages.RevokeRequest": {
+            "type": "object",
+            "properties": {
+                "chat": {
+                    "type": "string"
+                },
+                "message_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "messages.RevokeResponse": {
+            "type": "object",
+            "required": [
+                "revoked"
+            ],
+            "properties": {
+                "revoked": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "messages.SendButton": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "messages.SendContactRequest": {
+            "type": "object",
+            "properties": {
+                "display_name": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "string"
+                },
+                "vcard": {
+                    "type": "string"
+                }
+            }
+        },
+        "messages.SendListRow": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "messages.SendListSection": {
+            "type": "object",
+            "properties": {
+                "rows": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/messages.SendListRow"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "messages.SendLocationRequest": {
+            "type": "object",
+            "properties": {
+                "latitude": {
+                    "type": "number"
+                },
+                "longitude": {
+                    "type": "number"
+                },
+                "to": {
+                    "type": "string"
+                }
+            }
+        },
+        "messages.SendMessageRequest": {
+            "type": "object",
+            "properties": {
+                "button_text": {
+                    "type": "string"
+                },
+                "buttons": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/messages.SendButton"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "emoji": {
+                    "type": "string"
+                },
+                "footer": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "question": {
+                    "type": "string"
+                },
+                "sections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/messages.SendListSection"
+                    }
+                },
+                "selectable_count": {
+                    "type": "integer"
+                },
+                "target": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "messages.SendTextRequest": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "string"
+                }
+            }
+        },
+        "profile.ProfilePhotoResponse": {
+            "type": "object",
+            "required": [
+                "updated"
+            ],
+            "properties": {
+                "updated": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "profile.UpdatePrivacyRequest": {
+            "type": "object",
+            "properties": {
+                "groups_add": {
+                    "type": "string"
+                },
+                "last_seen": {
+                    "type": "string"
+                },
+                "profile_photo": {
+                    "type": "string"
+                },
+                "read_receipts": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "profile.UpdateProfileRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "status_text": {
+                    "type": "string"
+                }
+            }
+        },
+        "representation.AcceptedMessageResponse": {
+            "type": "object",
+            "required": [
+                "id",
+                "instance_id",
+                "send_status"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "instance_id": {
+                    "type": "string"
+                },
+                "media_id": {
+                    "type": "string"
+                },
+                "send_status": {
+                    "type": "string"
+                }
+            }
+        },
+        "representation.ChannelEnvelope": {
+            "type": "object",
+            "required": [
+                "channel"
+            ],
+            "properties": {
+                "channel": {
+                    "$ref": "#/definitions/representation.NewsletterResponse"
+                }
+            }
+        },
+        "representation.ChatwootConfigEnvelope": {
+            "type": "object",
+            "required": [
+                "chatwoot_config"
+            ],
+            "properties": {
+                "chatwoot_config": {
+                    "$ref": "#/definitions/representation.ChatwootConfigResponse"
+                }
+            }
+        },
+        "representation.ChatwootConfigResponse": {
+            "type": "object",
+            "required": [
+                "ignored_jids",
+                "import_days",
+                "inbox_name",
+                "is_auto_create",
+                "is_enabled",
+                "is_import_contacts",
+                "is_import_messages",
+                "is_merge_enabled",
+                "is_pending_enabled",
+                "is_reopen_enabled",
+                "is_sign_enabled",
+                "sign_delimiter",
+                "webhook_url"
+            ],
+            "properties": {
+                "account_id": {
+                    "type": "string"
+                },
+                "ignored_jids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "import_days": {
+                    "type": "integer"
+                },
+                "inbox_name": {
+                    "type": "string"
+                },
+                "instance_id": {
+                    "type": "string"
+                },
+                "is_auto_create": {
+                    "type": "boolean"
+                },
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "is_import_contacts": {
+                    "type": "boolean"
+                },
+                "is_import_messages": {
+                    "type": "boolean"
+                },
+                "is_merge_enabled": {
+                    "type": "boolean"
+                },
+                "is_pending_enabled": {
+                    "type": "boolean"
+                },
+                "is_reopen_enabled": {
+                    "type": "boolean"
+                },
+                "is_sign_enabled": {
+                    "type": "boolean"
+                },
+                "logo": {
+                    "type": "string"
+                },
+                "organization": {
+                    "type": "string"
+                },
+                "sign_delimiter": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "webhook_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "representation.ConnectionResponse": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "last_connected_at": {
+                    "type": "string"
+                },
+                "last_error": {
+                    "$ref": "#/definitions/representation.LastErrorResponse"
+                },
+                "qr_code": {
+                    "type": "string"
+                },
+                "qr_expires_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "representation.CreateInstanceResponse": {
+            "type": "object",
+            "required": [
+                "instance",
+                "instance_api_key"
+            ],
+            "properties": {
+                "instance": {
+                    "$ref": "#/definitions/representation.InstanceResponse"
+                },
+                "instance_api_key": {
+                    "type": "string"
+                }
+            }
+        },
+        "representation.GroupEnvelope": {
+            "type": "object",
+            "required": [
+                "group"
+            ],
+            "properties": {
+                "group": {
+                    "$ref": "#/definitions/representation.GroupResponse"
+                }
+            }
+        },
+        "representation.GroupParticipantResponse": {
+            "type": "object",
+            "required": [
+                "is_admin",
+                "is_super_admin",
+                "jid"
+            ],
+            "properties": {
+                "is_admin": {
+                    "type": "boolean"
+                },
+                "is_super_admin": {
+                    "type": "boolean"
+                },
+                "jid": {
+                    "type": "string"
+                }
+            }
+        },
+        "representation.GroupResponse": {
+            "type": "object",
+            "required": [
+                "jid",
+                "name",
+                "participant_count",
+                "participants"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "invite_code": {
+                    "type": "string"
+                },
+                "jid": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "participant_count": {
+                    "type": "integer"
+                },
+                "participants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/representation.GroupParticipantResponse"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "representation.InstanceEnvelope": {
+            "type": "object",
+            "required": [
+                "instance"
+            ],
+            "properties": {
+                "instance": {
+                    "$ref": "#/definitions/representation.InstanceResponse"
+                }
+            }
+        },
+        "representation.InstanceListResponse": {
+            "type": "object",
+            "required": [
+                "instances"
+            ],
+            "properties": {
+                "instances": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/representation.InstanceResponse"
+                    }
+                }
+            }
+        },
+        "representation.InstanceResponse": {
+            "type": "object",
+            "required": [
+                "connection",
+                "created_at",
+                "id",
+                "integration",
+                "name",
+                "updated_at"
+            ],
+            "properties": {
+                "connection": {
+                    "$ref": "#/definitions/representation.ConnectionResponse"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "integration": {
+                    "$ref": "#/definitions/representation.IntegrationResponse"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "settings": {
+                    "$ref": "#/definitions/representation.SettingsResponse"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "representation.InstanceStatsResponse": {
+            "type": "object",
+            "required": [
+                "by_status",
+                "total"
+            ],
+            "properties": {
+                "by_status": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "representation.IntegrationResponse": {
+            "type": "object",
+            "required": [
+                "webhook"
+            ],
+            "properties": {
+                "chatwoot_config": {
+                    "$ref": "#/definitions/representation.ChatwootConfigResponse"
+                },
+                "webhook": {
+                    "$ref": "#/definitions/representation.WebhookResponse"
+                }
+            }
+        },
+        "representation.LastErrorResponse": {
+            "type": "object",
+            "required": [
+                "code",
+                "message"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "occurred_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "representation.MessageAcceptedResponse": {
+            "type": "object",
+            "required": [
+                "message"
+            ],
+            "properties": {
+                "message": {
+                    "$ref": "#/definitions/representation.AcceptedMessageResponse"
+                }
+            }
+        },
+        "representation.MessageEnvelope": {
+            "type": "object",
+            "required": [
+                "message"
+            ],
+            "properties": {
+                "message": {
+                    "$ref": "#/definitions/representation.MessageResponse"
+                }
+            }
+        },
+        "representation.MessageListResponse": {
+            "type": "object",
+            "required": [
+                "messages"
+            ],
+            "properties": {
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/representation.MessageResponse"
+                    }
+                },
+                "next_cursor": {
+                    "type": "string"
+                }
+            }
+        },
+        "representation.MessageResponse": {
+            "type": "object",
+            "required": [
+                "created_at",
+                "id",
+                "instance_id",
+                "message_type",
+                "recipient_jid",
+                "retry_count",
+                "send_status",
+                "updated_at"
+            ],
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "delivered_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instance_id": {
+                    "type": "string"
+                },
+                "last_error": {
+                    "$ref": "#/definitions/representation.LastErrorResponse"
+                },
+                "media_id": {
+                    "type": "string"
+                },
+                "message_type": {
+                    "type": "string"
+                },
+                "next_attempt_at": {
+                    "type": "string"
+                },
+                "read_at": {
+                    "type": "string"
+                },
+                "recipient_jid": {
+                    "type": "string"
+                },
+                "retry_count": {
+                    "type": "integer"
+                },
+                "send_status": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "wa_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "representation.NewsletterResponse": {
+            "type": "object",
+            "required": [
+                "channel",
+                "follower_count",
+                "title"
+            ],
+            "properties": {
+                "channel": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "follower_count": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "representation.PairingConnection": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "qr_code": {
+                    "type": "string"
+                },
+                "qr_expires_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "representation.PrivacyResponse": {
+            "type": "object",
+            "required": [
+                "groups_add",
+                "last_seen",
+                "profile_photo",
+                "read_receipts",
+                "status"
+            ],
+            "properties": {
+                "groups_add": {
+                    "type": "string"
+                },
+                "last_seen": {
+                    "type": "string"
+                },
+                "profile_photo": {
+                    "type": "string"
+                },
+                "read_receipts": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "representation.ProfileResponse": {
+            "type": "object",
+            "required": [
+                "name",
+                "status_text"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "photo_url": {
+                    "type": "string"
+                },
+                "status_text": {
+                    "type": "string"
+                }
+            }
+        },
+        "representation.SettingsResponse": {
+            "type": "object",
+            "properties": {
+                "default_disappearing": {
+                    "description": "DefaultDisappearing is the persisted echo of the last successful\ndefault-disappearing write, in the textual form the PUT accepts (a Go\nduration; canonical spellings 0, 24h, 168h, 2160h). Absence means never\nconfigured and is distinct from the stored off value \"0\".",
+                    "type": "string"
+                },
+                "privacy": {
+                    "$ref": "#/definitions/representation.PrivacyResponse"
+                },
+                "profile": {
+                    "$ref": "#/definitions/representation.ProfileResponse"
+                },
+                "status_privacy": {
+                    "$ref": "#/definitions/representation.StatusPrivacyResponse"
+                }
+            }
+        },
+        "representation.StatsEnvelope": {
+            "type": "object",
+            "required": [
+                "stats"
+            ],
+            "properties": {
+                "stats": {
+                    "$ref": "#/definitions/representation.InstanceStatsResponse"
+                }
+            }
+        },
+        "representation.StatusPrivacyResponse": {
+            "type": "object",
+            "required": [
+                "jids",
+                "mode"
+            ],
+            "properties": {
+                "jids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mode": {
+                    "type": "string"
+                }
+            }
+        },
+        "representation.WebhookResponse": {
+            "type": "object",
+            "required": [
+                "enabled",
+                "events"
+            ],
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "statuses.OwnStatusResponse": {
+            "type": "object",
+            "required": [
+                "created_at",
+                "id",
+                "type"
+            ],
+            "properties": {
+                "caption": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "statuses.PublishStatusRequest": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "statuses.StatusDeleteResponse": {
+            "type": "object",
+            "required": [
+                "deleted"
+            ],
+            "properties": {
+                "deleted": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "statuses.StatusListResponse": {
+            "type": "object",
+            "required": [
+                "statuses"
+            ],
+            "properties": {
+                "statuses": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/statuses.OwnStatusResponse"
+                    }
+                }
+            }
+        },
+        "statuses.StatusPublishResponse": {
+            "type": "object",
+            "required": [
+                "message_id",
+                "status"
+            ],
+            "properties": {
+                "message_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "users.CreateUserRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "instance_limit": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "password": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "users.PatchQuotaRequest": {
+            "type": "object",
+            "properties": {
+                "instance_limit": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "users.UserListResponse": {
+            "type": "object",
+            "required": [
+                "users"
+            ],
+            "properties": {
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/users.UserResponse"
+                    }
+                }
+            }
+        },
+        "users.UserResponse": {
+            "type": "object",
+            "required": [
+                "created_at",
+                "email",
+                "id",
+                "instance_limit",
+                "instances_used",
+                "role",
+                "updated_at"
+            ],
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instance_limit": {
+                    "type": "integer"
+                },
+                "instances_used": {
+                    "type": "integer"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "users.UserResponseEnvelope": {
+            "type": "object",
+            "required": [
+                "user"
+            ],
+            "properties": {
+                "user": {
+                    "$ref": "#/definitions/users.UserResponse"
                 }
             }
         }

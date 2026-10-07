@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -12,7 +12,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
+	"wzap/internal/httpapi/chatwoot"
+	"wzap/internal/httpapi/messages"
 	"wzap/internal/instance"
 	"wzap/internal/model"
 	"wzap/internal/session"
@@ -27,7 +31,7 @@ func TestDTOContractStructuredErrors(t *testing.T) {
 		want             any
 	}{
 		{name: "none"},
-		{name: "without timestamp", code: "session_rejected", text: "qr code expired", want: map[string]any{"code": "session_rejected", "message": "qr code expired", "occurred_at": nil}},
+		{name: "without timestamp", code: "session_rejected", text: "qr code expired", want: map[string]any{"code": "session_rejected", "message": "qr code expired"}},
 		{name: "recorded", code: "session_rejected", text: "session rejected", at: &at, want: map[string]any{"code": "session_rejected", "message": "session rejected", "occurred_at": "2026-10-06T10:00:00Z"}},
 	}
 	for _, tc := range cases {
@@ -58,7 +62,6 @@ func TestDTOContractStructuredErrors(t *testing.T) {
 		})
 	}
 }
-
 func TestDTOContractMessageReceiptAndErrorFields(t *testing.T) {
 	at := time.Date(2026, 10, 6, 10, 0, 0, 0, time.UTC)
 	instanceID, messageID, mediaID := uuid.New(), uuid.New(), uuid.New()
@@ -88,7 +91,7 @@ func TestDTOContractMessageReceiptAndErrorFields(t *testing.T) {
 					if data["next_cursor"] != "next-message" {
 						t.Error("cursor lost")
 					}
-					data = data["items"].([]any)[0].(map[string]any)
+					data = map[string]any{"message": data["messages"].([]any)[0]}
 				}
 				object := data["message"].(map[string]any)
 				requireContractEntity(t, data, "message")
@@ -111,7 +114,6 @@ func TestDTOContractMessageReceiptAndErrorFields(t *testing.T) {
 		})
 	}
 }
-
 func TestDTOContractUserUsage(t *testing.T) {
 	at := time.Date(2026, 10, 6, 10, 0, 0, 0, time.UTC)
 	user := &model.User{ID: uuid.New(), Email: "operator@example.com", Role: "user", InstanceQuota: 0, PasswordHash: "private-hash", CreatedAt: at, UpdatedAt: at}
@@ -135,14 +137,13 @@ func TestDTOContractUserUsage(t *testing.T) {
 			}
 			rec = serveJSON(t, srv, http.MethodGet, "/users", "")
 			decodeJSON(t, rec.Body.Bytes(), &payload)
-			listed := payload["data"].(map[string]any)["items"].([]any)[0].(map[string]any)["user"].(map[string]any)
+			listed := payload["data"].(map[string]any)["users"].([]any)[0].(map[string]any)
 			if listed["instances_used"] != float64(3) {
 				t.Errorf("listed usage = %v", listed["instances_used"])
 			}
 		})
 	}
 }
-
 func TestDTOContractNullUserLimit(t *testing.T) {
 	user := &model.User{ID: uuid.New(), Email: "operator@example.com", Role: "user", InstanceQuota: 7}
 	srv := usersCRUDServer(t, newFakeUserRepository(user), &fakeAPIKeyRepository{}, 4)
@@ -156,7 +157,6 @@ func TestDTOContractNullUserLimit(t *testing.T) {
 		t.Error("null did not become unlimited")
 	}
 }
-
 func TestDTOContractQRFieldsOnlyWhenPairing(t *testing.T) {
 	at := time.Now()
 	svc := &fakeInstanceService{connectFn: func(context.Context, uuid.UUID) (instance.ConnectResult, error) {
@@ -178,10 +178,10 @@ func TestDTOContractQRFieldsOnlyWhenPairing(t *testing.T) {
 
 // instanceSettingsServer wires svc plus the Chatwoot config store behind the
 // aggregate instance routes, with a public base for the computed webhook URL.
-func instanceSettingsServer(t *testing.T, svc InstanceService, configs ChatwootConfigStore) *http.Server {
+func instanceSettingsServer(t *testing.T, svc httpapi.InstanceService, configs chatwoot.ChatwootConfigStore) *http.Server {
 	t.Helper()
-	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, zerolog.Nop(),
-		Deps{
+	return httpapi.New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, zerolog.Nop(),
+		httpapi.Deps{
 			ReadyChecker:    checkFunc(func(context.Context) error { return nil }),
 			Instances:       svc,
 			ChatwootConfigs: configs,
@@ -191,7 +191,7 @@ func instanceSettingsServer(t *testing.T, svc InstanceService, configs ChatwootC
 
 // TestDTOContractInstanceIntegrationAndSettings pins the aggregated instance
 // shape (BREAKING): the webhook block travels under integration and the
-// settings blocks stay null while the instance is offline or never
+// settings blocks are omitted while the instance is offline or never
 // configured — the aggregate never fetches live blocks for a disconnected
 // instance and the persisted default_disappearing echo stays null until the
 // first PUT of the default timer.
@@ -230,20 +230,16 @@ func TestDTOContractInstanceIntegrationAndSettings(t *testing.T) {
 
 	integration := inst["integration"].(map[string]any)
 	requireContractKeys(t, integration, "webhook,chatwoot_config")
-	if integration["chatwoot_config"] != nil {
-		t.Errorf("integration.chatwoot_config = %v, want null without a stored config", integration["chatwoot_config"])
+	if _, exists := integration["chatwoot_config"]; exists {
+		t.Errorf("integration.chatwoot_config = %v, want omitted without a stored config", integration["chatwoot_config"])
 	}
 	requireContractKeys(t, integration["webhook"].(map[string]any), "enabled,url,events")
 	if events := integration["webhook"].(map[string]any)["events"].([]any); !reflect.DeepEqual(events, []any{"message", "receipt"}) {
 		t.Errorf("integration.webhook.events = %v, want [message receipt]", events)
 	}
 
-	settings := inst["settings"].(map[string]any)
-	requireContractKeys(t, settings, "default_disappearing,profile,privacy,status_privacy")
-	for _, key := range []string{"default_disappearing", "profile", "privacy", "status_privacy"} {
-		if settings[key] != nil {
-			t.Errorf("settings.%s = %v, want null while disconnected/unconfigured", key, settings[key])
-		}
+	if _, exists := inst["settings"]; exists {
+		t.Error("unconfigured settings must be omitted")
 	}
 	requireContractArraysAndPrivacy(t, payload)
 }
@@ -341,7 +337,7 @@ func TestDTOContractInstanceSettingsAggregated(t *testing.T) {
 
 // A failing live read degrades to a null block: the aggregate still answers
 // 200 with the remaining blocks instead of cascading a 500 or 409.
-func TestDTOContractInstanceSettingsBlockFailureStaysNull(t *testing.T) {
+func TestDTOContractInstanceSettingsBlockFailureOmitsAbsent(t *testing.T) {
 	at := time.Date(2026, 10, 6, 10, 0, 0, 0, time.UTC)
 	id := uuid.New()
 	stored := &model.Instance{ID: id, Name: "loja",
@@ -370,26 +366,26 @@ func TestDTOContractInstanceSettingsBlockFailureStaysNull(t *testing.T) {
 	var payload map[string]any
 	decodeJSON(t, rec.Body.Bytes(), &payload)
 	settings := payload["data"].(map[string]any)["instance"].(map[string]any)["settings"].(map[string]any)
-	if settings["profile"] != nil {
-		t.Errorf("settings.profile = %v, want null after a failed read", settings["profile"])
+	if _, exists := settings["profile"]; exists {
+		t.Errorf("settings.profile = %v, want omitted after a failed read", settings["profile"])
 	}
-	if settings["status_privacy"] != nil {
-		t.Errorf("settings.status_privacy = %v, want null after a failed read", settings["status_privacy"])
+	if _, exists := settings["status_privacy"]; exists {
+		t.Errorf("settings.status_privacy = %v, want omitted after a failed read", settings["status_privacy"])
 	}
 	if settings["privacy"].(map[string]any)["last_seen"] != "all" {
 		t.Errorf("settings.privacy = %v, want the block that succeeded", settings["privacy"])
 	}
 	integration := payload["data"].(map[string]any)["instance"].(map[string]any)["integration"].(map[string]any)
-	if integration["chatwoot_config"] != nil {
-		t.Errorf("integration.chatwoot_config = %v, want null after a failed lookup", integration["chatwoot_config"])
+	if _, exists := integration["chatwoot_config"]; exists {
+		t.Errorf("integration.chatwoot_config = %v, want omitted after a failed lookup", integration["chatwoot_config"])
 	}
 }
 
-// TestDTOContractInstanceListKeepsOrderAndNullBlocks pins the listing
-// aggregate: a disconnected item keeps its persisted integration and a null
-// live block without a session read, a failed source nulls only that block,
+// TestDTOContractInstanceListKeepsOrderAndAbsentBlocks pins the listing
+// aggregate: a disconnected item keeps its persisted integration and an omitted
+// live block without a session read, a failed source omits only that block,
 // and parallel assembly preserves item order.
-func TestDTOContractInstanceListKeepsOrderAndNullBlocks(t *testing.T) {
+func TestDTOContractInstanceListKeepsOrderAndAbsentBlocks(t *testing.T) {
 	at := time.Date(2026, 10, 6, 10, 0, 0, 0, time.UTC)
 	off := model.Instance{ID: uuid.New(), Name: "off", Connection: model.InstanceConnection{Status: "disconnected"}, Webhook: model.InstanceWebhook{Events: []string{"message"}}, CreatedAt: at, UpdatedAt: at}
 	slow := model.Instance{ID: uuid.New(), Name: "slow", Connection: model.InstanceConnection{Status: "connected"}, Webhook: model.InstanceWebhook{Events: []string{"receipt"}}, CreatedAt: at, UpdatedAt: at}
@@ -445,13 +441,13 @@ func TestDTOContractInstanceListKeepsOrderAndNullBlocks(t *testing.T) {
 	}
 	var payload map[string]any
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	items := payload["data"].(map[string]any)["items"].([]any)
+	items := payload["data"].(map[string]any)["instances"].([]any)
 	if len(items) != 3 {
 		t.Fatalf("items = %d, want 3", len(items))
 	}
 	wantOrder := []string{off.ID.String(), slow.ID.String(), fast.ID.String()}
 	for i, wantID := range wantOrder {
-		inst := items[i].(map[string]any)["instance"].(map[string]any)
+		inst := items[i].(map[string]any)
 		if inst["id"] != wantID {
 			t.Errorf("items[%d].instance.id = %v, want %s", i, inst["id"], wantID)
 		}
@@ -460,28 +456,25 @@ func TestDTOContractInstanceListKeepsOrderAndNullBlocks(t *testing.T) {
 			t.Errorf("items[%d] still has a root webhook", i)
 		}
 	}
-	offSettings := items[0].(map[string]any)["instance"].(map[string]any)["settings"].(map[string]any)
-	for _, key := range []string{"default_disappearing", "profile", "privacy", "status_privacy"} {
-		if offSettings[key] != nil {
-			t.Errorf("disconnected settings.%s = %v, want null", key, offSettings[key])
-		}
+	if _, exists := items[0].(map[string]any)["settings"]; exists {
+		t.Error("disconnected unconfigured settings must be omitted")
 	}
-	offIntegration := items[0].(map[string]any)["instance"].(map[string]any)["integration"].(map[string]any)
-	if offIntegration["chatwoot_config"] != nil {
-		t.Errorf("disconnected chatwoot_config = %v, want null", offIntegration["chatwoot_config"])
+	offIntegration := items[0].(map[string]any)["integration"].(map[string]any)
+	if _, exists := offIntegration["chatwoot_config"]; exists {
+		t.Errorf("disconnected chatwoot_config = %v, want omitted", offIntegration["chatwoot_config"])
 	}
-	slowSettings := items[1].(map[string]any)["instance"].(map[string]any)["settings"].(map[string]any)
-	if slowSettings["profile"] != nil {
-		t.Errorf("failed profile = %v, want null", slowSettings["profile"])
+	slowSettings := items[1].(map[string]any)["settings"].(map[string]any)
+	if _, exists := slowSettings["profile"]; exists {
+		t.Errorf("failed profile = %v, want omitted", slowSettings["profile"])
 	}
 	if slowSettings["privacy"].(map[string]any)["last_seen"] != "all" {
 		t.Errorf("privacy = %v, want the block that succeeded", slowSettings["privacy"])
 	}
-	slowIntegration := items[1].(map[string]any)["instance"].(map[string]any)["integration"].(map[string]any)
-	if slowIntegration["chatwoot_config"] != nil {
-		t.Errorf("failed chatwoot_config = %v, want null", slowIntegration["chatwoot_config"])
+	slowIntegration := items[1].(map[string]any)["integration"].(map[string]any)
+	if _, exists := slowIntegration["chatwoot_config"]; exists {
+		t.Errorf("failed chatwoot_config = %v, want omitted", slowIntegration["chatwoot_config"])
 	}
-	fastChatwoot := items[2].(map[string]any)["instance"].(map[string]any)["integration"].(map[string]any)["chatwoot_config"].(map[string]any)
+	fastChatwoot := items[2].(map[string]any)["integration"].(map[string]any)["chatwoot_config"].(map[string]any)
 	if fastChatwoot["account_id"] != "7" || strings.Contains(rec.Body.String(), "private-token") {
 		t.Errorf("fast chatwoot_config = %v", fastChatwoot)
 	}
@@ -489,7 +482,7 @@ func TestDTOContractInstanceListKeepsOrderAndNullBlocks(t *testing.T) {
 }
 
 // Creation and update answer the same aggregated instance shape. A fresh
-// instance is disconnected, so the live blocks and the timer echo stay null.
+// instance is disconnected, so the live blocks and the timer echo are omitted.
 func TestDTOContractInstanceWritesReturnAggregatedShape(t *testing.T) {
 	created := &model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}, Webhook: model.InstanceWebhook{Events: []string{"message"}}}
 	svc := &fakeInstanceService{
@@ -512,8 +505,10 @@ func TestDTOContractInstanceWritesReturnAggregatedShape(t *testing.T) {
 	decodeJSON(t, rec.Body.Bytes(), &createdPayload)
 	createdInst := createdPayload["data"].(map[string]any)["instance"].(map[string]any)
 	requireContractKeys(t, createdInst, "id,name,connection,integration,settings,created_at,updated_at")
-	if createdInst["settings"].(map[string]any)["profile"] != nil || createdInst["integration"].(map[string]any)["chatwoot_config"] != nil {
-		t.Errorf("create instance = %v, want null live/chatwoot blocks", createdInst)
+	_, hasSettings := createdInst["settings"]
+	_, hasChatwoot := createdInst["integration"].(map[string]any)["chatwoot_config"]
+	if hasSettings || hasChatwoot {
+		t.Errorf("create instance = %v, want omitted live/chatwoot blocks", createdInst)
 	}
 
 	updated := &model.Instance{ID: created.ID, Name: "loja-2", Connection: model.InstanceConnection{Status: "disconnected"}, Webhook: model.InstanceWebhook{Events: []string{"message"}}}
@@ -546,7 +541,7 @@ func TestDTOContractMessageAcceptedFields(t *testing.T) {
 		{name: "media", mediaID: &mediaID, want: mediaID.String()},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			raw, err := json.Marshal(newMessageAcceptedResponse(messageID, instanceID, tc.mediaID))
+			raw, err := json.Marshal(messages.NewMessageAcceptedResponse(messageID, instanceID, tc.mediaID))
 			if err != nil {
 				t.Fatal(err)
 			}

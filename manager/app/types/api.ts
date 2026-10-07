@@ -1,9 +1,8 @@
-// Shared shapes of the Go API contract after the storage/JSON remodel.
+// Public Go API response and request shapes.
 // Success answers { data }, failures answer { error: { code, message } };
 // every response echoes X-Request-Id. Persisted resources travel under
-// data.<entity> on single reads/writes and under data.items[].<entity> on
-// collections; commands keep their flat result objects (response-matrix
-// rules §1–§7).
+// data.<entity> on single reads/writes and directly under data.<plural>
+// on collections; commands keep their flat result objects.
 
 // Success envelope wrapping every 2xx JSON payload.
 export interface ApiEnvelope<T> {
@@ -42,21 +41,21 @@ export type VisionScope = 'global' | 'instance'
 export type InstanceStatus = 'disconnected' | 'pairing' | 'connected' | 'error'
 
 // Structured failure of a connection or a send: code from the closed catalog,
-// the human-readable message and occurred_at (null when the time is unknown).
+// the human-readable message and optional occurred_at when its time is known.
 export interface LastError {
   code: string
   message: string
-  occurred_at: string | null
+  occurred_at?: string
 }
 
 // Public connection block of an instance and of the connection-scoped
 // routes. QR fields only appear while a pairing is in progress.
 export interface ConnectionInfo {
   status: InstanceStatus
-  last_error: LastError | null
-  last_connected_at: string | null
+  last_error?: LastError
+  last_connected_at?: string
   qr_code?: string
-  qr_expires_at?: string | null
+  qr_expires_at?: string
 }
 
 // Pairing subset answered by POST connect and GET qr: status plus the QR
@@ -64,44 +63,43 @@ export interface ConnectionInfo {
 export interface PairingConnection {
   status: InstanceStatus
   qr_code?: string
-  qr_expires_at?: string | null
+  qr_expires_at?: string
 }
 
 // Public webhook block of an instance: enabled flag, optional URL and the
 // subscribed event types (always an array).
 export interface WebhookConfig {
   enabled: boolean
-  url: string | null
+  url?: string
   events: string[]
 }
 
-// Integration blocks aggregated on every instance read (BREAKING: the
-// webhook configuration moved here from the instance root).
+// Integration blocks aggregated on every instance read.
 // chatwoot_config mirrors GET /instances/{id}/chatwoot minus instance_id
-// (the instance already carries its own id) and stays null when no connector
+// (the instance already carries its own id) and is omitted when no connector
 // config is stored; the write-only Chatwoot token never appears here either.
 export interface InstanceIntegration {
   webhook: WebhookConfig
-  chatwoot_config: InstanceChatwootConfig | null
+  chatwoot_config?: InstanceChatwootConfig
 }
 
 // Read-only account settings snapshot aggregated on every instance read.
-// Each block is null when the instance is disconnected or the block fetch
+// Each block is omitted when the instance is disconnected or the block fetch
 // failed — the aggregate never fails as a whole. Write paths are unchanged:
 // PATCH /instances/{id}/profile, PUT /instances/{id}/privacy and PUT
 // /instances/{id}/chats/default-disappearing remain the only mutators.
 export interface InstanceSettings {
   // Echo of the last PUT duration literal ("0", "24h", "168h", "2160h");
-  // null when the timer was never configured.
-  default_disappearing: string | null
-  profile: Profile | null
-  privacy: Privacy | null
-  status_privacy: StatusPrivacy | null
+  // omitted when the timer was never configured.
+  default_disappearing?: string
+  profile?: Profile
+  privacy?: Privacy
+  status_privacy?: StatusPrivacy
 }
 
 // Instance as answered by GET /instances and GET /instances/{id} under
-// data.instance, and nested under data.items[].instance in the collection.
-// Mirrors instanceResponse in internal/httpapi/dto.go: identity plus the
+// data.instance, and directly under data.instances[] in the collection.
+// Public representation: identity plus the
 // nested connection, integration and settings blocks and the timestamps.
 // Internal fields (device_jid, external_ref, owner_user_id, key hashes) never
 // leave the service; the instance API key is returned in clear exactly once
@@ -111,7 +109,7 @@ export interface Instance {
   name: string
   connection: ConnectionInfo
   integration: InstanceIntegration
-  settings: InstanceSettings
+  settings?: InstanceSettings
   created_at: string
   updated_at: string
 }
@@ -121,10 +119,9 @@ export interface InstanceEnvelope {
   instance: Instance
 }
 
-// Complete collection of instances authorized for GET /instances: every
-// element nests the instance under its own key.
+// Complete collection of instances authorized for GET /instances.
 export interface InstanceList {
-  items: InstanceEnvelope[]
+  instances: Instance[]
 }
 
 // GET /instances/stats answer under data.stats: the scoped total plus the
@@ -165,7 +162,7 @@ export interface ConnectResult {
 }
 
 // GET /instances/{id}/status answer: the full connection block of the
-// instance (whatsapp_jid was removed from the public read).
+// instance.
 export interface ConnectionStatus {
   connection: ConnectionInfo
 }
@@ -245,7 +242,7 @@ export interface CreateUserInput {
 }
 
 // Account as answered by GET /users (admin scope only), nested under
-// data.items[].user in the collection and data.user on single reads.
+// data.users[] in the collection and data.user on single reads.
 // instance_limit is the per-user cap (0 = unlimited); instances_used is the
 // backend-computed count of owned instances.
 export interface AccountUser {
@@ -263,7 +260,7 @@ export interface AccountUserEnvelope {
 }
 
 export interface AccountUserList {
-  items: AccountUserEnvelope[]
+  users: AccountUser[]
 }
 
 // Delivery state reported by the API for an outbound message: queued is the
@@ -272,23 +269,22 @@ export interface AccountUserList {
 export type MessageStatus = 'queued' | 'sending' | 'sent' | 'failed'
 
 // Outbound message as answered by GET /instances/{id}/messages/{message_id}
-// under data.message and by the list below under data.items[].message.
-// Mirrors messageResponse in internal/httpapi/dto.go: recipient_jid carries
-// the resolved WhatsApp JID, wa_id is null until the upstream confirms and
-// last_error is the structured failure or null.
+// under data.message and by the list below under data.messages[].
+// recipient_jid carries the resolved WhatsApp JID; wa_id is present once
+// confirmed, and last_error only when a structured failure is available.
 export interface OutboundMessage {
   id: string
   instance_id: string
   message_type: string
   recipient_jid: string
   send_status: MessageStatus
-  wa_id: string | null
-  media_id: string | null
+  wa_id?: string
+  media_id?: string
   retry_count: number
-  last_error: LastError | null
-  next_attempt_at: string | null
-  delivered_at: string | null
-  read_at: string | null
+  last_error?: LastError
+  next_attempt_at?: string
+  delivered_at?: string
+  read_at?: string
   created_at: string
   updated_at: string
 }
@@ -298,22 +294,21 @@ export interface OutboundMessageEnvelope {
 }
 
 // One page of GET /instances/{id}/messages with the opaque cursor of the next
-// page, empty on the last page.
+// page, omitted on the last page.
 export interface MessageListPage {
-  items: OutboundMessageEnvelope[]
-  next_cursor: string
+  messages: OutboundMessage[]
+  next_cursor?: string
 }
 
 // 202 answer of the send endpoints: the queue message as known at accept
 // time, nested under data.message — only its real fields, never fabricated
-// zero values (media_id is null except on media uploads). Mirrors
-// acceptedMessageResponse in internal/httpapi/dto.go. The detail screen polls
+// zero values (media_id is present on media uploads). The detail screen polls
 // the message route for the full DTO until it settles.
 export interface AcceptedMessageBody {
   id: string
   instance_id: string
   send_status: MessageStatus
-  media_id: string | null
+  media_id?: string
 }
 
 export interface AcceptedMessage {
@@ -352,7 +347,7 @@ export interface GroupParticipant {
 }
 
 // Group as answered by create/get (invite_code only on create), nested under
-// data.group on single reads and data.items[].group in collections.
+// data.group on single reads and data.groups[] in collections.
 export interface Group {
   jid: string
   name: string
@@ -360,7 +355,12 @@ export interface Group {
   participants: GroupParticipant[]
   participant_count: number
   invite_code?: string
-  updated_at: string
+  updated_at?: string
+}
+
+export interface GroupListPage {
+  groups: Group[]
+  next_cursor?: string
 }
 
 export interface GroupEnvelope {
@@ -393,7 +393,7 @@ export interface JoinGroupInput {
 // 200 answers of the group invite/participants/join/leave routes. Join
 // answers the entered group JID; leave and picture/participant updates
 // answer a boolean flag. Mirrors groupInviteResponse, groupJoinResponse,
-// groupLeaveResponse and groupUpdatedResponse in internal/httpapi/groups.go.
+// groupLeaveResponse and groupUpdatedResponse in internal/httpapi/groups/.
 export interface GroupJoinResult {
   jid: string
 }
@@ -407,13 +407,13 @@ export interface GroupUpdatedResult {
 }
 
 // Newsletter channel as answered by follow/unfollow/get/list, nested under
-// data.channel on single reads and data.items[].channel in collections.
+// data.channel on single reads and data.channels[] in collections.
 export interface Newsletter {
   channel: string
   title: string
   description?: string
   follower_count: number
-  updated_at: string
+  updated_at?: string
 }
 
 export interface NewsletterEnvelope {
@@ -421,8 +421,38 @@ export interface NewsletterEnvelope {
 }
 
 export interface NewsletterListPage {
-  items: NewsletterEnvelope[]
-  next_cursor: string
+  channels: Newsletter[]
+  next_cursor?: string
+}
+
+// Channel messages returned by both message and update queries.
+export interface ChannelMessage {
+  server_id: string
+  content: string
+  timestamp: string
+}
+
+export interface ChannelMessages {
+  messages: ChannelMessage[]
+}
+
+export interface ChannelMessageListPage extends ChannelMessages {
+  next_cursor?: string
+}
+
+export interface ContactCheckResult {
+  phone: string
+  jid: string
+  is_on_whatsapp: boolean
+  last_seen?: string
+}
+
+export interface ContactCheckResults {
+  contacts: ContactCheckResult[]
+}
+
+export interface BlockList {
+  blocked_jids: string[]
 }
 
 export interface NewsletterFollowInput {
@@ -431,12 +461,12 @@ export interface NewsletterFollowInput {
 
 // 200 answer of the newsletter follow/unfollow routes: followed is true
 // after a follow, false after an unfollow. Mirrors
-// newsletterFollowResponse in internal/httpapi/newsletters.go.
+// newsletterFollowResponse in internal/httpapi/channels/.
 export interface NewsletterFollowResult {
   followed: boolean
 }
 
-// Own status entry of GET status/updates under data.items[].
+// Own status entry of GET status/updates under data.statuses[].
 export interface OwnStatus {
   id: string
   type: string
@@ -452,7 +482,7 @@ export interface StatusPublishResult {
 
 // Payload for POST /instances/{id}/status/updates (text statuses only;
 // image and video ride the multipart media route below). Mirrors
-// publishStatusRequest in internal/httpapi/status.go: text carries 1..700
+// publishStatusRequest in internal/httpapi/statuses/: text carries 1..700
 // characters.
 export interface PublishStatusInput {
   type: 'text'
@@ -461,7 +491,7 @@ export interface PublishStatusInput {
 
 // Payload for POST /instances/{id}/status/updates/media
 // (multipart/form-data). Mirrors the media publish handler in
-// internal/httpapi/status.go: kind is image|video and must match the file
+// internal/httpapi/statuses/: kind is image|video and must match the file
 // content type, caption caps at 700 characters.
 export interface PublishStatusMediaInput {
   type: 'image' | 'video'
@@ -469,15 +499,15 @@ export interface PublishStatusMediaInput {
   file: File
 }
 
-// 200 answer of GET /instances/{id}/status/updates. Items is always an
+// 200 answer of GET /instances/{id}/status/updates. statuses is always an
 // array, empty when nothing was published since boot. Mirrors
-// statusListResponse in internal/httpapi/status.go.
+// statusListResponse in internal/httpapi/statuses/.
 export interface StatusListPage {
-  items: OwnStatus[]
+  statuses: OwnStatus[]
 }
 
 // 200 answer of DELETE /instances/{id}/status/updates/{status_id}.
-// Mirrors statusDeleteResponse in internal/httpapi/status.go.
+// Mirrors statusDeleteResponse in internal/httpapi/statuses/.
 export interface StatusDeleteResult {
   deleted: boolean
 }
@@ -485,27 +515,27 @@ export interface StatusDeleteResult {
 // Payload for PATCH /instances/{id}/profile: nil-equivalent (omitted)
 // fields keep their upstream value, an explicit empty status_text clears
 // the recado while an empty name is rejected (1..100). Mirrors
-// updateProfileRequest in internal/httpapi/profile.go.
+// updateProfileRequest in internal/httpapi/profile/.
 export interface UpdateProfileInput {
   name?: string
   status_text?: string
 }
 
 // 200 answer of PUT /instances/{id}/profile/photo (octet-stream upload).
-// Mirrors profilePhotoResponse in internal/httpapi/profile.go.
+// Mirrors profilePhotoResponse in internal/httpapi/profile/.
 export interface ProfilePhotoResult {
   updated: boolean
 }
 
 // Privacy field allowlists. Last seen, profile photo, status and groups
 // add take the four-valued literals; read receipts take all|none. Mirrors
-// validPrivacyValue/validReadReceiptsValue in internal/httpapi/profile.go.
+// validPrivacyValue/validReadReceiptsValue in internal/httpapi/profile/.
 export type PrivacyFieldValue = 'all' | 'contacts' | 'contact_blacklist' | 'none'
 
 export type ReadReceiptsValue = 'all' | 'none'
 
 // Payload for PUT /instances/{id}/privacy: at least one field must be
-// present. Mirrors updatePrivacyRequest in internal/httpapi/profile.go.
+// present. Mirrors updatePrivacyRequest in internal/httpapi/profile/.
 export interface UpdatePrivacyInput {
   last_seen?: PrivacyFieldValue
   profile_photo?: PrivacyFieldValue
@@ -516,7 +546,7 @@ export interface UpdatePrivacyInput {
 
 // Payload for POST /instances/{id}/pair-phone. Requires an open pairing
 // channel from a prior Connect; without one the server answers 409.
-// Mirrors pairPhoneRequest in internal/httpapi/pair_phone.go.
+// Mirrors pairPhoneRequest in internal/httpapi/instances/.
 export interface PairPhoneInput {
   phone: string
 }
@@ -525,7 +555,7 @@ export interface PairPhoneInput {
 export interface Profile {
   name: string
   status_text: string
-  photo_url: string
+  photo_url?: string
 }
 
 export interface Privacy {
@@ -538,7 +568,7 @@ export interface Privacy {
 
 // Own status audience as answered by GET /instances/{id}/status/privacy and
 // mirrored read-only in instance.settings.status_privacy. Mirrors
-// statusPrivacyResponse in internal/httpapi/parity_reads.go: mode is the
+// statusPrivacyResponse in internal/httpapi/representation/: mode is the
 // upstream audience literal and jids lists the explicit contacts when the
 // audience is customized (empty otherwise).
 export interface StatusPrivacy {
@@ -557,8 +587,8 @@ export interface PairPhoneResult {
 export interface ChatwootConfig {
   instance_id: string
   is_enabled: boolean
-  url: string
-  account_id: string
+  url?: string
+  account_id?: string
   inbox_name: string
   is_sign_enabled: boolean
   sign_delimiter: string
@@ -569,15 +599,15 @@ export interface ChatwootConfig {
   is_import_messages: boolean
   import_days: number
   is_auto_create: boolean
-  organization: string
-  logo: string
+  organization?: string
+  logo?: string
   ignored_jids: string[]
-  webhook_url: string
+  webhook_url?: string
 }
 
 // Chatwoot connector config nested under instance.integration.chatwoot_config
-// (instance reads): the GET/PUT chatwoot shape minus instance_id, nullable
-// when the instance carries no stored connector config.
+// (instance reads): the GET/PUT shape minus instance_id, omitted when no
+// connector config is available.
 export type InstanceChatwootConfig = Omit<ChatwootConfig, 'instance_id'>
 
 export interface ChatwootConfigEnvelope {
@@ -591,7 +621,7 @@ export interface ChatwootImportResult {
 }
 
 // Payload for PUT /instances/{id}/chatwoot. Booleans are values (absent
-// means false). Mirrors chatwootSetRequest in internal/httpapi/chatwoot.go.
+// means false). Mirrors chatwootSetRequest in internal/httpapi/chatwoot/.
 // The token travels write-only: it is accepted on PUT and never appears in
 // GET or PUT responses.
 export interface ChatwootSetInput {
@@ -616,7 +646,7 @@ export interface ChatwootSetInput {
 
 // Payload for POST /instances/{id}/chatwoot/command (status,
 // init[:number], clearcache, disconnect). Mirrors chatwootCommandRequest
-// in internal/httpapi/chatwoot.go.
+// in internal/httpapi/chatwoot/.
 export interface ChatwootCommandInput {
   command: string
   conversation_id: number
@@ -680,7 +710,7 @@ export interface PresenceInput {
 
 // 200 answer of POST /instances/{id}/presence: one call publishes one
 // signal, there is no continuous mode. Mirrors presenceResponse in
-// internal/httpapi/presence.go.
+// internal/httpapi/instances/.
 export interface PresenceResult {
   sent: boolean
 }
@@ -692,7 +722,7 @@ export interface RevokeInput {
 
 // 200 answer of POST /instances/{id}/messages/revoke. Revoked is always
 // true here: the protocol revoke is fire-and-forget, failures surface as
-// 409/422 instead. Mirrors revokeResponse in internal/httpapi/lifecycle.go.
+// 409/422 instead. Mirrors revokeResponse in internal/httpapi/messages/.
 export interface RevokeResult {
   revoked: boolean
 }
@@ -704,7 +734,7 @@ export interface MarkReadInput {
 }
 
 // 200 answer of POST /instances/{id}/chats/mark-read. Mirrors
-// markReadResponse in internal/httpapi/lifecycle.go.
+// markReadResponse in internal/httpapi/messages/.
 export interface MarkReadResult {
   marked_read: boolean
 }
@@ -716,7 +746,7 @@ export interface RejectCallInput {
 
 // 200 answer of POST /instances/{id}/calls/reject. An upstream that cannot
 // reject answers 501 not_supported. Mirrors rejectCallResponse in
-// internal/httpapi/calls.go.
+// internal/httpapi/instances/.
 export interface RejectCallResult {
   rejected: boolean
 }

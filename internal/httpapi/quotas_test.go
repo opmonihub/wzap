@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
 	"wzap/internal/model"
 	"wzap/internal/storage"
 )
@@ -29,14 +30,12 @@ func (f *countingKeys) SetHash(_ context.Context, instanceID uuid.UUID, hash str
 	f.byHash[hash] = instanceID
 	return nil
 }
-
 func (f *countingKeys) InstanceByHash(_ context.Context, hash string) (uuid.UUID, error) {
 	if id, ok := f.byHash[hash]; ok {
 		return id, nil
 	}
 	return uuid.Nil, storage.ErrNotFound
 }
-
 func (f *countingKeys) ClearHash(_ context.Context, instanceID uuid.UUID) error {
 	for hash, id := range f.byHash {
 		if id == instanceID {
@@ -72,10 +71,10 @@ func (f *countingKeys) CountAll(_ context.Context) (int, error) {
 func quotaTestServer(t *testing.T, maxInstances int, users storage.UserRepository, keys storage.APIKeyRepository) (*http.Server, *fakeInstanceService) {
 	t.Helper()
 	svc := &fakeInstanceService{createFn: echoCreateFn("quota-key-1")}
-	srv := New(
+	srv := httpapi.New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, MaxInstances: maxInstances},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    svc,
 			Users:        users,
@@ -85,15 +84,12 @@ func quotaTestServer(t *testing.T, maxInstances int, users storage.UserRepositor
 	)
 	return srv, svc
 }
-
 func quotaUser(id uuid.UUID, email, role string, quota int) *model.User {
 	return &model.User{ID: id, Email: email, Role: role, InstanceQuota: quota}
 }
-
 func ownedInstance(owner uuid.UUID, status string) model.Instance {
 	return model.Instance{ID: uuid.New(), Name: "loja", OwnerUserID: &owner, Connection: model.InstanceConnection{Status: status}}
 }
-
 func TestQuotaGlobalMaxBlocksUserButNotAdminOrGlobal(t *testing.T) {
 	userID := uuid.New()
 	adminID := uuid.New()
@@ -102,8 +98,7 @@ func TestQuotaGlobalMaxBlocksUserButNotAdminOrGlobal(t *testing.T) {
 		quotaUser(adminID, "admin@example.com", "admin", 10),
 	)
 	other := uuid.New()
-	// The global ceiling is reached (2 >= 2) while the user still has quota
-	// headroom (0 owned of 10).
+
 	keys := &countingKeys{instances: []model.Instance{
 		ownedInstance(other, "connected"),
 		ownedInstance(other, "disconnected"),
@@ -142,12 +137,10 @@ func TestQuotaGlobalMaxBlocksUserButNotAdminOrGlobal(t *testing.T) {
 		}
 	})
 }
-
 func TestQuotaUserQuotaExceededBlocksIncludingDisconnected(t *testing.T) {
 	userID := uuid.New()
 	users := newFakeUserRepository(quotaUser(userID, "cliente@example.com", "user", 1))
-	// The single owned row is disconnected: every existing instance counts,
-	// any state, so the user at 1 of 1 is denied.
+
 	keys := &countingKeys{instances: []model.Instance{ownedInstance(userID, "disconnected")}}
 	srv, svc := quotaTestServer(t, 0, users, keys)
 
@@ -164,7 +157,6 @@ func TestQuotaUserQuotaExceededBlocksIncludingDisconnected(t *testing.T) {
 		t.Errorf("Create calls = %d, want none when the user quota denies", len(svc.createInputs))
 	}
 }
-
 func TestQuotaZeroMeansUnlimited(t *testing.T) {
 	userID := uuid.New()
 
@@ -201,7 +193,6 @@ func TestQuotaZeroMeansUnlimited(t *testing.T) {
 		}
 	})
 }
-
 func TestQuotaWithinLimitsCreates(t *testing.T) {
 	userID := uuid.New()
 	users := newFakeUserRepository(quotaUser(userID, "cliente@example.com", "user", 2))
@@ -226,8 +217,7 @@ func TestQuotaIgnoresDefaultQuotaAtCheckTime(t *testing.T) {
 	userID := uuid.New()
 	users := newFakeUserRepository(quotaUser(userID, "cliente@example.com", "user", 0))
 	keys := &countingKeys{instances: []model.Instance{ownedInstance(userID, "disconnected")}}
-	// No DefaultUserQuota reaches the handler: only MaxInstances is wired, so
-	// the stored 0 must stay unlimited.
+
 	srv, _ := quotaTestServer(t, 0, users, keys)
 
 	cookie := rbacSessionCookie(mustSessionToken(t, userID, "user"))

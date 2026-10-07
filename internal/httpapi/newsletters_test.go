@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"wzap/internal/httpapi/channels"
+	"wzap/internal/httpapi/representation"
 	"wzap/internal/instance"
 )
 
@@ -25,7 +27,7 @@ func TestNewsletterFollow(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data newsletterFollowResponse `json:"data"`
+			Data channels.NewsletterFollowResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if !payload.Data.Followed {
@@ -93,7 +95,7 @@ func TestNewsletterFollow(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data newsletterFollowResponse `json:"data"`
+			Data channels.NewsletterFollowResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if payload.Data.Followed {
@@ -104,7 +106,6 @@ func TestNewsletterFollow(t *testing.T) {
 		}
 	})
 }
-
 func TestNewsletterGet(t *testing.T) {
 	t.Run("known channel answers its metadata", func(t *testing.T) {
 		now := time.Now().UTC().Truncate(time.Second)
@@ -129,7 +130,7 @@ func TestNewsletterGet(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data channelEnvelope `json:"data"`
+			Data representation.ChannelEnvelope `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if payload.Data.Channel.Title != "Canal da loja" || payload.Data.Channel.FollowerCount != 41 {
@@ -154,7 +155,6 @@ func TestNewsletterGet(t *testing.T) {
 		}
 	})
 }
-
 func TestNewsletterList(t *testing.T) {
 	t.Run("page carries items and the next cursor", func(t *testing.T) {
 		svc := &fakeInstanceService{
@@ -178,11 +178,11 @@ func TestNewsletterList(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data newsletterListResponse `json:"data"`
+			Data channels.NewsletterListResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if len(payload.Data.Items) != 2 {
-			t.Fatalf("data.items length = %d, want 2", len(payload.Data.Items))
+		if len(payload.Data.Channels) != 2 {
+			t.Fatalf("data.items length = %d, want 2", len(payload.Data.Channels))
 		}
 		if payload.Data.NextCursor != "222@newsletter" {
 			t.Errorf("data.next_cursor = %q, want the cursor", payload.Data.NextCursor)
@@ -208,10 +208,10 @@ func TestNewsletterList(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data newsletterListResponse `json:"data"`
+			Data channels.NewsletterListResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if payload.Data.Items == nil {
+		if payload.Data.Channels == nil {
 			t.Error("data.items = null, want an empty array")
 		}
 	})

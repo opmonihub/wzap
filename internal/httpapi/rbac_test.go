@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"bytes"
@@ -16,6 +16,8 @@ import (
 
 	"wzap/internal/auth"
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
+	"wzap/internal/httpapi/representation"
 	"wzap/internal/instance"
 	"wzap/internal/media"
 	"wzap/internal/message"
@@ -92,7 +94,6 @@ func newRBACFixture(t *testing.T) *rbacFixture {
 	}}
 	return f
 }
-
 func (f *rbacFixture) instancesByID() map[uuid.UUID]*model.Instance {
 	return map[uuid.UUID]*model.Instance{
 		f.instA.ID:  f.instA,
@@ -152,10 +153,10 @@ func (f *rbacFixture) rbacMedia() *fakeMediaStore {
 // rbacServer wires every fixture service behind Authenticate.
 func (f *rbacFixture) rbacServer(t *testing.T) *http.Server {
 	t.Helper()
-	return New(
+	return httpapi.New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: f.globalKey, JWTSecret: testJWTSecret, MaxMediaBytes: testMaxMediaBytes},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    f.rbacInstances(),
 			Messages:     f.rbacMessages(),
@@ -168,7 +169,6 @@ func (f *rbacFixture) rbacServer(t *testing.T) *http.Server {
 		},
 	)
 }
-
 func rbacSessionCookie(token string) *http.Cookie {
 	return &http.Cookie{Name: auth.SessionCookieName, Value: token}
 }
@@ -241,7 +241,6 @@ func instanceRouteCases(target uuid.UUID, mediaID uuid.UUID) []struct {
 		{name: "download media of instance", method: http.MethodGet, path: "/media/" + mediaID.String()},
 	}
 }
-
 func TestRBACUserCannotReachOthersInstance(t *testing.T) {
 	f := newRBACFixture(t)
 	srv := f.rbacServer(t)
@@ -259,13 +258,10 @@ func TestRBACUserCannotReachOthersInstance(t *testing.T) {
 		})
 	}
 }
-
 func TestRBACInstanceKeyCannotReachOtherInstance(t *testing.T) {
 	f := newRBACFixture(t)
 	srv := f.rbacServer(t)
 
-	// The download case addresses the media of instB while the other cases
-	// address instB directly; all must deny keyA.
 	for _, tc := range instanceRouteCases(f.instB.ID, f.mediaID) {
 		t.Run(tc.name, func(t *testing.T) {
 			rec := serveRBAC(t, srv, tc.method, tc.path, tc.body, nil, f.keyA, nil)
@@ -278,14 +274,13 @@ func TestRBACInstanceKeyCannotReachOtherInstance(t *testing.T) {
 		})
 	}
 }
-
 func TestRBACInstanceKeyForeignProbeSkipsDBLoad(t *testing.T) {
 	f := newRBACFixture(t)
 	loads := 0
-	srv := New(
+	srv := httpapi.New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: f.globalKey, JWTSecret: testJWTSecret, MaxMediaBytes: testMaxMediaBytes},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances: &fakeInstanceService{
 				getFn: func(context.Context, uuid.UUID) (*model.Instance, error) {
@@ -305,8 +300,6 @@ func TestRBACInstanceKeyForeignProbeSkipsDBLoad(t *testing.T) {
 		},
 	)
 
-	// keyA pertence a instA; sondar instB (existente ou não) nega antes do
-	// Get: mesma resposta e nenhum load, sem sinal de existência/tempo.
 	for _, target := range []uuid.UUID{f.instB.ID, uuid.New()} {
 		rec := serveRBAC(t, srv, http.MethodGet, "/instances/"+target.String(), "", nil, f.keyA, nil)
 		if rec.Code != http.StatusForbidden {
@@ -317,7 +310,6 @@ func TestRBACInstanceKeyForeignProbeSkipsDBLoad(t *testing.T) {
 		t.Errorf("instance loads = %d, want 0 (negação antes do banco)", loads)
 	}
 }
-
 func TestRBACInstanceKeyDeniedCollections(t *testing.T) {
 	f := newRBACFixture(t)
 	srv := f.rbacServer(t)
@@ -342,15 +334,14 @@ func TestRBACInstanceKeyDeniedCollections(t *testing.T) {
 		}
 	})
 }
-
 func TestRBACRandomUUIDIsNotFound(t *testing.T) {
 	f := newRBACFixture(t)
 	unknown := uuid.New()
 	unknownMedia := uuid.New()
-	srv := New(
+	srv := httpapi.New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: f.globalKey, JWTSecret: testJWTSecret, MaxMediaBytes: testMaxMediaBytes},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances: &fakeInstanceService{
 				getFn: func(context.Context, uuid.UUID) (*model.Instance, error) { return nil, instance.ErrNotFound },
@@ -368,11 +359,6 @@ func TestRBACRandomUUIDIsNotFound(t *testing.T) {
 	)
 	userA := rbacSessionCookie(f.userATok)
 
-	// Every instance route class shares the unknown instance id; media uses
-	// an unknown media id. User and global scopes asking for them get 404
-	// before any ownership check; an instance key gets 403 without any
-	// database load (denyForeignInstanceKey fecha o oráculo 404-before-403
-	// para credenciais de instância).
 	cases := instanceRouteCases(unknown, unknownMedia)
 	creds := []struct {
 		name   string
@@ -422,9 +408,7 @@ func TestRBACRandomUUIDIsNotFound(t *testing.T) {
 	}
 
 	t.Run("instance key", func(t *testing.T) {
-		// Chave de instância sondando UUID desconhecido: 403 sem load
-		// (oráculo fechado), exceto download de mídia desconhecida, que
-		// falha no Open antes da checagem de dono e segue 404.
+
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
 				rec := serveRBAC(t, srv, tc.method, tc.path, tc.body, nil, f.keyA, nil)
@@ -462,7 +446,6 @@ func TestRBACRandomUUIDIsNotFound(t *testing.T) {
 		})
 	})
 }
-
 func TestRBACListFiltersByOwner(t *testing.T) {
 	f := newRBACFixture(t)
 	srv := f.rbacServer(t)
@@ -470,12 +453,12 @@ func TestRBACListFiltersByOwner(t *testing.T) {
 	decodeIDs := func(t *testing.T, body []byte) []string {
 		t.Helper()
 		var payload struct {
-			Data instanceListResponse `json:"data"`
+			Data representation.InstanceListResponse `json:"data"`
 		}
 		decodeJSON(t, body, &payload)
-		ids := make([]string, 0, len(payload.Data.Items))
-		for _, item := range payload.Data.Items {
-			ids = append(ids, item.Instance.ID)
+		ids := make([]string, 0, len(payload.Data.Instances))
+		for _, item := range payload.Data.Instances {
+			ids = append(ids, item.ID)
 		}
 		return ids
 	}
@@ -531,7 +514,6 @@ func TestRBACListFiltersByOwner(t *testing.T) {
 		}
 	})
 }
-
 func TestRBACAdminAndOwnerReachInstance(t *testing.T) {
 	f := newRBACFixture(t)
 	srv := f.rbacServer(t)
@@ -569,7 +551,6 @@ func TestRBACAdminAndOwnerReachInstance(t *testing.T) {
 		}
 	})
 }
-
 func TestRBACMediaDownload(t *testing.T) {
 	f := newRBACFixture(t)
 	srv := f.rbacServer(t)
@@ -606,7 +587,6 @@ func TestRBACMediaDownload(t *testing.T) {
 		}
 	})
 }
-
 func TestRBACMediaUploadGating(t *testing.T) {
 	f := newRBACFixture(t)
 	srv := f.rbacServer(t)
@@ -646,7 +626,6 @@ func TestRBACMediaUploadGating(t *testing.T) {
 		}
 	})
 }
-
 func TestRBACCreateGating(t *testing.T) {
 	f := newRBACFixture(t)
 	created := &model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}}
@@ -661,10 +640,10 @@ func TestRBACCreateGating(t *testing.T) {
 			return created, "one-time-key", nil
 		},
 	}
-	srv := New(
+	srv := httpapi.New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: f.globalKey, JWTSecret: testJWTSecret},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    svc,
 			Keys:         f.keys,

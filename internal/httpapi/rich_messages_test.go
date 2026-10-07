@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"wzap/internal/httpapi/core"
+	"wzap/internal/httpapi/representation"
 	"wzap/internal/message"
 	"wzap/internal/model"
 )
@@ -38,14 +40,13 @@ func TestGetMessageReadsRichType(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	var payload struct {
-		Data messageEnvelope `json:"data"`
+		Data representation.MessageEnvelope `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
 	if payload.Data.Message.MessageType != message.TypePoll {
 		t.Errorf("data.message.message_type = %q, want %q", payload.Data.Message.MessageType, message.TypePoll)
 	}
 }
-
 func TestSendPollAccepted(t *testing.T) {
 	id := uuid.New()
 	svc := &fakeMessageService{enqueueFn: func(_ context.Context, _ uuid.UUID, input message.EnqueueInput) (uuid.UUID, error) {
@@ -63,7 +64,6 @@ func TestSendPollAccepted(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusAccepted)
 	}
 }
-
 func TestSendPollInvalidContentMapsTo422(t *testing.T) {
 	svc := &fakeMessageService{enqueueFn: func(_ context.Context, _ uuid.UUID, input message.EnqueueInput) (uuid.UUID, error) {
 		if input.Type != message.TypePoll || len(input.PollOptions) != 1 {
@@ -83,7 +83,6 @@ func TestSendPollInvalidContentMapsTo422(t *testing.T) {
 		t.Errorf("error code = %q, want %q", code, "unprocessable_entity")
 	}
 }
-
 func TestSendReactionAcceptedAndRemoved(t *testing.T) {
 	for _, body := range []string{
 		`{"type":"reaction","to":"5547988359190","target":"wamid.1","emoji":"👍"}`,
@@ -104,7 +103,6 @@ func TestSendReactionAcceptedAndRemoved(t *testing.T) {
 		}
 	}
 }
-
 func TestSendListAndButtonsAccepted(t *testing.T) {
 	bodies := []string{
 		`{"type":"list","to":"5547988359190","button_text":"Ver","sections":[{"title":"S","rows":[{"id":"r1","title":"R1"}]}]}`,
@@ -124,7 +122,6 @@ func TestSendListAndButtonsAccepted(t *testing.T) {
 		t.Fatal("no bodies")
 	}
 }
-
 func TestSendRichRejectsUnknownType(t *testing.T) {
 	svc := &fakeMessageService{}
 
@@ -139,7 +136,6 @@ func TestSendRichRejectsUnknownType(t *testing.T) {
 		t.Errorf("Enqueue calls = %d, want none", len(svc.enqueueCalls))
 	}
 }
-
 func TestSendRichRejectsStickerOnGeneric(t *testing.T) {
 	svc := &fakeMessageService{}
 
@@ -154,7 +150,6 @@ func TestSendRichRejectsStickerOnGeneric(t *testing.T) {
 		t.Errorf("Enqueue calls = %d, want none: sticker rides /messages/media only", len(svc.enqueueCalls))
 	}
 }
-
 func TestSendRichDisconnected(t *testing.T) {
 	svc := &fakeMessageService{enqueueFn: func(context.Context, uuid.UUID, message.EnqueueInput) (uuid.UUID, error) {
 		return uuid.Nil, message.ErrInstanceNotConnected
@@ -168,7 +163,6 @@ func TestSendRichDisconnected(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusConflict)
 	}
 }
-
 func TestSendPollReplayThroughServer(t *testing.T) {
 	id := uuid.New()
 	messageID := uuid.New()
@@ -177,7 +171,7 @@ func TestSendPollReplayThroughServer(t *testing.T) {
 	}}
 	srv := messagesServer(t, svc, newFakeIdempotency())
 	path := "/instances/" + id.String() + "/messages"
-	headers := map[string]string{idempotencyKeyHeader: "poll-key-1"}
+	headers := map[string]string{core.IdempotencyKeyHeader: "poll-key-1"}
 	body := `{"type":"poll","to":"5547","question":"Q?","options":["a","b"]}`
 
 	first := serveMessages(t, srv, http.MethodPost, path, body, headers)
@@ -192,14 +186,13 @@ func TestSendPollReplayThroughServer(t *testing.T) {
 	if second.Body.String() != first.Body.String() {
 		t.Errorf("replay body = %q, want the original %q", second.Body.String(), first.Body.String())
 	}
-	if got := second.Header().Get(idempotentReplayHeader); got != "true" {
-		t.Errorf("%s = %q, want %q", idempotentReplayHeader, got, "true")
+	if got := second.Header().Get(core.IdempotentReplayHeader); got != "true" {
+		t.Errorf("%s = %q, want %q", core.IdempotentReplayHeader, got, "true")
 	}
 	if len(svc.enqueueCalls) != 1 {
 		t.Errorf("Enqueue calls = %d, want 1 for a replayed send", len(svc.enqueueCalls))
 	}
 }
-
 func TestSendStickerViaMediaAccepted(t *testing.T) {
 	id := uuid.New()
 	svc := &fakeMessageService{enqueueFn: func(_ context.Context, _ uuid.UUID, input message.EnqueueInput) (uuid.UUID, error) {
@@ -221,7 +214,6 @@ func TestSendStickerViaMediaAccepted(t *testing.T) {
 		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusAccepted, rec.Body.String())
 	}
 }
-
 func TestSendStickerViaMediaRejectsNonWebp(t *testing.T) {
 	svc := &fakeMessageService{}
 	srv := mediaUploadServer(t, svc, &fakeMediaStore{}, newFakeIdempotency())

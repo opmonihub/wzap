@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -16,6 +16,7 @@ import (
 
 	"wzap/internal/auth"
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
 	"wzap/internal/model"
 	"wzap/internal/storage"
 )
@@ -36,7 +37,6 @@ func newFakeUserRepository(users ...*model.User) *fakeUserRepository {
 	}
 	return f
 }
-
 func (f *fakeUserRepository) Create(_ context.Context, user model.User) (*model.User, error) {
 	if f.err != nil {
 		return nil, f.err
@@ -48,7 +48,6 @@ func (f *fakeUserRepository) Create(_ context.Context, user model.User) (*model.
 	f.byEmail[strings.ToLower(user.Email)] = &user
 	return &user, nil
 }
-
 func (f *fakeUserRepository) GetByID(_ context.Context, id uuid.UUID) (*model.User, error) {
 	if f.err != nil {
 		return nil, f.err
@@ -58,7 +57,6 @@ func (f *fakeUserRepository) GetByID(_ context.Context, id uuid.UUID) (*model.Us
 	}
 	return nil, storage.ErrNotFound
 }
-
 func (f *fakeUserRepository) GetByEmail(_ context.Context, email string) (*model.User, error) {
 	if f.err != nil {
 		return nil, f.err
@@ -68,7 +66,6 @@ func (f *fakeUserRepository) GetByEmail(_ context.Context, email string) (*model
 	}
 	return nil, storage.ErrNotFound
 }
-
 func (f *fakeUserRepository) List(_ context.Context) ([]model.User, error) {
 	if f.err != nil {
 		return nil, f.err
@@ -85,7 +82,6 @@ func (f *fakeUserRepository) List(_ context.Context) ([]model.User, error) {
 	})
 	return users, nil
 }
-
 func (f *fakeUserRepository) Delete(_ context.Context, id uuid.UUID) error {
 	if f.err != nil {
 		return f.err
@@ -102,9 +98,7 @@ func (f *fakeUserRepository) Delete(_ context.Context, id uuid.UUID) error {
 	}
 	return nil
 }
-
 func (f *fakeUserRepository) Count(context.Context) (int, error) { return len(f.byID), nil }
-
 func (f *fakeUserRepository) UpdateQuota(_ context.Context, id uuid.UUID, quota int) error {
 	u, ok := f.byID[id]
 	if !ok {
@@ -118,17 +112,16 @@ const testJWTSecret = "test-jwt-secret-that-is-long-enough"
 
 func authTestServer(t *testing.T, users storage.UserRepository, publicURL string) *http.Server {
 	t.Helper()
-	return New(
+	return httpapi.New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, PublicURL: publicURL},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Users:        users,
 			JWTSecret:    testJWTSecret,
 		},
 	)
 }
-
 func seedAuthUser(t *testing.T, email, password, role string) *model.User {
 	t.Helper()
 	hash, err := auth.HashPassword(password)
@@ -155,7 +148,6 @@ func serveAuth(t *testing.T, srv *http.Server, method, path, body string, cookie
 	srv.Handler.ServeHTTP(rec, req)
 	return rec
 }
-
 func sessionCookie(t *testing.T, rec *httptest.ResponseRecorder) *http.Cookie {
 	t.Helper()
 	for _, c := range rec.Result().Cookies() {
@@ -166,7 +158,6 @@ func sessionCookie(t *testing.T, rec *httptest.ResponseRecorder) *http.Cookie {
 	t.Fatalf("response sets no %q cookie (Set-Cookie: %q)", auth.SessionCookieName, rec.Header().Values("Set-Cookie"))
 	return nil
 }
-
 func TestAuthLoginSuccess(t *testing.T) {
 	user := seedAuthUser(t, "admin@example.com", "s3cret-password", "admin")
 	srv := authTestServer(t, newFakeUserRepository(user), "http://localhost:8080")
@@ -221,7 +212,6 @@ func TestAuthLoginSuccess(t *testing.T) {
 		t.Errorf("session cookie is not a valid token: %v", err)
 	}
 }
-
 func TestAuthLoginSetsSecureCookieForHTTPS(t *testing.T) {
 	user := seedAuthUser(t, "admin@example.com", "s3cret-password", "admin")
 	srv := authTestServer(t, newFakeUserRepository(user), "https://wzap.example.com")
@@ -236,7 +226,6 @@ func TestAuthLoginSetsSecureCookieForHTTPS(t *testing.T) {
 		t.Error("cookie is not Secure over https, want Secure")
 	}
 }
-
 func TestAuthLoginRejectsInvalidCredentials(t *testing.T) {
 	user := seedAuthUser(t, "admin@example.com", "s3cret-password", "admin")
 	srv := authTestServer(t, newFakeUserRepository(user), "")
@@ -274,7 +263,6 @@ func TestAuthLoginRejectsInvalidCredentials(t *testing.T) {
 		}
 	}
 }
-
 func TestAuthLoginRejectsMalformedBody(t *testing.T) {
 	srv := authTestServer(t, newFakeUserRepository(), "")
 
@@ -287,7 +275,6 @@ func TestAuthLoginRejectsMalformedBody(t *testing.T) {
 		t.Errorf("error code = %q, want %q", code, "invalid_request")
 	}
 }
-
 func TestAuthMe(t *testing.T) {
 	user := seedAuthUser(t, "me@example.com", "s3cret-password", "user")
 	srv := authTestServer(t, newFakeUserRepository(user), "")
@@ -351,7 +338,6 @@ func TestAuthMe(t *testing.T) {
 		}
 	})
 }
-
 func TestAuthLogoutInvalidatesSession(t *testing.T) {
 	user := seedAuthUser(t, "me@example.com", "s3cret-password", "user")
 	srv := authTestServer(t, newFakeUserRepository(user), "")
@@ -386,8 +372,6 @@ func TestAuthLogoutInvalidatesSession(t *testing.T) {
 		t.Errorf("logout cookie MaxAge = %d, want expired", cleared.MaxAge)
 	}
 
-	// The client jar holds no usable session afterwards: /auth/me without the
-	// cookie is unauthorized and re-adds no session.
 	after := serveAuth(t, srv, http.MethodGet, "/auth/me", "")
 	if after.Code != http.StatusUnauthorized {
 		t.Fatalf("me after logout = %d, want %d (body %q)", after.Code, http.StatusUnauthorized, after.Body.String())

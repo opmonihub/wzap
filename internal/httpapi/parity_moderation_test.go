@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -8,23 +8,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
+	"wzap/internal/config"
+	"wzap/internal/httpapi"
+	"wzap/internal/httpapi/groups"
 	"wzap/internal/instance"
 )
 
-// parityModerationServer wires every Fase-2 moderation handler at its future
-// route behind the production auth chain so the tests exercise the same
-// boundary Task 9 will register in server.go. Registering them together also
-// surfaces any Go ServeMux pattern conflict before the wiring lands.
-func parityModerationServer(t *testing.T, svc InstanceService) *http.Server {
-	t.Helper()
-	log := zerolog.Nop()
-	mux := http.NewServeMux()
-	mux.Handle("GET /instances/{id}/groups/{group_id}/requests", handleGroupRequests(svc, log))
-	mux.Handle("POST /instances/{id}/groups/{group_id}/requests", handleUpdateGroupRequests(svc, log))
-	mux.Handle("PATCH /instances/{id}/groups/{group_id}/settings", handleUpdateGroupSettings(svc, log))
-	return &http.Server{Handler: RequestID(Authenticate(testToken, nil, "")(mux))}
-}
+// The test server exercises resource operations through the production router.
 
+func parityModerationServer(t *testing.T, svc httpapi.InstanceService) *http.Server {
+	t.Helper()
+	return httpapi.New(config.Config{APIKey: testToken}, zerolog.Nop(), httpapi.Deps{Instances: svc})
+}
 func TestGroupRequests(t *testing.T) {
 	id := uuid.New()
 	group := escapeJID("12036300000001@g.us")
@@ -38,14 +33,13 @@ func TestGroupRequests(t *testing.T) {
 		t.Fatalf("status = %d, want 200 (body %q)", rec.Code, rec.Body.String())
 	}
 	var payload struct {
-		Data groupRequestsResponse `json:"data"`
+		Data groups.GroupRequestsResponse `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
 	if len(payload.Data.Participants) != 1 || payload.Data.Participants[0].JID != "5511999999999@s.whatsapp.net" {
 		t.Errorf("data.participants = %+v, want the single pending request", payload.Data.Participants)
 	}
 }
-
 func TestGroupRequestsUnknownGroup(t *testing.T) {
 	svc := &fakeInstanceService{
 		getGroupRequestsFn: func(context.Context, uuid.UUID, string) ([]instance.GroupParticipant, error) {
@@ -59,7 +53,6 @@ func TestGroupRequestsUnknownGroup(t *testing.T) {
 		t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusNotFound, rec.Body.String())
 	}
 }
-
 func TestUpdateGroupRequests(t *testing.T) {
 	t.Run("approve answers updated", func(t *testing.T) {
 		id := uuid.New()
@@ -119,7 +112,6 @@ func TestUpdateGroupRequests(t *testing.T) {
 		}
 	})
 }
-
 func TestUpdateGroupSettings(t *testing.T) {
 	t.Run("announce answers the group", func(t *testing.T) {
 		id := uuid.New()
@@ -142,7 +134,7 @@ func TestUpdateGroupSettings(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data groupUpdatedResponse `json:"data"`
+			Data groups.GroupUpdatedResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if !payload.Data.Updated {

@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -69,8 +69,7 @@ func newWebhookRoundTripFake() *webhookRoundTripFake {
 }
 
 // webhookData decodes data.instance.integration.webhook of rec into a raw
-// field map (the webhook block moved under integration in the aggregated
-// shape).
+// field map.
 func webhookData(t *testing.T, body []byte) map[string]any {
 	t.Helper()
 	var payload struct {
@@ -98,7 +97,6 @@ func instanceData(t *testing.T, body []byte) map[string]any {
 	decodeJSON(t, body, &payload)
 	return payload.Data.Instance
 }
-
 func TestInstancesCreateWithWebhookRoundTrip(t *testing.T) {
 	svc := newWebhookRoundTripFake()
 	srv := instancesServer(t, svc)
@@ -149,7 +147,6 @@ func TestInstancesCreateWithWebhookRoundTrip(t *testing.T) {
 		t.Errorf("get webhook.events = %v, want [message receipt]", getData["events"])
 	}
 }
-
 func TestInstancesUpdateWebhookDisablesAndNarrows(t *testing.T) {
 	svc := newWebhookRoundTripFake()
 	srv := instancesServer(t, svc)
@@ -210,7 +207,6 @@ func TestInstancesCreateFlatWebhookFieldsIgnored(t *testing.T) {
 		t.Errorf("Create webhook input = %+v, want all nil (flat fields are ignored)", svc.createInputs[0])
 	}
 }
-
 func TestInstancesCreateInvalidWebhookUnprocessable(t *testing.T) {
 	svc := &fakeInstanceService{createFn: func(context.Context, instance.CreateInput) (*model.Instance, string, error) {
 		return nil, "", instance.ErrInvalidWebhook

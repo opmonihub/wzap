@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -14,6 +14,9 @@ import (
 	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
+	"wzap/internal/httpapi/core"
+	"wzap/internal/httpapi/representation"
 	"wzap/internal/instance"
 	"wzap/internal/model"
 	"wzap/internal/session"
@@ -410,7 +413,6 @@ func (f *fakeInstanceService) Get(ctx context.Context, id uuid.UUID) (*model.Ins
 	}
 	return &model.Instance{ID: id, Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}}, nil
 }
-
 func (f *fakeInstanceService) GetByName(ctx context.Context, name string) (*model.Instance, error) {
 	f.getNames = append(f.getNames, name)
 	if f.getByNameFn != nil {
@@ -937,13 +939,13 @@ func (f *fakeInstanceService) ReactNewsletter(ctx context.Context, id uuid.UUID,
 }
 
 // instancesServer builds the server under test with svc as the instance service.
-func instancesServer(t *testing.T, svc InstanceService) *http.Server {
+func instancesServer(t *testing.T, svc httpapi.InstanceService) *http.Server {
 	t.Helper()
 	if svc == nil {
 		svc = &fakeInstanceService{}
 	}
-	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, zerolog.Nop(),
-		Deps{
+	return httpapi.New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, zerolog.Nop(),
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    svc,
 		})
@@ -963,7 +965,6 @@ func serveJSON(t *testing.T, srv *http.Server, method, path, body string) *httpt
 	srv.Handler.ServeHTTP(rec, req)
 	return rec
 }
-
 func TestInstancesCreate(t *testing.T) {
 	oldest := uuid.New()
 	created := &model.Instance{ID: uuid.New(), Name: "loja", ExternalRef: "crm-1", OwnerUserID: &oldest, Connection: model.InstanceConnection{Status: "disconnected"}}
@@ -987,7 +988,7 @@ func TestInstancesCreate(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusCreated)
 	}
 	var payload struct {
-		Data createInstanceResponse `json:"data"`
+		Data representation.CreateInstanceResponse `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
 	if payload.Data.Instance.ID != created.ID.String() {
@@ -999,8 +1000,7 @@ func TestInstancesCreate(t *testing.T) {
 	if payload.Data.Instance.Name != "loja" {
 		t.Errorf("data = %+v, want instance name loja", payload.Data)
 	}
-	// external_ref and owner_user_id stay internal: neither is serialized on
-	// the public instance DTO.
+
 	if strings.Contains(rec.Body.String(), `"external_ref"`) || strings.Contains(rec.Body.String(), `"owner_user_id"`) {
 		t.Errorf("body %q leaks internal fields external_ref/owner_user_id", rec.Body.String())
 	}
@@ -1008,7 +1008,6 @@ func TestInstancesCreate(t *testing.T) {
 		t.Errorf("data.instance_api_key = %q, want the one-time key", payload.Data.InstanceAPIKey)
 	}
 }
-
 func TestInstancesCreateDuplicateExternalRef(t *testing.T) {
 	svc := &fakeInstanceService{createFn: func(context.Context, instance.CreateInput) (*model.Instance, string, error) {
 		return nil, "", instance.ErrExternalRefTaken
@@ -1024,7 +1023,6 @@ func TestInstancesCreateDuplicateExternalRef(t *testing.T) {
 		t.Errorf("error code = %q, want %q", code, "conflict")
 	}
 }
-
 func TestInstancesCreateRejectsInvalidBody(t *testing.T) {
 	svc := &fakeInstanceService{}
 
@@ -1040,10 +1038,9 @@ func TestInstancesCreateRejectsInvalidBody(t *testing.T) {
 		t.Errorf("Create calls = %v, want none on a malformed body", svc.createInputs)
 	}
 }
-
 func TestInstancesCreateRejectsOversizedBody(t *testing.T) {
 	svc := &fakeInstanceService{}
-	oversized := `{"name":"` + strings.Repeat("a", maxJSONBodyBytes+1) + `"}`
+	oversized := `{"name":"` + strings.Repeat("a", core.MaxJSONBodyBytes+1) + `"}`
 
 	rec := serveJSON(t, instancesServer(t, svc), http.MethodPost, "/instances", oversized)
 
@@ -1057,7 +1054,6 @@ func TestInstancesCreateRejectsOversizedBody(t *testing.T) {
 		t.Errorf("Create calls = %v, want none on an oversized body", svc.createInputs)
 	}
 }
-
 func TestInstancesList(t *testing.T) {
 	first := model.Instance{ID: uuid.New(), Name: "a", ExternalRef: "ref-a", CreatedAt: time.Now().UTC().Truncate(time.Second), Connection: model.InstanceConnection{Status: "disconnected", DeviceJID: "5511@wa"}}
 	second := model.Instance{ID: uuid.New(), Name: "b", ExternalRef: "ref-b", CreatedAt: time.Now().UTC().Truncate(time.Second), Connection: model.InstanceConnection{Status: "connected", DeviceJID: "5522@wa"}}
@@ -1071,26 +1067,25 @@ func TestInstancesList(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	var payload struct {
-		Data instanceListResponse `json:"data"`
+		Data representation.InstanceListResponse `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if len(payload.Data.Items) != 2 {
-		t.Fatalf("data.items length = %d, want 2", len(payload.Data.Items))
+	if len(payload.Data.Instances) != 2 {
+		t.Fatalf("data.items length = %d, want 2", len(payload.Data.Instances))
 	}
-	if payload.Data.Items[0].Instance.ID != first.ID.String() {
-		t.Errorf("data.items[0].instance.id = %q, want %q", payload.Data.Items[0].Instance.ID, first.ID)
+	if payload.Data.Instances[0].ID != first.ID.String() {
+		t.Errorf("data.items[0].instance.id = %q, want %q", payload.Data.Instances[0].ID, first.ID)
 	}
 	if strings.Contains(rec.Body.String(), `"whatsapp_jid"`) || strings.Contains(rec.Body.String(), `"device_jid"`) {
 		t.Errorf("body %q leaks internal jid fields", rec.Body.String())
 	}
-	if payload.Data.Items[1].Instance.Connection.Status != "connected" {
-		t.Errorf("data.items[1].instance.connection.status = %q, want connected", payload.Data.Items[1].Instance.Connection.Status)
+	if payload.Data.Instances[1].Connection.Status != "connected" {
+		t.Errorf("data.items[1].instance.connection.status = %q, want connected", payload.Data.Instances[1].Connection.Status)
 	}
 	if svc.listCalls != 1 {
 		t.Errorf("List calls = %d, want 1", svc.listCalls)
 	}
 }
-
 func TestInstancesListServiceError(t *testing.T) {
 	svc := &fakeInstanceService{listFn: func(context.Context) ([]model.Instance, error) {
 		return nil, context.Canceled
@@ -1105,7 +1100,6 @@ func TestInstancesListServiceError(t *testing.T) {
 		t.Errorf("error code = %q, want %q", code, "internal_error")
 	}
 }
-
 func TestInstancesGet(t *testing.T) {
 	want := &model.Instance{ID: uuid.New(), Name: "loja", ExternalRef: "crm-1", Connection: model.InstanceConnection{Status: "connected"}}
 	svc := &fakeInstanceService{getFn: func(_ context.Context, id uuid.UUID) (*model.Instance, error) {
@@ -1121,7 +1115,7 @@ func TestInstancesGet(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	var payload struct {
-		Data instanceEnvelope `json:"data"`
+		Data representation.InstanceEnvelope `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
 	if payload.Data.Instance.ID != want.ID.String() || payload.Data.Instance.Connection.Status != "connected" {
@@ -1162,7 +1156,7 @@ func TestInstancesGetPublicShape(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	var payload struct {
-		Data instanceEnvelope `json:"data"`
+		Data representation.InstanceEnvelope `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
 	got := payload.Data.Instance
@@ -1182,7 +1176,6 @@ func TestInstancesGetPublicShape(t *testing.T) {
 		}
 	}
 }
-
 func TestInstancesGetNotFound(t *testing.T) {
 	svc := &fakeInstanceService{getFn: func(context.Context, uuid.UUID) (*model.Instance, error) {
 		return nil, instance.ErrNotFound
@@ -1197,7 +1190,6 @@ func TestInstancesGetNotFound(t *testing.T) {
 		t.Errorf("error code = %q, want %q", code, "not_found")
 	}
 }
-
 func TestInstancesGetRejectsMalformedID(t *testing.T) {
 	svc := &fakeInstanceService{}
 
@@ -1213,7 +1205,6 @@ func TestInstancesGetRejectsMalformedID(t *testing.T) {
 		t.Errorf("Get calls = %v, want none for a malformed id", svc.getIDs)
 	}
 }
-
 func TestInstancesUpdate(t *testing.T) {
 	id := uuid.New()
 	updated := &model.Instance{ID: id, Name: "novo", ExternalRef: "ref-1", Connection: model.InstanceConnection{Status: "connected"}}
@@ -1236,7 +1227,7 @@ func TestInstancesUpdate(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	var payload struct {
-		Data instanceEnvelope `json:"data"`
+		Data representation.InstanceEnvelope `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
 	if payload.Data.Instance.Name != "novo" {
@@ -1246,7 +1237,6 @@ func TestInstancesUpdate(t *testing.T) {
 		t.Errorf("body %q leaks internal external_ref", rec.Body.String())
 	}
 }
-
 func TestInstancesUpdateClearsExternalRef(t *testing.T) {
 	id := uuid.New()
 	svc := &fakeInstanceService{updateFn: func(_ context.Context, _ uuid.UUID, input instance.UpdateInput) (*model.Instance, error) {
@@ -1262,7 +1252,6 @@ func TestInstancesUpdateClearsExternalRef(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 }
-
 func TestInstancesUpdateNotFound(t *testing.T) {
 	svc := &fakeInstanceService{updateFn: func(context.Context, uuid.UUID, instance.UpdateInput) (*model.Instance, error) {
 		return nil, instance.ErrNotFound
@@ -1277,7 +1266,6 @@ func TestInstancesUpdateNotFound(t *testing.T) {
 		t.Errorf("error code = %q, want %q", code, "not_found")
 	}
 }
-
 func TestInstancesDelete(t *testing.T) {
 	id := uuid.New()
 	svc := &fakeInstanceService{}
@@ -1294,7 +1282,6 @@ func TestInstancesDelete(t *testing.T) {
 		t.Errorf("Delete calls = %v, want [%s]", svc.deleteIDs, id)
 	}
 }
-
 func TestInstancesDeleteNotFound(t *testing.T) {
 	svc := &fakeInstanceService{deleteFn: func(context.Context, uuid.UUID) error {
 		return instance.ErrNotFound
@@ -1309,7 +1296,6 @@ func TestInstancesDeleteNotFound(t *testing.T) {
 		t.Errorf("error code = %q, want %q", code, "not_found")
 	}
 }
-
 func TestInstancesInternalError(t *testing.T) {
 	svc := &fakeInstanceService{getFn: func(context.Context, uuid.UUID) (*model.Instance, error) {
 		return nil, context.DeadlineExceeded

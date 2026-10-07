@@ -6,13 +6,13 @@ import type { AccountUser, AccountUserEnvelope, AccountUserList, CreateUserInput
 // throw ApiError with the envelope code (conflict on duplicate email or on
 // deleting an owner with instances, unprocessable_entity on invalid fields)
 // so screens can render scoped messages. Single reads/writes nest the user
-// under data.user; the collection nests each element under items[].user.
+// under data.user; the collection contains direct users under data.users[].
 export function useAccounts() {
   const { api, raw } = useApi()
 
   async function listUsers(): Promise<AccountUser[]> {
     const page = await api<AccountUserList>('/users')
-    return page.items.map(item => item.user)
+    return page.users
   }
 
   // POST /users answers 201 with the created user under data.user. An

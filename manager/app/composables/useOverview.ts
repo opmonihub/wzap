@@ -29,7 +29,7 @@ function normalizeStats(raw: InstanceStats): InstanceStats {
 
 // Local count over all authorized instances with the server's folding rule
 // (unknown status counts as disconnected). The status lives inside the
-// nested connection block since the remodel. Buckets are written through
+// connection block. Buckets are written through
 // the nullish default so indexed access stays safe under
 // noUncheckedIndexedAccess.
 function countLocally(items: Instance[]): InstanceStats {
@@ -58,7 +58,7 @@ function byNewestFirst(a: Instance, b: Instance): number {
 // Overview data for the Home screen: scoped totals from GET /instances/stats
 // (answered under data.stats; the session cookie travels automatically) with
 // a local count over the complete listing (listInstances from useInstances,
-// elements nested under items[].instance) when the endpoint fails. Both
+// direct elements under instances) when the endpoint fails. Both
 // attempts failing surfaces failure for the UAlert+retry; a stats-only
 // failure sets fallback so the page shows its discrete notice and still
 // renders. A listing-only failure sets listingFailed so the Recent block
@@ -103,7 +103,7 @@ export function useOverview() {
       listInstances()
     ])
     const listed = listResult.status === 'fulfilled'
-      ? listResult.value.items.map(item => item.instance)
+      ? listResult.value.instances
       : null
     if (listed !== null) {
       items.value = listed

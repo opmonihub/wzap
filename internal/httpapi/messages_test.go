@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"bytes"
@@ -14,7 +14,12 @@ import (
 	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
-	"wzap/internal/media"
+	"wzap/internal/httpapi"
+	"wzap/internal/httpapi/core"
+	"wzap/internal/httpapi/media"
+	"wzap/internal/httpapi/messages"
+	"wzap/internal/httpapi/representation"
+	mediadomain "wzap/internal/media"
 	"wzap/internal/message"
 	"wzap/internal/model"
 	"wzap/internal/storage"
@@ -87,7 +92,7 @@ const testMaxMediaBytes = 1 << 10
 
 // messagesServer builds the server under test with the given message service
 // and idempotency repository.
-func messagesServer(t *testing.T, svc MessageService, repo storage.IdempotencyRepository) *http.Server {
+func messagesServer(t *testing.T, svc messages.MessageService, repo storage.IdempotencyRepository) *http.Server {
 	t.Helper()
 	return mediaUploadServer(t, svc, &fakeMediaStore{}, repo)
 }
@@ -96,7 +101,7 @@ func messagesServer(t *testing.T, svc MessageService, repo storage.IdempotencyRe
 // service, media store and idempotency repository. Instances default to a
 // fake answering every id so global-scope tests exercise the operation
 // behind the ownership gate.
-func mediaUploadServer(t *testing.T, svc MessageService, store MediaStore, repo storage.IdempotencyRepository) *http.Server {
+func mediaUploadServer(t *testing.T, svc messages.MessageService, store media.MediaStore, repo storage.IdempotencyRepository) *http.Server {
 	t.Helper()
 	if svc == nil {
 		svc = &fakeMessageService{}
@@ -107,9 +112,9 @@ func mediaUploadServer(t *testing.T, svc MessageService, store MediaStore, repo 
 	if repo == nil {
 		repo = newFakeIdempotency()
 	}
-	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, MaxMediaBytes: testMaxMediaBytes},
+	return httpapi.New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, MaxMediaBytes: testMaxMediaBytes},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    &fakeInstanceService{},
 			Messages:     svc,
@@ -199,7 +204,6 @@ func TestSendTextAccepted(t *testing.T) {
 		t.Errorf("data.message.media_id = %v, want null for a text send", payload.Data.Message.MediaID)
 	}
 }
-
 func TestSendLocationAccepted(t *testing.T) {
 	id := uuid.New()
 	svc := &fakeMessageService{enqueueFn: func(_ context.Context, _ uuid.UUID, input message.EnqueueInput) (uuid.UUID, error) {
@@ -220,7 +224,6 @@ func TestSendLocationAccepted(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusAccepted)
 	}
 }
-
 func TestSendLocationRequiresCoordinates(t *testing.T) {
 	svc := &fakeMessageService{}
 
@@ -237,7 +240,6 @@ func TestSendLocationRequiresCoordinates(t *testing.T) {
 		t.Errorf("Enqueue calls = %d, want none", len(svc.enqueueCalls))
 	}
 }
-
 func TestSendContactAccepted(t *testing.T) {
 	id := uuid.New()
 	svc := &fakeMessageService{enqueueFn: func(_ context.Context, _ uuid.UUID, input message.EnqueueInput) (uuid.UUID, error) {
@@ -255,7 +257,6 @@ func TestSendContactAccepted(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusAccepted)
 	}
 }
-
 func TestSendRejectsMalformedBody(t *testing.T) {
 	svc := &fakeMessageService{}
 
@@ -272,7 +273,6 @@ func TestSendRejectsMalformedBody(t *testing.T) {
 		t.Errorf("Enqueue calls = %d, want none", len(svc.enqueueCalls))
 	}
 }
-
 func TestSendRejectsMalformedInstanceID(t *testing.T) {
 	svc := &fakeMessageService{}
 
@@ -286,7 +286,6 @@ func TestSendRejectsMalformedInstanceID(t *testing.T) {
 		t.Errorf("Enqueue calls = %d, want none", len(svc.enqueueCalls))
 	}
 }
-
 func TestSendErrorMapping(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -320,7 +319,6 @@ func TestSendErrorMapping(t *testing.T) {
 		})
 	}
 }
-
 func TestSendTextReplayThroughServer(t *testing.T) {
 	id := uuid.New()
 	messageID := uuid.New()
@@ -329,7 +327,7 @@ func TestSendTextReplayThroughServer(t *testing.T) {
 	}}
 	srv := messagesServer(t, svc, newFakeIdempotency())
 	path := "/instances/" + id.String() + "/messages/text"
-	headers := map[string]string{idempotencyKeyHeader: "key-1"}
+	headers := map[string]string{core.IdempotencyKeyHeader: "key-1"}
 
 	first := serveMessages(t, srv, http.MethodPost, path, `{"to":"5547","text":"olá"}`, headers)
 	second := serveMessages(t, srv, http.MethodPost, path, `{"to":"5547","text":"olá"}`, headers)
@@ -343,14 +341,13 @@ func TestSendTextReplayThroughServer(t *testing.T) {
 	if second.Body.String() != first.Body.String() {
 		t.Errorf("replay body = %q, want the original %q", second.Body.String(), first.Body.String())
 	}
-	if got := second.Header().Get(idempotentReplayHeader); got != "true" {
-		t.Errorf("%s = %q, want %q", idempotentReplayHeader, got, "true")
+	if got := second.Header().Get(core.IdempotentReplayHeader); got != "true" {
+		t.Errorf("%s = %q, want %q", core.IdempotentReplayHeader, got, "true")
 	}
 	if len(svc.enqueueCalls) != 1 {
 		t.Errorf("Enqueue calls = %d, want 1 for a replayed send", len(svc.enqueueCalls))
 	}
 }
-
 func TestSendTextWithoutKeyEnqueuesTwice(t *testing.T) {
 	id := uuid.New()
 	svc := &fakeMessageService{}
@@ -364,7 +361,6 @@ func TestSendTextWithoutKeyEnqueuesTwice(t *testing.T) {
 		t.Errorf("Enqueue calls = %d, want 2 without an idempotency key", len(svc.enqueueCalls))
 	}
 }
-
 func TestGetMessage(t *testing.T) {
 	id := uuid.New()
 	messageID := uuid.New()
@@ -396,7 +392,7 @@ func TestGetMessage(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	var payload struct {
-		Data messageEnvelope `json:"data"`
+		Data representation.MessageEnvelope `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
 	msg := payload.Data.Message
@@ -431,7 +427,6 @@ func TestGetMessage(t *testing.T) {
 		t.Errorf("body %q leaks the pre-remodel field names", rec.Body.String())
 	}
 }
-
 func TestGetMessageNotFound(t *testing.T) {
 	svc := &fakeMessageService{}
 
@@ -445,7 +440,6 @@ func TestGetMessageNotFound(t *testing.T) {
 		t.Errorf("error code = %q, want %q", code, "not_found")
 	}
 }
-
 func TestGetMessageRejectsMalformedID(t *testing.T) {
 	svc := &fakeMessageService{}
 
@@ -459,7 +453,6 @@ func TestGetMessageRejectsMalformedID(t *testing.T) {
 		t.Errorf("Get calls = %d, want none", len(svc.getCalls))
 	}
 }
-
 func TestListMessages(t *testing.T) {
 	id := uuid.New()
 	svc := &fakeMessageService{listFn: func(_ context.Context, instanceID uuid.UUID, limit int, cursor string) ([]model.OutboundMessage, string, error) {
@@ -476,11 +469,11 @@ func TestListMessages(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	var payload struct {
-		Data messageListResponse `json:"data"`
+		Data representation.MessageListResponse `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if len(payload.Data.Items) != 1 {
-		t.Fatalf("items = %d, want 1", len(payload.Data.Items))
+	if len(payload.Data.Messages) != 1 {
+		t.Fatalf("items = %d, want 1", len(payload.Data.Messages))
 	}
 	if payload.Data.NextCursor != "next-1" {
 		t.Errorf("next_cursor = %q, want %q", payload.Data.NextCursor, "next-1")
@@ -489,18 +482,16 @@ func TestListMessages(t *testing.T) {
 		t.Errorf("List calls = %+v, want limit 10 and cursor start", svc.listCalls)
 	}
 }
-
 func TestListMessagesDefaultsLimit(t *testing.T) {
 	svc := &fakeMessageService{}
 
 	serveMessages(t, messagesServer(t, svc, nil), http.MethodGet,
 		"/instances/"+uuid.NewString()+"/messages", "", nil)
 
-	if len(svc.listCalls) != 1 || svc.listCalls[0].limit != defaultMessagesLimit {
-		t.Errorf("List calls = %+v, want the default limit %d", svc.listCalls, defaultMessagesLimit)
+	if len(svc.listCalls) != 1 || svc.listCalls[0].limit != core.DefaultMessagesLimit {
+		t.Errorf("List calls = %+v, want the default limit %d", svc.listCalls, core.DefaultMessagesLimit)
 	}
 }
-
 func TestListMessagesInvalidCursor(t *testing.T) {
 	svc := &fakeMessageService{listFn: func(context.Context, uuid.UUID, int, string) ([]model.OutboundMessage, string, error) {
 		return nil, "", message.ErrInvalidCursor
@@ -516,7 +507,6 @@ func TestListMessagesInvalidCursor(t *testing.T) {
 		t.Errorf("error code = %q, want %q", code, "invalid_request")
 	}
 }
-
 func TestListMessagesEmptyPageIsArray(t *testing.T) {
 	rec := serveMessages(t, messagesServer(t, &fakeMessageService{}, nil), http.MethodGet,
 		"/instances/"+uuid.NewString()+"/messages", "", nil)
@@ -524,11 +514,10 @@ func TestListMessagesEmptyPageIsArray(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
-	if !strings.Contains(rec.Body.String(), `"items":[]`) {
+	if !strings.Contains(rec.Body.String(), `"messages":[]`) {
 		t.Errorf("body = %q, want an empty items array instead of null", rec.Body.String())
 	}
 }
-
 func TestSendMediaAccepted(t *testing.T) {
 	id := uuid.New()
 	storedID := uuid.New()
@@ -600,7 +589,6 @@ func TestSendMediaAccepted(t *testing.T) {
 		t.Errorf("Enqueue calls = %d, want 1", len(svc.enqueueCalls))
 	}
 }
-
 func TestSendMediaVoiceNote(t *testing.T) {
 	id := uuid.New()
 	store := &fakeMediaStore{}
@@ -619,7 +607,6 @@ func TestSendMediaVoiceNote(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusAccepted)
 	}
 }
-
 func TestSendMediaDefaultsFilenameFromUpload(t *testing.T) {
 	id := uuid.New()
 	store := &fakeMediaStore{}
@@ -639,7 +626,6 @@ func TestSendMediaDefaultsFilenameFromUpload(t *testing.T) {
 		t.Fatalf("Enqueue calls = %+v, want the uploaded file name", svc.enqueueCalls)
 	}
 }
-
 func TestSendMediaRejections(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -729,7 +715,6 @@ func TestSendMediaRejections(t *testing.T) {
 		})
 	}
 }
-
 func TestSendMediaWithoutFileRejected(t *testing.T) {
 	store := &fakeMediaStore{}
 	svc := &fakeMessageService{}
@@ -745,7 +730,6 @@ func TestSendMediaWithoutFileRejected(t *testing.T) {
 			len(store.saveCalls), len(svc.enqueueCalls))
 	}
 }
-
 func TestSendMediaRejectsOversize(t *testing.T) {
 	store := &fakeMediaStore{}
 	svc := &fakeMessageService{}
@@ -765,11 +749,10 @@ func TestSendMediaRejectsOversize(t *testing.T) {
 			len(store.saveCalls), len(svc.enqueueCalls))
 	}
 }
-
 func TestSendMediaRejectsBodyAboveRequestCap(t *testing.T) {
 	store := &fakeMediaStore{}
 	svc := &fakeMessageService{}
-	content := bytes.Repeat([]byte("a"), int(testMaxMediaBytes+mediaFormOverhead)+1)
+	content := bytes.Repeat([]byte("a"), int(testMaxMediaBytes+core.MediaFormOverhead)+1)
 
 	rec := serveMediaUpload(t, mediaUploadServer(t, svc, store, nil), uuid.New(),
 		[][2]string{{"to", "5547988359190"}, {"type", "document"}},
@@ -783,7 +766,6 @@ func TestSendMediaRejectsBodyAboveRequestCap(t *testing.T) {
 			len(store.saveCalls), len(svc.enqueueCalls))
 	}
 }
-
 func TestSendMediaRejectsMalformedMultipart(t *testing.T) {
 	id := uuid.New()
 	store := &fakeMediaStore{}
@@ -808,12 +790,11 @@ func TestSendMediaRejectsMalformedMultipart(t *testing.T) {
 			len(store.saveCalls), len(svc.enqueueCalls))
 	}
 }
-
 func TestSendMediaInstanceNotFound(t *testing.T) {
 	store := &fakeMediaStore{saveFn: func(
 		context.Context, uuid.UUID, string, string, string, string, []byte,
 	) (*model.Media, error) {
-		return nil, media.ErrNotFound
+		return nil, mediadomain.ErrNotFound
 	}}
 	svc := &fakeMessageService{}
 
@@ -828,7 +809,6 @@ func TestSendMediaInstanceNotFound(t *testing.T) {
 		t.Errorf("Enqueue calls = %d, want none", len(svc.enqueueCalls))
 	}
 }
-
 func TestSendMediaEnqueueErrorMaps(t *testing.T) {
 	store := &fakeMediaStore{}
 	svc := &fakeMessageService{enqueueFn: func(context.Context, uuid.UUID, message.EnqueueInput) (uuid.UUID, error) {
@@ -846,7 +826,6 @@ func TestSendMediaEnqueueErrorMaps(t *testing.T) {
 		t.Errorf("error code = %q, want conflict", code)
 	}
 }
-
 func TestSendMediaReplayThroughServer(t *testing.T) {
 	id := uuid.New()
 	messageID := uuid.New()
@@ -856,7 +835,7 @@ func TestSendMediaReplayThroughServer(t *testing.T) {
 	}}
 	srv := mediaUploadServer(t, svc, store, newFakeIdempotency())
 	fields := [][2]string{{"to", "5547988359190"}, {"type", "image"}, {"caption", "olha"}}
-	headers := map[string]string{idempotencyKeyHeader: "key-1"}
+	headers := map[string]string{core.IdempotencyKeyHeader: "key-1"}
 
 	first := serveMediaUpload(t, srv, id, fields, "foto.jpg", "image/jpeg", []byte("bytes"), headers)
 	second := serveMediaUpload(t, srv, id, fields, "foto.jpg", "image/jpeg", []byte("bytes"), headers)
@@ -867,8 +846,8 @@ func TestSendMediaReplayThroughServer(t *testing.T) {
 	if second.Body.String() != first.Body.String() {
 		t.Errorf("replay body = %q, want the original %q", second.Body.String(), first.Body.String())
 	}
-	if got := second.Header().Get(idempotentReplayHeader); got != "true" {
-		t.Errorf("%s = %q, want true", idempotentReplayHeader, got)
+	if got := second.Header().Get(core.IdempotentReplayHeader); got != "true" {
+		t.Errorf("%s = %q, want true", core.IdempotentReplayHeader, got)
 	}
 	if len(store.saveCalls) != 1 {
 		t.Errorf("Save calls = %d, want 1 for a replayed send", len(store.saveCalls))
@@ -877,14 +856,13 @@ func TestSendMediaReplayThroughServer(t *testing.T) {
 		t.Errorf("Enqueue calls = %d, want 1 for a replayed send", len(svc.enqueueCalls))
 	}
 }
-
 func TestSendMediaSameKeyDifferentFileRejected(t *testing.T) {
 	id := uuid.New()
 	store := &fakeMediaStore{}
 	svc := &fakeMessageService{}
 	srv := mediaUploadServer(t, svc, store, newFakeIdempotency())
 	fields := [][2]string{{"to", "5547988359190"}, {"type", "image"}, {"caption", "olha"}}
-	headers := map[string]string{idempotencyKeyHeader: "key-1"}
+	headers := map[string]string{core.IdempotencyKeyHeader: "key-1"}
 
 	first := serveMediaUpload(t, srv, id, fields, "foto.jpg", "image/jpeg", []byte("primeira"), headers)
 	second := serveMediaUpload(t, srv, id, fields, "foto.jpg", "image/jpeg", []byte("segunda"), headers)

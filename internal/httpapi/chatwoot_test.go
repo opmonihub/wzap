@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 
 	"wzap/internal/chatwoot/inbound"
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
 	"wzap/internal/model"
 	"wzap/internal/storage"
 )
@@ -28,7 +29,6 @@ func (f *fakeChatwootConfigs) Get(ctx context.Context, id uuid.UUID) (*model.Cha
 	}
 	return nil, storage.ErrNotFound
 }
-
 func (f *fakeChatwootConfigs) Put(ctx context.Context, cfg model.ChatwootConfig) (*model.ChatwootConfig, error) {
 	f.puts = append(f.puts, cfg)
 	if f.putFn != nil {
@@ -36,15 +36,13 @@ func (f *fakeChatwootConfigs) Put(ctx context.Context, cfg model.ChatwootConfig)
 	}
 	return &cfg, nil
 }
-
 func (f *fakeChatwootConfigs) Delete(ctx context.Context, id uuid.UUID) error { return nil }
-
-func chatwootTestServer(t *testing.T, instances InstanceService, cfgs *fakeChatwootConfigs, chatwoot config.Chatwoot) *http.Server {
+func chatwootTestServer(t *testing.T, instances httpapi.InstanceService, cfgs *fakeChatwootConfigs, chatwoot config.Chatwoot) *http.Server {
 	t.Helper()
-	return New(
+	return httpapi.New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, PublicURL: "https://wzap.example.com", Chatwoot: chatwoot},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker:    checkFunc(func(context.Context) error { return nil }),
 			Instances:       instances,
 			ChatwootConfigs: cfgs,
@@ -53,9 +51,7 @@ func chatwootTestServer(t *testing.T, instances InstanceService, cfgs *fakeChatw
 		},
 	)
 }
-
 func chatwootOn() config.Chatwoot { return config.Chatwoot{Enabled: true} }
-
 func TestChatwootSetRequiresAuth(t *testing.T) {
 	id := uuid.New()
 	srv := chatwootTestServer(t, &fakeInstanceService{}, &fakeChatwootConfigs{}, chatwootOn())
@@ -68,7 +64,6 @@ func TestChatwootSetRequiresAuth(t *testing.T) {
 		t.Fatalf("status = %d, want 401", rec.Code)
 	}
 }
-
 func TestChatwootSetBehindDualAuth(t *testing.T) {
 	id := uuid.New()
 	cfgs := &fakeChatwootConfigs{}
@@ -87,7 +82,6 @@ func TestChatwootSetBehindDualAuth(t *testing.T) {
 		t.Fatalf("Put calls = %d, want 1", len(cfgs.puts))
 	}
 }
-
 func TestChatwootSetValidation422(t *testing.T) {
 	id := uuid.New()
 	cfgs := &fakeChatwootConfigs{}
@@ -109,7 +103,6 @@ func TestChatwootSetValidation422(t *testing.T) {
 		t.Errorf("Put calls = %d, want 0 on validation failure", len(cfgs.puts))
 	}
 }
-
 func TestChatwootSetAutoCreateReturnsWebhookURL(t *testing.T) {
 	id := uuid.New()
 	cfgs := &fakeChatwootConfigs{}
@@ -135,7 +128,6 @@ func TestChatwootSetAutoCreateReturnsWebhookURL(t *testing.T) {
 		t.Errorf("response misses auto_create: %s", rec.Body.String())
 	}
 }
-
 func TestChatwootGetWithoutConfigReturnsDisabled(t *testing.T) {
 	id := uuid.New()
 	srv := chatwootTestServer(t, &fakeInstanceService{
@@ -153,7 +145,6 @@ func TestChatwootGetWithoutConfigReturnsDisabled(t *testing.T) {
 		t.Errorf("response misses disabled default: %s", rec.Body.String())
 	}
 }
-
 func TestChatwootGlobalDisabledReturns400(t *testing.T) {
 	id := uuid.New()
 	off := config.Chatwoot{Enabled: false}
@@ -169,12 +160,10 @@ func TestChatwootGlobalDisabledReturns400(t *testing.T) {
 		t.Fatalf("GET status = %d, want 400 (body %s)", rec.Code, rec.Body.String())
 	}
 }
-
 func TestChatwootWebhookOutsideAuth(t *testing.T) {
 	id := uuid.New()
 	srv := chatwootTestServer(t, &fakeInstanceService{}, &fakeChatwootConfigs{}, config.Chatwoot{Enabled: false})
 
-	// Webhook is open by design: no credential must not answer 401.
 	req := httptest.NewRequest(http.MethodPost, "/chatwoot/webhook/"+id.String(), strings.NewReader(`{"event":"message_created"}`))
 	rec := httptest.NewRecorder()
 	srv.Handler.ServeHTTP(rec, req)
@@ -193,7 +182,6 @@ type fakeChatwootInbound struct {
 func (f *fakeChatwootInbound) Handle(_ context.Context, _ uuid.UUID, _ inbound.Payload) (int, error) {
 	return f.status, f.err
 }
-
 func (f *fakeChatwootInbound) HandleCommand(_ context.Context, _ uuid.UUID, _ string, _ int64) (int, error) {
 	return f.status, f.err
 }
@@ -256,10 +244,10 @@ func TestChatwootWebhookKeepsHandlerStatusCodes(t *testing.T) {
 		{name: "internal keeps internal_error", status: http.StatusInternalServerError, wantStatus: http.StatusInternalServerError, wantCode: "internal_error"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			srv := New(
+			srv := httpapi.New(
 				config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, PublicURL: "https://wzap.example.com", Chatwoot: chatwootOn()},
 				zerolog.Nop(),
-				Deps{
+				httpapi.Deps{
 					ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 					Instances: &fakeInstanceService{
 						getFn: func(_ context.Context, got uuid.UUID) (*model.Instance, error) {

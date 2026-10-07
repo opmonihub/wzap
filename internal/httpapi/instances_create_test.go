@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 
 	"wzap/internal/auth"
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
 	"wzap/internal/instance"
 	"wzap/internal/model"
 )
@@ -19,12 +20,12 @@ import (
 // createOwnerTestServer wires svc behind Authenticate with both the global key
 // and session cookies accepted, so the create owner/key tests can act as each
 // scope.
-func createOwnerTestServer(t *testing.T, svc InstanceService) *http.Server {
+func createOwnerTestServer(t *testing.T, svc httpapi.InstanceService) *http.Server {
 	t.Helper()
-	return New(
+	return httpapi.New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    svc,
 			Users:        newFakeUserRepository(),
@@ -33,7 +34,6 @@ func createOwnerTestServer(t *testing.T, svc InstanceService) *http.Server {
 		},
 	)
 }
-
 func mustSessionToken(t *testing.T, userID uuid.UUID, role string) string {
 	t.Helper()
 	token, err := auth.MintToken(userID, role, testJWTSecret)
@@ -52,7 +52,6 @@ func createData(t *testing.T, recBody []byte) map[string]json.RawMessage {
 	decodeJSON(t, recBody, &payload)
 	return payload.Data
 }
-
 func rawString(t *testing.T, field json.RawMessage) string {
 	t.Helper()
 	var value string
@@ -68,7 +67,6 @@ func echoCreateFn(key string) func(context.Context, instance.CreateInput) (*mode
 		return &model.Instance{ID: uuid.New(), Name: input.Name, ExternalRef: input.ExternalRef, OwnerUserID: input.OwnerUserID, Connection: model.InstanceConnection{Status: "disconnected"}}, key, nil
 	}
 }
-
 func TestInstancesCreateByUserSessionEmitsOwnerAndKey(t *testing.T) {
 	svc := &fakeInstanceService{createFn: echoCreateFn("user-key-1")}
 	srv := createOwnerTestServer(t, svc)
@@ -81,8 +79,7 @@ func TestInstancesCreateByUserSessionEmitsOwnerAndKey(t *testing.T) {
 		t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusCreated, rec.Body.String())
 	}
 	data := createData(t, rec.Body.Bytes())
-	// owner_user_id stays internal: the service receives the session user,
-	// the response never echoes it.
+
 	if strings.Contains(rec.Body.String(), `"owner_user_id"`) {
 		t.Errorf("body %q leaks owner_user_id", rec.Body.String())
 	}
@@ -98,7 +95,6 @@ func TestInstancesCreateByUserSessionEmitsOwnerAndKey(t *testing.T) {
 		t.Errorf("Create owner = %+v, want the session user %s", svc.createInputs, userID)
 	}
 }
-
 func TestInstancesCreateByGlobalDefaultsToOldestAdmin(t *testing.T) {
 	oldest := uuid.New()
 	svc := &fakeInstanceService{
@@ -124,7 +120,6 @@ func TestInstancesCreateByGlobalDefaultsToOldestAdmin(t *testing.T) {
 		t.Errorf("Create owner = %+v, want the oldest admin %s", svc.createInputs, oldest)
 	}
 }
-
 func TestInstancesCreateWithOwnerOverride(t *testing.T) {
 	override := uuid.New()
 	adminID := uuid.New()
@@ -179,7 +174,6 @@ func TestInstancesCreateWithOwnerOverride(t *testing.T) {
 		}
 	})
 }
-
 func TestInstancesCreateUserOverrideForbidden(t *testing.T) {
 	svc := &fakeInstanceService{createFn: echoCreateFn("must-not-issue")}
 	srv := createOwnerTestServer(t, svc)
@@ -198,7 +192,6 @@ func TestInstancesCreateUserOverrideForbidden(t *testing.T) {
 		t.Errorf("Create calls = %v, want none for a user override", svc.createInputs)
 	}
 }
-
 func TestInstancesCreateUnknownOverrideUnprocessable(t *testing.T) {
 	svc := &fakeInstanceService{
 		createFn: func(_ context.Context, _ instance.CreateInput) (*model.Instance, string, error) {
@@ -217,7 +210,6 @@ func TestInstancesCreateUnknownOverrideUnprocessable(t *testing.T) {
 		t.Errorf("error code = %q, want %q", code, "unprocessable_entity")
 	}
 }
-
 func TestInstancesCreateNoAdminInternalError(t *testing.T) {
 	svc := &fakeInstanceService{
 		oldestAdminFn: func(context.Context) (uuid.UUID, error) {
@@ -238,7 +230,6 @@ func TestInstancesCreateNoAdminInternalError(t *testing.T) {
 		t.Errorf("Create calls = %v, want none when no admin exists", svc.createInputs)
 	}
 }
-
 func TestInstancesCreateKeyShownOnce(t *testing.T) {
 	userID := uuid.New()
 	owned := func(id uuid.UUID) *model.Instance {
@@ -285,17 +276,15 @@ func TestInstancesCreateKeyShownOnce(t *testing.T) {
 		if name == "list" {
 			var list struct {
 				Data struct {
-					Items []struct {
-						Instance map[string]json.RawMessage `json:"instance"`
-					} `json:"items"`
+					Instances []map[string]json.RawMessage `json:"instances"`
 				} `json:"data"`
 			}
 			decodeJSON(t, body, &list)
-			if len(list.Data.Items) == 0 {
+			if len(list.Data.Instances) == 0 {
 				t.Fatalf("%s has no items, want the owned instance listed", name)
 			}
-			for i, item := range list.Data.Items {
-				if _, found := item.Instance["instance_api_key"]; found {
+			for i, item := range list.Data.Instances {
+				if _, found := item["instance_api_key"]; found {
 					t.Errorf("%s items[%d] exposes instance_api_key, want it exactly once at create", name, i)
 				}
 			}

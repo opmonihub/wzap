@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -11,17 +11,18 @@ import (
 	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
+	"wzap/internal/httpapi/core"
 )
 
 func newTestServer(t *testing.T) *http.Server {
 	t.Helper()
-	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, zerolog.Nop(),
-		Deps{
+	return httpapi.New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, zerolog.Nop(),
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    &fakeInstanceService{},
 		})
 }
-
 func serve(t *testing.T, srv *http.Server, method, path, token string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(method, path, nil)
@@ -32,7 +33,6 @@ func serve(t *testing.T, srv *http.Server, method, path, token string) *httptest
 	srv.Handler.ServeHTTP(rec, req)
 	return rec
 }
-
 func dataField(t *testing.T, body []byte, field string) string {
 	t.Helper()
 	var payload struct {
@@ -46,7 +46,6 @@ func dataField(t *testing.T, body []byte, field string) string {
 	}
 	return value
 }
-
 func TestNewHealthEndpoints(t *testing.T) {
 	tests := []struct {
 		path string
@@ -75,7 +74,6 @@ func TestNewHealthEndpoints(t *testing.T) {
 		})
 	}
 }
-
 func TestNewAPIGroupRequiresAuth(t *testing.T) {
 	srv := newTestServer(t)
 
@@ -98,23 +96,22 @@ func TestNewAPIGroupRequiresAuth(t *testing.T) {
 		}
 	})
 }
-
-func TestLegacyAPIPrefixFollowsGenericRouting(t *testing.T) {
+func TestUnknownRootPrefixReturnsNotFound(t *testing.T) {
 	srv := newTestServer(t)
 
-	t.Run("without credential is unauthorized", func(t *testing.T) {
-		rec := serve(t, srv, http.MethodGet, "/api/v1/instances", "")
+	t.Run("without credential is not found", func(t *testing.T) {
+		rec := serve(t, srv, http.MethodGet, "/unsupported/instances", "")
 
-		if rec.Code != http.StatusUnauthorized {
-			t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
 		}
-		if code := errorCode(t, rec.Body.Bytes()); code != "unauthorized" {
+		if code := errorCode(t, rec.Body.Bytes()); code != "not_found" {
 			t.Errorf("error code = %q, want %q", code, "unauthorized")
 		}
 	})
 
 	t.Run("with credential is enveloped not found", func(t *testing.T) {
-		rec := serve(t, srv, http.MethodGet, "/api/v1/instances", testToken)
+		rec := serve(t, srv, http.MethodGet, "/unsupported/instances", testToken)
 
 		if rec.Code != http.StatusNotFound {
 			t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
@@ -127,7 +124,6 @@ func TestLegacyAPIPrefixFollowsGenericRouting(t *testing.T) {
 		}
 	})
 }
-
 func TestAPIFallbackAnswersErrorEnvelope(t *testing.T) {
 	srv := newTestServer(t)
 
@@ -145,11 +141,11 @@ func TestAPIFallbackAnswersErrorEnvelope(t *testing.T) {
 		}
 	})
 
-	t.Run("unknown path without token is unauthorized", func(t *testing.T) {
+	t.Run("unknown root path without token is not found", func(t *testing.T) {
 		rec := serve(t, srv, http.MethodGet, "/unknown", "")
 
-		if rec.Code != http.StatusUnauthorized {
-			t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
 		}
 	})
 
@@ -162,14 +158,13 @@ func TestAPIFallbackAnswersErrorEnvelope(t *testing.T) {
 		if code := errorCode(t, rec.Body.Bytes()); code != "method_not_allowed" {
 			t.Errorf("error code = %q, want %q", code, "method_not_allowed")
 		}
-		if allow := rec.Header().Get("Allow"); allow != "GET, POST" {
-			t.Errorf("Allow = %q, want %q", allow, "GET, POST")
+		if allow := rec.Header().Get("Allow"); allow != "GET, HEAD, POST" {
+			t.Errorf("Allow = %q, want %q", allow, "GET, HEAD, POST")
 		}
 	})
 }
-
 func TestNewReturnsConfiguredServer(t *testing.T) {
-	srv := New(config.Config{HTTPAddr: "127.0.0.1:9999", APIKey: testToken}, zerolog.Nop(), Deps{})
+	srv := httpapi.New(config.Config{HTTPAddr: "127.0.0.1:9999", APIKey: testToken}, zerolog.Nop(), httpapi.Deps{})
 
 	if srv.Addr != "127.0.0.1:9999" {
 		t.Errorf("Addr = %q, want %q", srv.Addr, "127.0.0.1:9999")
@@ -181,38 +176,11 @@ func TestNewReturnsConfiguredServer(t *testing.T) {
 		t.Error("ReadHeaderTimeout must be positive")
 	}
 }
-
-func TestJSONNoContentHasNoBody(t *testing.T) {
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/instances", nil)
-
-	JSON(rec, req, http.StatusNoContent, nil)
-
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
-	}
-	if rec.Body.Len() != 0 {
-		t.Errorf("body = %q, want empty", rec.Body.String())
-	}
-}
-
-func TestJSONEchoesRequestIDFromContext(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/instances", nil)
-	req = req.WithContext(context.WithValue(req.Context(), requestIDKey, "ctx-id-9"))
-	rec := httptest.NewRecorder()
-
-	JSON(rec, req, http.StatusOK, map[string]string{"id": "abc"})
-
-	if got := rec.Header().Get("X-Request-Id"); got != "ctx-id-9" {
-		t.Errorf("X-Request-Id = %q, want ctx-id-9", got)
-	}
-}
-
 func TestErrorEnvelope(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/instances", nil)
 	rec := httptest.NewRecorder()
 
-	Error(rec, req, http.StatusConflict, "conflict", "external ref already taken")
+	core.Error(rec, req, http.StatusConflict, "conflict", "external ref already taken")
 
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusConflict)
@@ -231,15 +199,15 @@ func TestErrorEnvelope(t *testing.T) {
 		t.Errorf("error message = %q, want %q", payload.Error.Message, "external ref already taken")
 	}
 }
-
-func TestErrorEchoesRequestIDFromContext(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/instances", nil)
-	req = req.WithContext(context.WithValue(req.Context(), requestIDKey, "ctx-id-7"))
-	rec := httptest.NewRecorder()
-
-	Error(rec, req, http.StatusBadRequest, "invalid_request", "bad input")
-
-	if got := rec.Header().Get("X-Request-Id"); got != "ctx-id-7" {
-		t.Errorf("X-Request-Id = %q, want %q", got, "ctx-id-7")
+func TestFinalRouterUnknownRoot(t *testing.T) {
+	rec := serve(t, newTestServer(t), http.MethodGet, "/unknown", "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("root status=%d want404: %s", rec.Code, rec.Body.String())
+	}
+}
+func TestFinalRouterPrivateUnknown(t *testing.T) {
+	rec := serve(t, newTestServer(t), http.MethodGet, "/instances/x/unknown", "")
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("private status=%d", rec.Code)
 	}
 }

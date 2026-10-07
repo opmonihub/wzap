@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"wzap/internal/httpapi/representation"
 	"wzap/internal/instance"
 	"wzap/internal/model"
 	"wzap/internal/session"
@@ -19,7 +20,7 @@ import (
 // connectPayload is the decoded data of a connect or qr response: the
 // connection DTO nested under data.connection.
 type connectPayload struct {
-	Connection connectionResponse `json:"connection"`
+	Connection representation.ConnectionResponse `json:"connection"`
 }
 
 func TestInstancesConnectStartsPairing(t *testing.T) {
@@ -54,7 +55,6 @@ func TestInstancesConnectStartsPairing(t *testing.T) {
 		t.Errorf("Connect calls = %v, want [%s]", svc.connectIDs, id)
 	}
 }
-
 func TestInstancesConnectAlreadyConnected(t *testing.T) {
 	id := uuid.New()
 	svc := &fakeInstanceService{connectFn: func(context.Context, uuid.UUID) (instance.ConnectResult, error) {
@@ -99,7 +99,6 @@ func TestInstancesConnectDeadSocketAnswersConflict(t *testing.T) {
 		t.Errorf("error code = %q, want %q", code, "conflict")
 	}
 }
-
 func TestInstancesConnectNotFound(t *testing.T) {
 	svc := &fakeInstanceService{connectFn: func(context.Context, uuid.UUID) (instance.ConnectResult, error) {
 		return instance.ConnectResult{}, instance.ErrNotFound
@@ -114,7 +113,6 @@ func TestInstancesConnectNotFound(t *testing.T) {
 		t.Errorf("error code = %q, want %q", code, "not_found")
 	}
 }
-
 func TestInstancesQR(t *testing.T) {
 	id := uuid.New()
 	expiresAt := time.Now().UTC().Add(time.Minute).Truncate(time.Second)
@@ -144,7 +142,6 @@ func TestInstancesQR(t *testing.T) {
 		t.Errorf("QR calls = %v, want [%s]", svc.qrIDs, id)
 	}
 }
-
 func TestInstancesQRAlreadyConnected(t *testing.T) {
 	id := uuid.New()
 	svc := &fakeInstanceService{qrFn: func(context.Context, uuid.UUID) (instance.ConnectResult, error) {
@@ -160,7 +157,6 @@ func TestInstancesQRAlreadyConnected(t *testing.T) {
 		t.Errorf("error code = %q, want %q", code, "conflict")
 	}
 }
-
 func TestInstancesStatus(t *testing.T) {
 	connectedAt := time.Now().UTC().Truncate(time.Second)
 	want := &model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: string(session.StatusConnected), DeviceJID: "5511999999999@s.whatsapp.net", LastConnectedAt: &connectedAt}}
@@ -195,7 +191,6 @@ func TestInstancesStatus(t *testing.T) {
 		t.Errorf("data.connection.last_connected_at = %v, want %v", payload.Data.Connection.LastConnectedAt, connectedAt)
 	}
 }
-
 func TestInstancesStatusNotFound(t *testing.T) {
 	svc := &fakeInstanceService{getFn: func(context.Context, uuid.UUID) (*model.Instance, error) {
 		return nil, instance.ErrNotFound
@@ -210,7 +205,6 @@ func TestInstancesStatusNotFound(t *testing.T) {
 		t.Errorf("error code = %q, want %q", code, "not_found")
 	}
 }
-
 func TestInstancesConnectionRejectsMalformedID(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -242,7 +236,6 @@ func TestInstancesConnectionRejectsMalformedID(t *testing.T) {
 		})
 	}
 }
-
 func TestInstancesDisconnect(t *testing.T) {
 	id := uuid.New()
 	svc := &fakeInstanceService{disconnectFn: func(_ context.Context, gotID uuid.UUID) error {
@@ -264,7 +257,6 @@ func TestInstancesDisconnect(t *testing.T) {
 		t.Errorf("Disconnect calls = %v, want [%s]", svc.disconnectIDs, id)
 	}
 }
-
 func TestInstancesDisconnectNotFound(t *testing.T) {
 	svc := &fakeInstanceService{disconnectFn: func(context.Context, uuid.UUID) error {
 		return instance.ErrNotFound
@@ -279,7 +271,6 @@ func TestInstancesDisconnectNotFound(t *testing.T) {
 		t.Errorf("error code = %q, want %q", code, "not_found")
 	}
 }
-
 func TestInstancesDisconnectFailure(t *testing.T) {
 	svc := &fakeInstanceService{disconnectFn: func(context.Context, uuid.UUID) error {
 		return errors.New("session still connected")

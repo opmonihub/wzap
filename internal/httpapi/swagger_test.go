@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"encoding/json"
@@ -17,7 +17,6 @@ func TestSwaggerIndexServesWithoutCredential(t *testing.T) {
 		t.Errorf("Content-Type = %q, want text/html", ct)
 	}
 }
-
 func TestSwaggerDocJSONServesRoutesAndSecurityDefinition(t *testing.T) {
 	rec := serve(t, newTestServer(t), http.MethodGet, "/swagger/doc.json", "")
 
@@ -36,7 +35,7 @@ func TestSwaggerDocJSONServesRoutesAndSecurityDefinition(t *testing.T) {
 
 	for _, path := range []string{
 		"/instances",
-		"/instances/{id}/messages/text",
+		"/instances/{instance}/messages/text",
 		"/auth/login",
 		"/healthz",
 		"/media/{id}",
@@ -54,7 +53,6 @@ func TestSwaggerDocJSONServesRoutesAndSecurityDefinition(t *testing.T) {
 		t.Errorf("securityDefinitions.apikey = %+v, want {apiKey apikey header}", def)
 	}
 }
-
 func TestSwaggerDocJSONServesParityPaths(t *testing.T) {
 	rec := serve(t, newTestServer(t), http.MethodGet, "/swagger/doc.json", "")
 
@@ -67,7 +65,7 @@ func TestSwaggerDocJSONServesParityPaths(t *testing.T) {
 	decodeJSON(t, rec.Body.Bytes(), &doc)
 
 	for _, path := range []string{
-		"/instances/{id}/messages/edit",
+		"/instances/{instance}/messages/edit",
 		"/instances/{id}/groups",
 		"/instances/{id}/groups/invite-preview",
 		"/instances/{id}/groups/{group_id}/requests",
@@ -94,7 +92,6 @@ func TestSwaggerDocJSONServesParityPaths(t *testing.T) {
 		}
 	}
 }
-
 func TestSwaggerMountKeepsGuardedRoutesAuthenticated(t *testing.T) {
 	rec := serve(t, newTestServer(t), http.MethodGet, "/instances", "")
 
@@ -105,7 +102,6 @@ func TestSwaggerMountKeepsGuardedRoutesAuthenticated(t *testing.T) {
 		t.Errorf("error code = %q, want %q", code, "unauthorized")
 	}
 }
-
 func TestSwaggerUnknownSubpathAsServed(t *testing.T) {
 	rec := serve(t, newTestServer(t), http.MethodGet, "/swagger/does-not-exist-xyz", "")
 

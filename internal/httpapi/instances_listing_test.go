@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -11,6 +11,8 @@ import (
 	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
+	"wzap/internal/httpapi/representation"
 	"wzap/internal/model"
 )
 
@@ -26,7 +28,7 @@ func TestInstancesListCompleteCollection(t *testing.T) {
 	svc := &fakeInstanceService{listFn: func(context.Context) ([]model.Instance, error) {
 		return rows, nil
 	}}
-	srv := New(config.Config{APIKey: f.globalKey, JWTSecret: testJWTSecret}, zerolog.Nop(), Deps{
+	srv := httpapi.New(config.Config{APIKey: f.globalKey, JWTSecret: testJWTSecret}, zerolog.Nop(), httpapi.Deps{
 		Instances: svc, Keys: f.keys, JWTSecret: testJWTSecret,
 	})
 	tests := []struct {
@@ -64,32 +66,31 @@ func TestInstancesListCompleteCollection(t *testing.T) {
 					if _, ok := payload.Data["next_cursor"]; ok {
 						t.Error("data.next_cursor must be absent")
 					}
-					var items []instanceEnvelope
-					decodeJSON(t, payload.Data["items"], &items)
+					var items []representation.InstanceResponse
+					decodeJSON(t, payload.Data["instances"], &items)
 					if len(items) != tt.want {
 						t.Fatalf("data.items length = %d, want %d", len(items), tt.want)
 					}
 					if tt.name == "other owner" {
-						if items[0].Instance.ID != f.instB.ID.String() {
-							t.Errorf("other owner's item = %s, want %s", items[0].Instance.ID, f.instB.ID)
+						if items[0].ID != f.instB.ID.String() {
+							t.Errorf("other owner's item = %s, want %s", items[0].ID, f.instB.ID)
 						}
 						return
 					}
 					for i, item := range items {
-						if item.Instance.ID != rows[i].ID.String() {
-							t.Errorf("item %d = %s, want %s (preserve repository order)", i, item.Instance.ID, rows[i].ID)
+						if item.ID != rows[i].ID.String() {
+							t.Errorf("item %d = %s, want %s (preserve repository order)", i, item.ID, rows[i].ID)
 						}
 					}
 					if tt.name == "owner" {
-						// owner_user_id stays internal: the listing must not
-						// expose it even to the owner.
+
 						for i, item := range items {
 							raw, _ := json.Marshal(item)
 							if strings.Contains(string(raw), "owner_user_id") {
-								t.Errorf("item %s leaks owner_user_id", item.Instance.ID)
+								t.Errorf("item %s leaks owner_user_id", item.ID)
 							}
-							if item.Instance.ID != rows[i].ID.String() {
-								t.Errorf("owner item %d = %s, want %s (ownership filter order)", i, item.Instance.ID, rows[i].ID)
+							if item.ID != rows[i].ID.String() {
+								t.Errorf("owner item %d = %s, want %s (ownership filter order)", i, item.ID, rows[i].ID)
 							}
 						}
 					}
@@ -98,7 +99,6 @@ func TestInstancesListCompleteCollection(t *testing.T) {
 		})
 	}
 }
-
 func TestInstancesListEmptyCollection(t *testing.T) {
 	rec := serveJSON(t, instancesServer(t, &fakeInstanceService{}), http.MethodGet, "/instances?limit=invalid&cursor=invalid", "")
 	if rec.Code != http.StatusOK {
@@ -108,8 +108,8 @@ func TestInstancesListEmptyCollection(t *testing.T) {
 		Data map[string]json.RawMessage `json:"data"`
 	}
 	decodeJSON(t, rec.Body.Bytes(), &payload)
-	if string(payload.Data["items"]) != "[]" {
-		t.Errorf("data.items = %s, want []", payload.Data["items"])
+	if string(payload.Data["instances"]) != "[]" {
+		t.Errorf("data.items = %s, want []", payload.Data["instances"])
 	}
 	if _, ok := payload.Data["next_cursor"]; ok {
 		t.Error("data.next_cursor must be absent")

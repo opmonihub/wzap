@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -8,18 +8,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+
+	"wzap/internal/config"
+	"wzap/internal/httpapi"
 )
 
 // editMessageServer wires the edit handler at its future route behind the
 // production auth chain so the test exercises the same boundary Task 9 will
 // register in server.go.
-func editMessageServer(t *testing.T, svc InstanceService) *http.Server {
+func editMessageServer(t *testing.T, svc httpapi.InstanceService) *http.Server {
 	t.Helper()
-	mux := http.NewServeMux()
-	mux.Handle("POST /instances/{id}/messages/edit", handleEditMessage(svc, zerolog.Nop()))
-	return &http.Server{Handler: RequestID(Authenticate(testToken, nil, "")(mux))}
+	return httpapi.New(config.Config{APIKey: testToken}, zerolog.Nop(), httpapi.Deps{Instances: svc})
 }
-
 func TestEditMessage(t *testing.T) {
 	id := uuid.New()
 	svc := &fakeInstanceService{
@@ -58,7 +58,6 @@ func TestEditMessage(t *testing.T) {
 		t.Fatalf("EditMessage calls = %d, want 1", len(svc.editMessageCalls))
 	}
 }
-
 func TestEditMessageRejectsEmptyText(t *testing.T) {
 	svc := &fakeInstanceService{}
 	rec := serveJSON(t, editMessageServer(t, svc), http.MethodPost,
@@ -72,7 +71,6 @@ func TestEditMessageRejectsEmptyText(t *testing.T) {
 		t.Errorf("EditMessage calls = %d, want none on empty text", len(svc.editMessageCalls))
 	}
 }
-
 func TestEditMessageRejectsTooLong(t *testing.T) {
 	svc := &fakeInstanceService{}
 	rec := serveJSON(t, editMessageServer(t, svc), http.MethodPost,

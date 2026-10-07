@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 
+	"wzap/internal/httpapi/core"
 	"wzap/internal/storage/migrations"
 )
 
@@ -147,11 +148,11 @@ type detailedReadyChecker interface {
 // @Description Reports liveness without authentication. The process is alive whenever it replies.
 // @Tags health
 // @Produce json
-// @Success 200 {object} envelope{data=object{status=string}} "Liveness status"
+// @Success 200 {object} core.Envelope{data=object{status=string}} "Liveness status"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /healthz [get]
 func handleHealthz(w http.ResponseWriter, r *http.Request) {
-	JSON(w, r, http.StatusOK, map[string]string{"status": "ok"})
+	core.JSON(w, r, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 // handleReadyz reports readiness from the configured checker: 200 while every
@@ -162,8 +163,8 @@ func handleHealthz(w http.ResponseWriter, r *http.Request) {
 // @Description Reports readiness without authentication: 200 while every dependency is ready, 503 otherwise. The response names each dependency but never echoes probe errors.
 // @Tags health
 // @Produce json
-// @Success 200 {object} envelope{data=readiness} "Readiness, wrapped in the data envelope"
-// @Failure 503 {object} envelope{data=readiness} "Unready state, wrapped in the data envelope"
+// @Success 200 {object} core.Envelope{data=readiness} "Readiness, wrapped in the data envelope"
+// @Failure 503 {object} core.Envelope{data=readiness} "Unready state, wrapped in the data envelope"
 // @Header all {string} X-Request-Id "Correlation id, generated when absent"
 // @Router /readyz [get]
 func handleReadyz(checker ReadyChecker, log zerolog.Logger) http.HandlerFunc {
@@ -201,12 +202,12 @@ func handleReadyz(checker ReadyChecker, log zerolog.Logger) http.HandlerFunc {
 
 		if len(failures) > 0 {
 			log.Warn().
-				Str("request_id", RequestIDFromContext(ctx)).
+				Str("request_id", core.RequestIDFromContext(ctx)).
 				Err(errors.Join(failures...)).
 				Msg("readiness check failed")
-			JSON(w, r, http.StatusServiceUnavailable, readiness{Status: "unready", Checks: checks})
+			core.JSON(w, r, http.StatusServiceUnavailable, readiness{Status: "unready", Checks: checks})
 			return
 		}
-		JSON(w, r, http.StatusOK, readiness{Status: "ready", Checks: checks})
+		core.JSON(w, r, http.StatusOK, readiness{Status: "ready", Checks: checks})
 	}
 }

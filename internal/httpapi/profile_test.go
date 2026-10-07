@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"bytes"
@@ -13,6 +13,8 @@ import (
 	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
+	"wzap/internal/httpapi/representation"
 	"wzap/internal/instance"
 	"wzap/internal/session"
 )
@@ -21,9 +23,9 @@ import (
 // profile and privacy routes.
 func profileServer(t *testing.T, svc *fakeInstanceService, maxMediaBytes int64) *http.Server {
 	t.Helper()
-	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, MaxMediaBytes: maxMediaBytes},
+	return httpapi.New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, MaxMediaBytes: maxMediaBytes},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    svc,
 		})
@@ -46,7 +48,6 @@ func serveProfile(t *testing.T, srv *http.Server, method, path, body, contentTyp
 	srv.Handler.ServeHTTP(rec, req)
 	return rec
 }
-
 func TestGetProfile(t *testing.T) {
 	t.Run("connected instance answers profile", func(t *testing.T) {
 		id := uuid.New()
@@ -81,7 +82,6 @@ func TestGetProfile(t *testing.T) {
 		}
 	})
 }
-
 func TestProfileGet(t *testing.T) {
 	t.Run("own profile answers its fields", func(t *testing.T) {
 		id := uuid.New()
@@ -100,7 +100,7 @@ func TestProfileGet(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data profileResponse `json:"data"`
+			Data representation.ProfileResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if payload.Data.Name != "Loja" || payload.Data.StatusText != "aberto" || payload.Data.PhotoURL != "https://example.com/foto.jpg" {
@@ -108,7 +108,6 @@ func TestProfileGet(t *testing.T) {
 		}
 	})
 }
-
 func TestProfileUpdate(t *testing.T) {
 	t.Run("valid name and recado answer the refreshed profile", func(t *testing.T) {
 		id := uuid.New()
@@ -137,7 +136,7 @@ func TestProfileUpdate(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data profileResponse `json:"data"`
+			Data representation.ProfileResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if payload.Data.Name != "Loja nova" || payload.Data.StatusText != "aberto até 18h" {
@@ -206,7 +205,6 @@ func TestProfileUpdate(t *testing.T) {
 		}
 	})
 }
-
 func TestProfilePhoto(t *testing.T) {
 	t.Run("image body answers updated true", func(t *testing.T) {
 		id := uuid.New()
@@ -266,7 +264,6 @@ func TestProfilePhoto(t *testing.T) {
 		}
 	})
 }
-
 func TestPrivacyGet(t *testing.T) {
 	t.Run("privacy answers one value per field", func(t *testing.T) {
 		id := uuid.New()
@@ -291,7 +288,7 @@ func TestPrivacyGet(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data privacyResponse `json:"data"`
+			Data representation.PrivacyResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if payload.Data.LastSeen != "contacts" || payload.Data.ReadReceipts != "all" || payload.Data.GroupsAdd != "contact_blacklist" {
@@ -299,7 +296,6 @@ func TestPrivacyGet(t *testing.T) {
 		}
 	})
 }
-
 func TestPrivacyUpdate(t *testing.T) {
 	t.Run("valid values answer the applied settings", func(t *testing.T) {
 		id := uuid.New()
@@ -322,7 +318,7 @@ func TestPrivacyUpdate(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data privacyResponse `json:"data"`
+			Data representation.PrivacyResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if payload.Data.LastSeen != "contacts" || payload.Data.ReadReceipts != "none" {

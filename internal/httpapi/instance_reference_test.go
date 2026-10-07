@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -8,8 +8,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+
 	"wzap/internal/chatwoot/inbound"
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
+	"wzap/internal/httpapi/chatwoot"
+	"wzap/internal/httpapi/representation"
 	"wzap/internal/instance"
 	"wzap/internal/model"
 )
@@ -30,10 +34,9 @@ func aliasFixture(t *testing.T) (*rbacFixture, *fakeInstanceService, *fakeMessag
 	}
 	messages := f.rbacMessages()
 	repo := newFakeIdempotency()
-	srv := New(config.Config{APIKey: testToken, MaxMediaBytes: testMaxMediaBytes}, zerolog.Nop(), Deps{Instances: svc, Messages: messages, Idempotency: repo, Keys: f.keys, JWTSecret: testJWTSecret})
+	srv := httpapi.New(config.Config{APIKey: testToken, MaxMediaBytes: testMaxMediaBytes}, zerolog.Nop(), httpapi.Deps{Instances: svc, Messages: messages, Idempotency: repo, Keys: f.keys, JWTSecret: testJWTSecret})
 	return f, svc, messages, repo, srv
 }
-
 func TestInstanceReferencesResolveAtRouter(t *testing.T) {
 	f, svc, messages, _, srv := aliasFixture(t)
 	for _, tc := range []struct {
@@ -60,7 +63,6 @@ func TestInstanceReferencesResolveAtRouter(t *testing.T) {
 		t.Errorf("enqueue calls=%v", messages.enqueueCalls)
 	}
 }
-
 func TestInstanceReferenceErrorsAndUUIDPrecedence(t *testing.T) {
 	f, svc, _, _, srv := aliasFixture(t)
 	for _, ref := range []string{"loja_SP-1", "missing", "bad.name", "stats"} {
@@ -84,7 +86,6 @@ func TestInstanceReferenceErrorsAndUUIDPrecedence(t *testing.T) {
 		t.Errorf("UUID namespace queried names: %v", svc.getNames)
 	}
 }
-
 func TestInstanceKeyNameResolutionDoesNotProbeForeignNames(t *testing.T) {
 	f, svc, _, _, srv := aliasFixture(t)
 	for _, ref := range []string{f.instB.Name, "missing", f.instB.ID.String()} {
@@ -106,7 +107,6 @@ func TestInstanceKeyNameResolutionDoesNotProbeForeignNames(t *testing.T) {
 		}
 	}
 }
-
 func TestAliasReplayUsesCanonicalUUIDAndCurrentAccess(t *testing.T) {
 	for _, firstByName := range []bool{true, false} {
 		t.Run(map[bool]string{true: "name-first", false: "uuid-first"}[firstByName], func(t *testing.T) {
@@ -168,7 +168,6 @@ func TestAliasReplayUsesCanonicalUUIDAndCurrentAccess(t *testing.T) {
 		})
 	}
 }
-
 func TestPublicChatwootNameReference(t *testing.T) {
 	f, svc, _, _, _ := aliasFixture(t)
 	srv := chatwootTestServer(t, svc, &fakeChatwootConfigs{}, config.Chatwoot{})
@@ -176,11 +175,10 @@ func TestPublicChatwootNameReference(t *testing.T) {
 	if rec.Code != 400 || errorCode(t, rec.Body.Bytes()) != "chatwoot_disabled" {
 		t.Errorf("open alias=%d %s", rec.Code, rec.Body.String())
 	}
-	if len(svc.getIDs) != 1 || svc.getIDs[0] != f.instA.ID {
+	if len(svc.getNames) != 1 || svc.getNames[0] != f.instA.Name {
 		t.Errorf("webhook target=%v", svc.getIDs)
 	}
 }
-
 func TestTargetedInstanceStats(t *testing.T) {
 	f, svc, _, _, srv := aliasFixture(t)
 	for _, status := range []string{"connected", "disconnected", "pairing", "error", "unknown"} {
@@ -229,7 +227,6 @@ func TestTargetedInstanceStats(t *testing.T) {
 		t.Error("targeted stats listed collection")
 	}
 }
-
 func TestInstanceNameErrorsHaveTypedHTTPCodes(t *testing.T) {
 	for _, tc := range []struct {
 		err    error
@@ -253,7 +250,6 @@ func TestInstanceNameErrorsHaveTypedHTTPCodes(t *testing.T) {
 		}
 	}
 }
-
 func TestUUIDReplayRechecksOwnershipBeforeCache(t *testing.T) {
 	f, _, messages, repo, srv := aliasFixture(t)
 	path := "/instances/" + f.instA.ID.String() + "/messages/text"
@@ -272,7 +268,6 @@ func TestUUIDReplayRechecksOwnershipBeforeCache(t *testing.T) {
 		t.Errorf("cache acquires=%d enqueue=%d", len(repo.acquires), len(messages.enqueueCalls))
 	}
 }
-
 func TestRenameChangesOnlyTheAlias(t *testing.T) {
 	f, svc, _, _, srv := aliasFixture(t)
 	svc.updateFn = func(_ context.Context, id uuid.UUID, input instance.UpdateInput) (*model.Instance, error) {
@@ -299,7 +294,7 @@ func TestRenameChangesOnlyTheAlias(t *testing.T) {
 		}
 		if tc.status == 200 {
 			var payload struct {
-				Data instanceEnvelope `json:"data"`
+				Data representation.InstanceEnvelope `json:"data"`
 			}
 			decodeJSON(t, rec.Body.Bytes(), &payload)
 			if payload.Data.Instance.ID != f.instA.ID.String() || payload.Data.Instance.Name != "Renamed" {
@@ -308,7 +303,6 @@ func TestRenameChangesOnlyTheAlias(t *testing.T) {
 		}
 	}
 }
-
 func TestInstanceResolverLeavesStaticAndOtherIDsAlone(t *testing.T) {
 	_, svc, _, _, srv := aliasFixture(t)
 	for _, tc := range []struct {
@@ -335,13 +329,12 @@ func (f *aliasWebhookInbound) Handle(_ context.Context, id uuid.UUID, _ inbound.
 	f.ids = append(f.ids, id)
 	return 200, nil
 }
-
 func TestPublicWebhookAliasesShareCanonicalLimiterAndConnector(t *testing.T) {
 	f, svc, _, _, _ := aliasFixture(t)
 	connector := &aliasWebhookInbound{}
-	srv := New(config.Config{APIKey: testToken}, zerolog.Nop(), Deps{
+	srv := httpapi.New(config.Config{APIKey: testToken}, zerolog.Nop(), httpapi.Deps{
 		Instances: svc, Chatwoot: chatwootOn(), ChatwootInbound: connector,
-		ChatwootWebhookLimiter: NewChatwootRateLimiter(1, 0),
+		ChatwootWebhookLimiter: chatwoot.NewChatwootRateLimiter(1, 0),
 	})
 	rec := serveRBAC(t, srv, "POST", "/chatwoot/webhook/"+f.instA.Name, `{}`, nil, "", nil)
 	if rec.Code != 200 {

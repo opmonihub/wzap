@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -12,16 +12,18 @@ import (
 
 	"wzap/internal/chatwoot/inbound"
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
+	"wzap/internal/httpapi/chatwoot"
 	"wzap/internal/model"
 )
 
 // RED: open webhook tem rate-limit por instância (429 após estouro).
 func TestChatwootWebhookRateLimited(t *testing.T) {
 	id := uuid.New()
-	srv := New(
+	srv := httpapi.New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, PublicURL: "https://wzap.example.com", Chatwoot: chatwootOn()},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances: &fakeInstanceService{
 				getFn: func(_ context.Context, got uuid.UUID) (*model.Instance, error) {
@@ -31,7 +33,7 @@ func TestChatwootWebhookRateLimited(t *testing.T) {
 			ChatwootInbound:        &fakeChatwootInbound{status: 200},
 			Chatwoot:               chatwootOn(),
 			PublicURL:              "https://wzap.example.com",
-			ChatwootWebhookLimiter: NewChatwootRateLimiter(2, 0),
+			ChatwootWebhookLimiter: chatwoot.NewChatwootRateLimiter(2, 0),
 		},
 	)
 	for i := 0; i < 2; i++ {
@@ -62,10 +64,10 @@ func TestChatwootCommandAuthenticated(t *testing.T) {
 			return &model.ChatwootConfig{InstanceID: got, Enabled: true}, nil
 		},
 	}
-	srv := New(
+	srv := httpapi.New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, PublicURL: "https://wzap.example.com", Chatwoot: chatwootOn()},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances: &fakeInstanceService{
 				getFn: func(_ context.Context, got uuid.UUID) (*model.Instance, error) {
@@ -78,7 +80,7 @@ func TestChatwootCommandAuthenticated(t *testing.T) {
 			PublicURL:       "https://wzap.example.com",
 		},
 	)
-	// Sem credencial: 401.
+
 	req := httptest.NewRequest(http.MethodPost, "/instances/"+id.String()+"/chatwoot/command", strings.NewReader(`{"command":"status","conversation_id":7}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -86,7 +88,7 @@ func TestChatwootCommandAuthenticated(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("sem cred status = %d, want 401", rec.Code)
 	}
-	// Com global key: executa.
+
 	req = httptest.NewRequest(http.MethodPost, "/instances/"+id.String()+"/chatwoot/command", strings.NewReader(`{"command":"status","conversation_id":7}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("apikey", testToken)

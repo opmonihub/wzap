@@ -1,23 +1,22 @@
-package httpapi
+package httpapi_test
 
 import (
-	"go/ast"
-	"go/parser"
-	"go/token"
 	"net/http"
-	"strconv"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/go-chi/chi/v5"
 )
 
 type swaggerSchema struct {
+	Required   []string                 `json:"required"`
 	Ref        string                   `json:"$ref"`
 	Type       string                   `json:"type"`
 	Properties map[string]swaggerSchema `json:"properties"`
 	Items      *swaggerSchema           `json:"items"`
 	AllOf      []swaggerSchema          `json:"allOf"`
 }
-
 type swaggerOperation struct {
 	Parameters []struct {
 		Name        string         `json:"name"`
@@ -36,7 +35,6 @@ type swaggerOperation struct {
 	Produces []string              `json:"produces"`
 	Consumes []string              `json:"consumes"`
 }
-
 type swaggerDocument struct {
 	Paths               map[string]map[string]swaggerOperation `json:"paths"`
 	Definitions         map[string]swaggerSchema               `json:"definitions"`
@@ -61,53 +59,20 @@ func servedSwagger(t *testing.T) swaggerDocument {
 // Missing an annotation for either method on a shared path must fail coverage.
 func TestSwaggerDocumentsEveryRegisteredOperation(t *testing.T) {
 	doc := servedSwagger(t)
-	file, err := parser.ParseFile(token.NewFileSet(), "server.go", nil, 0)
-	if err != nil {
-		t.Fatal(err)
+	routes, ok := newTestServer(t).Handler.(chi.Routes)
+	if !ok {
+		t.Fatal("server must expose Chi routes")
 	}
 	count := 0
-	ast.Inspect(file, func(node ast.Node) bool {
-		call, ok := node.(*ast.CallExpr)
-		if !ok {
-			return true
-		}
-		selector, ok := call.Fun.(*ast.SelectorExpr)
-		if !ok || (selector.Sel.Name != "Handle" && selector.Sel.Name != "HandleFunc") {
-			return true
-		}
-		if len(call.Args) != 2 {
-			t.Errorf("unsupported route registration: %s argument count %d", selector.Sel.Name, len(call.Args))
-			return true
-		}
-		literal, ok := call.Args[0].(*ast.BasicLit)
-		if !ok || literal.Kind != token.STRING {
-			t.Errorf("unsupported nonliteral route registration at byte %d", call.Pos())
-			return true
-		}
-		pattern, err := strconv.Unquote(literal.Value)
-		if err != nil {
-			t.Error(err)
-			return true
-		}
-		if strings.HasPrefix(pattern, "/") {
-			return true // Methodless static mounts and API fallbacks are not operations.
-		}
-		method, path, ok := strings.Cut(pattern, " ")
-		if !ok || !strings.HasPrefix(path, "/") || strings.Contains(path, " ") {
-			t.Errorf("unsupported route pattern %q", pattern)
-			return true
-		}
-		switch method {
-		case "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS":
-		default:
-			t.Errorf("unsupported route method %q", method)
-			return true
+	err := chi.Walk(routes, func(method, path string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
+		if strings.Contains(path, "*") {
+			return nil
 		}
 		count++
 		op, ok := doc.Paths[path][strings.ToLower(method)]
 		if !ok {
-			t.Errorf("Swagger missing registered operation %s", pattern)
-			return true
+			t.Errorf("Swagger missing %s %s", method, path)
+			return nil
 		}
 		for _, segment := range strings.Split(path, "/") {
 			if !strings.HasPrefix(segment, "{") {
@@ -115,23 +80,24 @@ func TestSwaggerDocumentsEveryRegisteredOperation(t *testing.T) {
 			}
 			name := strings.TrimSuffix(strings.TrimPrefix(segment, "{"), "}")
 			found := false
-			for _, parameter := range op.Parameters {
-				if parameter.In == "path" && parameter.Name == name && parameter.Required {
+			for _, param := range op.Parameters {
+				if param.In == "path" && param.Name == name && param.Required {
 					found = true
 				}
 			}
 			if !found {
-				t.Errorf("%s missing required path parameter %s", pattern, name)
+				t.Errorf("%s %s missing path param %s", method, path, name)
 			}
 		}
-		return true
+		return nil
 	})
-	if count == 0 {
-		t.Fatal("no method/path registrations inspected")
+	if err != nil {
+		t.Fatal(err)
 	}
-	t.Logf("checked %d registered operations", count)
+	if count != 88 {
+		t.Fatalf("operations=%d want88 explicit operations plus Manager static surface", count)
+	}
 }
-
 func resolveSwaggerSchema(t *testing.T, doc swaggerDocument, schema swaggerSchema) swaggerSchema {
 	t.Helper()
 	if schema.Ref != "" {
@@ -146,6 +112,7 @@ func resolveSwaggerSchema(t *testing.T, doc swaggerDocument, schema swaggerSchem
 		properties := make(map[string]swaggerSchema)
 		for _, part := range schema.AllOf {
 			resolved := resolveSwaggerSchema(t, doc, part)
+			schema.Required = append(schema.Required, resolved.Required...)
 			for name, property := range resolved.Properties {
 				properties[name] = property
 			}
@@ -163,7 +130,7 @@ func TestSwaggerResponseEnvelopes(t *testing.T) {
 			for status, response := range op.Responses {
 				t.Run(method+" "+path+" "+status, func(t *testing.T) {
 					if strings.HasPrefix(path, "/manager") {
-						return // HTML, redirects and plain errors have their own contract below.
+						return
 					}
 					if status == "204" {
 						if response.Schema != nil {
@@ -217,7 +184,7 @@ func TestSwaggerTypedPayloadsAndExceptions(t *testing.T) {
 		{"/instances/{id}", "get", "200", "instance", "id", "string"},
 		{"/instances/{id}", "get", "200", "instance", "integration", "object"},
 		{"/instances/{id}", "get", "200", "instance", "settings", "object"},
-		{"/instances/{id}/messages/text", "post", "202", "message", "id", "string"},
+		{"/instances/{instance}/messages/text", "post", "202", "message", "id", "string"},
 		{"/instances/{id}/chatwoot/import", "post", "202", "", "imported", "integer"},
 		{"/instances/{id}/chatwoot/command", "post", "200", "", "ok", "boolean"},
 		{"/instances/{id}/chatwoot", "get", "200", "chatwoot_config", "webhook_url", "string"},
@@ -232,15 +199,14 @@ func TestSwaggerTypedPayloadsAndExceptions(t *testing.T) {
 			if test.via != "" {
 				payload = resolveSwaggerSchema(t, doc, payload.Properties[test.via])
 			}
-			// Resolve the field first: swaggo encodes named struct types as
-			// $ref, and the contract asserts the documented type either way.
+
 			fieldSchema := resolveSwaggerSchema(t, doc, payload.Properties[test.field])
 			if fieldSchema.Type != test.fieldType {
 				t.Errorf("data.%s.%s type = %q, want %q", test.via, test.field, fieldSchema.Type, test.fieldType)
 			}
 		})
 	}
-	// The Chatwoot token is write-only: reads must never document it.
+
 	t.Run("chatwoot token hidden", func(t *testing.T) {
 		response := doc.Paths["/instances/{id}/chatwoot"]["get"].Responses["200"]
 		if response.Schema == nil {
@@ -253,10 +219,7 @@ func TestSwaggerTypedPayloadsAndExceptions(t *testing.T) {
 			t.Error("GET chatwoot must not expose the token")
 		}
 	})
-	// The aggregated instance shape (BREAKING): the webhook block lives under
-	// integration and the settings blocks are documented with their nullable
-	// per-block semantics, while the write-only token stays out of the nested
-	// config.
+
 	t.Run("instance aggregated blocks", func(t *testing.T) {
 		response := doc.Paths["/instances/{id}"]["get"].Responses["200"]
 		if response.Schema == nil {
@@ -290,7 +253,7 @@ func TestSwaggerTypedPayloadsAndExceptions(t *testing.T) {
 	for _, test := range []struct{ path, entity, itemField string }{
 		{"/users", "user", "email"},
 		{"/instances", "instance", "id"},
-		{"/instances/{id}/messages", "message", "id"},
+		{"/instances/{instance}/messages", "message", "id"},
 		{"/instances/{id}/groups", "group", "jid"},
 	} {
 		t.Run("collection "+test.path, func(t *testing.T) {
@@ -300,12 +263,12 @@ func TestSwaggerTypedPayloadsAndExceptions(t *testing.T) {
 			}
 			envelope := resolveSwaggerSchema(t, doc, *response.Schema)
 			payload := resolveSwaggerSchema(t, doc, envelope.Properties["data"])
-			collection := resolveSwaggerSchema(t, doc, payload.Properties["items"])
+			collection := resolveSwaggerSchema(t, doc, payload.Properties[map[string]string{"instance": "instances", "group": "groups", "user": "users", "message": "messages", "channel": "channels"}[test.entity]])
 			if collection.Type != "array" || collection.Items == nil {
 				t.Fatal("missing typed collection")
 			}
 			wrapper := resolveSwaggerSchema(t, doc, *collection.Items)
-			item := resolveSwaggerSchema(t, doc, wrapper.Properties[test.entity])
+			item := wrapper
 			if item.Properties[test.itemField].Type != "string" {
 				t.Errorf("collection item missing string %s.%s", test.entity, test.itemField)
 			}
@@ -423,21 +386,21 @@ func TestSwaggerInstanceListingWithoutPagination(t *testing.T) {
 	if _, ok := payload.Properties["next_cursor"]; ok {
 		t.Error("GET /instances data must not include next_cursor")
 	}
-	items := resolveSwaggerSchema(t, doc, payload.Properties["items"])
+	items := resolveSwaggerSchema(t, doc, payload.Properties["instances"])
 	if items.Type != "array" || items.Items == nil {
-		t.Fatal("GET /instances data.items must be a typed array")
+		t.Fatal("GET /instances data.instances must be a typed array")
 	}
 	wrapper := resolveSwaggerSchema(t, doc, *items.Items)
-	item := resolveSwaggerSchema(t, doc, wrapper.Properties["instance"])
+	item := wrapper
 	if item.Properties["id"].Type != "string" {
-		t.Error("GET /instances data.items must retain the instance schema")
+		t.Error("GET /instances data.instances must retain the instance schema")
 	}
 }
 
 // Removing instance pagination must preserve the other collections' page contracts.
 func TestSwaggerOtherCollectionPagination(t *testing.T) {
 	doc := servedSwagger(t)
-	for _, path := range []string{"/instances/{id}/messages", "/instances/{id}/groups", "/instances/{id}/newsletters"} {
+	for _, path := range []string{"/instances/{instance}/messages", "/instances/{id}/groups", "/instances/{id}/newsletters"} {
 		t.Run(path, func(t *testing.T) {
 			op := doc.Paths[path]["get"]
 			for _, name := range []string{"limit", "cursor"} {
@@ -486,7 +449,6 @@ func TestSwaggerQuotaRequestSchemas(t *testing.T) {
 		})
 	}
 }
-
 func TestSwaggerInstanceReferenceContract(t *testing.T) {
 	doc := servedSwagger(t)
 	for path, methods := range doc.Paths {
@@ -525,6 +487,68 @@ func TestSwaggerInstanceReferenceContract(t *testing.T) {
 		for _, code := range []string{"422", "409"} {
 			if _, ok := op.Responses[code]; !ok {
 				t.Errorf("name write lacks %s response", code)
+			}
+		}
+	}
+}
+
+func TestSwaggerSerializationPresence(t *testing.T) {
+	doc := servedSwagger(t)
+	for _, tc := range []struct{ path, method, key string }{
+		{"/instances", "get", "instances"}, {"/users", "get", "users"}, {"/instances/{id}/groups", "get", "groups"}, {"/instances/{instance}/messages", "get", "messages"}, {"/instances/{id}/newsletters", "get", "channels"}, {"/instances/{id}/newsletters/{channel}/messages", "get", "messages"}, {"/instances/{id}/newsletters/{channel}/updates", "get", "messages"}, {"/instances/{id}/status/updates", "get", "statuses"}, {"/instances/{id}/contacts/check", "post", "contacts"}, {"/instances/{id}/blocklist", "get", "blocked_jids"},
+	} {
+		t.Run(tc.path, func(t *testing.T) {
+			response := doc.Paths[tc.path][tc.method].Responses["200"]
+			if response.Schema == nil {
+				t.Fatal("missing schema")
+			}
+			env := resolveSwaggerSchema(t, doc, *response.Schema)
+			data := resolveSwaggerSchema(t, doc, env.Properties["data"])
+			collection := resolveSwaggerSchema(t, doc, data.Properties[tc.key])
+			if collection.Type != "array" || collection.Items == nil || !slices.Contains(data.Required, tc.key) {
+				t.Fatalf("%s must be a required typed array: %+v", tc.key, data)
+			}
+			if _, exists := data.Properties["items"]; exists {
+				t.Error("items must be absent")
+			}
+			if slices.Contains(data.Required, "next_cursor") {
+				t.Error("cursor must be optional")
+			}
+		})
+	}
+	for _, tc := range []struct {
+		name               string
+		required, optional []string
+	}{
+		{"representation.InstanceResponse", []string{"id", "name", "created_at", "updated_at", "connection", "integration"}, []string{"settings"}},
+		{"representation.IntegrationResponse", []string{"webhook"}, []string{"chatwoot_config"}},
+		{"representation.WebhookResponse", []string{"enabled", "events"}, []string{"url"}},
+		{"representation.MessageResponse", []string{"retry_count", "created_at", "updated_at"}, []string{"wa_id", "media_id", "last_error", "next_attempt_at", "delivered_at", "read_at"}},
+		{"representation.ChatwootConfigResponse", []string{"is_enabled", "import_days", "ignored_jids"}, []string{"url", "account_id", "organization", "logo"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			schema, exists := doc.Definitions[tc.name]
+			if !exists {
+				t.Fatal("missing definition")
+			}
+			for _, key := range tc.required {
+				if !slices.Contains(schema.Required, key) {
+					t.Errorf("%s must be required", key)
+				}
+			}
+			for _, key := range tc.optional {
+				if _, ok := schema.Properties[key]; !ok || slices.Contains(schema.Required, key) {
+					t.Errorf("%s must exist and be optional", key)
+				}
+			}
+		})
+	}
+	for path, methods := range doc.Paths {
+		for method, op := range methods {
+			for _, parameter := range op.Parameters {
+				if parameter.In == "header" && strings.Contains(parameter.Name, "Idempotency") && parameter.Name != "Idempotency-Key" {
+					t.Errorf("%s %s invalid header %s", method, path, parameter.Name)
+				}
 			}
 		}
 	}

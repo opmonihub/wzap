@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"wzap/internal/httpapi/instances"
 	"wzap/internal/instance"
 	"wzap/internal/model"
 )
@@ -29,7 +30,7 @@ func TestPairPhone(t *testing.T) {
 			t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 		}
 		var payload struct {
-			Data pairPhoneResponse `json:"data"`
+			Data instances.PairPhoneResponse `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
 		if payload.Data.PairingCode != "12345678" {

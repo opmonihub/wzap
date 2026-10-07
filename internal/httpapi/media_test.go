@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"bytes"
@@ -14,7 +14,9 @@ import (
 	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
-	"wzap/internal/media"
+	"wzap/internal/httpapi"
+	"wzap/internal/httpapi/media"
+	mediadomain "wzap/internal/media"
 	"wzap/internal/model"
 )
 
@@ -42,7 +44,7 @@ func (f *fakeMediaStore) Open(ctx context.Context, id uuid.UUID) (io.ReadCloser,
 	if f.openFn != nil {
 		return f.openFn(ctx, id)
 	}
-	return nil, nil, media.ErrNotFound
+	return nil, nil, mediadomain.ErrNotFound
 }
 
 // Save records the call and stores a fresh record, defaulting to deriving it
@@ -74,19 +76,18 @@ func (f *fakeMediaStore) Save(
 // mediaServer builds the server under test with the given media store.
 // Instances default to a fake answering every id so global-scope tests
 // exercise the download behind the ownership gate.
-func mediaServer(t *testing.T, store MediaStore) *http.Server {
+func mediaServer(t *testing.T, store media.MediaStore) *http.Server {
 	t.Helper()
 	if store == nil {
 		store = &fakeMediaStore{}
 	}
-	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, zerolog.Nop(),
-		Deps{
+	return httpapi.New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, zerolog.Nop(),
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    &fakeInstanceService{},
 			Media:        store,
 		})
 }
-
 func TestGetMediaReturnsContent(t *testing.T) {
 	id := uuid.New()
 	payload := []byte("bytes da mídia")
@@ -123,7 +124,6 @@ func TestGetMediaReturnsContent(t *testing.T) {
 		t.Errorf("body = %q, want %q", rec.Body.Bytes(), payload)
 	}
 }
-
 func TestGetMediaSanitizesSenderFilename(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -170,7 +170,6 @@ func TestGetMediaSanitizesSenderFilename(t *testing.T) {
 		})
 	}
 }
-
 func TestGetMediaFilenameFallsBackToID(t *testing.T) {
 	id := uuid.New()
 	store := &fakeMediaStore{openFn: func(context.Context, uuid.UUID) (io.ReadCloser, *model.Media, error) {
@@ -186,7 +185,6 @@ func TestGetMediaFilenameFallsBackToID(t *testing.T) {
 		t.Errorf("Content-Disposition = %q, want %q", got, want)
 	}
 }
-
 func TestGetMediaRequiresAuth(t *testing.T) {
 	rec := serve(t, mediaServer(t, nil), http.MethodGet, "/media/"+uuid.NewString(), "")
 
@@ -197,14 +195,13 @@ func TestGetMediaRequiresAuth(t *testing.T) {
 		t.Errorf("error code = %q, want unauthorized", code)
 	}
 }
-
 func TestGetMediaNotFound(t *testing.T) {
 	tests := []struct {
 		name string
 		err  error
 	}{
-		{name: "unknown", err: media.ErrNotFound},
-		{name: "expired", err: media.ErrExpired},
+		{name: "unknown", err: mediadomain.ErrNotFound},
+		{name: "expired", err: mediadomain.ErrExpired},
 	}
 
 	for _, tt := range tests {
@@ -224,7 +221,6 @@ func TestGetMediaNotFound(t *testing.T) {
 		})
 	}
 }
-
 func TestGetMediaMalformedID(t *testing.T) {
 	rec := serve(t, mediaServer(t, nil), http.MethodGet, "/media/not-a-uuid", testToken)
 
@@ -232,7 +228,6 @@ func TestGetMediaMalformedID(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
 	}
 }
-
 func TestGetMediaInternalError(t *testing.T) {
 	store := &fakeMediaStore{openFn: func(context.Context, uuid.UUID) (io.ReadCloser, *model.Media, error) {
 		return nil, nil, errors.New("database down")

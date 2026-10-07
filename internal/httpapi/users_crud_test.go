@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 
 	"wzap/internal/auth"
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
 	"wzap/internal/model"
 	"wzap/internal/storage"
 )
@@ -23,10 +24,10 @@ import (
 // given stores and creation-time default quota.
 func usersCRUDServer(t *testing.T, users storage.UserRepository, keys storage.APIKeyRepository, defaultQuota int) *http.Server {
 	t.Helper()
-	return New(
+	return httpapi.New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, DefaultUserQuota: defaultQuota},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Users:        users,
 			Keys:         keys,
@@ -45,7 +46,6 @@ func assertNoSecrets(t *testing.T, body []byte) {
 		}
 	}
 }
-
 func TestUsersCreateHappy(t *testing.T) {
 	t.Run("explicit quota", func(t *testing.T) {
 		users := newFakeUserRepository()
@@ -147,7 +147,6 @@ func TestUsersCreateHappy(t *testing.T) {
 		assertNoSecrets(t, rec.Body.Bytes())
 	})
 }
-
 func TestUsersCreateValidation(t *testing.T) {
 	cases := map[string]struct {
 		body       string
@@ -188,7 +187,6 @@ func TestUsersCreateValidation(t *testing.T) {
 		})
 	}
 }
-
 func TestUsersCreateDuplicate(t *testing.T) {
 	seed := func(t *testing.T) (*fakeUserRepository, *http.Server, *http.Cookie) {
 		t.Helper()
@@ -237,7 +235,6 @@ func TestUsersCreateDuplicate(t *testing.T) {
 		}
 	})
 }
-
 func TestUsersListGet(t *testing.T) {
 	older := &model.User{ID: uuid.New(), Email: "older@example.com", Role: "user", InstanceQuota: 1,
 		CreatedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
@@ -264,23 +261,21 @@ func TestUsersListGet(t *testing.T) {
 		assertNoSecrets(t, rec.Body.Bytes())
 		var payload struct {
 			Data struct {
-				Items []struct {
-					User map[string]any `json:"user"`
-				} `json:"items"`
+				Users []map[string]any `json:"users"`
 			} `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if len(payload.Data.Items) != 3 {
-			t.Fatalf("items = %d, want 3 (body %q)", len(payload.Data.Items), rec.Body.String())
+		if len(payload.Data.Users) != 3 {
+			t.Fatalf("items = %d, want 3 (body %q)", len(payload.Data.Users), rec.Body.String())
 		}
-		if payload.Data.Items[0].User["email"] != "older@example.com" || payload.Data.Items[1].User["email"] != "newer@example.com" ||
-			payload.Data.Items[2].User["email"] != "admin@example.com" {
+		if payload.Data.Users[0]["email"] != "older@example.com" || payload.Data.Users[1]["email"] != "newer@example.com" ||
+			payload.Data.Users[2]["email"] != "admin@example.com" {
 			t.Errorf("order = %v %v %v, want older then newer then admin",
-				payload.Data.Items[0].User["email"], payload.Data.Items[1].User["email"], payload.Data.Items[2].User["email"])
+				payload.Data.Users[0]["email"], payload.Data.Users[1]["email"], payload.Data.Users[2]["email"])
 		}
-		for i, item := range payload.Data.Items {
+		for i, item := range payload.Data.Users {
 			for _, field := range []string{"id", "email", "role", "instance_limit", "instances_used", "created_at", "updated_at"} {
-				if _, ok := item.User[field]; !ok {
+				if _, ok := item[field]; !ok {
 					t.Errorf("items[%d].user is missing %q", i, field)
 				}
 			}
@@ -304,7 +299,6 @@ func TestUsersListGet(t *testing.T) {
 		}
 	})
 }
-
 func TestUsersUnknownIDsAdmin(t *testing.T) {
 	admin := &model.User{ID: uuid.New(), Email: "admin@example.com", Role: "admin"}
 	users := newFakeUserRepository()
@@ -425,7 +419,6 @@ func serveAuthForUsers(t *testing.T, srv *http.Server, body string) *httptest.Re
 	srv.Handler.ServeHTTP(rec, req)
 	return rec
 }
-
 func TestUsersDeniedMatrix(t *testing.T) {
 	adminID := uuid.New()
 	userID := uuid.New()

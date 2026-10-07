@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"net/http"
@@ -18,7 +18,6 @@ func TestManagerMountIsPublic(t *testing.T) {
 		}
 	}
 }
-
 func TestManagerServesIndexWhenBuilt(t *testing.T) {
 	t.Setenv("WZAP_MANAGER_DIR", "")
 	if !manager.Built() {
@@ -34,7 +33,6 @@ func TestManagerServesIndexWhenBuilt(t *testing.T) {
 		t.Errorf("Content-Type = %q, want text/html", ct)
 	}
 
-	// Deep links resolve to the app (SPA fallback) so refresh works.
 	rec = serve(t, srv, http.MethodGet, "/manager/instances", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /manager/instances = %d, want 200 (SPA fallback)", rec.Code)

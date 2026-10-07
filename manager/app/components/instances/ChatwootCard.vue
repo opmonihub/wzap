@@ -41,8 +41,8 @@ async function load() {
   try {
     config.value = await getChatwoot(props.instanceId)
     enabled.value = config.value.is_enabled
-    url.value = config.value.url
-    accountId.value = config.value.account_id
+    url.value = config.value.url ?? ''
+    accountId.value = config.value.account_id ?? ''
     nameInbox.value = config.value.inbox_name
     daysLimit.value = String(config.value.import_days)
   } catch (error) {

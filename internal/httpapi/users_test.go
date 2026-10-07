@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
 	"wzap/internal/model"
 	"wzap/internal/storage"
 )
@@ -33,34 +34,28 @@ func newQuotaUserStore(users ...*model.User) *quotaUserStore {
 	}
 	return f
 }
-
 func (f *quotaUserStore) Create(_ context.Context, user model.User) (*model.User, error) {
 	f.byID[user.ID] = &user
 	f.byEmail[strings.ToLower(user.Email)] = &user
 	return &user, nil
 }
-
 func (f *quotaUserStore) GetByID(_ context.Context, id uuid.UUID) (*model.User, error) {
 	if u, ok := f.byID[id]; ok {
 		return u, nil
 	}
 	return nil, storage.ErrNotFound
 }
-
 func (f *quotaUserStore) GetByEmail(_ context.Context, email string) (*model.User, error) {
 	if u, ok := f.byEmail[strings.ToLower(email)]; ok {
 		return u, nil
 	}
 	return nil, storage.ErrNotFound
 }
-
 func (f *quotaUserStore) List(context.Context) ([]model.User, error) { return nil, nil }
-
 func (f *quotaUserStore) Delete(_ context.Context, id uuid.UUID) error {
 	delete(f.byID, id)
 	return nil
 }
-
 func (f *quotaUserStore) Count(context.Context) (int, error) { return len(f.byID), nil }
 
 // UpdateQuota stores the new per-user quota, reporting storage.ErrNotFound
@@ -82,10 +77,10 @@ var _ storage.UserRepository = (*quotaUserStore)(nil)
 func patchQuotaServer(t *testing.T, maxInstances int, users storage.UserRepository, keys storage.APIKeyRepository) (*http.Server, *fakeInstanceService) {
 	t.Helper()
 	svc := &fakeInstanceService{createFn: echoCreateFn("quota-key-1")}
-	srv := New(
+	srv := httpapi.New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, MaxInstances: maxInstances},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    svc,
 			Users:        users,
@@ -95,7 +90,6 @@ func patchQuotaServer(t *testing.T, maxInstances int, users storage.UserReposito
 	)
 	return srv, svc
 }
-
 func decodeUserData(t *testing.T, body []byte) map[string]json.RawMessage {
 	t.Helper()
 	var payload struct {
@@ -106,7 +100,6 @@ func decodeUserData(t *testing.T, body []byte) map[string]json.RawMessage {
 	decodeJSON(t, body, &payload)
 	return payload.Data.User
 }
-
 func userDataString(t *testing.T, data map[string]json.RawMessage, field string) string {
 	t.Helper()
 	raw, ok := data[field]
@@ -119,7 +112,6 @@ func userDataString(t *testing.T, data map[string]json.RawMessage, field string)
 	}
 	return value
 }
-
 func userDataInt(t *testing.T, data map[string]json.RawMessage, field string) int {
 	t.Helper()
 	raw, ok := data[field]
@@ -132,7 +124,6 @@ func userDataInt(t *testing.T, data map[string]json.RawMessage, field string) in
 	}
 	return value
 }
-
 func TestUsersPatchQuotaHappy(t *testing.T) {
 	userID := uuid.New()
 	adminID := uuid.New()
@@ -176,8 +167,6 @@ func TestUsersPatchQuotaHappy(t *testing.T) {
 				t.Errorf("data.instance_quota = %d, want 1", got)
 			}
 
-			// The edited quota takes effect on the next create: the user owns
-			// 1 disconnected instance against the new quota of 1.
 			userCookie := rbacSessionCookie(mustSessionToken(t, userID, "user"))
 			denied := serveRBAC(t, srv, http.MethodPost, "/instances", `{"name":"loja"}`, userCookie, "", nil)
 			if denied.Code != http.StatusForbidden {
@@ -192,7 +181,6 @@ func TestUsersPatchQuotaHappy(t *testing.T) {
 		})
 	}
 }
-
 func TestUsersPatchQuotaForbidden(t *testing.T) {
 	userID := uuid.New()
 	targetID := uuid.New()
@@ -243,7 +231,6 @@ func TestUsersPatchQuotaForbidden(t *testing.T) {
 		}
 	})
 }
-
 func TestUsersPatchQuotaNotFound(t *testing.T) {
 	adminID := uuid.New()
 	users := newQuotaUserStore(
@@ -275,7 +262,6 @@ func TestUsersPatchQuotaNotFound(t *testing.T) {
 		}
 	})
 }
-
 func TestUsersPatchQuotaInvalid(t *testing.T) {
 	adminID := uuid.New()
 	userID := uuid.New()
@@ -317,7 +303,6 @@ func TestUsersPatchQuotaInvalid(t *testing.T) {
 		})
 	}
 }
-
 func TestUsersPatchQuotaRequiresAuth(t *testing.T) {
 	users := newQuotaUserStore()
 	srv, _ := patchQuotaServer(t, 0, users, &countingKeys{})

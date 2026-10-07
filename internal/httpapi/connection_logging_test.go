@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"bytes"
@@ -13,6 +13,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
 	"wzap/internal/instance"
 	"wzap/internal/logger"
 	"wzap/internal/model"
@@ -64,18 +65,17 @@ func snapshotBoundaryLogs(buf *bytes.Buffer) []logRecord {
 
 // loggedInstancesServer builds the server under test with svc and the given
 // logger so boundary tests can observe the injected handler logs.
-func loggedInstancesServer(t *testing.T, svc InstanceService, log zerolog.Logger) *http.Server {
+func loggedInstancesServer(t *testing.T, svc httpapi.InstanceService, log zerolog.Logger) *http.Server {
 	t.Helper()
 	if svc == nil {
 		svc = &fakeInstanceService{}
 	}
-	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, log,
-		Deps{
+	return httpapi.New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, log,
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    svc,
 		})
 }
-
 func findRecord(records []logRecord, msg string) (logRecord, bool) {
 	for _, r := range records {
 		if r.msg == msg {
@@ -84,7 +84,6 @@ func findRecord(records []logRecord, msg string) (logRecord, bool) {
 	}
 	return logRecord{}, false
 }
-
 func TestConnectBoundaryLogs(t *testing.T) {
 	id := uuid.New()
 	expiresAt := time.Now().UTC().Add(time.Minute).Truncate(time.Second)
@@ -131,7 +130,6 @@ func TestConnectBoundaryLogs(t *testing.T) {
 	}
 	logger.AssertNoSecret(t, logs, "qr-123")
 }
-
 func TestConnectBoundaryLogsServiceError(t *testing.T) {
 	svc := &fakeInstanceService{connectFn: func(context.Context, uuid.UUID) (instance.ConnectResult, error) {
 		return instance.ConnectResult{}, errors.New("session dial failed")
@@ -157,7 +155,6 @@ func TestConnectBoundaryLogsServiceError(t *testing.T) {
 		t.Error("record misses error, want the service failure")
 	}
 }
-
 func TestQRBoundaryLogs(t *testing.T) {
 	id := uuid.New()
 	expiresAt := time.Now().UTC().Add(time.Minute).Truncate(time.Second)
@@ -187,7 +184,6 @@ func TestQRBoundaryLogs(t *testing.T) {
 	}
 	logger.AssertNoSecret(t, logs, "qr-456")
 }
-
 func TestQRBoundaryLogsAlreadyConnected(t *testing.T) {
 	svc := &fakeInstanceService{qrFn: func(context.Context, uuid.UUID) (instance.ConnectResult, error) {
 		return instance.ConnectResult{}, instance.ErrAlreadyConnected
@@ -203,7 +199,6 @@ func TestQRBoundaryLogsAlreadyConnected(t *testing.T) {
 		t.Error("missing Warn record \"qr instance failed\"")
 	}
 }
-
 func TestStatusBoundaryLogs(t *testing.T) {
 	wantID := uuid.New()
 	svc := &fakeInstanceService{getFn: func(_ context.Context, id uuid.UUID) (*model.Instance, error) {
@@ -228,7 +223,6 @@ func TestStatusBoundaryLogs(t *testing.T) {
 		t.Errorf("result status = %v, want %q", result.attrs["status"], session.StatusConnected)
 	}
 }
-
 func TestDisconnectBoundaryLogs(t *testing.T) {
 	svc := &fakeInstanceService{}
 	logs, log := captureBoundaryLogs(t)
@@ -246,7 +240,6 @@ func TestDisconnectBoundaryLogs(t *testing.T) {
 		t.Error("missing Debug record \"disconnect instance result\"")
 	}
 }
-
 func TestDisconnectBoundaryLogsServiceError(t *testing.T) {
 	svc := &fakeInstanceService{disconnectFn: func(context.Context, uuid.UUID) error {
 		return errors.New("session still connected")

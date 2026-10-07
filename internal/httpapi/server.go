@@ -1,5 +1,3 @@
-// Package httpapi implements the wzap REST API: the server wiring, the
-// response envelope and the shared middleware chain.
 package httpapi
 
 import (
@@ -8,237 +6,129 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
-	"github.com/swaggo/http-swagger"
+	httpSwagger "github.com/swaggo/http-swagger"
 
 	_ "wzap/docs"
 	"wzap/internal/config"
+	"wzap/internal/httpapi/authsession"
+	"wzap/internal/httpapi/channels"
+	"wzap/internal/httpapi/chats"
+	"wzap/internal/httpapi/chatwoot"
+	"wzap/internal/httpapi/contacts"
+	"wzap/internal/httpapi/core"
+	"wzap/internal/httpapi/groups"
+	"wzap/internal/httpapi/instances"
+	"wzap/internal/httpapi/media"
+	"wzap/internal/httpapi/messages"
+	"wzap/internal/httpapi/profile"
+	"wzap/internal/httpapi/statuses"
+	"wzap/internal/httpapi/users"
 	"wzap/internal/storage"
 	"wzap/manager"
 )
 
-// ReadyChecker reports whether the service dependencies are ready to serve
-// traffic.
-type ReadyChecker interface {
-	Check(ctx context.Context) error
-}
+type ReadyChecker interface{ Check(context.Context) error }
 
-// Deps carries the dependencies consumed by HTTP handlers. It grows as later
-// tasks register handlers.
+type InstanceService interface {
+	instances.InstanceService
+	contacts.InstanceService
+	messages.InstanceService
+	groups.InstanceService
+	channels.InstanceService
+	statuses.InstanceService
+	chats.InstanceService
+	profile.InstanceService
+	media.InstanceService
+	chatwoot.InstanceService
+	core.InstanceService
+}
 type Deps struct {
-	ReadyChecker      ReadyChecker
-	Instances         InstanceService
-	Numbers           NumberResolver
-	Messages          MessageService
-	Idempotency       storage.IdempotencyRepository
-	Media             MediaStore
-	Users             storage.UserRepository
-	Keys              storage.APIKeyRepository
-	JWTSecret         string
-	ChatwootConfigs   ChatwootConfigStore
-	Chatwoot          config.Chatwoot
-	PublicURL         string
-	ChatwootInbound   ChatwootInbound
-	ChatwootClientFor ChatwootClientFor
-	ChatwootImporter  ChatwootImporter
-	// ChatwootWebhookLimiter limita o webhook aberto por instância; nil usa
-	// o default (120/min).
-	ChatwootWebhookLimiter *ChatwootRateLimiter
-	// LoginLimiter limita palpites de senha por IP no /auth/login; nil usa o
-	// default (10/min por IP).
-	LoginLimiter *LoginRateLimiter
+	ReadyChecker           ReadyChecker
+	Instances              InstanceService
+	Numbers                contacts.NumberResolver
+	Messages               messages.MessageService
+	Idempotency            storage.IdempotencyRepository
+	Media                  media.MediaStore
+	Users                  storage.UserRepository
+	Keys                   storage.APIKeyRepository
+	JWTSecret              string
+	ChatwootConfigs        chatwoot.ChatwootConfigStore
+	Chatwoot               config.Chatwoot
+	PublicURL              string
+	ChatwootInbound        chatwoot.ChatwootInbound
+	ChatwootClientFor      chatwoot.ChatwootClientFor
+	ChatwootImporter       chatwoot.ChatwootImporter
+	ChatwootWebhookLimiter *chatwoot.ChatwootRateLimiter
+	LoginLimiter           *authsession.LoginRateLimiter
 }
 
-// New builds the HTTP server with the middleware chain, the exact public
-// health endpoints, the public swagger UI and manager console subtrees and
-// the authenticated API sub-mux mounted at /.
-//
-// The only exact publics are GET /healthz and GET /readyz. /swagger/ is the
-// public Swagger UI subtree (no credential) and /manager/ is the public
-// embedded console (no credential): both are more specific than the "/"
-// below, so longest-prefix routing keeps them outside Authenticate.
 func New(cfg config.Config, log zerolog.Logger, deps Deps) *http.Server {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", handleHealthz)
-	mux.HandleFunc("GET /readyz", handleReadyz(deps.ReadyChecker, log))
-	mux.Handle("/swagger/", httpSwagger.WrapHandler)
-	mux.Handle("/manager/", manager.Handler())
-	mux.Handle("GET /manager", manager.Handler())
-
-	api := &instanceMux{ServeMux: http.NewServeMux(), instances: deps.Instances}
-	// instanceAgg builds the aggregated instance DTO (integration + settings)
-	// shared by the create/list/get/update handlers; its per-block failures
-	// degrade to null blocks without failing the response.
-	instanceAgg := instanceConfigAggregator{
-		instances: deps.Instances,
-		configs:   deps.ChatwootConfigs,
-		publicURL: publicURLForChatwoot(cfg, deps),
-		log:       log,
+	r := newRouter(cfg, log, deps)
+	return &http.Server{Addr: cfg.HTTPAddr, Handler: r, ReadHeaderTimeout: 10 * time.Second}
+}
+func newRouter(cfg config.Config, log zerolog.Logger, deps Deps) *chi.Mux {
+	r := chi.NewRouter()
+	r.Use(core.RequestID, core.Logging(log), core.Recover(log), chimiddleware.GetHead)
+	authenticate := core.Authenticate(cfg.APIKey, deps.Keys, deps.JWTSecret)
+	r.Use(func(next http.Handler) http.Handler {
+		protected := authenticate(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			for _, prefix := range []string{"/instances", "/users", "/media"} {
+				if req.URL.Path == prefix || strings.HasPrefix(req.URL.Path, prefix+"/") {
+					protected.ServeHTTP(w, req)
+					return
+				}
+			}
+			next.ServeHTTP(w, req)
+		})
+	})
+	r.NotFound(func(w http.ResponseWriter, req *http.Request) {
+		core.Error(w, req, 404, "not_found", "route not found")
+	})
+	r.MethodNotAllowed(func(w http.ResponseWriter, req *http.Request) {
+		allowed := []string{}
+		path := req.URL.Path
+		if req.URL.RawPath != "" {
+			path = req.URL.RawPath
+		}
+		for _, method := range []string{"DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"} {
+			if r.Match(chi.NewRouteContext(), method, path) || (method == http.MethodHead && r.Match(chi.NewRouteContext(), http.MethodGet, path)) {
+				allowed = append(allowed, method)
+			}
+		}
+		if len(allowed) > 0 {
+			w.Header().Set("Allow", strings.Join(allowed, ", "))
+		}
+		core.Error(w, req, 405, "method_not_allowed", "method not allowed")
+	})
+	r.Get("/healthz", handleHealthz)
+	r.Get("/readyz", handleReadyz(deps.ReadyChecker, log))
+	r.Handle("/swagger/*", httpSwagger.WrapHandler)
+	r.Handle("/manager/*", manager.Handler())
+	r.Get("/manager", manager.Handler().ServeHTTP)
+	authsession.Register(r, deps.Users, deps.JWTSecret, authsession.SecureCookies(cfg.PublicURL), deps.LoginLimiter)
+	publicURL := deps.PublicURL
+	if publicURL == "" {
+		publicURL = cfg.PublicURL
 	}
-	api.HandleFunc("POST /instances", handleCreateInstance(instanceAgg, deps.Users, deps.Keys, cfg.MaxInstances))
-	api.HandleFunc("GET /instances/stats", handleInstanceStats(deps.Instances))
-	api.HandleFunc("GET /instances", handleListInstances(instanceAgg))
-	api.HandleFunc("GET /instances/{id}", handleGetInstance(instanceAgg))
-	api.HandleFunc("PATCH /instances/{id}", handleUpdateInstance(instanceAgg))
-	api.HandleFunc("DELETE /instances/{id}", handleDeleteInstance(deps.Instances))
-	api.HandleFunc("POST /instances/{id}/apikey/rotate", handleRotateAPIKey(deps.Instances, deps.Keys))
-	api.HandleFunc("DELETE /instances/{id}/apikey", handleRevokeAPIKey(deps.Instances, deps.Keys))
-	api.HandleFunc("POST /instances/{id}/connect", handleConnectInstance(deps.Instances, log))
-	api.HandleFunc("POST /instances/{id}/disconnect", handleDisconnectInstance(deps.Instances, log))
-	api.HandleFunc("GET /instances/{id}/qr", handleQRInstance(deps.Instances, log))
-	api.HandleFunc("GET /instances/{id}/status", handleInstanceStatus(deps.Instances, log))
-	api.HandleFunc("POST /instances/{id}/numbers/check", handleCheckNumber(deps.Instances, deps.Numbers))
-	api.Handle("POST /instances/{id}/messages/text", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleSendText(deps.Instances, deps.Messages)))
-	api.Handle("POST /instances/{id}/messages/location", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleSendLocation(deps.Instances, deps.Messages)))
-	api.Handle("POST /instances/{id}/messages/contact", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleSendContact(deps.Instances, deps.Messages)))
-	api.Handle("POST /instances/{id}/messages/media", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleSendMedia(deps.Instances, deps.Messages, deps.Media, cfg.MaxMediaBytes)))
-	api.Handle("POST /instances/{id}/messages", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleSendMessage(deps.Instances, deps.Messages)))
-	api.HandleFunc("GET /instances/{id}/messages", handleListMessages(deps.Instances, deps.Messages))
-	api.HandleFunc("GET /instances/{id}/messages/{message_id}", handleGetMessage(deps.Instances, deps.Messages))
-	api.HandleFunc("POST /instances/{id}/messages/revoke", handleRevokeMessage(deps.Instances, log))
-	api.HandleFunc("POST /instances/{id}/chats/mark-read", handleMarkRead(deps.Instances, log))
-	api.HandleFunc("POST /instances/{id}/presence", handleSendPresence(deps.Instances, log))
-	api.HandleFunc("POST /instances/{id}/pair-phone", handlePairPhone(deps.Instances, log))
-	api.HandleFunc("POST /instances/{id}/groups", handleCreateGroup(deps.Instances, log))
-	api.HandleFunc("GET /instances/{id}/groups/{group_id}", handleGetGroup(deps.Instances, log))
-	api.HandleFunc("PATCH /instances/{id}/groups/{group_id}", handleUpdateGroup(deps.Instances, log))
-	api.HandleFunc("PUT /instances/{id}/groups/{group_id}/photo", handleSetGroupPhoto(deps.Instances, log, cfg.MaxMediaBytes))
-	api.HandleFunc("POST /instances/{id}/groups/{group_id}/participants", handleUpdateGroupParticipants(deps.Instances, log))
-	api.HandleFunc("GET /instances/{id}/groups/{group_id}/invite", handleGetGroupInvite(deps.Instances, log))
-	api.HandleFunc("POST /instances/{id}/groups/{group_id}/invite/reset", handleResetGroupInvite(deps.Instances, log))
-	api.HandleFunc("POST /instances/{id}/groups/join", handleJoinGroup(deps.Instances, log))
-	api.HandleFunc("POST /instances/{id}/groups/{group_id}/leave", handleLeaveGroup(deps.Instances, log))
-	api.HandleFunc("POST /instances/{id}/newsletters/follow", handleFollowNewsletter(deps.Instances, log))
-	api.HandleFunc("POST /instances/{id}/newsletters/unfollow", handleUnfollowNewsletter(deps.Instances, log))
-	api.HandleFunc("GET /instances/{id}/newsletters/{channel}", handleGetNewsletter(deps.Instances, log))
-	api.HandleFunc("GET /instances/{id}/newsletters", handleListNewsletters(deps.Instances, log))
-	// Parity routes (whatsmeow parity): writes replay through the Idempotency
-	// middleware, reads are bare. POST .../contacts/check and
-	// POST .../contacts/{jid}/subscribe stay bare: both are single-signal
-	// reads with no replay risk (check returns lookup results, subscribe only
-	// signals presence interest), so an idempotency key would add nothing.
-	api.Handle("POST /instances/{id}/messages/edit", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleEditMessage(deps.Instances, log)))
-	api.HandleFunc("GET /instances/{id}/groups", handleListJoinedGroups(deps.Instances, log))
-	api.HandleFunc("GET /instances/{id}/groups/invite-preview", handleInvitePreview(deps.Instances, log))
-	api.HandleFunc("GET /instances/{id}/groups/{group_id}/requests", handleGroupRequests(deps.Instances, log))
-	api.Handle("POST /instances/{id}/groups/{group_id}/requests", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleUpdateGroupRequests(deps.Instances, log)))
-	api.Handle("PATCH /instances/{id}/groups/{group_id}/settings", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleUpdateGroupSettings(deps.Instances, log)))
-	api.HandleFunc("POST /instances/{id}/contacts/check", handleCheckContacts(deps.Instances, log))
-	api.HandleFunc("GET /instances/{id}/contacts/{jid}/devices", handleContactDevices(deps.Instances, log))
-	api.HandleFunc("GET /instances/{id}/contacts/{jid}/photo", handleContactPhoto(deps.Instances, log))
-	api.HandleFunc("GET /instances/{id}/contacts/{jid}/business", handleContactBusiness(deps.Instances, log))
-	api.HandleFunc("POST /instances/{id}/contacts/{jid}/subscribe", handleSubscribePresence(deps.Instances, log))
-	api.HandleFunc("GET /instances/{id}/contact-link", handleContactLink(deps.Instances, log))
-	api.HandleFunc("GET /instances/{id}/blocklist", handleGetBlocklist(deps.Instances, log))
-	api.Handle("POST /instances/{id}/blocklist", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleUpdateBlocklist(deps.Instances, log)))
-	api.HandleFunc("GET /instances/{id}/newsletters/{channel}/messages", handleGetNewsletterMessages(deps.Instances, log))
-	api.HandleFunc("GET /instances/{id}/newsletters/{channel}/updates", handleGetNewsletterUpdates(deps.Instances, log))
-	api.Handle("POST /instances/{id}/newsletters", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleCreateNewsletter(deps.Instances, log)))
-	api.Handle("POST /instances/{id}/newsletters/{channel}/mute", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleMuteNewsletter(deps.Instances, log)))
-	api.Handle("POST /instances/{id}/newsletters/{channel}/viewed", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleMarkNewsletterViewed(deps.Instances, log)))
-	api.Handle("POST /instances/{id}/newsletters/{channel}/reactions", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleReactNewsletter(deps.Instances, log)))
-	api.HandleFunc("GET /instances/{id}/status/privacy", handleGetStatusPrivacy(deps.Instances, log))
-	api.HandleFunc("GET /instances/{id}/chats/{chat}/disappearing", handleGetDisappearing(deps.Instances, log))
-	api.Handle("PUT /instances/{id}/chats/{chat}/disappearing", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleSetDisappearing(deps.Instances, log)))
-	api.Handle("PUT /instances/{id}/chats/default-disappearing", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handleSetDefaultDisappearing(deps.Instances, log)))
-	api.Handle("POST /instances/{id}/status/updates", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handlePublishStatus(deps.Instances, log)))
-	api.Handle("POST /instances/{id}/status/updates/media", Idempotency(deps.Idempotency, log, cfg.MaxMediaBytes)(handlePublishStatusMedia(deps.Instances, log, cfg.MaxMediaBytes)))
-	api.HandleFunc("GET /instances/{id}/status/updates", handleListStatuses(deps.Instances, log))
-	api.HandleFunc("DELETE /instances/{id}/status/updates/{status_id}", handleDeleteStatus(deps.Instances, log))
-	api.HandleFunc("POST /instances/{id}/calls/reject", handleRejectCall(deps.Instances, log))
-	api.HandleFunc("GET /instances/{id}/profile", handleGetProfile(deps.Instances, log))
-	api.HandleFunc("PATCH /instances/{id}/profile", handleUpdateProfile(deps.Instances, log))
-	api.HandleFunc("PUT /instances/{id}/profile/photo", handleSetProfilePhoto(deps.Instances, log, cfg.MaxMediaBytes))
-	api.HandleFunc("GET /instances/{id}/privacy", handleGetPrivacy(deps.Instances, log))
-	api.HandleFunc("PUT /instances/{id}/privacy", handleSetPrivacy(deps.Instances, log))
-	api.HandleFunc("GET /media/{id}", handleGetMedia(deps.Instances, deps.Media))
-	api.HandleFunc("POST /users", handleCreateUser(deps.Users, cfg.DefaultUserQuota))
-	api.HandleFunc("GET /users", handleListUsers(deps.Users, deps.Keys))
-	api.HandleFunc("GET /users/{id}", handleGetUser(deps.Users, deps.Keys))
-	api.HandleFunc("DELETE /users/{id}", handleDeleteUser(deps.Users, deps.Keys))
-	api.HandleFunc("PATCH /users/{id}", handleUpdateUserQuota(deps.Users, deps.Keys))
-	api.HandleFunc("PUT /instances/{id}/chatwoot", handleChatwootSet(deps.Instances, deps.ChatwootConfigs, deps.Chatwoot, publicURLForChatwoot(cfg, deps), deps.ChatwootClientFor, log))
-	api.HandleFunc("GET /instances/{id}/chatwoot", handleChatwootGet(deps.Instances, deps.ChatwootConfigs, deps.Chatwoot, publicURLForChatwoot(cfg, deps)))
-	api.HandleFunc("POST /instances/{id}/chatwoot/import", handleChatwootImport(deps.Instances, deps.ChatwootConfigs, deps.Chatwoot, deps.ChatwootImporter))
-	api.HandleFunc("POST /instances/{id}/chatwoot/command", handleChatwootCommand(deps.Instances, deps.ChatwootConfigs, deps.Chatwoot, deps.ChatwootInbound))
-	// "/" is the least-specific outer pattern, so Authenticate runs before
-	// the api mux sees the request: an unknown path without credential
-	// answers 401 here, while the same path with a valid credential falls
-	// through to the enveloped 404 of envelopeFallback.
-	mux.Handle("/", Authenticate(cfg.APIKey, deps.Keys, deps.JWTSecret)(envelopeFallback(api.ServeMux)))
-
-	// The Chatwoot webhook is open by design (the secret is v2), so it
-	// mounts on the outer mux outside the Authenticate guard at its exact
-	// path. It is more specific than "/" above, so it wins for its route.
-	// O limiter default é 120/min por instância.
+	instances.Register(r, cfg, log, instances.Deps{ChatwootConfigs: deps.ChatwootConfigs, Instances: deps.Instances, Keys: deps.Keys, PublicURL: publicURL, Users: deps.Users, Lookup: deps.Instances})
+	contacts.Register(r, cfg, log, contacts.Deps{Idempotency: deps.Idempotency, Instances: deps.Instances, Numbers: deps.Numbers, Lookup: deps.Instances})
+	messages.Register(r, cfg, log, messages.Deps{Idempotency: deps.Idempotency, Instances: deps.Instances, Media: deps.Media, Messages: deps.Messages, Lookup: deps.Instances})
+	groups.Register(r, cfg, log, groups.Deps{Idempotency: deps.Idempotency, Instances: deps.Instances, Lookup: deps.Instances})
+	channels.Register(r, cfg, log, channels.Deps{Idempotency: deps.Idempotency, Instances: deps.Instances, Lookup: deps.Instances})
+	statuses.Register(r, cfg, log, statuses.Deps{Idempotency: deps.Idempotency, Instances: deps.Instances, Lookup: deps.Instances})
+	chats.Register(r, cfg, log, chats.Deps{Idempotency: deps.Idempotency, Instances: deps.Instances, Lookup: deps.Instances})
+	profile.Register(r, cfg, log, profile.Deps{Instances: deps.Instances, Lookup: deps.Instances})
+	media.Register(r, cfg, log, media.Deps{Instances: deps.Instances, Media: deps.Media, Lookup: deps.Instances})
+	users.Register(r, cfg, log, users.Deps{Keys: deps.Keys, Users: deps.Users, Lookup: deps.Instances})
+	chatwoot.Register(r, cfg, log, chatwoot.Deps{PublicURL: publicURL, Chatwoot: deps.Chatwoot, ChatwootClientFor: deps.ChatwootClientFor, ChatwootConfigs: deps.ChatwootConfigs, ChatwootImporter: deps.ChatwootImporter, ChatwootInbound: deps.ChatwootInbound, Instances: deps.Instances, Lookup: deps.Instances})
 	limiter := deps.ChatwootWebhookLimiter
 	if limiter == nil {
-		limiter = NewChatwootRateLimiter(120, 0)
+		limiter = chatwoot.NewChatwootRateLimiter(120, 0)
 	}
-	mux.Handle("POST /chatwoot/webhook/{id}", resolveInstancePath(deps.Instances, handleChatwootWebhook(deps.Instances, deps.ChatwootInbound, deps.Chatwoot, limiter), false, false))
-
-	// The session endpoints authenticate with the cookie, never with the
-	// apikey header, so they mount on the outer mux outside the Authenticate
-	// guard at their prefix-less paths.
-	secure := secureCookies(cfg.PublicURL)
-	authMux := http.NewServeMux()
-	loginLimiter := deps.LoginLimiter
-	if loginLimiter == nil {
-		loginLimiter = NewLoginRateLimiter(defaultLoginLimit, 0)
-	}
-	authMux.Handle("POST /auth/login", loginLimit(loginLimiter, handleLogin(deps.Users, deps.JWTSecret, secure)))
-	authMux.HandleFunc("POST /auth/logout", handleLogout(secure))
-	authMux.HandleFunc("GET /auth/me", handleMe(deps.Users, deps.JWTSecret))
-	mux.Handle("/auth/", envelopeFallback(authMux))
-
-	return &http.Server{
-		Addr:              cfg.HTTPAddr,
-		Handler:           RequestID(Logging(log)(Recover(log)(mux))),
-		ReadHeaderTimeout: 10 * time.Second,
-	}
-}
-
-// publicURLForChatwoot prefers the explicit Deps override (tests) and falls
-// back to the configured public URL (production).
-func publicURLForChatwoot(cfg config.Config, deps Deps) string {
-	if deps.PublicURL != "" {
-		return deps.PublicURL
-	}
-	return cfg.PublicURL
-}
-
-// envelopeFallback turns the plain-text 404 and 405 responses of the API mux
-// into the shared error envelope. A request whose path is registered with other
-// methods answers 405 with the Allow header naming them; every other unrouted
-// request answers 404.
-func envelopeFallback(mux *http.ServeMux) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, pattern := mux.Handler(r); pattern != "" {
-			mux.ServeHTTP(w, r)
-			return
-		}
-		if allowed := allowedMethods(mux, r); len(allowed) > 0 {
-			w.Header().Set("Allow", strings.Join(allowed, ", "))
-			Error(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
-			return
-		}
-		Error(w, r, http.StatusNotFound, "not_found", "route not found")
-	})
-}
-
-// allowedMethods reports the methods the mux registers for the path of r. The
-// mux does not expose its route table, so each method is probed in turn; a
-// method-less request never reaches this helper.
-func allowedMethods(mux *http.ServeMux, r *http.Request) []string {
-	var allowed []string
-	for _, method := range []string{
-		http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete,
-	} {
-		probe := r.Clone(r.Context())
-		probe.Method = method
-		if _, pattern := mux.Handler(probe); pattern != "" {
-			allowed = append(allowed, method)
-		}
-	}
-	return allowed
+	r.With(core.ResolveInstance(deps.Instances, false, "id")).Post("/chatwoot/webhook/{id}", chatwoot.HandleChatwootWebhook(deps.Instances, deps.ChatwootInbound, deps.Chatwoot, limiter))
+	return r
 }

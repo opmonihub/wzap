@@ -38,12 +38,6 @@ pelo companion (só observação/rejeição) e implementações de
 consumidores. O serviço roda como **uma réplica**; locks são em memória e o
 boot adquire um advisory lock do Postgres (segunda réplica aborta).
 
-> **BREAKING (produto):** o contrato abaixo substitui o contrato headless
-> anterior — header `apikey:` no lugar de `Authorization: Bearer`, rotas na
-> raiz sem `/api/v1`, `WZAP_API_KEY` no lugar de `WZAP_SERVICE_TOKEN` e
-> `media.url` sem prefixo. Consumidores da API antiga precisam migrar
-> (detalhes em cada seção).
-
 ## Requisitos
 
 - Go 1.26+ (o `go.mod` pina `go 1.26.0`) para build/testes locais.
@@ -61,8 +55,8 @@ inicialização com mensagem nomeando a variável.
 
 | Variável | Obrigatória | Padrão | Descrição |
 | --- | --- | --- | --- |
-| `WZAP_API_KEY` | sim | — | **BREAKING:** substitui `WZAP_SERVICE_TOKEN` (ignorada se presente). Key global de máquina, enviada no header `apikey:`, com acesso total. |
-| `WZAP_JWT_SECRET` | sim | — | Segredo HMAC das sessões do manager (cookies JWT). **BREAKING:** mínimo de 32 caracteres (256 bits para HS256); segredos curtos falham o boot. `POST /auth/login` é limitado a 10 tentativas/min por IP (`429 rate_limited`). |
+| `WZAP_API_KEY` | sim | — | Key global de máquina, enviada no header `apikey:`, com acesso total. |
+| `WZAP_JWT_SECRET` | sim | — | Segredo HMAC das sessões do manager (cookies JWT). Mínimo de 32 caracteres (256 bits para HS256); segredos curtos falham o boot. `POST /auth/login` é limitado a 10 tentativas/min por IP (`429 rate_limited`). |
 | `WZAP_ADMIN_EMAIL` | não | vazio | Seed do primeiro admin no boot quando não há contas; sem ela (ou sem `WZAP_ADMIN_PASSWORD`) nada é criado. |
 | `WZAP_ADMIN_PASSWORD` | não | vazio | Senha inicial do admin seed (troque após instalar). |
 | `WZAP_MAX_INSTANCES` | não | `0` | Teto global de instâncias; `0` = ilimitado. Acima responde `403 quota_exceeded`. |
@@ -90,21 +84,36 @@ inicialização com mensagem nomeando a variável.
 
 ## Contrato REST
 
-Base: `/` (raiz, sem prefixo). **BREAKING:** o prefixo `/api/v1` foi
-eliminado; qualquer rota sob `/api/v1/*` responde `404`.
+Base: `/` (raiz, sem prefixo). Todas as rotas são registradas no roteador Chi v5.
+Os handlers HTTP ficam organizados em `internal/httpapi` por `core`,
+`representation` e recursos `instances`, `messages`, `groups`, `contacts`,
+`channels`, `chats`, `statuses`, `profile`, `users`, `authsession`, `media` e
+`chatwoot`.
 
+Respostas de coleção usam arrays diretos nomeados dentro de `data`: `instances`,
+`users`, `groups`, `messages`, `channels`, `statuses`, `contacts` e
+`blocked_jids`. Os elementos não têm wrapper singular. Respostas individuais
+usam propriedades como `data.instance`; atualizações de canal retornam
+`data.messages`. Coleções e arrays obrigatórios aninhados aparecem como `[]`
+quando vazios. Campos opcionais sem valor são omitidos; `false`, `0`, `"0"` e
+arrays obrigatórios vazios continuam presentes. `next_cursor`, quando existe,
+é irmão da coleção dentro de `data` e é omitido na última página. `events` é
+sempre um array. Respostas de sucesso usam `data`; respostas de erro usam
+`error` com `code` e `message`, e detalhes opcionais do erro são omitidos quando
+não há valor.
 Toda rota da API exige credencial válida em um dos dois planos (mesmas rotas,
 mesmos efeitos no escopo):
 
 - Máquinas: header `apikey:` com a key global (acesso total) ou a instance
   key (controle total da própria instância, menos gerenciar a própria key).
-  **BREAKING:** `Authorization: Bearer` não é mais aceito.
+
 - Humanos (manager): sessão JWT em cookie httpOnly (`POST /auth/login` com
   email/senha, `POST /auth/logout`, `GET /auth/me`).
 
 Ausente ou inválida responde `401`; válida sem escopo responde `403`.
 Sucesso responde no envelope `{"data": ...}` e erro em
-`{"error": {"code", "message"}}`; toda resposta carrega `X-Request-Id` (eco
+`{"error": {"code", "message"}}`; campos opcionais sem valor são omitidos.
+Toda resposta carrega `X-Request-Id` (eco
 do enviado ou gerado) e os logs da requisição usam o mesmo identificador.
 
 ### Saúde e prontidão (sem autenticação)
@@ -127,9 +136,9 @@ loopback e sai `0`/`1`; é o healthcheck do container).
 | Método e rota | Corpo/Resposta |
 | --- | --- |
 | `POST /users` | `{"email","password","role"}` → `201`; email duplicado → `409`. |
-| `GET /users` | `200` com a lista. |
+| `GET /users` | `200` com `{"data":{"users":[...]}}`; array sempre presente. |
 | `GET /users/{id}` | `200` com a conta; `404` se não existir. |
-| `PATCH /users/{id}` | `{"instance_quota"}` → `200` (só a cota é editável). |
+| `PATCH /users/{id}` | `{"instance_limit"}` → `200` (só a cota é editável; `0` significa ilimitada). |
 | `DELETE /users/{id}` | `204`; dono com instâncias → `409` (sem transferência, sem cascata). |
 
 No primeiro boot sem contas e com `WZAP_ADMIN_EMAIL`/`WZAP_ADMIN_PASSWORD`,
@@ -149,9 +158,7 @@ Novos nomes e renomeações devem ser globalmente únicos e ter
 terminando com letra ou dígito. O nome exato `stats` e qualquer valor aceito
 como UUID (inclusive compacto) são reservados. Nome inválido →
 `422 invalid_instance_name`; nome ocupado → `409 instance_name_taken`.
-Nomes legados não são reescritos: seguem acessíveis pelo UUID e podem ficar
-exatamente iguais em atualizações de outros campos, ou ser renomeados para
-um nome válido disponível.
+Nomes existentes que não atendem ao formato podem ser mantidos em atualizações de outros campos e continuam acessíveis pelo UUID; renomeie-os para um nome válido disponível.
 
 Exemplos para uma instância chamada `Loja_SP-1`:
 
@@ -175,71 +182,40 @@ renomear, o nome antigo retorna `404` e o novo compartilha o replay existente.
 | Método e rota | Corpo/Resposta |
 | --- | --- |
 | `POST /instances` | `{"name","external_ref"?,"owner_user_id"?,"webhook"?}` com `webhook:{url,enabled,events}` → `201` com `data.instance` (representação agregada abaixo) e `instance_api_key` em claro **uma única vez**; `external_ref` duplicada → `409`; acima da cota → `403 quota_exceeded`. O dono é a sessão criadora, ou o admin mais antigo (sobrescrevível por `owner_user_id` só global/admin) na criação por key global. |
-| `GET /instances` | `200` com `{"data":{"items":[{"instance":...}]}}`, contendo todas as instâncias autorizadas na representação agregada abaixo, ordenadas por criação e id decrescentes. Contas `user` recebem só as próprias; instance key → `403`. |
+| `GET /instances` | `200` com `{"data":{"instances":[...]}}`, contendo todas as instâncias autorizadas na representação agregada abaixo, ordenadas por criação e id decrescentes. Contas `user` recebem só as próprias; instance key → `403`. |
 | `GET /instances/stats` | `200` com `{total, by_status}`; query opcional `instance` aceita UUID ou nome. Instance key → `403`. |
 | `GET /instances/{id}` | `200` com `{"data":{"instance":...}}` na representação agregada abaixo (nunca a key); `404` se não existir (id malformado também é `404`); instância de outro dono → `403`. |
 | `PATCH /instances/{id}` | `{"name"?,"external_ref"?,"webhook"?}` com `webhook:{url,enabled,events}` → `200` com `data.instance` agregado; `external_ref` vazia limpa a referência; `url:""` limpa a URL e `events:[]` limpa a assinatura; webhook inválido → `422`. |
 | `DELETE /instances/{id}` | `204`; encerra a sessão e apaga mensagens e mídias; operações seguintes → `404`. |
-| `POST /instances/{id}/apikey/rotate` | Só global/admin → `200` com a nova key em claro uma vez; a antiga morre na hora. Serve de backfill para instâncias antigas sem key. |
+| `POST /instances/{id}/apikey/rotate` | Só global/admin → `200` com `data.id` e `data.instance_api_key` em claro uma vez; revoga a key anterior. |
 | `DELETE /instances/{id}/apikey` | Só global/admin → `204`; a instância volta a responder só pela global até nova rotação. |
-| `POST /instances/{id}/connect` | Inicia o pareamento → `200` com `{status, qr_code, qr_expires_at}`; instância já `connected` → `200` com `{status:"connected"}` sem QR (idempotente); já em `pairing` devolve o QR atual. |
+| `POST /instances/{id}/connect` | Inicia o pareamento → `200` com `data.connection` contendo `status` e o QR disponível (`qr_code`, `qr_expires_at`); instância já `connected` → `200` com `status:"connected"` sem QR (idempotente); já em `pairing` devolve o QR atual. |
 | `GET /instances/{id}/qr` | `200` com o QR atual e a validade; reemite um QR novo quando o anterior expirou ou o pareamento ainda não começou; `409` se a sessão já está conectada. |
 | `POST /instances/{id}/disconnect` | `204`; encerra a sessão, remove as credenciais e não reconecta. |
-| `GET /instances/{id}/status` | `200` com `{status, whatsapp_jid, last_error, last_connected_at}`. |
+| `GET /instances/{id}/status` | `200` com `data.connection` contendo `status` e os campos opcionais disponíveis `last_error` e `last_connected_at`; JIDs internos não são expostos. |
+| `GET /instances/{id}/groups` | `200` com `{"data":{"groups":[...]}}`; array sempre presente. |
+| `GET /instances/{id}/blocklist` | `200` com `{"data":{"blocked_jids":[...]}}`; array sempre presente. |
+| `POST /instances/{id}/contacts/check` | `200` com `{"data":{"contacts":[...]}}`; array sempre presente. |
 | `POST /instances/{id}/numbers/check` | `{"phone"}` → `200` com `{exists, jid, normalized}`; número malformado/ausente do WhatsApp vem `exists:false`; sessão sem resolução confiável → `503`. |
 
-**BREAKING:** `GET /instances` não usa paginação e remove `next_cursor` da
-resposta. Clientes devem consumir `data.items` em uma única chamada; queries
-antigas `limit` e `cursor` são ignoradas, inclusive valores inválidos. Uma
-coleção grande produz uma resposta maior, sem limite oculto. Mensagens, grupos
-e newsletters mantêm seus contratos de paginação.
-
-**BREAKING:** `webhook` saiu da raiz de `instance` e existe só em
-`integration.webhook`. `GET /instances`, `GET /instances/{id}`,
-`POST /instances` e `PATCH /instances/{id}` devolvem também
-`integration.chatwoot_config` (`null` sem configuração persistida) e
-`settings`. `settings.default_disappearing` ecoa o último valor aceito por
-`PUT /instances/{id}/chats/default-disappearing` (`0`, `24h`, `168h` ou
-`2160h`) e é `null` quando nunca configurado. `settings.profile`,
-`settings.privacy` e `settings.status_privacy` são objetos só quando
-`connection.status` é `connected`; caso contrário, ou se a fonte falhar, o
-bloco é `null` e a leitura da instância continua.
-
-**BREAKING:** o bloco `webhook` saiu da raiz da instância e passou a
-`integration.webhook` (o contrato cortado em 2026-10-06 o tinha na raiz; o
-consumidor deve ler `instance.integration.webhook`). A representação pública
-da instância — em `data.instance` e em `data.items[].instance`, inclusive nas
-respostas de create e update — ficou:
+A representação pública da instância — tanto em `data.instance` quanto em
+`data.instances[]` — usa objetos opcionais por omissão:
+`integration.chatwoot_config` e `settings` aparecem somente quando há dados
+disponíveis. Dentro de `settings`, os subblocos `profile`, `privacy` e
+`status_privacy` são omitidos quando ausentes; `default_disappearing` também é
+omitido até haver valor configurado. O valor configurado `"0"` permanece
+presente e distinto da ausência. `integration.webhook` é obrigatório, inclusive quando
+`enabled` é `false`; `events` é sempre um array, inclusive `[]`.
 
 ```json
-{"id": "...", "name": "...",
- "connection": {"status": "...", "last_error": {...}|null, "last_connected_at": "..."},
- "integration": {
-   "webhook": {"enabled": false, "url": null, "events": ["message", "..."]},
-   "chatwoot_config": {"is_enabled": false, "...": "..."} | null
- },
- "settings": {
-   "default_disappearing": "0" | "24h" | "168h" | "2160h" | null,
-   "profile": {"name": "...", "status_text": "...", "photo_url": "..."} | null,
-   "privacy": {"last_seen": "...", "profile_photo": "...", "status": "...",
-               "read_receipts": "...", "groups_add": "..."} | null,
-   "status_privacy": {"mode": "...", "...": "..."} | null
- },
- "created_at": "...", "updated_at": "..."}
+{"id":"...","name":"...",
+ "connection":{"status":"..."},
+ "integration":{"webhook":{"enabled":false,"events":[]}},
+ "created_at":"...","updated_at":"..."}
 ```
 
-Semântica de `null` por bloco: `integration.chatwoot_config` é `null` quando
-nunca houve configuração Chatwoot persistida (o `GET /instances/{id}/chatwoot`
-próprio continua sintetizando um config desabilitado — o agregado não);
-`settings.default_disappearing` ecoa o literal aceito pelo último
-`PUT /instances/{id}/chats/default-disappearing` e é `null` enquanto nunca
-configurado (distinto de `"0"` = desligado); os blocos vivos `profile`,
-`privacy` e `status_privacy` só são buscados com `connection.status ==
-"connected"` e vêm `null` nos demais estados ou quando a fonte falha — a
-indisponibilidade de um bloco nunca derruba a leitura nem os demais itens da
-listagem (montagem com concorrência limitada por requisição). Campos internos
-seguem ocultos: `external_ref`, `owner_user_id`, `whatsapp_jid`/`device_jid`,
-hashes e o token Chatwoot (write-only) não aparecem em nenhum bloco.
+Campos internos como `external_ref`, `owner_user_id`, `whatsapp_jid`/`device_jid`,
+hashes e token Chatwoot não aparecem nas respostas.
 
 Estados de instância: `disconnected`, `pairing`, `connected`, `error`. Restrição
 de conta vira `error` com motivo e **não** reconecta automaticamente; queda
@@ -252,12 +228,12 @@ estado; acima da cota a criação responde `403 quota_exceeded`. Contas
 
 ### Webhooks
 
-Cada instância tem webhook próprio (`webhook_url`, `webhook_enabled`,
-`webhook_events`, gerenciáveis no create/update por quem opera a
+Cada instância tem webhook próprio (`webhook.url`, `webhook.enabled`,
+`webhook.events`, gerenciáveis no create/update por quem opera a
 instância; nas leituras o bloco vive em `integration.webhook`). `events` aceita os 4 tipos padrão (`message`, `receipt`,
 `connection`, `message.status`) mais os opt-in das novas famílias
 (`poll.vote`, `message.reaction`, `interactive.response`,
-`group.participants`, `group.info`, `call.offer`); omitir `webhook_events`
+`group.participants`, `group.info`, `call.offer`); omitir `webhook.events`
 assina exatamente os 4 originais (os novos nunca entram no default).
 Tipo desconhecido → `422`. Só URLs HTTP(S);
 HTTP fora de loopback → `422` (fora de loopback use HTTPS). Sem URL, com o
@@ -302,15 +278,19 @@ seguintes. A entrega é at-least-once: deduplique pelo `event_id` estável.
 
 ### Mensagens
 
+Nestas rotas, `{instance}` aceita o UUID ou nome exato da instância; `{id}` no
+detalhe identifica a mensagem por seu UUID interno. Por exemplo:
+`/instances/Loja_SP-1/messages/22222222-2222-4222-8222-222222222222`.
+
 | Método e rota | Corpo/Resposta |
 | --- | --- |
-| `POST /instances/{id}/messages/text` | `{"to","text"}` → `202` com `{"message_id","status":"queued"}`. |
-| `POST /instances/{id}/messages/location` | `{"to","latitude","longitude"}` → `202`. |
-| `POST /instances/{id}/messages/contact` | `{"to","display_name","vcard"}` → `202`. |
-| `POST /instances/{id}/messages/media` | `multipart/form-data`: `to`, `type` (`image\|video\|audio\|document\|sticker`), `file` e opcionais `caption`, `filename`, `ptt` (`true`/`1`) → `202`. Tipo declarado precisa bater com o `Content-Type` do arquivo; `sticker` exige `image/webp`. |
-| `POST /instances/{id}/messages` | `{"to","type":"poll\|reaction\|list\|buttons", ...}` → `202` com `{"message_id","status":"queued"}`. Tipos legados (`text`/`location`/`contact`) e `sticker` são `422` aqui (usem as rotas próprias). |
-| `GET /instances/{id}/messages?limit&cursor` | `200` com `{"items":[...],"next_cursor"}`; `limit` padrão `50`, máximo `100`. |
-| `GET /instances/{id}/messages/{message_id}` | `200` com estado atual, marcos temporais (`delivered_at`, `read_at`), tentativas (`attempts`) e `last_error`. |
+| `POST /instances/{instance}/messages/text` | `{"to","text"}` → `202` com `{"data":{"message":{"id":"...","instance_id":"...","send_status":"queued"}}}`. |
+| `POST /instances/{instance}/messages/location` | `{"to","latitude","longitude"}` → `202`. |
+| `POST /instances/{instance}/messages/contact` | `{"to","display_name","vcard"}` → `202`. |
+| `POST /instances/{instance}/messages/media` | `multipart/form-data`: `to`, `type` (`image\|video\|audio\|document\|sticker`), `file` e opcionais `caption`, `filename`, `ptt` (`true`/`1`) → `202`. Tipo declarado precisa bater com o `Content-Type` do arquivo; `sticker` exige `image/webp`. |
+| `POST /instances/{instance}/messages` | `{"to","type":"poll\|reaction\|list\|buttons", ...}` → `202` com `data.message` contendo `id`, `instance_id` e `send_status:"queued"`. `text`, `location`, `contact` e `sticker` usam suas rotas próprias e recebem `422` nesta rota. |
+| `GET /instances/{instance}/messages?limit&cursor` | `200` com `{"data":{"messages":[...],"next_cursor":"..."}}`; `next_cursor` é omitido na última página. `limit` padrão `50`, máximo `100`. |
+| `GET /instances/{instance}/messages/{id}` | `200` com `data.message`: estado atual e `retry_count` obrigatório (inclusive `0`); marcos temporais (`delivered_at`, `read_at`) e `last_error` aparecem somente quando disponíveis. |
 | `GET /media/{id}` | Conteúdo bruto (fora do envelope) com `Content-Type`/`Content-Length` corretos; sem credencial → `401`; mídia inexistente ou expirada → `404`. |
 
 O destinatário aceita telefone em formato livre: o serviço resolve o JID
@@ -351,7 +331,7 @@ conectada → `409`; instância inexistente → `404`; sem ownership → `403`.
 
 | Método e rota | Corpo/Resposta |
 | --- | --- |
-| `POST /instances/{id}/messages/revoke` | `{"chat","message_id"}` → `200` com `{"revoked":true}`. Alvo inválido → `422` (nunca `500`); o campo `reason` existe `omitempty` para compatibilidade futura. O adapter não sinaliza "fora da janela": envio bem-sucedido ao protocolo é `revoked:true`; a janela do WhatsApp é documentada no Swagger. |
+| `POST /instances/{instance}/messages/revoke` | `{"chat","message_id"}` → `200` com `{"revoked":true}`. Alvo inválido → `422` (nunca `500`); o campo `reason` é omitido quando não há valor. O adapter não sinaliza "fora da janela": envio bem-sucedido ao protocolo é `revoked:true`; a janela do WhatsApp é documentada no Swagger. |
 | `POST /instances/{id}/chats/mark-read` | `{"chat","message_id","sender"?}` → `200`. Em grupo `sender` (autor) é obrigatório (`422` sem ele); em conversa direta é completado com o próprio `chat` quando ausente. |
 | `POST /instances/{id}/presence` | `{"chat","state"}` → `200`. Allowlist `composing\|paused` (conversa) e `available\|unavailable` (usuário); fora dela → `422` antes de tocar a sessão. Sem modo contínuo/heartbeat. |
 | `POST /instances/{id}/pair-phone` | `{"phone"}` → `200` com `{pairing_code, expires_at}` (código de 8 dígitos). Exige canal de pareamento aberto (`connect` antes): já `connected` ou sem canal → `409` sem emitir código (a expiração é lida antes da emissão); número vazio/malformado → `422` genérica (anti-enumeração, sem logar o número). |
@@ -365,8 +345,8 @@ runas (limite do assunto no upstream).
 
 | Método e rota | Corpo/Resposta |
 | --- | --- |
-| `POST /instances/{id}/groups` | `{"name","participants"?}` → `201` com `{group, invite_code}`. Se o grupo for criado mas a leitura do convite falhar, a resposta continua `201` com o grupo e `invite_code` vazio (`omitempty`): **não** repita o create (duplicaria o grupo); reconcilie via `GET .../invite`. |
-| `GET /instances/{id}/groups/{group_id}` | `200` com os metadados + `updated_at` (refresh sob demanda, ver abaixo). |
+| `POST /instances/{id}/groups` | `{"name","participants"?}` → `201` com `{group, invite_code}`. Se o grupo for criado mas a leitura do convite falhar, a resposta continua `201` com o grupo e `invite_code` vazio: **não** repita o create (duplicaria o grupo); reconcilie via `GET .../invite`. |
+| `GET /instances/{id}/groups/{group_id}` | `200` com os metadados; `updated_at` só aparece quando conhecido. |
 | `PATCH /instances/{id}/groups/{group_id}` | `{"name"?,"description"?}` → `200`. |
 | `PUT /instances/{id}/groups/{group_id}/photo` | Corpo `image/*` cru → `200`; acima de `WZAP_MAX_MEDIA_BYTES` → `413`. Só troca (sem remoção). |
 | `POST /instances/{id}/groups/{group_id}/participants` | `{"action":"add\|remove\|promote\|demote","participants":[...]}` → `200`. `leave` próprio é pela rota de saída; remover terceiros exige admin. |
@@ -376,23 +356,25 @@ runas (limite do assunto no upstream).
 | `POST /instances/{id}/groups/{group_id}/leave` | Saída própria → `200`. |
 
 Metadados (`group_metadata`, migration aditiva `00006`): toda leitura live
-faz write-through do cache e expõe `updated_at`; o cache é log de refresh,
-nunca fonte (sem leitura stale/TTL — consultar sempre reflete o upstream).
-Falha de cache só loga e devolve o live; sem store configurado a leitura
-passa direto (`updated_at` zero). `unfollow`/saída não tocam o cache.
+faz write-through do cache e expõe `updated_at` quando conhecido; o cache é log
+de refresh, nunca fonte (sem leitura stale/TTL — consultar sempre reflete o
+upstream). Falha de cache só loga e devolve o live; sem store configurado a
+leitura passa direto e `updated_at` é omitido. `unfollow`/saída não tocam o
+cache.
 
 ### Newsletters
 
 `409` desconectada, `404` canal desconhecido, `403` sem ownership.
-Listagem paginada por cursor (`limit` padrão 50, máximo 100, `next_cursor`
-com o último canal).
+Listagem paginada por cursor (`limit` padrão 50, máximo 100). O cursor seguinte,
+quando houver, aparece como `data.next_cursor` junto da coleção.
 
 | Método e rota | Corpo/Resposta |
 | --- | --- |
 | `POST /instances/{id}/newsletters/follow` | `{"channel"}` → `200` com a assinatura + `updated_at`. |
 | `POST /instances/{id}/newsletters/unfollow` | `{"channel"}` → `200` (não toca o cache de metadados). |
-| `GET /instances/{id}/newsletters/{channel}` | `200` com os metadados + `updated_at`. |
-| `GET /instances/{id}/newsletters` | `200` com `{"items":[...],"next_cursor"}` ordenado por canal. |
+| `GET /instances/{id}/newsletters/{channel}` | `200` com os metadados; `updated_at` só aparece quando conhecido. |
+| `GET /instances/{id}/newsletters/{channel}/updates` | `200` com `{"data":{"messages":[...]}}` (atualizações de canal representadas como mensagens). |
+| `GET /instances/{id}/newsletters` | `200` com `{"data":{"channels":[...],"next_cursor":"..."}}` ordenado por canal; cursor omitido na última página. |
 
 ### Status/stories e chamadas
 
@@ -402,14 +384,14 @@ replay `X-Idempotent-Replay` via o mesmo middleware de idempotência das
 mensagens, mas o backing é **síncrono fire-and-forget** para o broadcast
 (`status@broadcast`) — sem retry de outbox. Texto/caption de 1..700 runas;
 mídia acima de `WZAP_MAX_MEDIA_BYTES` → `422`; `409` desconectada. A
- listagem cobre só status publicados desde o boot e poda entradas expiradas (~24 h do protocolo); apagar status
- desconhecido ou anterior ao boot → `404`.
+listagem cobre só status publicados desde o boot e poda entradas expiradas
+(~24 h do protocolo); apagar status desconhecido ou anterior ao boot → `404`.
 
 | Método e rota | Corpo/Resposta |
 | --- | --- |
 | `POST /instances/{id}/status/updates` | `{"text"}` → `202` com `{"message_id","status":"published"}`. |
 | `POST /instances/{id}/status/updates/media` | `multipart/form-data` imagem/vídeo + `caption` opcional → `202`. |
-| `GET /instances/{id}/status/updates` | `200` com `{"items":[...]}` (array nunca nil). |
+| `GET /instances/{id}/status/updates` | `200` com `{"data":{"statuses":[...]}}` (array nunca nil). |
 | `DELETE /instances/{id}/status/updates/{status_id}` | `200` com `{"deleted":true}`; desconhecido → `404`. |
 | `POST /instances/{id}/calls/reject` | `{"call_id","from"}` → `200` com `{"rejected":true}`; campos ausentes → `422`; `409` desconectada; `501 not_supported` quando o upstream não suportar a rejeição. O companion nunca inicia chamada — só observa (evento `call.offer`) e rejeita. |
 
@@ -440,11 +422,11 @@ e importa o histórico via SQL direto no Postgres do Chatwoot. Sem
 | `WZAP_CHATWOOT_MESSAGE_DELETE` | `false` | Sincroniza revogações nos dois sentidos. |
 | `WZAP_CHATWOOT_IMPORT_DB_URL` | vazio | URI do Postgres do Chatwoot para o import; vazia desliga o import. |
 | `WZAP_CHATWOOT_IMPORT_PLACEHOLDER` | `false` | Mensagem sem conteúdo vira `(mídia não importada)` em vez de ser pulada. |
-| `WZAP_CHATWOOT_TOKEN_KEY` | vazio | Chave base64 de 32 bytes que cifra os `token`s no banco (`enc:v1:` AES-256-GCM); vazia mantém texto claro com `warn` no boot. Malformada falha o boot. Tokens antigos são cifrados no boot (best-effort). Perder a chave exige recadastrar os tokens. |
+| `WZAP_CHATWOOT_TOKEN_KEY` | vazio | Chave base64 de 32 bytes que cifra os `token`s no banco (`enc:v1:` AES-256-GCM); vazia mantém texto claro com `warn` no boot. Malformada falha o boot. Tokens armazenados em texto claro são cifrados no boot (best-effort). Perder a chave exige recadastrar os tokens. |
 
 | Método e rota | Corpo/Resposta |
 | --- | --- |
-| `PUT /instances/{id}/chatwoot` | Configuração do conector → `200`; validação falha → `422`. O `token` é aceito só na escrita e nunca volta nas respostas. **BREAKING:** `url` com `http` exige host loopback (`localhost`, `127.0.0.0/8`, `::1`); demais hosts exigem `https` para o token não trafegar em texto claro. |
+| `PUT /instances/{id}/chatwoot` | Configuração do conector → `200`; validação falha → `422`. O `token` é aceito só na escrita e nunca volta nas respostas. `url` com `http` exige host loopback (`localhost`, `127.0.0.0/8`, `::1`); demais hosts exigem `https` para o token não trafegar em texto claro. |
 | `GET /instances/{id}/chatwoot` | `200` com a configuração (sem o `token`) e a `webhook_url`. |
 | `POST /instances/{id}/chatwoot/import` | Import manual → `202` com `{"imported":N}`, onde N conta mensagens importadas (contatos não entram na conta). |
 | `POST /instances/{id}/chatwoot/command` | Comando operacional autenticado (dual auth) → `200` com `{"ok":true}`. Corpo `{"command":"status\|init[:number]\|clearcache\|disconnect","conversation_id":N}`; confirma na conversa. O webhook aberto nunca executa comandos. |
@@ -667,10 +649,9 @@ teste):
 
 - Specs e decisões: `openspec/changes/wzap-foundation/` (proposal, design,
   specs por capability) e `openspec/changes/wzap-product/` (contrato produto:
-  contas, api keys, webhooks, manager; quebras marcadas **BREAKING**).
+  contas, api keys, webhooks e manager).
 - Cobertura WhatsApp (revogação, leitura, presença, pair-phone, mensagens
   ricas, grupos, newsletters, status, chamadas, perfil/privacidade):
   `openspec/specs/wzap-{message-lifecycle,presence,phone-pairing,rich-messaging,groups,newsletters,status-calls,profile-privacy}/`
-  e `openspec/changes/expand-whatsapp-coverage/` (proposal, design, specs por
-  capability; sem **BREAKING** — tudo aditivo).
+  e `openspec/changes/expand-whatsapp-coverage/`.
 - Licenças e trechos reaproveitados: `THIRD_PARTY_NOTICES.md`.

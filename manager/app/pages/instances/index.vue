@@ -48,7 +48,7 @@ async function loadFirst() {
   failure.value = null
   try {
     const listing = await listInstances()
-    items.value = listing.items.map(item => item.instance)
+    items.value = listing.instances
   } catch (error) {
     failure.value = error instanceof ApiError ? error.message : t('instances.loadFailed')
   } finally {

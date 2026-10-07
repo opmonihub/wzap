@@ -117,7 +117,7 @@ function onPaired() {
   emit('paired')
 }
 
-function formatDateTime(value: string | null): string {
+function formatDateTime(value: string | undefined): string {
   if (!value) {
     return t('common.notSet')
   }

@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -28,7 +28,6 @@ func statsTotals(t *testing.T, body []byte) (int, map[string]int) {
 	decodeJSON(t, body, &payload)
 	return payload.Data.Stats.Total, payload.Data.Stats.ByStatus
 }
-
 func TestInstanceStatsGlobalCountsAllStatuses(t *testing.T) {
 	owner := uuid.New()
 	rows := []model.Instance{
@@ -55,7 +54,6 @@ func TestInstanceStatsGlobalCountsAllStatuses(t *testing.T) {
 		t.Errorf("data.by_status = %v, want %v", byStatus, want)
 	}
 }
-
 func TestInstanceStatsAdminCountsAll(t *testing.T) {
 	f := newRBACFixture(t)
 	f.instA.Connection.Status = "connected"
@@ -77,7 +75,6 @@ func TestInstanceStatsAdminCountsAll(t *testing.T) {
 		t.Errorf("data.by_status = %v, want %v", byStatus, want)
 	}
 }
-
 func TestInstanceStatsUserCountsOwnOnly(t *testing.T) {
 	f := newRBACFixture(t)
 	f.instA.Connection.Status = "connected"
@@ -99,7 +96,6 @@ func TestInstanceStatsUserCountsOwnOnly(t *testing.T) {
 		t.Errorf("data.by_status = %v, want %v", byStatus, want)
 	}
 }
-
 func TestInstanceStatsInstanceKeyForbidden(t *testing.T) {
 	f := newRBACFixture(t)
 	srv := f.rbacServer(t)
@@ -113,7 +109,6 @@ func TestInstanceStatsInstanceKeyForbidden(t *testing.T) {
 		t.Errorf("error code = %q, want %q", code, "forbidden")
 	}
 }
-
 func TestInstanceStatsUnknownStatusFoldsIntoDisconnected(t *testing.T) {
 	rows := []model.Instance{{ID: uuid.New(), Name: "a", Connection: model.InstanceConnection{Status: "mysterious"}}}
 	svc := &fakeInstanceService{listFn: func(context.Context) ([]model.Instance, error) {
@@ -134,7 +129,6 @@ func TestInstanceStatsUnknownStatusFoldsIntoDisconnected(t *testing.T) {
 		t.Errorf("data.by_status = %v, want %v", byStatus, want)
 	}
 }
-
 func TestInstanceStatsServiceErrorIsInternal(t *testing.T) {
 	svc := &fakeInstanceService{listFn: func(context.Context) ([]model.Instance, error) {
 		return nil, errors.New("boom")
@@ -152,7 +146,6 @@ func TestInstanceStatsServiceErrorIsInternal(t *testing.T) {
 		t.Errorf("body %q leaks the service cause", rec.Body.String())
 	}
 }
-
 func TestInstanceStatsCountsCompleteCollection(t *testing.T) {
 	rows := make([]model.Instance, 0, 127)
 	for range 125 {

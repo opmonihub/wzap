@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 
 	"wzap/internal/auth"
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
 	"wzap/internal/instance"
 	"wzap/internal/model"
 )
@@ -27,12 +28,12 @@ func apikeyHashOf(key string) string {
 // apikeyTestServer wires svc and keys behind Authenticate so instance-key
 // assertions exercise the middleware-shaped resolution (old key → 401, new
 // key resolves).
-func apikeyTestServer(t *testing.T, svc InstanceService, keys *fakeAPIKeyRepository) *http.Server {
+func apikeyTestServer(t *testing.T, svc httpapi.InstanceService, keys *fakeAPIKeyRepository) *http.Server {
 	t.Helper()
-	return New(
+	return httpapi.New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    svc,
 			Keys:         keys,
@@ -69,7 +70,6 @@ func rotateKeyResponse(t *testing.T, body []byte) (id, key string) {
 	decodeJSON(t, body, &payload)
 	return payload.Data.ID, payload.Data.InstanceAPIKey
 }
-
 func TestAPIKeyRotateHappy(t *testing.T) {
 	inst := &model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}}
 	const oldKey = "old-instance-key-happy"
@@ -91,12 +91,10 @@ func TestAPIKeyRotateHappy(t *testing.T) {
 		t.Error("rotated key equals the old key, want a fresh key")
 	}
 
-	// The old hash dies at write: the middleware no longer resolves it.
 	if rec := serveRBAC(t, srv, http.MethodGet, "/instances/"+inst.ID.String(), "", nil, oldKey, nil); rec.Code != http.StatusUnauthorized {
 		t.Errorf("old key status = %d, want %d (body %q)", rec.Code, http.StatusUnauthorized, rec.Body.String())
 	}
 
-	// The new key resolves through the middleware to the rotated instance.
 	if rec := serveRBAC(t, srv, http.MethodGet, "/instances/"+inst.ID.String(), "", nil, newKey, nil); rec.Code != http.StatusOK {
 		t.Errorf("new key status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 	}
@@ -104,7 +102,6 @@ func TestAPIKeyRotateHappy(t *testing.T) {
 		t.Errorf("InstanceByHash(new) = %s, %v, want %s with no error", got, err, inst.ID)
 	}
 
-	// The key is shown once: no read route exposes instance_api_key.
 	get := serveRBAC(t, srv, http.MethodGet, "/instances/"+inst.ID.String(), "", nil, testToken, nil)
 	if get.Code != http.StatusOK {
 		t.Fatalf("get status = %d, want %d (body %q)", get.Code, http.StatusOK, get.Body.String())
@@ -113,9 +110,8 @@ func TestAPIKeyRotateHappy(t *testing.T) {
 		t.Errorf("get body exposes instance_api_key, want it exactly once at rotate (body %q)", get.Body.String())
 	}
 }
-
 func TestAPIKeyRotateBackfill(t *testing.T) {
-	// A keyless legacy instance gains its first key through the same path.
+
 	inst := &model.Instance{ID: uuid.New(), Name: "legacy", Connection: model.InstanceConnection{Status: "disconnected"}}
 	keys := &fakeAPIKeyRepository{byHash: map[string]uuid.UUID{}}
 	srv := apikeyTestServer(t, apikeyInstanceService(inst), keys)
@@ -138,7 +134,6 @@ func TestAPIKeyRotateBackfill(t *testing.T) {
 		t.Errorf("backfilled key status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 	}
 }
-
 func TestAPIKeyRevoke(t *testing.T) {
 	inst := &model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}}
 	const oldKey = "old-instance-key-revoke"
@@ -154,22 +149,18 @@ func TestAPIKeyRevoke(t *testing.T) {
 		t.Errorf("revoke body = %q, want empty", rec.Body.String())
 	}
 
-	// The revoked key no longer authenticates.
 	if rec := serveRBAC(t, srv, http.MethodGet, "/instances/"+inst.ID.String(), "", nil, oldKey, nil); rec.Code != http.StatusUnauthorized {
 		t.Errorf("revoked key status = %d, want %d (body %q)", rec.Code, http.StatusUnauthorized, rec.Body.String())
 	}
 
-	// The instance answers only to the global key until the next rotation.
 	if rec := serveRBAC(t, srv, http.MethodGet, "/instances/"+inst.ID.String(), "", nil, testToken, nil); rec.Code != http.StatusOK {
 		t.Errorf("global get after revoke status = %d, want %d (body %q)", rec.Code, http.StatusOK, rec.Body.String())
 	}
 
-	// Revoking an already-keyless instance still succeeds: idempotent 204.
 	if rec := serveRBAC(t, srv, http.MethodDelete, path, "", nil, testToken, nil); rec.Code != http.StatusNoContent {
 		t.Errorf("second revoke status = %d, want %d (body %q)", rec.Code, http.StatusNoContent, rec.Body.String())
 	}
 }
-
 func TestAPIKeyRotateRevokeForbidden(t *testing.T) {
 	userID := uuid.New()
 	adminID := uuid.New()
@@ -240,7 +231,6 @@ func TestAPIKeyRotateRevokeForbidden(t *testing.T) {
 		}
 	})
 }
-
 func TestAPIKeyRotateRevokeNotFound(t *testing.T) {
 	unknown := uuid.New()
 	svc := &fakeInstanceService{
@@ -259,8 +249,6 @@ func TestAPIKeyRotateRevokeNotFound(t *testing.T) {
 		t.Fatalf("MintToken user: %v", err)
 	}
 
-	// Load-then-404 ordering: user/global scopes see 404 on a random id, while
-	// an instance key for another instance is denied 403 before the load.
 	t.Run("rotate unknown is not found", func(t *testing.T) {
 		for name, tc := range map[string]struct {
 			cookie *http.Cookie

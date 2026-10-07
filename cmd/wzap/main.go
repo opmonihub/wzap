@@ -28,6 +28,7 @@ import (
 	"wzap/internal/config"
 	"wzap/internal/events"
 	"wzap/internal/httpapi"
+	chatwootapi "wzap/internal/httpapi/chatwoot"
 	"wzap/internal/instance"
 	"wzap/internal/instancelock"
 	"wzap/internal/logger"
@@ -382,7 +383,7 @@ func serve() error {
 		PublicURL:        cfg.PublicURL,
 		ChatwootInbound:  inboundHandler,
 		ChatwootImporter: importer,
-		ChatwootClientFor: func(connector model.ChatwootConfig) httpapi.ChatwootInboxClient {
+		ChatwootClientFor: func(connector model.ChatwootConfig) chatwootapi.ChatwootInboxClient {
 			return client.New(connector.URL, connector.Token, connector.AccountID)
 		},
 	})

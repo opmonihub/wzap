@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -12,6 +12,8 @@ import (
 	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
+	"wzap/internal/httpapi/chatwoot"
 	"wzap/internal/model"
 )
 
@@ -29,7 +31,6 @@ func (f *fakeImporter) ImportHistory(_ context.Context, id uuid.UUID) (int, erro
 	f.calls = append(f.calls, id)
 	return f.count, f.err
 }
-
 func (f *fakeImporter) called(id uuid.UUID) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -40,14 +41,13 @@ func (f *fakeImporter) called(id uuid.UUID) bool {
 	}
 	return false
 }
-
-func chatwootImportTestServer(t *testing.T, instances InstanceService, cfgs *fakeChatwootConfigs, importer ChatwootImporter) *http.Server {
+func chatwootImportTestServer(t *testing.T, instances httpapi.InstanceService, cfgs *fakeChatwootConfigs, importer chatwoot.ChatwootImporter) *http.Server {
 	t.Helper()
 	on := config.Chatwoot{Enabled: true}
-	return New(
+	return httpapi.New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, PublicURL: "https://wzap.example.com", Chatwoot: on},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker:     checkFunc(func(context.Context) error { return nil }),
 			Instances:        instances,
 			ChatwootConfigs:  cfgs,
@@ -110,10 +110,10 @@ func TestChatwootImportGlobalDisabledReturns400(t *testing.T) {
 	id := uuid.New()
 	off := config.Chatwoot{Enabled: false}
 	importer := &fakeImporter{count: 3}
-	srv := New(
+	srv := httpapi.New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret, PublicURL: "https://wzap.example.com", Chatwoot: off},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker:     checkFunc(func(context.Context) error { return nil }),
 			Instances:        &fakeInstanceService{},
 			ChatwootConfigs:  &fakeChatwootConfigs{},

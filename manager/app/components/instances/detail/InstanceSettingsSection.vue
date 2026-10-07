@@ -30,7 +30,7 @@ const disappearingChoice = ref('0')
 const savingDisappearing = ref(false)
 const disappearingFailure = ref<string | null>(null)
 
-watch(() => props.instance.settings.default_disappearing, (value) => {
+watch(() => props.instance.settings?.default_disappearing, (value) => {
   const options = disappearingOptions.value
   disappearingChoice.value = value && options.some(o => o.value === value) ? value : '0'
 }, { immediate: true })
@@ -111,8 +111,7 @@ watch(() => props.instance.id, (nextId: string) => {
   keySeen.value = hasSeenInstanceKey(nextId)
 }, { immediate: true })
 
-// Compact read-only snapshot of instance.settings (aggregated on reads, null
-// per block while the instance is disconnected or a block fetch failed).
+// Compact read-only snapshot of the available instance.settings blocks.
 // Purely presentational: profile/privacy edits stay under the Profile
 function audienceLabel(value: string | null | undefined): string {
   switch (value) {
@@ -129,7 +128,7 @@ function audienceLabel(value: string | null | undefined): string {
   }
 }
 
-function statusPrivacyLabel(value: StatusPrivacy | null): string {
+function statusPrivacyLabel(value: StatusPrivacy | undefined): string {
   if (!value) {
     return t('common.notSet')
   }
@@ -141,14 +140,14 @@ function statusPrivacyLabel(value: StatusPrivacy | null): string {
 const settingsRows = computed(() => {
   const settings = props.instance.settings
   return [
-    { key: 'profileName', label: t('instances.settings.profileName'), value: settings.profile?.name || t('common.notSet') },
-    { key: 'statusText', label: t('instances.profile.recado'), value: settings.profile?.status_text || t('common.notSet') },
-    { key: 'lastSeen', label: t('instances.privacy.lastSeen'), value: audienceLabel(settings.privacy?.last_seen) },
-    { key: 'profilePhoto', label: t('instances.privacy.profilePhoto'), value: audienceLabel(settings.privacy?.profile_photo) },
-    { key: 'status', label: t('instances.privacy.status'), value: audienceLabel(settings.privacy?.status) },
-    { key: 'readReceipts', label: t('instances.privacy.readReceipts'), value: audienceLabel(settings.privacy?.read_receipts) },
-    { key: 'groupsAdd', label: t('instances.privacy.groupsAdd'), value: audienceLabel(settings.privacy?.groups_add) },
-    { key: 'statusPrivacy', label: t('instances.settings.statusPrivacy'), value: statusPrivacyLabel(settings.status_privacy) }
+    { key: 'profileName', label: t('instances.settings.profileName'), value: settings?.profile?.name ?? t('common.notSet') },
+    { key: 'statusText', label: t('instances.profile.recado'), value: settings?.profile?.status_text ?? t('common.notSet') },
+    { key: 'lastSeen', label: t('instances.privacy.lastSeen'), value: audienceLabel(settings?.privacy?.last_seen) },
+    { key: 'profilePhoto', label: t('instances.privacy.profilePhoto'), value: audienceLabel(settings?.privacy?.profile_photo) },
+    { key: 'status', label: t('instances.privacy.status'), value: audienceLabel(settings?.privacy?.status) },
+    { key: 'readReceipts', label: t('instances.privacy.readReceipts'), value: audienceLabel(settings?.privacy?.read_receipts) },
+    { key: 'groupsAdd', label: t('instances.privacy.groupsAdd'), value: audienceLabel(settings?.privacy?.groups_add) },
+    { key: 'statusPrivacy', label: t('instances.settings.statusPrivacy'), value: statusPrivacyLabel(settings?.status_privacy) }
   ]
 })
 
@@ -204,7 +203,7 @@ const isConnected = computed(() => props.instance.connection.status === 'connect
         </div>
         <p v-else class="border-t border-default pt-4 text-sm text-muted">
           {{ t('instances.settings.defaultDisappearing') }}:
-          {{ props.instance.settings.default_disappearing || t('common.notSet') }}
+          {{ props.instance.settings?.default_disappearing || t('common.notSet') }}
         </p>
       </div>
     </UPageCard>

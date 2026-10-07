@@ -251,7 +251,7 @@ func TestReadyzLogsFailureWithRequestID(t *testing.T) {
 		Deps{ReadyChecker: checkFunc(func(context.Context) error { return errors.New("dependency down") })})
 
 	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
-	req.Header.Set(requestIDHeader, "req-abc")
+	req.Header.Set("X-Request-Id", "req-abc")
 	rec := httptest.NewRecorder()
 	srv.Handler.ServeHTTP(rec, req)
 

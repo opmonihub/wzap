@@ -141,7 +141,7 @@ export function useInstances() {
     await raw(`/instances/${id}/apikey`, { method: 'DELETE' })
   }
 
-  // Admin-only account listing under data.items[].user, used to resolve the
+  // Admin-only account listing under data.users[], used to resolve the
   // owner column. It throws 403 for user sessions; callers gate it behind
   // isAdmin.
   async function listAccounts(): Promise<AccountUserList> {

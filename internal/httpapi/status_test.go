@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"bytes"
@@ -13,6 +13,9 @@ import (
 	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
+	"wzap/internal/httpapi/core"
+	"wzap/internal/httpapi/statuses"
 	"wzap/internal/instance"
 	"wzap/internal/session"
 )
@@ -21,9 +24,9 @@ import (
 // store and the media cap the status routes run with.
 func statusServer(t *testing.T, svc *fakeInstanceService, maxMediaBytes int64) *http.Server {
 	t.Helper()
-	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, MaxMediaBytes: maxMediaBytes},
+	return httpapi.New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, MaxMediaBytes: maxMediaBytes},
 		zerolog.Nop(),
-		Deps{
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    svc,
 			Idempotency:  newFakeIdempotency(),
@@ -146,7 +149,6 @@ func TestStatusPublishText(t *testing.T) {
 		}
 	})
 }
-
 func TestStatusPublishReplayThroughServer(t *testing.T) {
 	id := uuid.New()
 	svc := &fakeInstanceService{
@@ -156,7 +158,7 @@ func TestStatusPublishReplayThroughServer(t *testing.T) {
 	}
 	srv := statusServer(t, svc, testMaxMediaBytes)
 	path := "/instances/" + id.String() + "/status/updates"
-	headers := map[string]string{idempotencyKeyHeader: "key-1"}
+	headers := map[string]string{core.IdempotencyKeyHeader: "key-1"}
 
 	first := serveStatus(t, srv, http.MethodPost, path, `{"type":"text","text":"bom dia"}`, headers)
 	second := serveStatus(t, srv, http.MethodPost, path, `{"type":"text","text":"bom dia"}`, headers)
@@ -170,14 +172,13 @@ func TestStatusPublishReplayThroughServer(t *testing.T) {
 	if second.Body.String() != first.Body.String() {
 		t.Errorf("replay body = %q, want the original %q", second.Body.String(), first.Body.String())
 	}
-	if got := second.Header().Get(idempotentReplayHeader); got != "true" {
-		t.Errorf("%s = %q, want %q", idempotentReplayHeader, got, "true")
+	if got := second.Header().Get(core.IdempotentReplayHeader); got != "true" {
+		t.Errorf("%s = %q, want %q", core.IdempotentReplayHeader, got, "true")
 	}
 	if len(svc.publishStatusCalls) != 1 {
 		t.Errorf("PublishStatus calls = %d, want 1 for a replayed publish", len(svc.publishStatusCalls))
 	}
 }
-
 func TestStatusPublishMedia(t *testing.T) {
 	t.Run("image answers accepted with the upstream id", func(t *testing.T) {
 		id := uuid.New()
@@ -239,7 +240,6 @@ func TestStatusPublishMedia(t *testing.T) {
 		}
 	})
 }
-
 func TestStatusList(t *testing.T) {
 	t.Run("published statuses answer their snapshot", func(t *testing.T) {
 		id := uuid.New()
@@ -259,12 +259,12 @@ func TestStatusList(t *testing.T) {
 		}
 		var payload struct {
 			Data struct {
-				Items []ownStatusResponse `json:"items"`
+				Statuses []statuses.OwnStatusResponse `json:"statuses"`
 			} `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if len(payload.Data.Items) != 1 || payload.Data.Items[0].ID != "wamid.s1" {
-			t.Errorf("data.items = %+v, want the published status", payload.Data.Items)
+		if len(payload.Data.Statuses) != 1 || payload.Data.Statuses[0].ID != "wamid.s1" {
+			t.Errorf("data.items = %+v, want the published status", payload.Data.Statuses)
 		}
 	})
 
@@ -282,16 +282,15 @@ func TestStatusList(t *testing.T) {
 		}
 		var payload struct {
 			Data struct {
-				Items []ownStatusResponse `json:"items"`
+				Statuses []statuses.OwnStatusResponse `json:"statuses"`
 			} `json:"data"`
 		}
 		decodeJSON(t, rec.Body.Bytes(), &payload)
-		if payload.Data.Items == nil {
+		if payload.Data.Statuses == nil {
 			t.Error("data.items is nil, want an empty array")
 		}
 	})
 }
-
 func TestStatusDelete(t *testing.T) {
 	t.Run("own status answers deleted true", func(t *testing.T) {
 		id := uuid.New()

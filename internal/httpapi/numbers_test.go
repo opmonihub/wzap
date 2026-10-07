@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"context"
@@ -10,6 +10,8 @@ import (
 	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
+	"wzap/internal/httpapi"
+	"wzap/internal/httpapi/contacts"
 	"wzap/internal/instance"
 	"wzap/internal/message"
 	"wzap/internal/model"
@@ -36,7 +38,7 @@ func (f *fakeNumberResolver) Resolve(ctx context.Context, instanceID uuid.UUID, 
 
 // numbersServer builds the server under test with the given instance and
 // number services.
-func numbersServer(t *testing.T, instances InstanceService, numbers NumberResolver) *http.Server {
+func numbersServer(t *testing.T, instances httpapi.InstanceService, numbers contacts.NumberResolver) *http.Server {
 	t.Helper()
 	if instances == nil {
 		instances = &fakeInstanceService{}
@@ -44,8 +46,8 @@ func numbersServer(t *testing.T, instances InstanceService, numbers NumberResolv
 	if numbers == nil {
 		numbers = &fakeNumberResolver{}
 	}
-	return New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, zerolog.Nop(),
-		Deps{
+	return httpapi.New(config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken}, zerolog.Nop(),
+		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    instances,
 			Numbers:      numbers,
@@ -99,7 +101,6 @@ func TestNumbersCheckFound(t *testing.T) {
 		t.Errorf("data.normalized = %q, want the digits of the request phone", payload.Data.Normalized)
 	}
 }
-
 func TestNumbersCheckNotFound(t *testing.T) {
 	id := uuid.New()
 	resolver := &fakeNumberResolver{resolveFn: func(context.Context, uuid.UUID, string) (string, error) {
@@ -126,7 +127,6 @@ func TestNumbersCheckNotFound(t *testing.T) {
 		t.Errorf("data.normalized = %q, want the digits of the request phone", payload.Data.Normalized)
 	}
 }
-
 func TestNumbersCheckInstanceNotFound(t *testing.T) {
 	id := uuid.New()
 	svc := &fakeInstanceService{getFn: func(context.Context, uuid.UUID) (*model.Instance, error) {
@@ -147,7 +147,6 @@ func TestNumbersCheckInstanceNotFound(t *testing.T) {
 		t.Errorf("Resolve calls = %v, want none for an unknown instance", resolver.phones)
 	}
 }
-
 func TestNumbersCheckResolverUnavailable(t *testing.T) {
 	id := uuid.New()
 	resolver := &fakeNumberResolver{resolveFn: func(context.Context, uuid.UUID, string) (string, error) {
@@ -164,7 +163,6 @@ func TestNumbersCheckResolverUnavailable(t *testing.T) {
 		t.Errorf("error code = %q, want %q", code, "unavailable")
 	}
 }
-
 func TestNumbersCheckRejectsInvalidBody(t *testing.T) {
 	resolver := &fakeNumberResolver{}
 
@@ -181,7 +179,6 @@ func TestNumbersCheckRejectsInvalidBody(t *testing.T) {
 		t.Errorf("Resolve calls = %v, want none on a malformed body", resolver.phones)
 	}
 }
-
 func TestNumbersCheckRejectsEmptyPhone(t *testing.T) {
 	svc := &fakeInstanceService{}
 	resolver := &fakeNumberResolver{}
@@ -195,11 +192,10 @@ func TestNumbersCheckRejectsEmptyPhone(t *testing.T) {
 	if code := errorCode(t, rec.Body.Bytes()); code != "invalid_request" {
 		t.Errorf("error code = %q, want %q", code, "invalid_request")
 	}
-	if len(svc.getIDs) != 0 {
-		t.Errorf("Get calls = %v, want none for an empty phone", svc.getIDs)
+	if len(svc.getIDs) != 1 {
+		t.Errorf("Get calls = %v, want authorization lookup for an empty phone", svc.getIDs)
 	}
 }
-
 func TestNumbersCheckRejectsMalformedInstanceID(t *testing.T) {
 	resolver := &fakeNumberResolver{}
 
@@ -216,7 +212,6 @@ func TestNumbersCheckRejectsMalformedInstanceID(t *testing.T) {
 		t.Errorf("Resolve calls = %v, want none for a malformed id", resolver.phones)
 	}
 }
-
 func TestNumbersCheckInternalError(t *testing.T) {
 	id := uuid.New()
 	resolver := &fakeNumberResolver{resolveFn: func(context.Context, uuid.UUID, string) (string, error) {

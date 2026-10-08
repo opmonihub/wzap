@@ -10,6 +10,28 @@ export default defineNuxtConfig({
     '@vueuse/nuxt'
   ],
 
+  $development: {
+    hooks: {
+      // The font handler already includes app.baseURL; align generated CSS
+      // URLs with it when all development assets go through the Go entrypoint.
+      'fonts:public-asset-context'(context) {
+        context.assetsBaseURL = '/manager/_fonts'
+      },
+      'vite:extendConfig'(config, { isClient }) {
+        if (isClient && process.env.NUXT_DEV_HMR_CLIENT_PORT) {
+          // Nuxt's schema resolves Vite 7 types; its builder runs Vite 8.
+          // Extend the runtime WebSocket options without changing its path.
+          Object.assign(config, {
+            server: {
+              ...config.server,
+              ws: { clientPort: Number(process.env.NUXT_DEV_HMR_CLIENT_PORT) }
+            }
+          })
+        }
+      }
+    }
+  },
+
   // Authenticated console embedded as static output (task 6.6 embeds
   // .output/public under /manager/): no SSR, the browser talks to the Go
   // API on the same origin with the wzap_session cookie.
@@ -61,28 +83,6 @@ export default defineNuxtConfig({
         // (manager-dev on :3000, host-run dev on :3001) would answer
         // /swagger/ with the Nuxt 404 page instead of the Go docs.
         '/swagger': devProxyTarget
-      }
-    }
-  },
-
-  $development: {
-    hooks: {
-      // The font handler already includes app.baseURL; align generated CSS
-      // URLs with it when all development assets go through the Go entrypoint.
-      'fonts:public-asset-context'(context) {
-        context.assetsBaseURL = '/manager/_fonts'
-      },
-      'vite:extendConfig'(config, { isClient }) {
-        if (isClient && process.env.NUXT_DEV_HMR_CLIENT_PORT) {
-          // Nuxt's schema resolves Vite 7 types; its builder runs Vite 8.
-          // Extend the runtime WebSocket options without changing its path.
-          Object.assign(config, {
-            server: {
-              ...config.server,
-              ws: { clientPort: Number(process.env.NUXT_DEV_HMR_CLIENT_PORT) }
-            }
-          })
-        }
       }
     }
   },

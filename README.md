@@ -356,7 +356,7 @@ runas (limite do assunto no upstream).
 | `POST /instances/{id}/groups/join` | `{"code"}` ou link cheio → `200`. |
 | `POST /instances/{id}/groups/{group_id}/leave` | Saída própria → `200`. |
 
-Metadados (`group_metadata`, migration aditiva `00006`): toda leitura live
+Metadados (`group_metadata`, baseline `00001`): toda leitura live
 faz write-through do cache e expõe `updated_at` quando conhecido; o cache é log
 de refresh, nunca fonte (sem leitura stale/TTL — consultar sempre reflete o
 upstream). Falha de cache só loga e devolve o live; sem store configurado a
@@ -423,7 +423,7 @@ e importa o histórico via SQL direto no Postgres do Chatwoot. Sem
 | `WZAP_CHATWOOT_MESSAGE_DELETE` | `false` | Sincroniza revogações nos dois sentidos. |
 | `WZAP_CHATWOOT_IMPORT_DB_URL` | vazio | URI do Postgres do Chatwoot para o import; vazia desliga o import. |
 | `WZAP_CHATWOOT_IMPORT_PLACEHOLDER` | `false` | Mensagem sem conteúdo vira `(mídia não importada)` em vez de ser pulada. |
-| `WZAP_CHATWOOT_TOKEN_KEY` | vazio | Chave base64 de 32 bytes que cifra os `token`s no banco (`enc:v1:` AES-256-GCM); vazia mantém texto claro com `warn` no boot. Malformada falha o boot. Tokens armazenados em texto claro são cifrados no boot (best-effort). Perder a chave exige recadastrar os tokens. |
+| `WZAP_CHATWOOT_TOKEN_KEY` | vazio | Chave base64 de 32 bytes que cifra os `token`s no banco (`enc:v1:` AES-256-GCM); obrigatória quando `WZAP_CHATWOOT_ENABLED=true` e para gravar tokens. Chave ausente com o conector habilitado ou chave malformada falha o boot; tokens em texto claro não são aceitos. Perder a chave exige recadastrar os tokens. |
 
 | Método e rota | Corpo/Resposta |
 | --- | --- |
@@ -658,11 +658,11 @@ curl -sS -X POST 127.0.0.1:8081/instances \
   -H 'apikey: dev-wzap-token' \
   -H 'Content-Type: application/json' \
   -d '{"name":"smoke","external_ref":"smoke-1"}'
-# {"data":{"id":"...","status":"disconnected","owner_user_id":"...","instance_api_key":"..."}}
+# data.instance inclui id, name, connection.status e integration.webhook; data.instance_api_key é exibida uma vez.
 
 curl -sS -X POST 127.0.0.1:8081/instances/<id>/connect \
   -H 'apikey: dev-wzap-token'
-# {"data":{"status":"pairing","qr_code":"2@...","qr_expires_at":"..."}}
+# {"data":{"connection":{"status":"pairing","qr_code":"2@...","qr_expires_at":"..."}}}
 ```
 
 Encerramento: o serviço trata `SIGINT`/`SIGTERM`, drena as requisições em voo e
@@ -712,8 +712,8 @@ teste):
 - [ ] Subir o serviço (`docker compose up -d wzap`) e confirmar `/readyz` com
       `postgres`, `migrations` e `nats` em `ok`.
 - [ ] Criar uma instância de teste e iniciar o pareamento; renderizar a string
-      `qr_code` em um gerador de QR e escanear com o aparelho.
-- [ ] Confirmar `GET .../status` em `connected` com `whatsapp_jid` e o evento
+      `data.connection.qr_code` em um gerador de QR e escanear com o aparelho.
+- [ ] Confirmar `GET .../status` com `data.connection.status = connected` e o evento
       `...connection` publicado.
 - [ ] Enviar texto, localização, contato e uma mídia para um número de teste;
       confirmar `202`, estado `sent` e os recibos `delivered`/`read`.

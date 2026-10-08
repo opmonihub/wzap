@@ -122,12 +122,12 @@ O serviço SHALL restaurar automaticamente as sessões registradas ao iniciar, c
 
 ### Requirement: Agregação de configurações na leitura
 
-As leituras de instância SHALL agregar os blocos `integration` e `settings` na representação pública: `GET /instances/{id}` em `data.instance` e `GET /instances` em `data.items[].instance`, com criação e atualização respondendo a mesma representação. `integration.webhook` SHALL refletir a configuração persistida; `integration.chatwoot_config` SHALL ser `null` quando não há configuração persistida. `settings.default_disappearing` SHALL ecoar o último valor aceito por `PUT /instances/{id}/chats/default-disappearing` e SHALL ser `null` quando nunca configurado, sem valor inventado. Os blocos vivos `settings.profile`, `settings.privacy` e `settings.status_privacy` SHALL ser buscados apenas quando `connection.status` é `connected` e SHALL ser `null` nos demais estados.
+**BREAKING**: as leituras de instância SHALL agregar os blocos `integration` e `settings` na representação pública: `GET /instances/{id}` em `data.instance` e `GET /instances` em `data.instances[]`, com criação e atualização respondendo a mesma representação. `integration.webhook` SHALL refletir a configuração persistida; `integration.chatwoot_config` SHALL ser omitido quando não há configuração persistida. `settings.default_disappearing` SHALL ecoar o último valor aceito por `PUT /instances/{id}/chats/default-disappearing` e SHALL ser omitido quando nunca configurado, sem valor inventado, preservando o valor configurado `"0"`. Os blocos vivos `settings.profile`, `settings.privacy` e `settings.status_privacy` SHALL ser buscados apenas quando `connection.status` é `connected` e SHALL ser omitidos nos demais estados.
 
 #### Scenario: default_disappearing nunca configurado
 
 - **WHEN** a instância nunca passou por `PUT /instances/{id}/chats/default-disappearing`
-- **THEN** `settings.default_disappearing` é `null`
+- **THEN** `settings.default_disappearing` é omitido
 
 #### Scenario: Eco do último valor aceito
 
@@ -142,21 +142,31 @@ As leituras de instância SHALL agregar os blocos `integration` e `settings` na 
 #### Scenario: Criação e atualização com a mesma representação
 
 - **WHEN** a criação ou a atualização de uma instância responde a representação pública
-- **THEN** a resposta inclui `integration` e `settings` com a mesma semântica de `null` das leituras
+- **THEN** a resposta inclui `integration` e aplica aos opcionais a mesma semântica de omissão das leituras
+
+#### Scenario: Timer desligado explicitamente
+
+- **WHEN** o último comando de timer padrão aceitou duração `0`
+- **THEN** `settings.default_disappearing` permanece presente com string `"0"`
+
+#### Scenario: Sem subblocos disponíveis
+
+- **WHEN** não existe timer configurado e nenhum bloco vivo está disponível
+- **THEN** `settings` é omitido, preservando a representação obrigatória de conexão e integração
 
 ### Requirement: Semântica de blocos na listagem
 
-Na listagem, cada item SHALL ser montado de forma independente: a indisponibilidade de uma fonte MUST produzir `null` apenas no bloco afetado, e uma instância desconectada ou indisponível MUST NOT impedir a resposta nem derrubar os demais itens. A montagem dos blocos na listagem SHALL usar concorrência limitada por requisição, de modo que instâncias lentas não esgotem os recursos do serviço.
+Na listagem, cada item SHALL ser montado de forma independente: a indisponibilidade de uma fonte MUST omitir apenas o bloco opcional afetado, e uma instância desconectada ou indisponível MUST NOT impedir a resposta nem derrubar os demais itens. A montagem dos blocos na listagem SHALL usar concorrência limitada por requisição, de modo que instâncias lentas não esgotem os recursos do serviço.
 
 #### Scenario: Instância desconectada na listagem
 
 - **WHEN** `GET /instances` inclui instâncias desconectadas
-- **THEN** cada item aparece com `integration` preenchido, `settings.default_disappearing` ecoado e os blocos vivos `null`, sem falhar a resposta
+- **THEN** cada item aparece com `integration` preenchido, `settings.default_disappearing` ecoado quando configurado e os blocos vivos omitidos, sem falhar a resposta
 
 #### Scenario: Fonte de um bloco indisponível
 
 - **WHEN** a busca de um bloco falha para uma instância na listagem ou na leitura individual
-- **THEN** o bloco afetado é `null` e os demais blocos e itens seguem preenchidos
+- **THEN** o bloco opcional afetado é omitido e os demais blocos e itens seguem preenchidos
 
 ### Requirement: Targeted instance stats
 
@@ -218,7 +228,7 @@ Every instance-scoped API path, including the public Chatwoot webhook, SHALL acc
 
 ### Requirement: Coleção completa de instâncias do sistema atual
 
-GET /instances SHALL responder `{"data":{"items":[...]}}` com todas as instâncias autorizadas, ordenadas por criação descendente e identificador descendente em empate. A resposta MUST NOT conter next_cursor nem limitar a quantidade de itens. Sessões user SHALL receber somente as próprias instâncias; sessões admin e a chave global SHALL receber todas; chaves de instância SHALL receber 403. Paginação de servidor SHALL permanecer ausente deste contrato.
+**BREAKING**: GET /instances SHALL responder `{"data":{"instances":[...]}}` com todas as instâncias autorizadas, ordenadas por criação descendente e identificador descendente em empate. A resposta MUST NOT conter next_cursor nem limitar a quantidade de itens. Sessões user SHALL receber somente as próprias instâncias; sessões admin e a chave global SHALL receber todas; chaves de instância SHALL receber 403. Paginação de servidor SHALL permanecer ausente deste contrato.
 
 #### Scenario: Coleção extensa
 
@@ -233,7 +243,7 @@ GET /instances SHALL responder `{"data":{"items":[...]}}` com todas as instânci
 #### Scenario: Coleção vazia
 
 - **WHEN** a conta não possui instâncias autorizadas
-- **THEN** recebe data.items como array vazio
+- **THEN** recebe data.instances como array vazio
 
 #### Scenario: Chave de instância
 

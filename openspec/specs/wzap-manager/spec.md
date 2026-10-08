@@ -43,7 +43,7 @@ próprias instâncias, com ações fora do escopo ausentes ou desabilitadas.
 
 ### Requirement: Gestão de instâncias
 
-O console SHALL apresentar as instâncias em tabela padronizada com ordenação, busca e paginação client-side, mantendo criar, editar, desconectar e remover conforme o escopo da conta. A remoção SHALL exigir confirmação digitada com o nome. **BREAKING**: o console SHALL consumir a representação instance aninhada, com connection, integration e settings; o webhook SHALL ser lido de integration.webhook e os blocos nulos SHALL ser tratados como indisponíveis, sem falhar a listagem nem o detalhe. A busca SHALL usar os campos públicos disponíveis. Referência externa, proprietário e JIDs internos MUST NOT aparecer na representação pública nem ser apagados por campos vazios enviados automaticamente pelo formulário.
+O console SHALL apresentar as instâncias em tabela padronizada com ordenação, busca e paginação client-side, mantendo criar, editar, desconectar e remover conforme o escopo da conta. A remoção SHALL exigir confirmação digitada com o nome. **BREAKING**: o console SHALL consumir instâncias diretas em `data.instances[]` e `data.instance` nos endpoints individuais, com connection, integration e settings quando disponível; o webhook SHALL ser lido de integration.webhook e os blocos ausentes SHALL ser tratados como indisponíveis, sem falhar a listagem nem o detalhe. A busca SHALL usar os campos públicos disponíveis. Referência externa, proprietário e JIDs internos MUST NOT aparecer na representação pública nem ser apagados por campos vazios enviados automaticamente pelo formulário.
 
 #### Scenario: Localizar instância na tabela
 
@@ -77,8 +77,8 @@ O console SHALL apresentar as instâncias em tabela padronizada com ordenação,
 
 #### Scenario: Bloco indisponível no console
 
-- **WHEN** a conta abre uma instância desconectada ou cujo bloco veio nulo
-- **THEN** os painéis de integração e configurações mostram os blocos preenchidos e tratam os blocos nulos como indisponíveis, sem erro
+- **WHEN** a conta abre uma instância desconectada ou cujo bloco foi omitido
+- **THEN** os painéis de integração e configurações mostram os blocos preenchidos e tratam os blocos ausentes como indisponíveis, sem erro
 
 ### Requirement: Gestão de contas em tabela
 
@@ -373,7 +373,7 @@ O Manager SHALL obter a coleção completa com uma única chamada GET /instances
 
 ### Requirement: Contrato vigente nas mensagens e tipos
 
-O Manager SHALL representar exclusivamente os DTOs atuais e os erros produzidos pelo contrato vigente, sem textos de preservação histórica ou interpretação de envelopes antigos. Falhas atuais MUST continuar visíveis com a mensagem retornada pela API, respeitando os escopos e a privacidade.
+**BREAKING**: o Manager SHALL representar exclusivamente os DTOs atuais, com coleções nomeadas, elementos diretos e propriedades opcionais ausentes, bem como os erros produzidos pelo contrato vigente, sem textos de preservação histórica ou interpretação de envelopes antigos. Falhas atuais MUST continuar visíveis com a mensagem retornada pela API, respeitando os escopos e a privacidade.
 
 #### Scenario: Falha atual exibida
 
@@ -384,6 +384,26 @@ O Manager SHALL representar exclusivamente os DTOs atuais e os erros produzidos 
 
 - **WHEN** o operador abre criação ou edição de instância
 - **THEN** as orientações descrevem somente nomes válidos e conflitos do contrato atual
+
+#### Scenario: Coleções nomeadas no console
+
+- **WHEN** o console carrega instâncias, usuários, grupos, mensagens, canais ou publicações próprias de status
+- **THEN** consome respectivamente `instances`, `users`, `groups`, `messages`, `channels` e `statuses` sem depender de `items` ou wrappers individuais
+
+#### Scenario: Opcionais ausentes
+
+- **WHEN** uma instância ou mensagem possui propriedades opcionais omitidas, incluindo `settings`, datas, foto ou erro
+- **THEN** o console apresenta indisponibilidade ou ausência corretamente sem falhar o carregamento
+
+#### Scenario: Fim da paginação
+
+- **WHEN** uma resposta paginada omite `next_cursor`
+- **THEN** o console reconhece o fim das páginas sem solicitar uma continuação inexistente
+
+#### Scenario: Valores zero exibidos
+
+- **WHEN** a API retorna flags desativadas, contadores zero ou timer `"0"`
+- **THEN** o console preserva esses valores sem interpretá-los como ausência
 
 ### Requirement: Validação atual de nomes nos formulários
 
@@ -516,3 +536,41 @@ Instance tables SHALL preserve native row semantics so the row's links, selectio
 #### Scenario: Displayed row identity
 - **WHEN** an operator filters or sorts the table and opens the displayed instance
 - **THEN** navigation targets that displayed instance and checkbox selection remains independent
+
+### Requirement: Atualização automática do manager em desenvolvimento
+
+O manager em desenvolvimento SHALL carregar em `/manager/` na mesma origem da API e SHALL refletir edições locais de componentes e estilos por atualização automática, sem gerar o bundle de produção, reconstruir imagens ou reiniciar containers manualmente. O navegador MUST estabelecer HMR pela mesma entrada pública e MUST NOT depender de uma porta frontend publicada separadamente.
+
+#### Scenario: Alterar um componente
+
+- **WHEN** o desenvolvedor salva uma alteração de componente com o ambiente dev ativo
+- **THEN** o navegador recebe a atualização pela origem pública do manager sem compilação ou reinício manual
+
+#### Scenario: Alterar estilos
+
+- **WHEN** o desenvolvedor salva uma alteração de CSS com o manager aberto
+- **THEN** os estilos atualizados aparecem automaticamente sem recriação do container
+
+#### Scenario: Autenticação pela mesma origem
+
+- **WHEN** o usuário acessa `/manager/`, faz login e consulta uma rota interna em desenvolvimento
+- **THEN** o painel e suas chamadas à API usam a mesma origem e a sessão por cookie existente
+
+#### Scenario: Restabelecer HMR após recarga do backend
+
+- **WHEN** uma recarga automática do backend interrompe a conexão HMR
+- **THEN** o navegador restabelece a conexão pela entrada pública e uma nova edição do frontend volta a ser refletida
+
+### Requirement: Manager embutido preservado em produção
+
+Sem configuração de encaminhamento dev, o serviço SHALL preservar o atendimento estático atual do manager, incluindo assets, navegação direta e refresh. A imagem de produção SHALL carregar o manager embutido sem depender de um processo Nuxt em runtime.
+
+#### Scenario: Imagem de produção sem Nuxt
+
+- **WHEN** a imagem compilada inicia sem um serviço Nuxt dev
+- **THEN** `/manager/`, uma rota interna e seus assets são atendidos pelo próprio serviço
+
+#### Scenario: Clone sem bundle e sem modo dev
+
+- **WHEN** o serviço executa sem encaminhamento dev e sem bundle utilizável
+- **THEN** o manager continua indicando indisponibilidade com `503`, preservando o build Go permitido pelo placeholder

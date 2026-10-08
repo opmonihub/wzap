@@ -1,198 +1,80 @@
-# wzap - Agent Instructions
+# wzap
 
-Standalone Go service that manages multiple WhatsApp sessions, exposes an
-authenticated REST API, and publishes durable events through NATS JetStream.
+Multi-instance WhatsApp gateway (Go): REST + NATS JetStream + embedded Nuxt
+manager + optional Chatwoot. One replica. Contract/envs: [README.md](README.md).
+Specs: `openspec/specs/`. Workflow: `openspec/config.yaml`. Manager:
+[manager/AGENTS.md](manager/AGENTS.md).
 
-## Commands
+## Setup commands
 
-- `go test ./... -count=1` - run the complete test suite.
+- `docker compose up -d wzap` — Postgres 18, NATS, MinIO, `127.0.0.1:8081` (key `dev-wzap-token`)
+- `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build wzap manager-dev` — Air + Nuxt at `127.0.0.1:8081/manager/`; insert local override between base/dev when present
+- `docker compose exec postgres createdb -U wzap wzap_test` — once per volume
+- Binary: `serve` (default), `migrate`, `healthcheck`
+
+## Testing
+
+- `go test ./... -count=1` · focused: `go test ./internal/<pkg> -run TestName -count=1`
 - After every frontend interface change, use `agent-browser` against the updated
   local UI to manually exercise affected flows and visually validate rendering,
   relevant states and responsive layouts before declaring completion. Capture
   screenshots and record the tested flows/results as evidence.
-- `WZAP_TEST_DATABASE_URL='postgres://wzap:secret@127.0.0.1:5432/wzap_test?sslmode=disable' go test ./... -count=1` - include Postgres integration tests.
-- `WZAP_TEST_NATS_URL='nats://127.0.0.1:4222' go test ./internal/events/ -count=1` - include the NATS publisher integration test.
-- `go test ./internal/<package> -run TestName -count=1` - run a focused test.
-- `go vet ./...`, then `golangci-lint run`, then `go test ./...`, then `go build ./...` - CI order in `.github/workflows/ci.yml` (lint is v2.13.2, only govet/staticcheck/errcheck/ineffassign/unused in `.golangci.yml`).
-- `gofmt -l .` must print nothing; `gofmt -w <files>` to fix.
-- `docker compose up -d wzap` - start Postgres, NATS, and wzap locally (service at `127.0.0.1:8081`, global API key defaults to `dev-wzap-token`).
-- `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build wzap manager-dev` — Air + Nuxt at `127.0.0.1:8081/manager/`; insert local override between base/dev when present
-- `docker compose exec postgres createdb -U wzap wzap_test` - create the test database once (auto-created only on a fresh Postgres volume).
+- Postgres (skip if unset; FAIL unless DB name ends in `_test`; isolated schema via `postgrestest` — never touch the shared schema):
+  `WZAP_TEST_DATABASE_URL='postgres://wzap:secret@127.0.0.1:5432/wzap_test?sslmode=disable' go test ./... -count=1`
+- NATS: `WZAP_TEST_NATS_URL='nats://127.0.0.1:4222' go test ./internal/events/ -count=1`
+- Do not claim integration tests ran unless the var was set and the DB reachable.
+- CI: `gofmt` clean, `go vet`, golangci-lint v2.13.2 (govet/staticcheck/errcheck/ineffassign/unused), `go test` with the Postgres URL, swagger freshness, `go build`.
+- After handler annotation edits: `go run github.com/swaggo/swag/cmd/swag@v1.16.6 init --parseInternal -g internal/httpapi/swagger.go -o docs` then `git diff --exit-code -- docs/`.
 
-Go 1.26 is pinned in `go.mod`. Postgres integration tests are skipped when
-`WZAP_TEST_DATABASE_URL` is absent and FAIL when the database name does not end
-in `_test`; each test gets an isolated schema via
-`internal/storage/postgres/postgrestest`, so never touch the shared schema in
-tests. Do not report integration tests as executed unless the variable was set
-and the database was reachable.
+## Code style
+
+Go 1.26, `gofmt`, imports `wzap/...`, logger from `internal/logger` by value.
+Handlers stay thin. Chi v5 is the only HTTP router. Keep transport organized in
+`internal/httpapi/core`, `representation` and resource packages `instances`,
+`messages`, `groups`, `contacts`, `channels`, `chats`, `statuses`, `profile`,
+`users`, `authsession`, `media` and `chatwoot`; resource packages own their
+handlers and route registration and must not depend on the root composition
+package. Instance writes are per satellite (identity / connection / webhook /
+chat_settings) — never snapshot-UPDATE. Commits: `feat(api):` / `fix(events):` /
+`docs(specs):`. Mark contract breaks **BREAKING** in the change and delivery.
 
 ## Architecture
 
-Wiring lives in `cmd/wzap/main.go` (`serve` default, `migrate`, `healthcheck`
-subcommands). Package boundaries:
+`cmd/wzap/main.go` wires: `httpapi` (REST, `apikey:` or cookie, RBAC, idempotency),
+`auth`, `instance` (lifecycle + parity), `session`/`whatsmeow`, `app` (inbound),
+`message` (outbound), `events` (envelope v1 + relay), `webhook` (Writer fan-out;
+relay reads DB), `media` (S3 if `WZAP_S3_ENDPOINT`, else disk), `storage`,
+`chatwoot`, `replicalock`.
 
-- `internal/httpapi/` owns the REST transport, the dual auth boundary
-  (manager session JWT in httpOnly cookie OR machine credential in the
-  `apikey:` header: global key or per-instance key), RBAC/ownership
-  enforcement, and idempotency middleware. Routes live at the root (no
-  prefix); `/healthz`, `/readyz`, `/swagger/*`, and `/manager/` are public.
-  Chi v5.3.2 is the only router, using standard net/http handlers. The root
-  composes core/representation and resource packages instances, messages,
-  groups, contacts, channels, chats, statuses, profile, users, authsession,
-  media and chatwoot; resources own handlers and route registration and do
-  not import the root composition package. Messages use
-  `/instances/{instance}/messages/{id}` with distinct ancestor/resource IDs.
-- `internal/auth/` owns password hashing (bcrypt), instance key minting, and
-  session JWTs; `internal/webhook/` owns per-instance webhook config
-  validation, delivery (envelope + raw `event`, `apikey:` header), and the
-  retry worker with dead-letter logging.
-- `manager/` is the Nuxt console (EN, `baseURL /manager/`); `pnpm --dir
-  manager build` (`nuxt generate`) renders `.output/public`, embedded into
-  the binary via `manager/manager.go` (`go:embed`, SPA fallback). The
-  Dockerfile builds it in a Node/pnpm stage (Node only at build time).
-- `internal/instance/` owns instance lifecycle; `internal/session/session.go` is the
-  engine interface, `internal/session/whatsmeow/` the adapter, `internal/session/sessiontest/`
-  the fakes.
-- `internal/app/` is the runtime glue: inbound events from sessions become outbox
-  events + stored media.
-- `internal/message/` owns outbound messages, retries, receipts, and JID
-  resolution (incl. the Brazilian 9th-digit rule).
-- `internal/events/` owns envelopes, subjects, the JetStream publisher, and the
-  outbox relay.
-- `internal/media/` owns temporary media storage on `WZAP_DATA_DIR` plus the TTL
-  cleaner.
-- `internal/storage/repository.go` defines persistence contracts;
-  `internal/storage/postgres/` implements them; `internal/storage/migrations/`
-  owns the goose-embedded schema (applied by `wzap migrate` or
-  `WZAP_AUTO_MIGRATE=true` on boot).
-- `internal/config/` loads all `WZAP_*` env vars (empty = unset, missing required
-  var fails boot naming the variable); `internal/instancelock/` holds
-  process-local locks; `internal/model/` the shared domain types.
+- `{id}` = UUID (wins) or exact name. Keys never query a foreign name. `stats` and UUID-shaped names reserved. Rename 404s the old alias.
+- REST collections are direct named arrays in `data`: `instances`, `users`, `groups`, `messages`, `channels`, `statuses`, `contacts` and `blocked_jids`; elements have no singular wrapper. Channel updates return `messages`. `next_cursor`, when present, is a sibling of the collection in `data` and is omitted at the end.
+- Required arrays are non-nil, have no `omitempty`, and serialize empty as `[]`, including `events`. Omit optional fields and objects without values, including optional error details. Preserve valid `false`, `0`, and `"0"` values; model optional zero-capable fields with pointers. `integration.webhook` remains required, including when disabled. `settings` and `chatwoot_config` are omitted when unavailable.
+- Hide `external_ref`, `owner_user_id`, `device_jid` and tokens. `GET /instances` is unpaginated.
+- Boot: lock → migrate → NATS (serve if down) → seed → S3 → WA version → restore. Shutdown 10s: HTTP → outbox → cleaner → webhook → Chatwoot mirror → import scheduler → relay. Second signal aborts. `chatimport.Pool.Close` only in `serve()`.
+- Schema: fresh-system baseline `00001`; the historical migration/cutover chain is not shipped.
+- Session writes are sync (no outbox) except status publish (`202`, fire-and-forget). Profile name/photo → `501`.
+- Chatwoot: seal tokens with `WZAP_CHATWOOT_TOKEN_KEY`; commands only on `POST .../chatwoot/command`; import inert without `WZAP_CHATWOOT_IMPORT_DB_URL`.
 
-Shutdown order is fixed: drain HTTP, then stop outbox, media cleaner, webhook
-worker, and the relay last (relay publishes pending events), all within a
-shared 10 s deadline; a second signal aborts immediately. At boot the service serves even if NATS is
-down (`/readyz` reports it) and the relay ensures the stream when the broker
-returns.
+## Boundaries
 
-## Chatwoot
+- Always: focused tests + `gofmt`; regen `docs/` after Swagger edits; stable `event_id`.
+- Ask first: new deps beyond the approved Chi v5 router, `.github/workflows/`, unplanned migrations.
+- Never: commit secrets/`.env`; shared-schema tests; second replica on the same DB; leak token/password/`external_ref`/`owner_user_id`/`device_jid`; invent tenant/account domain; write plans to `docs/superpowers/`.
 
-Optional connector (`internal/chatwoot/`): live WA→Chatwoot mirror (durable
-`wzap-chatwoot`), open webhook reusing `Enqueue`, and history import through
-direct Chatwoot Postgres SQL (`internal/chatwoot/import`, inert without
-`WZAP_CHATWOOT_IMPORT_DB_URL`).
+## Spec-driven workflow
 
-- Envs: `WZAP_CHATWOOT_ENABLED`, `WZAP_CHATWOOT_BOT_CONTACT`,
-  `WZAP_CHATWOOT_MESSAGE_READ`, `WZAP_CHATWOOT_MESSAGE_DELETE`,
-  `WZAP_CHATWOOT_IMPORT_DB_URL`, `WZAP_CHATWOOT_IMPORT_PLACEHOLDER`.
-- Routes: `PUT`/`GET /instances/{id}/chatwoot` (dual auth, token write-only,
-  responses mask it), `POST /instances/{id}/chatwoot/import` → `202
-  {"imported":N}` with N counting messages only (dual auth),
-  `POST /chatwoot/webhook/{id}` open by design.
-- Mirror: text/media (incl. stickers), contacts (single+array), locations,
-  lists, reactions, interactive/buttons (incl. PIX), orders, products, ads
-  (thumbnail attached when bytes present); polls/calls/protocol notices
-  warn+skip.
-- Import: phone+time order, `WAID:` source_id dedup shared with the mirror,
-  `days_limit` window, chunk failures return the partial count with the
-  error, display_id retries `UNIQUE(account_id,display_id)` conflicts
-  (bounded, Rails allocates outside the mutex), triggers auto post-pairing
-  once (fire-and-forget) + manual + 30min cron (6h window, clears accumulators
-  and the connector cache), pt-BR operational notices. Shutdown stops the
-  import scheduler before the relay; the import `Pool.Close` has its single
-  owner in `serve()`.
-- Operational risks: token stored in plaintext but never echoed (write-only),
-  open webhook (SSRF-gated attachment fetch: http/https only, ≤3 redirects,
-  metadata/link-local always blocked, private hosts only for the configured
-  Chatwoot url), direct SQL against the Chatwoot database (isolated module,
-  URI-guarded).
+OpenSpec = WHAT/WHY; `tasks.md` is the scope contract.
+Starting/resuming `openspec-apply-change` MUST invoke and follow Superpowers:
+`using-git-worktrees` → `writing-plans` (create/reuse `plan.md` before code) →
+`subagent-driven-development` (implementer + spec/quality reviewer subagents;
+TDD, `systematic-debugging` on failures) → `requesting-code-review` →
+`verification-before-completion` → `finishing-a-development-branch`.
+Artifacts: `openspec/changes/<name>/` (`plan.md`, `verify.md`, `retrospective.md`);
+archive last. Worktrees: `.worktrees/<name>` only — never `.kilo/worktrees/`.
 
-## Conventions And Gotchas
+## Local agents
 
-- Keep internal imports rooted at module `wzap`.
-- Preserve the REST envelopes (`{"data": ...}` / `{"error": {"code", "message"}}`
-  + `X-Request-Id`) and the versioned event contract (`event_version: 1`,
-  stable `event_id` sent as `Nats-Msg-Id`) documented in `README.md` and
-  `openspec/specs/`. Mark breaking contract changes with **BREAKING**.
-- REST collections use direct named arrays under data: instances, users,
-  groups, messages, channels, statuses, contacts and blocked_jids. Channel
-  updates return messages. next_cursor is a sibling of the collection and
-  omitted when there is no next page. Individual endpoints keep envelopes.
-- Required arrays are non-nil, have no omitempty, and serialize empty as [];
-  preserve required false, 0 and "0". Optional absent fields/objects are
-  omitted; use pointers for meaningful absence and optional timestamps.
-  integration.webhook remains mandatory when disabled, including events.
-  settings and chatwoot_config are omitted when unavailable. Internal fields
-  and secrets remain excluded; GET /instances has no server pagination.
-  JSON property order is not a contract requirement.
-- Delivery is at-least-once; event IDs must remain stable across retries and
-  consumers dedupe by `event_id`.
-- The supported runtime is one replica; locks are process-local.
-- The service is independent of its consumers. It manages its own operator
-  accounts (admin/user with instance ownership, quotas, and keys); tenant,
-  account, and business-domain concepts stay outside this repository;
-  consumers correlate an instance through the opaque `external_ref`.
-- Never commit secrets or local environment files (`.env` overrides the compose
-  dev API key).
-- Use conventional commits with concise scopes such as `feat(api):`,
-  `fix(events):`, and `docs(specs):`.
-
-## Spec-Driven Workflow (OpenSpec + Superpowers)
-
-- Workflow follows the `superpowers-bridge` conventions (brainstorm → proposal
-  → specs → design → tasks → plan → verify → retrospective), encoded in this
-  file plus `openspec/config.yaml` — no installed schema directory (deliberate:
-  the CLI tracks built-in `spec-driven`; the rest is agent-enforced).
-- OpenSpec owns WHAT and WHY in `openspec/changes/<name>/` (`brainstorm.md`,
-  `proposal.md`, `specs/`, `design.md`, `tasks.md`, `plan.md`, plus `verify.md`
-  and `retrospective.md` post-apply); capability specs live in
-  `openspec/specs/`. Rules live in `openspec/config.yaml`.
-- Superpowers owns implementation quality: brainstorming only for fuzzy
-  requirements, TDD for behavior changes, systematic debugging for failures,
-  code review before commits, verification before completion.
-- Settled requirements go directly through `openspec-propose`; implementation
-  uses `openspec-apply-change` (worktree + subagents, apply requires `plan.md`);
-  finished changes get `verify.md` + `retrospective.md` BEFORE the PR and are
-  archived last with `openspec-archive-change`.
-- Manual agent worktrees (OpenSpec-apply / Superpowers) live in `.worktrees/`
-  at the repo root (git-ignored, one directory per change, e.g.
-  `git worktree add .worktrees/<name> -b <branch>`); remove the worktree
-  after the branch merges. Never nest worktrees elsewhere.
-  `.kilo/worktrees/` is owned exclusively by the Kilo Agent Manager extension
-  (created/closed via the panel, tracked in `.kilo/agent-manager.json`) —
-  never create manual worktrees inside it and never point manual tooling at it.
-- Never write brainstorm/plan output to `docs/superpowers/`; it belongs in the
-  change directory.
-- Treat `tasks.md` as the scope contract. Mark an item complete only after its
-  specified verification succeeds.
-
-## Local Agents (Codex + Factory)
-
-Skills and droids are installed on the machine and are not committed. Codex and
-Factory share one skill directory:
-
-- `.factory/skills/` holds the OpenSpec skills and any other local skills.
-- `.codex/skills` is a symlink to `../.factory/skills`.
-- `.factory/droids/` holds `explorer` (read-only), `log-detective` (running
-  stack, read-only), `implementer` (writes inside a briefed scope), and
-  `griller` (design interview).
-- OpenCode, Cursor project config, and `.agents/` are not part of this repo.
-
-Orchestration:
-
-- Delegate independent work, mainly reading: exploration, diagnosis, and
-  review. Sequential work that needs judgment between steps stays on the main
-  thread.
-- Isolate each agent by write scope. The brief names the paths it may edit,
-  and it leaves the rest alone. Reading is unrestricted.
-- Never run two agents writing the same files at the same time.
-- A feature that crosses the Go service and `manager/` does not start as two
-  parallel agents. Fix the contract first (route, payload, status, event
-  shape) in the spec or design, then give each side an `implementer` with its
-  own scope.
-- Every brief includes the goal, context already gathered, write scope, what
-  not to touch, how to verify, and the return format.
-- The return is a summary with `file:line` evidence, separating fact from
-  inference and listing what was checked and what was left out.
-- The main thread decides and talks to the user. A subagent report is the
-  source; do not redo the search it already did.
+Machine-local skills (`.factory/skills`, `.codex/skills` symlink). Droids:
+explorer/log-detective (RO), implementer (scoped write), griller. One writer per
+file. Cross Go+manager: fix the contract first, then one implementer per side.
+Briefs return `file:line` evidence; do not redo a subagent search.

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -8,6 +9,7 @@ import (
 var allEnvKeys = []string{
 	"WZAP_HTTP_ADDR",
 	"WZAP_PUBLIC_URL",
+	"WZAP_MANAGER_DEV_URL",
 	"WZAP_API_KEY",
 	"WZAP_DATABASE_URL",
 	"WZAP_NATS_URL",
@@ -33,6 +35,86 @@ var allEnvKeys = []string{
 	"WZAP_CHATWOOT_IMPORT_DB_URL",
 	"WZAP_CHATWOOT_IMPORT_PLACEHOLDER",
 	"WZAP_CHATWOOT_TOKEN_KEY",
+}
+
+func TestLoadRejectsInvalidManagerDevURL(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"relative", "manager-dev:3000"},
+		{"scheme_relative", "//manager-dev:3000"},
+		{"unsupported_scheme", "ftp://manager-dev:3000"},
+		{"missing_host", "http:///"},
+		{"missing_hostname", "http://:3000"},
+		{"opaque", "http:manager-dev"},
+		{"credentials", "http://sensitive-user:sensitive-password@manager-dev:3000"},
+		{"username", "http://sensitive-user@manager-dev:3000"},
+		{"query", "http://manager-dev:3000?sensitive-token=secret"},
+		{"empty_query", "http://manager-dev:3000?"},
+		{"fragment", "http://manager-dev:3000#sensitive-fragment"},
+		{"empty_fragment", "http://manager-dev:3000#"},
+		{"path_prefix", "http://manager-dev:3000/manager/"},
+		{"encoded_path", "http://manager-dev:3000/%2F"},
+		{"invalid_escape", "http://manager-dev:3000/%sensitive"},
+		{"invalid_port", "http://manager-dev:sensitive-port"},
+		{"whitespace", " http://manager-dev:3000"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clearWZAPEnv(t)
+			setRequiredEnv(t)
+			t.Setenv("WZAP_MANAGER_DEV_URL", tt.url)
+
+			_, err := Load()
+			if err == nil {
+				t.Fatal("Load() error = nil, want invalid manager dev URL rejected")
+			}
+			if !strings.Contains(err.Error(), "WZAP_MANAGER_DEV_URL") {
+				t.Errorf("Load() error = %q, want it to name WZAP_MANAGER_DEV_URL", err)
+			}
+			if strings.Contains(err.Error(), tt.url) || strings.Contains(err.Error(), "sensitive") {
+				t.Errorf("Load() error = %q, want error without supplied URL or sensitive values", err)
+			}
+		})
+	}
+}
+
+func TestLoadManagerDevURL(t *testing.T) {
+	tests := []struct {
+		name   string
+		value  string
+		absent bool
+	}{
+		{name: "absent", absent: true},
+		{name: "empty"},
+		{name: "http", value: "http://manager-dev:3000"},
+		{name: "http_root", value: "http://manager-dev:3000/"},
+		{name: "https", value: "https://manager.example.com"},
+		{name: "https_root", value: "https://manager.example.com/"},
+		{name: "ipv4", value: "http://127.0.0.1:3000"},
+		{name: "ipv6", value: "http://[::1]:3000/"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clearWZAPEnv(t)
+			setRequiredEnv(t)
+			t.Setenv("WZAP_MANAGER_DEV_URL", tt.value)
+			if tt.absent {
+				if err := os.Unsetenv("WZAP_MANAGER_DEV_URL"); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			got, err := Load()
+			if err != nil {
+				t.Fatalf("Load() error = %v", err)
+			}
+			if got.ManagerDevURL != tt.value {
+				t.Errorf("Load().ManagerDevURL = %q, want %q", got.ManagerDevURL, tt.value)
+			}
+		})
+	}
 }
 
 // clearWZAPEnv clears every WZAP_* variable for the test, overriding and later

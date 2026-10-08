@@ -5,6 +5,7 @@ package config
 import (
 	"encoding/base64"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 type Config struct {
 	HTTPAddr           string
 	PublicURL          string
+	ManagerDevURL      string
 	APIKey             string
 	AdminEmail         string
 	AdminPassword      string
@@ -94,6 +96,7 @@ func Load() (Config, error) {
 	cfg := Config{
 		HTTPAddr:      envOrDefault("WZAP_HTTP_ADDR", defaultHTTPAddr),
 		PublicURL:     os.Getenv("WZAP_PUBLIC_URL"),
+		ManagerDevURL: os.Getenv("WZAP_MANAGER_DEV_URL"),
 		APIKey:        os.Getenv("WZAP_API_KEY"),
 		AdminEmail:    os.Getenv("WZAP_ADMIN_EMAIL"),
 		AdminPassword: os.Getenv("WZAP_ADMIN_PASSWORD"),
@@ -121,6 +124,15 @@ func Load() (Config, error) {
 	}
 	if cfg.JWTSecret != "" && len(cfg.JWTSecret) < minJWTSecretLength {
 		problems = append(problems, fmt.Sprintf("WZAP_JWT_SECRET must be at least %d characters", minJWTSecretLength))
+	}
+	if cfg.ManagerDevURL != "" {
+		target, err := url.Parse(cfg.ManagerDevURL)
+		if err != nil || (target.Scheme != "http" && target.Scheme != "https") ||
+			target.Hostname() == "" || target.User != nil ||
+			(target.EscapedPath() != "" && target.EscapedPath() != "/") ||
+			target.ForceQuery || target.RawQuery != "" || strings.Contains(cfg.ManagerDevURL, "#") {
+			problems = append(problems, "WZAP_MANAGER_DEV_URL must be an absolute HTTP or HTTPS URL with a host, no credentials, query or fragment, and no path beyond /")
+		}
 	}
 	switch cfg.LogFormat {
 	case "json", "console":

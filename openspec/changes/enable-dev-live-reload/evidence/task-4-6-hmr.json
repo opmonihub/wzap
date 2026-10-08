@@ -1,0 +1,75 @@
+{
+  "sockets": [
+    {
+      "url": "ws://127.0.0.1:8081/manager/_nuxt/",
+      "events": [
+        {
+          "event": "open",
+          "at": 1791473050753
+        }
+      ],
+      "messages": 30
+    }
+  ],
+  "assets": [
+    "http://127.0.0.1:8081/manager/_nuxt/@fs/src/manager/app/assets/css/main.css",
+    "http://127.0.0.1:8081/manager/_nuxt/@fs/src/manager/.nuxt/nuxt-fonts-global.css",
+    "http://127.0.0.1:8081/manager/_nuxt/src/manager/node_modules/.pnpm/nuxt@4.5.2_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0_supports-color@10.2.2___@_ec95e723ec6815b44f0fd9d0a04bfecc/node_modules/nuxt/dist/app/entry.async.js",
+    "http://127.0.0.1:8081/manager/_nuxt/@vite/client",
+    "http://127.0.0.1:8081/manager/_nuxt/@fs/src/manager/node_modules/.pnpm/vite@8.2.1_@types+node@24.13.4_esbuild@0.28.0_jiti@2.7.0_terser@5.47.1_yaml@2.9.0/node_modules/vite/dist/client/env.mjs",
+    "http://127.0.0.1:8081/manager/_nuxt/@id/__x00__vite/modulepreload-polyfill.js",
+    "http://127.0.0.1:8081/manager/_nuxt/@fs/src/manager/node_modules/.pnpm/nuxt@4.5.2_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0_supports-color@10.2.2___@_ec95e723ec6815b44f0fd9d0a04bfecc/node_modules/nuxt/dist/app/entry.js",
+    "http://127.0.0.1:8081/manager/_nuxt/@fs/src/manager/node_modules/.pnpm/nuxt@4.5.2_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0_supports-color@10.2.2___@_ec95e723ec6815b44f0fd9d0a04bfecc/node_modules/nuxt/dist/app/diagnostics/core.js",
+    "http://127.0.0.1:8081/manager/_nuxt/@fs/src/manager/node_modules/.pnpm/nuxt@4.5.2_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0_supports-color@10.2.2___@_ec95e723ec6815b44f0fd9d0a04bfecc/node_modules/nuxt/dist/app/nuxt.js",
+    "http://127.0.0.1:8081/manager/_nuxt/@fs/src/manager/node_modules/.pnpm/nuxt@4.5.2_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0_supports-color@10.2.2___@_ec95e723ec6815b44f0fd9d0a04bfecc/node_modules/nuxt/dist/app/composables/error.js",
+    "http://127.0.0.1:8081/manager/_nuxt/@fs/src/manager/node_modules/.pnpm/vue@3.5.42_typescript@6.0.3/node_modules/vue/dist/vue.runtime.esm-bundler.js",
+    "http://127.0.0.1:8081/manager/_nuxt/@id/virtual:nuxt:.nuxt%2Fnuxt.config.mjs",
+    "http://127.0.0.1:8081/manager/_nuxt/@id/virtual:nuxt:.nuxt%2Ffetch.mjs",
+    "http://127.0.0.1:8081/manager/_nuxt/@id/virtual:nuxt:.nuxt%2Fglobal-polyfills.mjs",
+    "http://127.0.0.1:8081/manager/_nuxt/@id/virtual:nuxt:.nuxt%2Fcss.mjs"
+  ],
+  "network": [
+    {
+      "method": "GET",
+      "mimeType": "font/woff2",
+      "requestId": "2193826.5531",
+      "resourceType": "Font",
+      "status": 200,
+      "timestamp": 1791473076242,
+      "url": "http://127.0.0.1:8081/manager/_fonts/GsKUclqeNLJ96g5AU593ug6yanivOiwjW_7zESNPChw-jHA4tBeM1bjF7LATGUpfBuSTyomIFrWBTzjF7txVYfg.woff2"
+    },
+    {
+      "method": "GET",
+      "mimeType": "font/woff2",
+      "requestId": "2193826.5540",
+      "resourceType": "Font",
+      "status": 200,
+      "timestamp": 1791473076250,
+      "url": "http://127.0.0.1:8081/manager/_fonts/GsKUclqeNLJ96g5AU593ug6yanivOiwjW_7zESNPChw-jHA4tBeM1bjF7LATGUpfBuSTyomIFrWBTzjF7txVYfg.woff2"
+    },
+    {
+      "method": "GET",
+      "mimeType": "font/woff2",
+      "requestId": "2193826.5537",
+      "resourceType": "Font",
+      "status": 200,
+      "timestamp": 1791473076250,
+      "url": "http://127.0.0.1:8081/manager/_fonts/GsKUclqeNLJ96g5AU593ug6yanivOiwjW_7zESNPChw-jHA4tBeM1bjF7LATGUpfBuSTyomIFrWBTzjF7txVYfg.woff2"
+    },
+    {
+      "method": "GET",
+      "mimeType": "font/woff2",
+      "requestId": "2193826.5534",
+      "resourceType": "Font",
+      "status": 200,
+      "timestamp": 1791473076250,
+      "url": "http://127.0.0.1:8081/manager/_fonts/GsKUclqeNLJ96g5AU593ug6yanivOiwjW_7zESNPChw-jHA4tBeM1bjF7LATGUpfBuSTyomIFrWBTzjF7txVYfg.woff2"
+    }
+  ],
+  "vue_css": {
+    "title": "Live Vue proof",
+    "heading_color": "rgb(255, 0, 255)",
+    "automatic": true,
+    "subsequent_css_socket_messages": 38
+  }
+}

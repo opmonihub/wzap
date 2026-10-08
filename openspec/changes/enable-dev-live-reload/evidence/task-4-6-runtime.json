@@ -1,0 +1,1254 @@
+{
+  "dev-start": {
+    "runtime": [
+      {
+        "name": "wzap-wzap-1",
+        "id": "227c095d9e456291ef59c4964bb23a55505b8e2763f9d3ca3039c5c373074001",
+        "image": "wzap:dev-live-reload",
+        "state": "running",
+        "ports": {
+          "8080/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "8081"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_media",
+            "destination": "/data"
+          },
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/src"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_go-mod-cache",
+            "destination": "/go/pkg/mod"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_go-build-cache",
+            "destination": "/root/.cache/go-build"
+          }
+        ]
+      },
+      {
+        "name": "wzap-manager-dev-1",
+        "id": "d1a9405bc1f7cd6a057a90ff40e3015e22ef4861ec0ffa2c65b05ea7c9e5abcc",
+        "image": "node:24-slim",
+        "state": "running",
+        "ports": {},
+        "mounts": [
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/src/manager"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-nuxt-cache",
+            "destination": "/src/manager/.nuxt"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-output",
+            "destination": "/src/manager/.output"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-node-modules",
+            "destination": "/src/manager/node_modules"
+          }
+        ]
+      },
+      {
+        "name": "wzap-postgres-1",
+        "id": "15fef8ebdde0ed01cc1330ceb8ddd300ace406bdd9b3e2d404014f07cad98f59",
+        "image": "postgres:18-alpine",
+        "state": "running",
+        "ports": {
+          "5432/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "5435"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/docker-entrypoint-initdb.d/10-wzap.sql"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_pgdata",
+            "destination": "/var/lib/postgresql"
+          }
+        ]
+      },
+      {
+        "name": "wzap-nats-1",
+        "id": "73634d67cc33e4b0e90065ef9f74dff9024ba3bdbbbf5ecff45303a6f6013c03",
+        "image": "nats:2-alpine",
+        "state": "running",
+        "ports": {
+          "4222/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "4224"
+            }
+          ],
+          "6222/tcp": null,
+          "8222/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "8224"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_natsdata",
+            "destination": "/data"
+          }
+        ]
+      },
+      {
+        "name": "wzap-minio-1",
+        "id": "d8168a900d6cda9b0b15c75fd67153832f8c5e2f9f9776909776e5706f9d5148",
+        "image": "docker.io/cccs/minio@sha256:68eefa6a5ccd82178a872b2d1012687d0ac9b1afa848a1e56f55fa5f1efcb081",
+        "state": "running",
+        "ports": {
+          "9000/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "9000"
+            }
+          ],
+          "9001/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "9001"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_miniodata",
+            "destination": "/data"
+          }
+        ]
+      }
+    ],
+    "data": {
+      "users": 2,
+      "instances": 1,
+      "user_ids": "ab2f020405f1ad7debff8b6cc41f71cb",
+      "instance_ids": "2d936187c29a7fc2ec7ae8dadc9777e0"
+    },
+    "infrastructure_equal": true,
+    "data_equal": true
+  },
+  "after-go": {
+    "runtime": [
+      {
+        "name": "wzap-wzap-1",
+        "id": "227c095d9e456291ef59c4964bb23a55505b8e2763f9d3ca3039c5c373074001",
+        "image": "wzap:dev-live-reload",
+        "state": "running",
+        "ports": {
+          "8080/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "8081"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_media",
+            "destination": "/data"
+          },
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/src"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_go-mod-cache",
+            "destination": "/go/pkg/mod"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_go-build-cache",
+            "destination": "/root/.cache/go-build"
+          }
+        ]
+      },
+      {
+        "name": "wzap-manager-dev-1",
+        "id": "d1a9405bc1f7cd6a057a90ff40e3015e22ef4861ec0ffa2c65b05ea7c9e5abcc",
+        "image": "node:24-slim",
+        "state": "running",
+        "ports": {},
+        "mounts": [
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/src/manager"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-nuxt-cache",
+            "destination": "/src/manager/.nuxt"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-output",
+            "destination": "/src/manager/.output"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-node-modules",
+            "destination": "/src/manager/node_modules"
+          }
+        ]
+      },
+      {
+        "name": "wzap-postgres-1",
+        "id": "15fef8ebdde0ed01cc1330ceb8ddd300ace406bdd9b3e2d404014f07cad98f59",
+        "image": "postgres:18-alpine",
+        "state": "running",
+        "ports": {
+          "5432/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "5435"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/docker-entrypoint-initdb.d/10-wzap.sql"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_pgdata",
+            "destination": "/var/lib/postgresql"
+          }
+        ]
+      },
+      {
+        "name": "wzap-nats-1",
+        "id": "73634d67cc33e4b0e90065ef9f74dff9024ba3bdbbbf5ecff45303a6f6013c03",
+        "image": "nats:2-alpine",
+        "state": "running",
+        "ports": {
+          "4222/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "4224"
+            }
+          ],
+          "6222/tcp": null,
+          "8222/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "8224"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_natsdata",
+            "destination": "/data"
+          }
+        ]
+      },
+      {
+        "name": "wzap-minio-1",
+        "id": "d8168a900d6cda9b0b15c75fd67153832f8c5e2f9f9776909776e5706f9d5148",
+        "image": "docker.io/cccs/minio@sha256:68eefa6a5ccd82178a872b2d1012687d0ac9b1afa848a1e56f55fa5f1efcb081",
+        "state": "running",
+        "ports": {
+          "9000/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "9000"
+            }
+          ],
+          "9001/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "9001"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_miniodata",
+            "destination": "/data"
+          }
+        ]
+      }
+    ],
+    "data": {
+      "users": 2,
+      "instances": 1,
+      "user_ids": "ab2f020405f1ad7debff8b6cc41f71cb",
+      "instance_ids": "2d936187c29a7fc2ec7ae8dadc9777e0"
+    },
+    "infrastructure_equal": true,
+    "data_equal": true
+  },
+  "after-hmr": {
+    "runtime": [
+      {
+        "name": "wzap-wzap-1",
+        "id": "227c095d9e456291ef59c4964bb23a55505b8e2763f9d3ca3039c5c373074001",
+        "image": "wzap:dev-live-reload",
+        "state": "running",
+        "ports": {
+          "8080/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "8081"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_media",
+            "destination": "/data"
+          },
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/src"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_go-mod-cache",
+            "destination": "/go/pkg/mod"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_go-build-cache",
+            "destination": "/root/.cache/go-build"
+          }
+        ]
+      },
+      {
+        "name": "wzap-manager-dev-1",
+        "id": "d1a9405bc1f7cd6a057a90ff40e3015e22ef4861ec0ffa2c65b05ea7c9e5abcc",
+        "image": "node:24-slim",
+        "state": "running",
+        "ports": {},
+        "mounts": [
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/src/manager"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-nuxt-cache",
+            "destination": "/src/manager/.nuxt"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-output",
+            "destination": "/src/manager/.output"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-node-modules",
+            "destination": "/src/manager/node_modules"
+          }
+        ]
+      },
+      {
+        "name": "wzap-postgres-1",
+        "id": "15fef8ebdde0ed01cc1330ceb8ddd300ace406bdd9b3e2d404014f07cad98f59",
+        "image": "postgres:18-alpine",
+        "state": "running",
+        "ports": {
+          "5432/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "5435"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/docker-entrypoint-initdb.d/10-wzap.sql"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_pgdata",
+            "destination": "/var/lib/postgresql"
+          }
+        ]
+      },
+      {
+        "name": "wzap-nats-1",
+        "id": "73634d67cc33e4b0e90065ef9f74dff9024ba3bdbbbf5ecff45303a6f6013c03",
+        "image": "nats:2-alpine",
+        "state": "running",
+        "ports": {
+          "4222/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "4224"
+            }
+          ],
+          "6222/tcp": null,
+          "8222/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "8224"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_natsdata",
+            "destination": "/data"
+          }
+        ]
+      },
+      {
+        "name": "wzap-minio-1",
+        "id": "d8168a900d6cda9b0b15c75fd67153832f8c5e2f9f9776909776e5706f9d5148",
+        "image": "docker.io/cccs/minio@sha256:68eefa6a5ccd82178a872b2d1012687d0ac9b1afa848a1e56f55fa5f1efcb081",
+        "state": "running",
+        "ports": {
+          "9000/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "9000"
+            }
+          ],
+          "9001/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "9001"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_miniodata",
+            "destination": "/data"
+          }
+        ]
+      }
+    ],
+    "data": {
+      "users": 2,
+      "instances": 1,
+      "user_ids": "ab2f020405f1ad7debff8b6cc41f71cb",
+      "instance_ids": "2d936187c29a7fc2ec7ae8dadc9777e0"
+    },
+    "infrastructure_equal": true,
+    "data_equal": true
+  },
+  "stopped": {
+    "runtime": [
+      {
+        "name": "wzap-wzap-1",
+        "id": "227c095d9e456291ef59c4964bb23a55505b8e2763f9d3ca3039c5c373074001",
+        "image": "wzap:dev-live-reload",
+        "state": "exited",
+        "ports": {},
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_media",
+            "destination": "/data"
+          },
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/src"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_go-mod-cache",
+            "destination": "/go/pkg/mod"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_go-build-cache",
+            "destination": "/root/.cache/go-build"
+          }
+        ]
+      },
+      {
+        "name": "wzap-manager-dev-1",
+        "id": "d1a9405bc1f7cd6a057a90ff40e3015e22ef4861ec0ffa2c65b05ea7c9e5abcc",
+        "image": "node:24-slim",
+        "state": "exited",
+        "ports": {},
+        "mounts": [
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/src/manager"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-nuxt-cache",
+            "destination": "/src/manager/.nuxt"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-output",
+            "destination": "/src/manager/.output"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-node-modules",
+            "destination": "/src/manager/node_modules"
+          }
+        ]
+      },
+      {
+        "name": "wzap-postgres-1",
+        "id": "15fef8ebdde0ed01cc1330ceb8ddd300ace406bdd9b3e2d404014f07cad98f59",
+        "image": "postgres:18-alpine",
+        "state": "running",
+        "ports": {
+          "5432/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "5435"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/docker-entrypoint-initdb.d/10-wzap.sql"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_pgdata",
+            "destination": "/var/lib/postgresql"
+          }
+        ]
+      },
+      {
+        "name": "wzap-nats-1",
+        "id": "73634d67cc33e4b0e90065ef9f74dff9024ba3bdbbbf5ecff45303a6f6013c03",
+        "image": "nats:2-alpine",
+        "state": "running",
+        "ports": {
+          "4222/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "4224"
+            }
+          ],
+          "6222/tcp": null,
+          "8222/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "8224"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_natsdata",
+            "destination": "/data"
+          }
+        ]
+      },
+      {
+        "name": "wzap-minio-1",
+        "id": "d8168a900d6cda9b0b15c75fd67153832f8c5e2f9f9776909776e5706f9d5148",
+        "image": "docker.io/cccs/minio@sha256:68eefa6a5ccd82178a872b2d1012687d0ac9b1afa848a1e56f55fa5f1efcb081",
+        "state": "running",
+        "ports": {
+          "9000/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "9000"
+            }
+          ],
+          "9001/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "9001"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_miniodata",
+            "destination": "/data"
+          }
+        ]
+      }
+    ],
+    "data": {
+      "users": 2,
+      "instances": 1,
+      "user_ids": "ab2f020405f1ad7debff8b6cc41f71cb",
+      "instance_ids": "2d936187c29a7fc2ec7ae8dadc9777e0"
+    },
+    "infrastructure_equal": true,
+    "data_equal": true
+  },
+  "compiled": {
+    "runtime": [
+      {
+        "name": "wzap-wzap-1",
+        "id": "10182a200827f7717565dcaac34bae27219b235bd89e7ae6de55b7b620ebe76d",
+        "image": "wzap:dev",
+        "state": "running",
+        "ports": {
+          "8080/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "8081"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_media",
+            "destination": "/data"
+          }
+        ]
+      },
+      {
+        "name": "wzap-manager-dev-1",
+        "id": "d1a9405bc1f7cd6a057a90ff40e3015e22ef4861ec0ffa2c65b05ea7c9e5abcc",
+        "image": "node:24-slim",
+        "state": "exited",
+        "ports": {},
+        "mounts": [
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/src/manager"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-nuxt-cache",
+            "destination": "/src/manager/.nuxt"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-output",
+            "destination": "/src/manager/.output"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-node-modules",
+            "destination": "/src/manager/node_modules"
+          }
+        ]
+      },
+      {
+        "name": "wzap-postgres-1",
+        "id": "15fef8ebdde0ed01cc1330ceb8ddd300ace406bdd9b3e2d404014f07cad98f59",
+        "image": "postgres:18-alpine",
+        "state": "running",
+        "ports": {
+          "5432/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "5435"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/docker-entrypoint-initdb.d/10-wzap.sql"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_pgdata",
+            "destination": "/var/lib/postgresql"
+          }
+        ]
+      },
+      {
+        "name": "wzap-nats-1",
+        "id": "73634d67cc33e4b0e90065ef9f74dff9024ba3bdbbbf5ecff45303a6f6013c03",
+        "image": "nats:2-alpine",
+        "state": "running",
+        "ports": {
+          "4222/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "4224"
+            }
+          ],
+          "6222/tcp": null,
+          "8222/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "8224"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_natsdata",
+            "destination": "/data"
+          }
+        ]
+      },
+      {
+        "name": "wzap-minio-1",
+        "id": "d8168a900d6cda9b0b15c75fd67153832f8c5e2f9f9776909776e5706f9d5148",
+        "image": "docker.io/cccs/minio@sha256:68eefa6a5ccd82178a872b2d1012687d0ac9b1afa848a1e56f55fa5f1efcb081",
+        "state": "running",
+        "ports": {
+          "9000/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "9000"
+            }
+          ],
+          "9001/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "9001"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_miniodata",
+            "destination": "/data"
+          }
+        ]
+      }
+    ],
+    "data": {
+      "users": 2,
+      "instances": 1,
+      "user_ids": "ab2f020405f1ad7debff8b6cc41f71cb",
+      "instance_ids": "2d936187c29a7fc2ec7ae8dadc9777e0"
+    },
+    "infrastructure_equal": true,
+    "data_equal": true
+  },
+  "final-dev": {
+    "runtime": [
+      {
+        "name": "wzap-wzap-1",
+        "id": "2913ba801f96ab5c06319dd218a3f6d39b4e943a2cdd478d553d465a36cac486",
+        "image": "wzap:dev-live-reload",
+        "state": "running",
+        "ports": {
+          "8080/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "8081"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_media",
+            "destination": "/data"
+          },
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/src"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_go-mod-cache",
+            "destination": "/go/pkg/mod"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_go-build-cache",
+            "destination": "/root/.cache/go-build"
+          }
+        ]
+      },
+      {
+        "name": "wzap-manager-dev-1",
+        "id": "d1a9405bc1f7cd6a057a90ff40e3015e22ef4861ec0ffa2c65b05ea7c9e5abcc",
+        "image": "node:24-slim",
+        "state": "running",
+        "ports": {},
+        "mounts": [
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/src/manager"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-nuxt-cache",
+            "destination": "/src/manager/.nuxt"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-output",
+            "destination": "/src/manager/.output"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-node-modules",
+            "destination": "/src/manager/node_modules"
+          }
+        ]
+      },
+      {
+        "name": "wzap-postgres-1",
+        "id": "15fef8ebdde0ed01cc1330ceb8ddd300ace406bdd9b3e2d404014f07cad98f59",
+        "image": "postgres:18-alpine",
+        "state": "running",
+        "ports": {
+          "5432/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "5435"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/docker-entrypoint-initdb.d/10-wzap.sql"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_pgdata",
+            "destination": "/var/lib/postgresql"
+          }
+        ]
+      },
+      {
+        "name": "wzap-nats-1",
+        "id": "73634d67cc33e4b0e90065ef9f74dff9024ba3bdbbbf5ecff45303a6f6013c03",
+        "image": "nats:2-alpine",
+        "state": "running",
+        "ports": {
+          "4222/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "4224"
+            }
+          ],
+          "6222/tcp": null,
+          "8222/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "8224"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_natsdata",
+            "destination": "/data"
+          }
+        ]
+      },
+      {
+        "name": "wzap-minio-1",
+        "id": "d8168a900d6cda9b0b15c75fd67153832f8c5e2f9f9776909776e5706f9d5148",
+        "image": "docker.io/cccs/minio@sha256:68eefa6a5ccd82178a872b2d1012687d0ac9b1afa848a1e56f55fa5f1efcb081",
+        "state": "running",
+        "ports": {
+          "9000/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "9000"
+            }
+          ],
+          "9001/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "9001"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_miniodata",
+            "destination": "/data"
+          }
+        ]
+      }
+    ],
+    "data": {
+      "users": 2,
+      "instances": 1,
+      "user_ids": "ab2f020405f1ad7debff8b6cc41f71cb",
+      "instance_ids": "2d936187c29a7fc2ec7ae8dadc9777e0"
+    },
+    "infrastructure_equal": true,
+    "data_equal": true
+  },
+  "final-cache": {
+    "runtime": [
+      {
+        "name": "wzap-wzap-1",
+        "id": "2913ba801f96ab5c06319dd218a3f6d39b4e943a2cdd478d553d465a36cac486",
+        "image": "wzap:dev-live-reload",
+        "state": "running",
+        "ports": {
+          "8080/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "8081"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_media",
+            "destination": "/data"
+          },
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/src"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_go-mod-cache",
+            "destination": "/go/pkg/mod"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_go-build-cache",
+            "destination": "/root/.cache/go-build"
+          }
+        ]
+      },
+      {
+        "name": "wzap-manager-dev-1",
+        "id": "839c31acc91a174c38fb64fcb299e9bca8dfa604967e7efb3edbe3f724cd4b85",
+        "image": "node:24-slim",
+        "state": "running",
+        "ports": {},
+        "mounts": [
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/src/manager"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-nuxt-cache",
+            "destination": "/src/manager/.nuxt"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-output",
+            "destination": "/src/manager/.output"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-pnpm-store",
+            "destination": "/src/manager/.pnpm-store"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-node-modules",
+            "destination": "/src/manager/node_modules"
+          }
+        ]
+      },
+      {
+        "name": "wzap-postgres-1",
+        "id": "15fef8ebdde0ed01cc1330ceb8ddd300ace406bdd9b3e2d404014f07cad98f59",
+        "image": "postgres:18-alpine",
+        "state": "running",
+        "ports": {
+          "5432/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "5435"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/docker-entrypoint-initdb.d/10-wzap.sql"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_pgdata",
+            "destination": "/var/lib/postgresql"
+          }
+        ]
+      },
+      {
+        "name": "wzap-nats-1",
+        "id": "73634d67cc33e4b0e90065ef9f74dff9024ba3bdbbbf5ecff45303a6f6013c03",
+        "image": "nats:2-alpine",
+        "state": "running",
+        "ports": {
+          "4222/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "4224"
+            }
+          ],
+          "6222/tcp": null,
+          "8222/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "8224"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_natsdata",
+            "destination": "/data"
+          }
+        ]
+      },
+      {
+        "name": "wzap-minio-1",
+        "id": "d8168a900d6cda9b0b15c75fd67153832f8c5e2f9f9776909776e5706f9d5148",
+        "image": "docker.io/cccs/minio@sha256:68eefa6a5ccd82178a872b2d1012687d0ac9b1afa848a1e56f55fa5f1efcb081",
+        "state": "running",
+        "ports": {
+          "9000/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "9000"
+            }
+          ],
+          "9001/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "9001"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_miniodata",
+            "destination": "/data"
+          }
+        ]
+      }
+    ],
+    "data": {
+      "users": 2,
+      "instances": 1,
+      "user_ids": "ab2f020405f1ad7debff8b6cc41f71cb",
+      "instance_ids": "2d936187c29a7fc2ec7ae8dadc9777e0"
+    },
+    "infrastructure_equal": true,
+    "data_equal": true
+  },
+  "final-cache-after-edit": {
+    "runtime": [
+      {
+        "name": "wzap-wzap-1",
+        "id": "2913ba801f96ab5c06319dd218a3f6d39b4e943a2cdd478d553d465a36cac486",
+        "image": "wzap:dev-live-reload",
+        "state": "running",
+        "ports": {
+          "8080/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "8081"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_media",
+            "destination": "/data"
+          },
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/src"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_go-mod-cache",
+            "destination": "/go/pkg/mod"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_go-build-cache",
+            "destination": "/root/.cache/go-build"
+          }
+        ]
+      },
+      {
+        "name": "wzap-manager-dev-1",
+        "id": "839c31acc91a174c38fb64fcb299e9bca8dfa604967e7efb3edbe3f724cd4b85",
+        "image": "node:24-slim",
+        "state": "running",
+        "ports": {},
+        "mounts": [
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/src/manager"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-nuxt-cache",
+            "destination": "/src/manager/.nuxt"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-output",
+            "destination": "/src/manager/.output"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-pnpm-store",
+            "destination": "/src/manager/.pnpm-store"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_manager-node-modules",
+            "destination": "/src/manager/node_modules"
+          }
+        ]
+      },
+      {
+        "name": "wzap-postgres-1",
+        "id": "15fef8ebdde0ed01cc1330ceb8ddd300ace406bdd9b3e2d404014f07cad98f59",
+        "image": "postgres:18-alpine",
+        "state": "running",
+        "ports": {
+          "5432/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "5435"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "bind",
+            "name": null,
+            "destination": "/docker-entrypoint-initdb.d/10-wzap.sql"
+          },
+          {
+            "type": "volume",
+            "name": "wzap_pgdata",
+            "destination": "/var/lib/postgresql"
+          }
+        ]
+      },
+      {
+        "name": "wzap-nats-1",
+        "id": "73634d67cc33e4b0e90065ef9f74dff9024ba3bdbbbf5ecff45303a6f6013c03",
+        "image": "nats:2-alpine",
+        "state": "running",
+        "ports": {
+          "4222/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "4224"
+            }
+          ],
+          "6222/tcp": null,
+          "8222/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "8224"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_natsdata",
+            "destination": "/data"
+          }
+        ]
+      },
+      {
+        "name": "wzap-minio-1",
+        "id": "d8168a900d6cda9b0b15c75fd67153832f8c5e2f9f9776909776e5706f9d5148",
+        "image": "docker.io/cccs/minio@sha256:68eefa6a5ccd82178a872b2d1012687d0ac9b1afa848a1e56f55fa5f1efcb081",
+        "state": "running",
+        "ports": {
+          "9000/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "9000"
+            }
+          ],
+          "9001/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "9001"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "wzap_miniodata",
+            "destination": "/data"
+          }
+        ]
+      }
+    ],
+    "data": {
+      "users": 2,
+      "instances": 1,
+      "user_ids": "ab2f020405f1ad7debff8b6cc41f71cb",
+      "instance_ids": "2d936187c29a7fc2ec7ae8dadc9777e0"
+    },
+    "infrastructure_equal": true,
+    "data_equal": true
+  }
+}

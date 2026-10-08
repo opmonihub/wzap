@@ -6,7 +6,7 @@
 
 ## 2. Nuxt e HMR
 
-- [ ] 2.1 Ajustar Nuxt e confirmar atualização automática de Vue e CSS por `/manager/` na porta `8081`, sem acesso direto à porta interna, com evidência do navegador.
+- [x] 2.1 Ajustar Nuxt e confirmar atualização automática de Vue e CSS por `/manager/` na porta `8081`, sem acesso direto à porta interna, com evidência do navegador.
 
 ## 3. Recarga e encerramento do Air
 
@@ -16,8 +16,8 @@
 
 ## 4. Compose e preservação de dados
 
-- [ ] 4.1 Converter o Compose dev em sobreposição e conferir com `docker compose -f docker-compose.yml -f docker-compose.dev.yml config` que existe apenas um serviço Go e que o frontend não publica porta no host.
-- [ ] 4.2 Verificar troca entre compilado e dev, encerramento prévio de eventual Go legado, preservação dos volumes e infraestrutura e atualização de código sem recriar containers, registrando a comparação antes e depois.
+- [x] 4.1 Converter o Compose dev em sobreposição e conferir com `docker compose -f docker-compose.yml -f docker-compose.dev.yml config` que existe apenas um serviço Go e que o frontend não publica porta no host.
+- [x] 4.2 Verificar troca entre compilado e dev, encerramento prévio de eventual Go legado, preservação dos volumes e infraestrutura e atualização de código sem recriar containers, registrando a comparação antes e depois.
 
 ## 5. Verificação integrada e documentação
 

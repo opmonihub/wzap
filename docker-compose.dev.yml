@@ -1,120 +1,42 @@
-name: wzap-dev
-
-# Dev profile: bind mounts + Air live-reload (Go) + WZAP_MANAGER_DIR (console).
-# Run: docker compose -f docker-compose.dev.yml up -d --build
-# Host ports avoid the prod stack (5432/4222/8222/8081): dev uses 5434/4224/8224/8083.
-# Go edits rebuild via Air (~1-2s, no docker rebuild). Console edits need
-# `pnpm --dir manager build` (or `pnpm dev` via --profile ui on :3000) then
-# refresh — WZAP_MANAGER_DIR serves .output/public live from disk.
-# Host-run manager dev (e.g. :3001) must set NUXT_DEV_PROXY_TARGET to the dev
-# backend below — the nuxt.config proxy default (127.0.0.1:8081) is the prod
-# address, not this dev backend.
-
+# Development overlay: use with docker-compose.yml (and local overrides).
+# docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build wzap manager-dev
 services:
-  postgres:
-    image: postgres:18-alpine
-    environment:
-      POSTGRES_DB: wzap
-      POSTGRES_USER: wzap
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
-    ports:
-      - "127.0.0.1:5434:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql
-      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/10-wzap.sql:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U wzap -d wzap"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  nats:
-    image: nats:2-alpine
-    command: ["-js", "-sd", "/data", "-m", "8222"]
-    ports:
-      - "127.0.0.1:4224:4222"
-      - "127.0.0.1:8224:8222"
-    volumes:
-      - natsdata:/data
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8222/healthz"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  minio:
-    image: docker.io/cccs/minio@sha256:68eefa6a5ccd82178a872b2d1012687d0ac9b1afa848a1e56f55fa5f1efcb081
-    command: ["server", "/data", "--console-address", ":9001"]
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-wzap}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-wzap-secret-key}
-    ports:
-      - "127.0.0.1:9002:9000"
-      - "127.0.0.1:9003:9001"
-    volumes:
-      - miniodata:/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   wzap:
+    image: wzap:dev-live-reload
     build:
       context: .
       dockerfile: Dockerfile.dev
     environment:
-      WZAP_API_KEY: ${WZAP_API_KEY:-dev-wzap-token}
-      WZAP_JWT_SECRET: ${WZAP_JWT_SECRET:-dev-jwt-secret-0123456789abcdef01}
-      WZAP_ADMIN_EMAIL: ${WZAP_ADMIN_EMAIL:-}
-      WZAP_ADMIN_PASSWORD: ${WZAP_ADMIN_PASSWORD:-}
-      WZAP_DATABASE_URL: postgres://wzap:${POSTGRES_PASSWORD:-secret}@postgres:5432/wzap?sslmode=disable
-      WZAP_NATS_URL: nats://nats:4222
-      WZAP_PUBLIC_URL: http://127.0.0.1:8083
-      WZAP_AUTO_MIGRATE: "true"
-      WZAP_DATA_DIR: /data
-      WZAP_MANAGER_DIR: /src/manager/.output/public
-      WZAP_S3_ENDPOINT: http://minio:9000
-      WZAP_S3_BUCKET: ${WZAP_S3_BUCKET:-wzap-media}
-      WZAP_S3_REGION: us-east-1
-      WZAP_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-wzap}
-      WZAP_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-wzap-secret-key}
-      WZAP_S3_USE_TLS: "false"
-    ports:
-      - "127.0.0.1:8083:8080"
+      WZAP_MANAGER_DEV_URL: http://manager-dev:3000
     volumes:
       - .:/src:cached
-      - media:/data
       - go-build-cache:/root/.cache/go-build
       - go-mod-cache:/go/pkg/mod
     depends_on:
-      postgres:
-        condition: service_healthy
-      nats:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
+      manager-dev:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "/src/tmp/wzap", "healthcheck"]
+    stop_grace_period: 20s
 
   manager-dev:
     image: node:24-slim
     working_dir: /src/manager
     command: ["sh", "-c", "corepack enable && pnpm install --frozen-lockfile && pnpm dev --port 3000 --host 0.0.0.0"]
     environment:
-      # Same compose network as the Go service: the Vite dev proxy must hit
-      # wzap:8080, not the nuxt.config host default (127.0.0.1:8081).
       NUXT_DEV_PROXY_TARGET: http://wzap:8080
-    ports:
-      - "127.0.0.1:3000:3000"
+      NUXT_DEV_HMR_CLIENT_PORT: "8081"
     volumes:
       - ./manager:/src/manager:cached
       - manager-node-modules:/src/manager/node_modules
-    profiles: ["ui"]
+      - manager-pnpm-store:/src/manager/.pnpm-store
+      - manager-nuxt-cache:/src/manager/.nuxt
+      - manager-output:/src/manager/.output
 
 volumes:
-  pgdata:
-  natsdata:
-  media:
-  miniodata:
   go-build-cache:
   go-mod-cache:
   manager-node-modules:
+  manager-pnpm-store:
+  manager-nuxt-cache:
+  manager-output:

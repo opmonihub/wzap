@@ -1,0 +1,288 @@
+{
+  "name": "wzap",
+  "services": {
+    "manager-dev": {
+      "image": "node:24-slim",
+      "command": [
+        "sh",
+        "-c",
+        "corepack enable && pnpm install --frozen-lockfile && pnpm dev --port 3000 --host 0.0.0.0"
+      ],
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "/home/obsidian/dev/wzap/.worktrees/enable-dev-live-reload/manager",
+          "target": "/src/manager",
+          "bind": {}
+        },
+        {
+          "type": "volume",
+          "source": "manager-node-modules",
+          "target": "/src/manager/node_modules",
+          "volume": {}
+        },
+        {
+          "type": "volume",
+          "source": "manager-pnpm-store",
+          "target": "/src/manager/.pnpm-store",
+          "volume": {}
+        },
+        {
+          "type": "volume",
+          "source": "manager-nuxt-cache",
+          "target": "/src/manager/.nuxt",
+          "volume": {}
+        },
+        {
+          "type": "volume",
+          "source": "manager-output",
+          "target": "/src/manager/.output",
+          "volume": {}
+        }
+      ]
+    },
+    "minio": {
+      "image": "docker.io/cccs/minio@sha256:68eefa6a5ccd82178a872b2d1012687d0ac9b1afa848a1e56f55fa5f1efcb081",
+      "command": [
+        "server",
+        "/data",
+        "--console-address",
+        ":9001"
+      ],
+      "ports": [
+        {
+          "mode": "ingress",
+          "host_ip": "127.0.0.1",
+          "target": 9000,
+          "published": "9000",
+          "protocol": "tcp"
+        },
+        {
+          "mode": "ingress",
+          "host_ip": "127.0.0.1",
+          "target": 9001,
+          "published": "9001",
+          "protocol": "tcp"
+        }
+      ],
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "miniodata",
+          "target": "/data",
+          "volume": {}
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "mc",
+          "ready",
+          "local"
+        ],
+        "timeout": "5s",
+        "interval": "5s",
+        "retries": 10
+      }
+    },
+    "minio-init": {
+      "image": "docker.io/cccs/minio@sha256:68eefa6a5ccd82178a872b2d1012687d0ac9b1afa848a1e56f55fa5f1efcb081",
+      "command": null,
+      "depends_on": {
+        "minio": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      }
+    },
+    "nats": {
+      "image": "nats:2-alpine",
+      "command": [
+        "-js",
+        "-sd",
+        "/data",
+        "-m",
+        "8222"
+      ],
+      "ports": [
+        {
+          "mode": "ingress",
+          "host_ip": "127.0.0.1",
+          "target": 4222,
+          "published": "4224",
+          "protocol": "tcp"
+        },
+        {
+          "mode": "ingress",
+          "host_ip": "127.0.0.1",
+          "target": 8222,
+          "published": "8224",
+          "protocol": "tcp"
+        }
+      ],
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "natsdata",
+          "target": "/data",
+          "volume": {}
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "wget",
+          "-q",
+          "-O",
+          "/dev/null",
+          "http://127.0.0.1:8222/healthz"
+        ],
+        "timeout": "5s",
+        "interval": "5s",
+        "retries": 10
+      }
+    },
+    "postgres": {
+      "image": "postgres:18-alpine",
+      "command": null,
+      "ports": [
+        {
+          "mode": "ingress",
+          "host_ip": "127.0.0.1",
+          "target": 5432,
+          "published": "5435",
+          "protocol": "tcp"
+        }
+      ],
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "pgdata",
+          "target": "/var/lib/postgresql",
+          "volume": {}
+        },
+        {
+          "type": "bind",
+          "source": "/home/obsidian/dev/wzap/.worktrees/enable-dev-live-reload/docker/postgres-init.sql",
+          "target": "/docker-entrypoint-initdb.d/10-wzap.sql",
+          "read_only": true,
+          "bind": {}
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -U wzap -d wzap"
+        ],
+        "timeout": "5s",
+        "interval": "5s",
+        "retries": 10
+      }
+    },
+    "wzap": {
+      "image": "wzap:dev-live-reload",
+      "build": {
+        "context": "/home/obsidian/dev/wzap/.worktrees/enable-dev-live-reload",
+        "dockerfile": "Dockerfile.dev"
+      },
+      "command": null,
+      "ports": [
+        {
+          "mode": "ingress",
+          "host_ip": "127.0.0.1",
+          "target": 8080,
+          "published": "8081",
+          "protocol": "tcp"
+        }
+      ],
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "media",
+          "target": "/data",
+          "volume": {}
+        },
+        {
+          "type": "bind",
+          "source": "/home/obsidian/dev/wzap/.worktrees/enable-dev-live-reload",
+          "target": "/src",
+          "bind": {}
+        },
+        {
+          "type": "volume",
+          "source": "go-build-cache",
+          "target": "/root/.cache/go-build",
+          "volume": {}
+        },
+        {
+          "type": "volume",
+          "source": "go-mod-cache",
+          "target": "/go/pkg/mod",
+          "volume": {}
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "/src/tmp/wzap",
+          "healthcheck"
+        ],
+        "timeout": "5s",
+        "interval": "5s",
+        "retries": 12,
+        "start_period": "30s"
+      },
+      "stop_grace_period": "20s",
+      "depends_on": {
+        "manager-dev": {
+          "condition": "service_started",
+          "required": true
+        },
+        "minio": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "nats": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "postgres": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      }
+    }
+  },
+  "volumes": {
+    "go-build-cache": {
+      "name": "wzap_go-build-cache"
+    },
+    "go-mod-cache": {
+      "name": "wzap_go-mod-cache"
+    },
+    "manager-node-modules": {
+      "name": "wzap_manager-node-modules"
+    },
+    "manager-nuxt-cache": {
+      "name": "wzap_manager-nuxt-cache"
+    },
+    "manager-output": {
+      "name": "wzap_manager-output"
+    },
+    "manager-pnpm-store": {
+      "name": "wzap_manager-pnpm-store"
+    },
+    "media": {
+      "name": "wzap_media"
+    },
+    "miniodata": {
+      "name": "wzap_miniodata"
+    },
+    "natsdata": {
+      "name": "wzap_natsdata"
+    },
+    "pgdata": {
+      "name": "wzap_pgdata"
+    }
+  }
+}

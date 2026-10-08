@@ -1,0 +1,4 @@
+$ nuxt typecheck
+ℹ Nuxt Icon server bundle mode is set to local
+ℹ Nuxt Icon client bundle consist of 43 icons with 10.40KB(uncompressed) in size
+[nuxt] ℹ Compiled nuxt.config.mjs in 697.26ms

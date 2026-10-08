@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -635,6 +636,336 @@ func TestAllowedMime(t *testing.T) {
 	for _, mimetype := range rejected {
 		if AllowedMime(mimetype) {
 			t.Errorf("AllowedMime(%q) = true, want false", mimetype)
+		}
+	}
+}
+
+// cancelAfterPutObjects models an upload completing as its caller disconnects.
+// Unlike the generic object fake, deletion honors cancellation and deadlines.
+type cancelAfterPutObjects struct {
+	*fakeObjects
+	cancel         context.CancelFunc
+	cleanupBounded bool
+}
+
+func (f *cancelAfterPutObjects) Put(ctx context.Context, bucket, key string, data []byte, mime string) error {
+	if err := f.fakeObjects.Put(ctx, bucket, key, data, mime); err != nil {
+		return err
+	}
+	f.cancel()
+	return nil
+}
+func (f *cancelAfterPutObjects) Delete(ctx context.Context, bucket, key string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	deadline, ok := ctx.Deadline()
+	f.cleanupBounded = ok && time.Until(deadline) > 0 && time.Until(deadline) <= time.Minute
+	return f.fakeObjects.Delete(ctx, bucket, key)
+}
+func TestStorageSaveCanceledAfterUploadRemovesOrphan(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	repo := newFakeMediaRepo()
+	repo.createErr = context.Canceled
+	objects := &cancelAfterPutObjects{fakeObjects: newFakeObjects(), cancel: cancel}
+	store := NewStorage(t.TempDir(), repo, 1024, time.Hour)
+	store.SetObjects(objects)
+	saved, err := store.Save(ctx, uuid.New(), "inbound", "", "image/png", "x.png", []byte("data"))
+	if saved != nil || !errors.Is(err, context.Canceled) {
+		t.Fatalf("Save = %v, %v; want original cancellation error", saved, err)
+	}
+	if len(objects.data) != 0 {
+		t.Fatalf("failed Save left %d remote object(s) behind", len(objects.data))
+	}
+	if !objects.cleanupBounded {
+		t.Fatal("orphan cleanup has no bounded deadline")
+	}
+}
+
+// snapshotMediaRepo pauses a deletion after its list snapshot, but preserves
+// thread-safe rows and the instance foreign-key behavior of the real DB.
+type snapshotMediaRepo struct {
+	*fakeMediaRepo
+	mu       sync.Mutex
+	snapshot chan struct{}
+	resume   chan struct{}
+	deleted  bool
+}
+
+func (r *snapshotMediaRepo) Create(ctx context.Context, record model.Media) (*model.Media, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.deleted {
+		return nil, storage.ErrNotFound
+	}
+	return r.fakeMediaRepo.Create(ctx, record)
+}
+func (r *snapshotMediaRepo) ListByInstance(ctx context.Context, id uuid.UUID) ([]model.Media, error) {
+	r.mu.Lock()
+	rows, err := r.fakeMediaRepo.ListByInstance(ctx, id)
+	r.mu.Unlock()
+	close(r.snapshot)
+	<-r.resume
+	return rows, err
+}
+func (r *snapshotMediaRepo) DeleteByInstance(ctx context.Context, id uuid.UUID) (int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.fakeMediaRepo.DeleteByInstance(ctx, id)
+}
+func TestStorageDeleteByInstanceConcurrentSaveRetainsReference(t *testing.T) {
+	repo := &snapshotMediaRepo{fakeMediaRepo: newFakeMediaRepo(), snapshot: make(chan struct{}), resume: make(chan struct{})}
+	objects := newFakeObjects()
+	store := NewStorage(t.TempDir(), repo, 1024, time.Hour)
+	store.SetObjects(objects)
+	id := uuid.New()
+	deletion := make(chan error, 1)
+	go func() { deletion <- store.DeleteByInstance(context.Background(), id) }()
+	<-repo.snapshot
+	save := make(chan error, 1)
+	go func() {
+		_, err := store.Save(context.Background(), id, "inbound", "", "image/png", "x.png", []byte("data"))
+		save <- err
+	}()
+	// Before the fix Save finishes inside the snapshot-to-delete gap. With the
+	// guard it waits; allow deletion to finish without a two-party barrier.
+	select {
+	case err := <-save:
+		if err != nil {
+			t.Fatal(err)
+		}
+		save <- err
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(repo.resume)
+	if err := <-deletion; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-save; err != nil {
+		t.Fatal(err)
+	}
+	repo.mu.Lock()
+	rows := len(repo.records)
+	repo.mu.Unlock()
+	objects.mu.Lock()
+	stored := len(objects.data)
+	objects.mu.Unlock()
+	if stored != rows {
+		t.Fatalf("remote objects=%d metadata rows=%d; concurrent Save lost its reference", stored, rows)
+	}
+}
+
+func TestStorageDeleteWithInstanceFailureAllowsRetry(t *testing.T) {
+	repo := newFakeMediaRepo()
+	objects := newFakeObjects()
+	store := NewStorage(t.TempDir(), repo, 1024, time.Hour)
+	store.SetObjects(objects)
+	id := uuid.New()
+	want := errors.New("instance delete failed")
+	if err := store.DeleteWithInstance(context.Background(), id, func() error { return want }); !errors.Is(err, want) {
+		t.Fatalf("deletion error=%v; want callback failure", err)
+	}
+	if _, err := store.Save(context.Background(), id, "inbound", "", "image/png", "x.png", []byte("data")); err != nil {
+		t.Fatalf("Save after failed deletion: %v", err)
+	}
+	if err := store.DeleteWithInstance(context.Background(), id, func() error { return nil }); err != nil {
+		t.Fatalf("retry deletion: %v", err)
+	}
+	if len(repo.records) != 0 || len(objects.data) != 0 {
+		t.Fatalf("retry left %d metadata rows and %d remote objects", len(repo.records), len(objects.data))
+	}
+}
+
+func TestStorageDeleteWithInstanceWaitingSaveHonorsCancellation(t *testing.T) {
+	store := NewStorage(t.TempDir(), newFakeMediaRepo(), 1024, time.Hour)
+	id := uuid.New()
+	entered, release := make(chan struct{}), make(chan struct{})
+	deleted := make(chan error, 1)
+	go func() {
+		deleted <- store.DeleteWithInstance(context.Background(), id, func() error { close(entered); <-release; return nil })
+	}()
+	<-entered
+	ctx, cancel := context.WithCancel(context.Background())
+	saved := make(chan error, 1)
+	go func() {
+		_, err := store.Save(ctx, id, "inbound", "", "image/png", "x.png", []byte("data"))
+		saved <- err
+	}()
+	cancel()
+	select {
+	case err := <-saved:
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("waiting Save error=%v; want cancellation", err)
+		}
+	case <-time.After(time.Second):
+		t.Error("canceled Save waited for instance deletion")
+	}
+	close(release)
+	if err := <-deleted; err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestStorageDeleteWithInstanceDoesNotBlockOtherInstances(t *testing.T) {
+	store := NewStorage(t.TempDir(), newFakeMediaRepo(), 1024, time.Hour)
+	entered, release := make(chan struct{}), make(chan struct{})
+	deleted := make(chan error, 1)
+	go func() {
+		deleted <- store.DeleteWithInstance(context.Background(), uuid.New(), func() error { close(entered); <-release; return nil })
+	}()
+	<-entered
+	saved := make(chan error, 1)
+	go func() {
+		_, err := store.Save(context.Background(), uuid.New(), "inbound", "", "image/png", "x.png", []byte("data"))
+		saved <- err
+	}()
+	select {
+	case err := <-saved:
+		if err != nil {
+			t.Error(err)
+		}
+	case <-time.After(time.Second):
+		t.Error("deletion blocked upload for a different instance")
+	}
+	close(release)
+	if err := <-deleted; err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestStorageDeleteWithInstanceKeepsInstanceOnMediaFailure(t *testing.T) {
+	repo := newFakeMediaRepo()
+	objects := newFakeObjects()
+	store := NewStorage(t.TempDir(), repo, 1024, time.Hour)
+	store.SetObjects(objects)
+	id := uuid.New()
+	if _, err := store.Save(context.Background(), id, "inbound", "", "image/png", "x.png", []byte("data")); err != nil {
+		t.Fatal(err)
+	}
+	objects.deleteErr = errors.New("object backend down")
+	parentDeleted := false
+	removeParent := func() error { parentDeleted = true; return nil }
+	if err := store.DeleteWithInstance(context.Background(), id, removeParent); !errors.Is(err, objects.deleteErr) {
+		t.Fatalf("deletion error=%v; want object backend failure", err)
+	}
+	if parentDeleted || len(repo.records) != 1 || len(objects.data) != 1 {
+		t.Fatal("media failure removed parent or lost retryable content")
+	}
+	objects.deleteErr = nil
+	if err := store.DeleteWithInstance(context.Background(), id, removeParent); err != nil {
+		t.Fatal(err)
+	}
+	if !parentDeleted || len(repo.records) != 0 || len(objects.data) != 0 {
+		t.Fatal("retry did not remove content before parent")
+	}
+}
+
+// cacheRaceRepo preserves thread-safe metadata while exposing an optional pause
+// after the initial lookup has captured a row but before Path receives it.
+type cacheRaceRepo struct {
+	*fakeMediaRepo
+	mu     sync.Mutex
+	lookup chan struct{}
+	resume chan struct{}
+	once   sync.Once
+}
+
+func (r *cacheRaceRepo) Get(ctx context.Context, id uuid.UUID) (*model.Media, error) {
+	r.mu.Lock()
+	row, err := r.fakeMediaRepo.Get(ctx, id)
+	r.mu.Unlock()
+	if r.lookup != nil {
+		r.once.Do(func() { close(r.lookup); <-r.resume })
+	}
+	return row, err
+}
+func (r *cacheRaceRepo) ListByInstance(ctx context.Context, id uuid.UUID) ([]model.Media, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.fakeMediaRepo.ListByInstance(ctx, id)
+}
+func (r *cacheRaceRepo) ListExpired(ctx context.Context, now time.Time) ([]model.Media, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.fakeMediaRepo.ListExpired(ctx, now)
+}
+func (r *cacheRaceRepo) DeleteByInstance(ctx context.Context, id uuid.UUID) (int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.fakeMediaRepo.DeleteByInstance(ctx, id)
+}
+func (r *cacheRaceRepo) MarkObjectDeleted(ctx context.Context, id uuid.UUID, now time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.fakeMediaRepo.MarkObjectDeleted(ctx, id, now)
+}
+
+type pausedCacheObjects struct {
+	*fakeObjects
+	read   chan struct{}
+	resume chan struct{}
+}
+
+func (o *pausedCacheObjects) Get(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
+	body, err := o.fakeObjects.Get(ctx, bucket, key)
+	close(o.read)
+	<-o.resume
+	return body, err
+}
+func TestStoragePathDoesNotRecreateDeletedCache(t *testing.T) {
+	for _, cleanup := range []string{"instance", "expiry"} {
+		for _, pause := range []string{"object read", "initial metadata lookup"} {
+			t.Run(cleanup+"/"+pause, func(t *testing.T) {
+				dir := t.TempDir()
+				repo := &cacheRaceRepo{fakeMediaRepo: newFakeMediaRepo()}
+				objects := newFakeObjects()
+				store := NewStorage(dir, repo, 1024, time.Hour)
+				store.SetObjects(objects)
+				current := time.Now()
+				store.now = func() time.Time { return current }
+				instanceID := uuid.New()
+				row, err := store.Save(context.Background(), instanceID, "inbound", "", "image/png", "x.png", []byte("data"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				reached, resume := make(chan struct{}), make(chan struct{})
+				if pause == "object read" {
+					store.SetObjects(&pausedCacheObjects{fakeObjects: objects, read: reached, resume: resume})
+				} else {
+					repo.lookup, repo.resume = reached, resume
+				}
+				materialized := make(chan error, 1)
+				go func() { _, _, err := store.Path(context.Background(), row.ID); materialized <- err }()
+				<-reached
+				deleted := make(chan error, 1)
+				go func() {
+					if cleanup == "instance" {
+						deleted <- store.DeleteWithInstance(context.Background(), instanceID, func() error { return nil })
+					} else {
+						_, err := store.DeleteExpired(context.Background(), current.Add(2*time.Hour))
+						deleted <- err
+					}
+				}()
+				// The object-read case holds the guard in the fix; the initial metadata
+				// lookup does not, so cleanup finishes and Path must revalidate afterward.
+				select {
+				case err := <-deleted:
+					deleted <- err
+				case <-time.After(100 * time.Millisecond):
+				}
+				close(resume)
+				pathErr := <-materialized
+				if pause == "initial metadata lookup" && !errors.Is(pathErr, ErrNotFound) {
+					t.Errorf("Path error=%v; want deleted metadata rejection", pathErr)
+				}
+				if err := <-deleted; err != nil {
+					t.Fatal(err)
+				}
+				if files := countFiles(t, dir); files != 0 {
+					t.Fatalf("Path recreated %d cache file(s) after %s cleanup", files, cleanup)
+				}
+			})
 		}
 	}
 }

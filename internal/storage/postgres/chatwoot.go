@@ -145,9 +145,31 @@ func (r *ChatwootConfigRepository) Delete(ctx context.Context, instanceID uuid.U
 }
 
 // Put upserts the correlation between a WhatsApp key and its Chatwoot mirror
-// and returns the stored row.
+// and returns the stored row. Provisional outbound correlations share the
+// queue-row lock with MarkSent, so either the correlation exists before its
+// status event or it is written directly under the already completed WA id.
 func (r *ChatwootMessageRepository) Put(ctx context.Context, msg model.ChatwootMessage) (*model.ChatwootMessage, error) {
-	stored, err := scanChatwootMessage(r.pool.QueryRow(ctx, `
+	queryRow := r.pool.QueryRow
+	var tx pgx.Tx
+	if msg.MessageID != nil && msg.WAKey == "pending:"+msg.MessageID.String() {
+		var err error
+		tx, err = r.pool.Begin(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("put pending chatwoot message: begin: %w", err)
+		}
+		defer func() { _ = tx.Rollback(ctx) }()
+		var waID string
+		if err := tx.QueryRow(ctx, `SELECT recipient_jid, COALESCE(wa_id, '')
+			FROM message_queue WHERE id = $1 AND instance_id = $2 FOR UPDATE`,
+			*msg.MessageID, msg.InstanceID).Scan(&msg.ContactSourceID, &waID); err != nil {
+			return nil, mapChatwootError("put pending chatwoot message: queue", err)
+		}
+		if waID != "" {
+			msg.WAKey = waID
+		}
+		queryRow = tx.QueryRow
+	}
+	stored, err := scanChatwootMessage(queryRow(ctx, `
 		INSERT INTO chatwoot_messages (instance_id, message_id, wa_key, cw_id,
 			conversation_id, inbox_id, chat_jid, is_read)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -161,6 +183,11 @@ func (r *ChatwootMessageRepository) Put(ctx context.Context, msg model.ChatwootM
 	))
 	if err != nil {
 		return nil, mapChatwootError("put chatwoot message", err)
+	}
+	if tx != nil {
+		if err := tx.Commit(ctx); err != nil {
+			return nil, fmt.Errorf("put pending chatwoot message: commit: %w", err)
+		}
 	}
 	return stored, nil
 }

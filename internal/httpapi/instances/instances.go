@@ -220,6 +220,9 @@ type UpdateInstanceRequest struct {
 // @Router /instances [post]
 func HandleCreateInstance(agg InstanceConfigAggregator, users storage.UserRepository, keys storage.APIKeyRepository, maxInstances int) http.HandlerFunc {
 	instances := agg.instances
+	// One registered handler serves every creator in this single replica. Keep
+	// quota evaluation and persistence together, including privileged creates.
+	var createMu sync.Mutex
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := core.AuthorizeCollection(r); err != nil {
 			core.WriteForbidden(w, r)
@@ -247,6 +250,8 @@ func HandleCreateInstance(agg InstanceConfigAggregator, users storage.UserReposi
 					return
 				}
 				owner = id
+			} else if scope.Kind == auth.ScopeUser {
+				owner = scope.UserID
 			} else {
 				admin, err := instances.OldestAdmin(r.Context())
 				if err != nil {
@@ -270,7 +275,9 @@ func HandleCreateInstance(agg InstanceConfigAggregator, users storage.UserReposi
 			return
 		}
 
+		createMu.Lock()
 		if err := CheckCreateQuotas(r, scope, owner, users, keys, maxInstances); err != nil {
+			createMu.Unlock()
 			WriteQuotaError(w, r, err)
 			return
 		}
@@ -291,6 +298,7 @@ func HandleCreateInstance(agg InstanceConfigAggregator, users storage.UserReposi
 			WebhookEnabled: webhookEnabled,
 			WebhookEvents:  webhookEvents,
 		})
+		createMu.Unlock()
 		if err != nil {
 			core.WriteInstanceError(w, r, err)
 			return

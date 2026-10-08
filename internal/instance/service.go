@@ -681,6 +681,18 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	if err := s.sessions.Remove(ctx, id); err != nil {
 		return fmt.Errorf("delete instance: remove session: %w", err)
 	}
+	// The production media storage coordinates Save with both media cleanup
+	// and parent-row deletion, including the FK cascade at the final step.
+	if guarded, ok := s.media.(interface {
+		DeleteWithInstance(context.Context, uuid.UUID, func() error) error
+	}); ok {
+		return guarded.DeleteWithInstance(ctx, id, func() error {
+			if err := s.repo.Delete(ctx, id); err != nil {
+				return mapError("delete instance", err)
+			}
+			return nil
+		})
+	}
 	if s.media != nil {
 		if err := s.media.DeleteByInstance(ctx, id); err != nil {
 			return fmt.Errorf("delete instance: delete media: %w", err)

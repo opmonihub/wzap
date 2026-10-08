@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -111,6 +112,50 @@ type Storage struct {
 	maxBytes int64
 	ttl      time.Duration
 	now      func() time.Time
+	guardsMu sync.Mutex
+	guards   map[uuid.UUID]*instanceGuard
+}
+
+// instanceGuard serializes uploads and deletion for one instance. Entries live
+// only while an operation holds or waits for the guard.
+type instanceGuard struct {
+	token chan struct{}
+	refs  int
+}
+
+func (s *Storage) acquireInstance(ctx context.Context, id uuid.UUID) (func(), error) {
+	s.guardsMu.Lock()
+	if s.guards == nil {
+		s.guards = make(map[uuid.UUID]*instanceGuard)
+	}
+	guard := s.guards[id]
+	if guard == nil {
+		guard = &instanceGuard{token: make(chan struct{}, 1)}
+		guard.token <- struct{}{}
+		s.guards[id] = guard
+	}
+	guard.refs++
+	s.guardsMu.Unlock()
+	dropReference := func() {
+		s.guardsMu.Lock()
+		guard.refs--
+		if guard.refs == 0 {
+			delete(s.guards, id)
+		}
+		s.guardsMu.Unlock()
+	}
+	select {
+	case <-ctx.Done():
+		dropReference()
+		return nil, ctx.Err()
+	case <-guard.token:
+		if err := ctx.Err(); err != nil {
+			guard.token <- struct{}{}
+			dropReference()
+			return nil, err
+		}
+		return func() { guard.token <- struct{}{}; dropReference() }, nil
+	}
 }
 
 // NewStorage returns a storage rooted at dir that accepts up to maxBytes per
@@ -152,6 +197,11 @@ func (s *Storage) Save(
 		return nil, fmt.Errorf("%w: %d bytes, limit %d", ErrTooLarge, len(data), s.maxBytes)
 	}
 
+	release, err := s.acquireInstance(ctx, instanceID)
+	if err != nil {
+		return nil, fmt.Errorf("save media: %w", err)
+	}
+	defer release()
 	id := uuid.New()
 	key := objectKey(instanceID, id)
 	bucket := ""
@@ -186,7 +236,9 @@ func (s *Storage) Save(
 	})
 	if err != nil {
 		// The row is the only reference to the content: drop the orphan.
-		s.discardContent(ctx, model.Media{Bucket: bucket, ObjectKey: key})
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		defer cancel()
+		s.discardContent(cleanupCtx, model.Media{Bucket: bucket, ObjectKey: key})
 		return nil, fmt.Errorf("save media: %w", mapRepoError(err))
 	}
 	return created, nil
@@ -248,6 +300,17 @@ func (s *Storage) Path(ctx context.Context, id uuid.UUID) (string, *model.Media,
 	if err != nil {
 		return "", nil, err
 	}
+	// The initial lookup identifies the guard. Revalidate once held because
+	// instance deletion or expiry may have completed while acquisition waited.
+	release, err := s.acquireInstance(ctx, record.InstanceID)
+	if err != nil {
+		return "", nil, fmt.Errorf("open media %s: %w", id, err)
+	}
+	defer release()
+	record, err = s.fetchable(ctx, id)
+	if err != nil {
+		return "", nil, err
+	}
 
 	cachePath, err := s.path(record.ObjectKey)
 	if err != nil {
@@ -304,6 +367,30 @@ func (s *Storage) fetchable(ctx context.Context, id uuid.UUID) (*model.Media, er
 // then the rows, then the cache directory. When an object cannot be removed
 // its row is kept, so a retry can finish the job instead of leaking content.
 func (s *Storage) DeleteByInstance(ctx context.Context, instanceID uuid.UUID) error {
+	release, err := s.acquireInstance(ctx, instanceID)
+	if err != nil {
+		return fmt.Errorf("delete instance media %s: %w", instanceID, err)
+	}
+	defer release()
+	return s.deleteByInstance(ctx, instanceID)
+}
+
+// DeleteWithInstance holds the media write guard through removal of the parent
+// instance. A Save waiting for deletion then fails its metadata foreign key and
+// compensates its upload, instead of losing its row to the instance cascade.
+func (s *Storage) DeleteWithInstance(ctx context.Context, instanceID uuid.UUID, deleteInstance func() error) error {
+	release, err := s.acquireInstance(ctx, instanceID)
+	if err != nil {
+		return fmt.Errorf("delete instance media %s: %w", instanceID, err)
+	}
+	defer release()
+	if err := s.deleteByInstance(ctx, instanceID); err != nil {
+		return err
+	}
+	return deleteInstance()
+}
+
+func (s *Storage) deleteByInstance(ctx context.Context, instanceID uuid.UUID) error {
 	records, err := s.repo.ListByInstance(ctx, instanceID)
 	if err != nil {
 		return fmt.Errorf("delete instance media %s: list: %w", instanceID, err)
@@ -345,22 +432,47 @@ func (s *Storage) DeleteExpired(ctx context.Context, now time.Time) (int, error)
 	removed := 0
 	var failures []error
 	for _, record := range records {
-		if err := s.removeContent(ctx, record); err != nil {
+		deleted, err := s.deleteExpiredRecord(ctx, record, now)
+		if err != nil {
 			failures = append(failures, err)
 			continue
 		}
-		markedAt := s.now()
-		if err := s.repo.MarkObjectDeleted(ctx, record.ID, markedAt); err != nil && !errors.Is(err, storage.ErrNotFound) {
-			failures = append(failures, fmt.Errorf("mark media %s deleted: %w", record.ID, err))
-			continue
+		if deleted {
+			removed++
 		}
-		_ = s.removeCacheFile(record.ObjectKey)
-		removed++
 	}
 	if err := errors.Join(failures...); err != nil {
 		return removed, fmt.Errorf("delete expired media: %w", err)
 	}
 	return removed, nil
+}
+
+// deleteExpiredRecord keeps object deletion, its confirmed marker and cache
+// removal under the same guard as Path materialization and instance deletion.
+func (s *Storage) deleteExpiredRecord(ctx context.Context, record model.Media, now time.Time) (bool, error) {
+	release, err := s.acquireInstance(ctx, record.InstanceID)
+	if err != nil {
+		return false, err
+	}
+	defer release()
+	current, err := s.repo.Get(ctx, record.ID)
+	if errors.Is(err, storage.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("get expired media %s: %w", record.ID, err)
+	}
+	if current.ObjectDeletedAt != nil || current.ExpiresAt.After(now) {
+		return false, nil
+	}
+	if err := s.removeContent(ctx, *current); err != nil {
+		return false, err
+	}
+	if err := s.repo.MarkObjectDeleted(ctx, current.ID, s.now()); err != nil && !errors.Is(err, storage.ErrNotFound) {
+		return false, fmt.Errorf("mark media %s deleted: %w", current.ID, err)
+	}
+	_ = s.removeCacheFile(current.ObjectKey)
+	return true, nil
 }
 
 // discardContent removes an orphan object/file after a failed row create;

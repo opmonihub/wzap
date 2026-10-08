@@ -1,7 +1,7 @@
 ## 1. Configuração e reverse proxy
 
 - [x] 1.1 Adicionar a configuração opcional do proxy dev e testar variável ausente, URL válida, URL inválida e mensagem sem exposição do valor com `go test ./internal/config -count=1`.
-- [ ] 1.2 Implementar o proxy e verificar redirecionamento, páginas internas, assets, Host público, query strings, isolamento da API e `503` sem fallback com `go test ./manager ./internal/config ./internal/httpapi/... -count=1`.
+- [x] 1.2 Implementar o proxy e verificar redirecionamento, páginas internas, assets, Host público, query strings, isolamento da API e `503` sem fallback com `go test ./manager ./internal/config ./internal/httpapi/... -count=1`.
 - [ ] 1.3 Verificar upgrade `101` e comunicação WebSocket nos dois sentidos por um servidor HTTP de teste real com `go test ./manager ./internal/httpapi/... -count=1`.
 
 ## 2. Nuxt e HMR

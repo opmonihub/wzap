@@ -70,9 +70,9 @@
 
 ## 2. Nuxt — tarefa 2.1
 
-**Arquivo:** `manager/nuxt.config.ts`.
-
 ### Task 4: HMR pela entrada pública (2.1)
+
+**Arquivo:** `manager/nuxt.config.ts`.
 
 - [ ] Preservar `ssr: false`, base `/manager/`, API na mesma origem e proxy Vite standalone; aplicar `NUXT_DEV_HMR_CLIENT_PORT=8081` somente ao cliente WebSocket de desenvolvimento conforme design.
 - [ ] Com o Compose da tarefa 4.1 ativo, observar `101` pela origem `8081` e registrar os caminhos de assets/HMR, sem prefixo duplicado nem fallback para porta interna.
@@ -82,9 +82,9 @@
 
 ## 3. Air — tarefas 3.1–3.3
 
-**Arquivos:** `.air.toml`, `Dockerfile.dev` quando necessário e novo teste `docker/dev_reload_test.go`.
-
 ### Task 5: Air nativo e proteção condicionada (3.1–3.3)
+
+**Arquivos:** `.air.toml`, `Dockerfile.dev` quando necessário e novo teste `docker/dev_reload_test.go`.
 
 #### 3.1 Configuração nativa e recuperação
 
@@ -108,9 +108,9 @@
 
 ## 4. Compose — tarefas 4.1–4.2
 
-**Arquivo:** `docker-compose.dev.yml`; preservar o empacotamento no `Dockerfile` de produção e a infraestrutura declarada no Compose base.
-
 ### Task 6: Sobreposição Compose e troca preservada (4.1–4.2)
+
+**Arquivo:** `docker-compose.dev.yml`; preservar o empacotamento no `Dockerfile` de produção e a infraestrutura declarada no Compose base.
 
 #### 4.1 Sobreposição do mesmo serviço
 

@@ -64,6 +64,7 @@ inicialização com mensagem nomeando a variável.
 | `WZAP_DATABASE_URL` | sim | — | URL do Postgres, ex. `postgres://wzap:secret@postgres:5432/wzap?sslmode=disable`. |
 | `WZAP_NATS_URL` | sim | — | URL do NATS, ex. `nats://nats:4222`. |
 | `WZAP_HTTP_ADDR` | não | `:8080` | Endereço de escuta do HTTP. O subcomando `healthcheck` resolve host vazio/`0.0.0.0`/`::` para `127.0.0.1`. |
+| `WZAP_MANAGER_DEV_URL` | não | vazio | Vazia ou ausente mantém o manager embutido; definida, encaminha o painel ao upstream dev. Aceita uma origem HTTP/HTTPS absoluta sem credenciais, query, fragmento ou prefixo de caminho (path vazio ou `/`). No Compose dev: `http://manager-dev:3000`. |
 | `WZAP_PUBLIC_URL` | não | vazio | Base das URLs de download de mídia embutidas nos eventos (`media.url`). Sem ela a URL sai relativa (`/media/<id>`); na operação local use `http://127.0.0.1:8081`. |
 | `WZAP_NATS_STREAM` | não | `WZAP` | Nome do stream JetStream. O stream cobre `wzap.>`. |
 | `WZAP_EVENT_RETENTION_DAYS` | não | `7` | Retenção dos eventos no stream, em dias. |
@@ -600,6 +601,17 @@ Inclua o override local entre base/dev quando aplicável. Alterações de
 ambiente/Compose exigem reaplicação do comando dev; alterações no Dockerfile
 dev exigem `--build`. Os caches de Go, pnpm, node_modules e saídas Nuxt são
 volumes dev separados dos volumes de dados.
+
+Alterações em `.air.toml` exigem reiniciar Go/Air para carregar a nova
+configuração; reaplicar um Compose inalterado não garante esse reinício:
+
+```bash
+# Sem override local.
+docker compose -f docker-compose.yml -f docker-compose.dev.yml restart wzap
+
+# Com override local.
+docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.dev.yml restart wzap
+```
 
 Para voltar ao compilado, pare primeiro Go dev **e** Nuxt, depois construa/suba
 somente a aplicação base. Não remova volumes e não execute outra réplica sobre

@@ -1,0 +1,51 @@
+ok  	wzap/cmd/wzap	0.606s
+ok  	wzap/docker	4.507s
+?   	wzap/docs	[no test files]
+ok  	wzap/internal/app	0.088s
+ok  	wzap/internal/auth	3.597s
+ok  	wzap/internal/chatwoot/client	0.189s
+ok  	wzap/internal/chatwoot/config	0.184s
+ok  	wzap/internal/chatwoot/contacts	0.199s
+ok  	wzap/internal/chatwoot/conversations	0.616s
+ok  	wzap/internal/chatwoot/import	0.802s
+ok  	wzap/internal/chatwoot/inbound	0.377s
+ok  	wzap/internal/chatwoot/mapper	0.099s
+ok  	wzap/internal/chatwoot/mirror	0.594s
+ok  	wzap/internal/config	0.299s
+ok  	wzap/internal/events	0.097s
+ok  	wzap/internal/httpapi	31.999s
+ok  	wzap/internal/httpapi/authsession	0.117s
+?   	wzap/internal/httpapi/channels	[no test files]
+?   	wzap/internal/httpapi/chats	[no test files]
+?   	wzap/internal/httpapi/chatwoot	[no test files]
+?   	wzap/internal/httpapi/contacts	[no test files]
+ok  	wzap/internal/httpapi/core	0.795s
+?   	wzap/internal/httpapi/groups	[no test files]
+?   	wzap/internal/httpapi/instances	[no test files]
+?   	wzap/internal/httpapi/media	[no test files]
+?   	wzap/internal/httpapi/messages	[no test files]
+?   	wzap/internal/httpapi/profile	[no test files]
+ok  	wzap/internal/httpapi/representation	0.195s
+?   	wzap/internal/httpapi/statuses	[no test files]
+?   	wzap/internal/httpapi/users	[no test files]
+ok  	wzap/internal/instance	0.509s
+ok  	wzap/internal/instancelock	0.202s
+--- FAIL: TestNoSlogInProd (0.00s)
+    slogban_test.go:51: walk repo: open /home/obsidian/dev/wzap/.worktrees/enable-dev-live-reload/.superpowers/sdd/plan/reload-temp/go-build912644282: permission denied
+FAIL
+FAIL	wzap/internal/logger	0.016s
+ok  	wzap/internal/media	0.406s
+ok  	wzap/internal/message	0.302s
+?   	wzap/internal/model	[no test files]
+ok  	wzap/internal/replicalock	0.020s
+ok  	wzap/internal/session	0.096s
+ok  	wzap/internal/session/sessiontest	0.090s
+ok  	wzap/internal/session/whatsmeow	1.184s
+?   	wzap/internal/storage	[no test files]
+?   	wzap/internal/storage/migrations	[no test files]
+ok  	wzap/internal/storage/postgres	0.203s
+ok  	wzap/internal/storage/postgres/postgrestest	0.191s
+?   	wzap/internal/version	[no test files]
+ok  	wzap/internal/webhook	4.999s
+ok  	wzap/manager	0.283s
+FAIL

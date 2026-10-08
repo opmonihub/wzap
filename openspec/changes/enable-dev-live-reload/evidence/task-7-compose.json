@@ -1,0 +1,55 @@
+[
+  {
+    "files": [
+      "docker-compose.yml",
+      "docker-compose.dev.yml"
+    ],
+    "project": "wzap",
+    "go_service": "wzap",
+    "go_image": "wzap:dev-live-reload",
+    "go_ports": [
+      {
+        "mode": "ingress",
+        "host_ip": "127.0.0.1",
+        "target": 8080,
+        "published": "8081",
+        "protocol": "tcp"
+      }
+    ],
+    "manager_ports": [],
+    "manager_command": [
+      "sh",
+      "-c",
+      "corepack enable && pnpm install --frozen-lockfile && pnpm dev --port 3000 --host 0.0.0.0"
+    ],
+    "stop_grace_period": "20s",
+    "same_project_one_go_service": true
+  },
+  {
+    "files": [
+      "docker-compose.yml",
+      "docker-compose.override.yml",
+      "docker-compose.dev.yml"
+    ],
+    "project": "wzap",
+    "go_service": "wzap",
+    "go_image": "wzap:dev-live-reload",
+    "go_ports": [
+      {
+        "mode": "ingress",
+        "host_ip": "127.0.0.1",
+        "target": 8080,
+        "published": "8081",
+        "protocol": "tcp"
+      }
+    ],
+    "manager_ports": [],
+    "manager_command": [
+      "sh",
+      "-c",
+      "corepack enable && pnpm install --frozen-lockfile && pnpm dev --port 3000 --host 0.0.0.0"
+    ],
+    "stop_grace_period": "20s",
+    "same_project_one_go_service": true
+  }
+]

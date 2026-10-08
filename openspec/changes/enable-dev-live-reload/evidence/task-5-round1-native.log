@@ -1,0 +1,90 @@
+=== RUN   TestDevReload
+=== RUN   TestDevReload/Drain
+    dev_reload_test.go:53: supervisor exit after 5.004117984s (<nil>)
+    dev_reload_test.go:54: +0.000s start version=one pid=2092428
+    dev_reload_test.go:54: +0.388s signal version=one pid=2092428
+    dev_reload_test.go:54: +6.814s start version=two pid=2093071
+    dev_reload_test.go:54: replacement 2093071 started before prior children exited: map[2092428:true]
+    dev_reload_test.go:54: +6.915s signal version=two pid=2093071
+    dev_reload_test.go:54: +8.395s exit version=one pid=2092428
+    dev_reload_test.go:54: supervisor exited with active children: map[2093071:true]
+    dev_reload_test.go:271: Air output:
+        
+          __    _   ___  
+         / /\  | | | |_) 
+        /_/--\ |_| |_| \_ v1.61.7, built with Go go1.26.0
+        
+        mkdir /tmp/TestDevReloadDrain1069466338/001/tmp
+        watching .
+        watching docs
+        watching internal
+        watching internal/storage
+        watching internal/storage/migrations
+        watching manager
+        !exclude tmp
+        building...
+        running...
+        main.go has changed
+        building...
+        running...
+        cleaning...
+        Process Exit with Code 0
+        deleting /tmp/TestDevReloadDrain1069466338/001/tmp
+        see you again~
+=== RUN   TestDevReload/StopDuringDrain
+    dev_reload_test.go:109: supervisor exit after 5.029196171s (<nil>)
+    dev_reload_test.go:110: +0.000s start version=one pid=2093690
+    dev_reload_test.go:110: +0.325s signal version=one pid=2093690
+    dev_reload_test.go:110: supervisor exited with active children: map[2093690:true]
+    dev_reload_test.go:271: Air output:
+        
+          __    _   ___  
+         / /\  | | | |_) 
+        /_/--\ |_| |_| \_ v1.61.7, built with Go go1.26.0
+        
+        mkdir /tmp/TestDevReloadStopDuringDrain1999809720/001/tmp
+        watching .
+        watching docs
+        watching internal
+        watching internal/storage
+        watching internal/storage/migrations
+        watching manager
+        !exclude tmp
+        building...
+        running...
+        main.go has changed
+        cleaning...
+        building...
+        deleting /tmp/TestDevReloadStopDuringDrain1999809720/001/tmp
+        see you again~
+=== RUN   TestDevReload/SupervisorStop
+    dev_reload_test.go:115: supervisor exit after 5.009527061s (<nil>)
+    dev_reload_test.go:116: +0.000s start version=one pid=2094138
+    dev_reload_test.go:116: +0.114s signal version=one pid=2094138
+    dev_reload_test.go:116: supervisor exited with active children: map[2094138:true]
+    dev_reload_test.go:271: Air output:
+        
+          __    _   ___  
+         / /\  | | | |_) 
+        /_/--\ |_| |_| \_ v1.61.7, built with Go go1.26.0
+        
+        mkdir /tmp/TestDevReloadSupervisorStop3735456916/001/tmp
+        watching .
+        watching docs
+        watching internal
+        watching internal/storage
+        watching internal/storage/migrations
+        watching manager
+        !exclude tmp
+        building...
+        running...
+        cleaning...
+        deleting /tmp/TestDevReloadSupervisorStop3735456916/001/tmp
+        see you again~
+--- FAIL: TestDevReload (25.57s)
+    --- FAIL: TestDevReload/Drain (14.03s)
+    --- FAIL: TestDevReload/StopDuringDrain (5.68s)
+    --- FAIL: TestDevReload/SupervisorStop (5.75s)
+FAIL
+FAIL	wzap/docker	25.581s
+FAIL

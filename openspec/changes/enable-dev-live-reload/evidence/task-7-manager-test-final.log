@@ -1,0 +1,61 @@
+$ vitest run --maxWorkers=1
+
+ RUN  v3.2.7 /home/obsidian/dev/wzap/.worktrees/enable-dev-live-reload/manager
+
+stdout | app/components/accounts/QuotaForms.test.ts > account creation quota > leaves a blank quota undefined out of the API body
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/components/accounts/QuotaForms.test.ts (32 tests) 2304ms
+   ✓ account creation quota > leaves a blank quota undefined out of the API body  1297ms
+   ✓ editing an account quota > sends quota 0 as the number 0  397ms
+stdout | app/components/instances/MessageComposer.test.ts > location composition > rejects absent coordinates "", "" before numeric conversion or sending
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/components/instances/MessageComposer.test.ts (16 tests) 2103ms
+   ✓ location composition > rejects absent coordinates "", "" before numeric conversion or sending  1804ms
+stdout | app/components/instances/ChannelsCard.test.ts > own status rows > keeps a image status without caption identifiable and deletable
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/components/instances/ChannelsCard.test.ts (4 tests) 1504ms
+   ✓ own status rows > keeps a image status without caption identifiable and deletable  1413ms
+stdout | app/pages/instances/detail.test.ts > instance detail identity > replaces a renamed alias with a refreshable UUID URL and retains section, other query and hash
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/pages/instances/detail.test.ts (5 tests) 2193ms
+   ✓ instance detail identity > replaces a renamed alias with a refreshable UUID URL and retains section, other query and hash  2092ms
+stdout | app/components/instances/detail/InstanceSettingsSection.test.ts > authorized key revocation > lets an admin revoke without cached key, storage unavailable: false
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/components/instances/detail/InstanceSettingsSection.test.ts (8 tests) 1714ms
+   ✓ authorized key revocation > lets an admin revoke without cached key, storage unavailable: false  1598ms
+stdout | app/components/instances/ProfileCard.test.ts > profile edits > saves only the changed recado "Closed" without requesting unsupported name
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/components/instances/ProfileCard.test.ts (8 tests) 1298ms
+   ✓ profile edits > saves only the changed recado "Closed" without requesting unsupported name  1111ms
+stdout | app/components/instances/detail/InstanceSectionNav.test.ts > instance section navigation > lets the mobile selector emit each of the seven sections once
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/components/instances/detail/InstanceSectionNav.test.ts (3 tests) 1199ms
+   ✓ instance section navigation > lets the mobile selector emit each of the seven sections once  1101ms
+stdout | app/components/instances/WebhookCard.test.ts > webhook subscriptions > saves independent event changes in contract order without selecting message
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/components/instances/WebhookCard.test.ts (2 tests) 2193ms
+   ✓ webhook subscriptions > saves independent event changes in contract order without selecting message  2010ms
+stdout | app/components/auth/LoginForm.test.ts > login validation > explains missing fields for undefined without a login request
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/components/auth/LoginForm.test.ts (7 tests) 882ms
+   ✓ login validation > explains missing fields for undefined without a login request  776ms
+ ✓ app/composables/useAccounts.test.ts (2 tests) 9ms
+ ✓ app/composables/useOverview.test.ts (3 tests) 7ms
+ ✓ app/utils/tableRowNavigation.test.ts (7 tests) 6ms
+ ✓ app/utils/groupLookup.test.ts (2 tests) 3ms
+ ✓ app/utils/accountQuota.test.ts (18 tests) 89ms
+
+ Test Files  14 passed (14)
+      Tests  117 passed (117)
+   Start at  12:48:00
+   Duration  60.08s (transform 2.39s, setup 0ms, collect 23.46s, tests 15.50s, environment 5ms, prepare 6.21s)
+

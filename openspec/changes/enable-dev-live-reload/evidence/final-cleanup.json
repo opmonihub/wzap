@@ -1,0 +1,30 @@
+{
+  "qa_cleanup": "complete",
+  "original_data": {
+    "users": 1,
+    "instances": 1,
+    "user_ids": "9b651cd0d8ecdb826f93927d7efbc6a6",
+    "instance_ids": "2d936187c29a7fc2ec7ae8dadc9777e0"
+  },
+  "data_preserved": true,
+  "infrastructure": [
+    {
+      "name": "wzap-postgres-1",
+      "id": "15fef8ebdde0ed01cc1330ceb8ddd300ace406bdd9b3e2d404014f07cad98f59",
+      "unchanged": true
+    },
+    {
+      "name": "wzap-nats-1",
+      "id": "73634d67cc33e4b0e90065ef9f74dff9024ba3bdbbbf5ecff45303a6f6013c03",
+      "unchanged": true
+    },
+    {
+      "name": "wzap-minio-1",
+      "id": "d8168a900d6cda9b0b15c75fd67153832f8c5e2f9f9776909776e5706f9d5148",
+      "unchanged": true
+    }
+  ],
+  "final_mode": "development",
+  "go_service_count": 1,
+  "manager_host_ports": []
+}

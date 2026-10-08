@@ -1,0 +1,4 @@
+go version go1.26.0 linux/amd64
+golangci-lint has version 2.13.2 built with go1.27.0 from 27774aaf on 2026-08-27T23:01:12Z
+v24.18.0
+11.22.0

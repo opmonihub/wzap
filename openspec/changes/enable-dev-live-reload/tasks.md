@@ -21,5 +21,5 @@
 
 ## 5. Verificação integrada e documentação
 
-- [ ] 5.1 Executar os checks Go e manager previstos no repositório e validar login, navegação, refresh e reconexão HMR com `agent-browser` em desktop e mobile, registrando resultados e screenshots.
-- [ ] 5.2 Confirmar que a imagem de produção serve o manager embutido sem Nuxt em execução e documentar os comandos finais de desenvolvimento, retorno ao compilado e exceções à recarga automática, conferindo-os contra o Compose resolvido.
+- [x] 5.1 Executar os checks Go e manager previstos no repositório e validar login, navegação, refresh e reconexão HMR com `agent-browser` em desktop e mobile, registrando resultados e screenshots.
+- [x] 5.2 Confirmar que a imagem de produção serve o manager embutido sem Nuxt em execução e documentar os comandos finais de desenvolvimento, retorno ao compilado e exceções à recarga automática, conferindo-os contra o Compose resolvido.

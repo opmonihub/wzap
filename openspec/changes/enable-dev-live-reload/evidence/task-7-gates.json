@@ -1,0 +1,67 @@
+[
+  {
+    "command": "gofmt -l tracked Go files",
+    "exit": 0,
+    "evidence": "no files listed"
+  },
+  {
+    "command": "go vet ./...",
+    "exit": 0,
+    "evidence": "task-7-go-vet.log"
+  },
+  {
+    "command": "golangci-lint run",
+    "exit": 0,
+    "evidence": "task-7-go-lint.log"
+  },
+  {
+    "command": "go test ./... -count=1 initial",
+    "exit": 1,
+    "evidence": "task-7-go-test.log: unreadable stale proof scratch"
+  },
+  {
+    "command": "go test ./... -count=1 final",
+    "exit": 0,
+    "evidence": "task-7-go-integration.log: explicit reachable Postgres_test+NATS; GOMAXPROCS2"
+  },
+  {
+    "command": "go build ./...",
+    "exit": 0,
+    "evidence": "task-7-go-build.log"
+  },
+  {
+    "command": "pnpm --dir manager test initial",
+    "exit": 1,
+    "evidence": "task-7-manager-test.log:4parallel5s timeout failures"
+  },
+  {
+    "command": "pnpm --dir manager test --maxWorkers=1",
+    "exit": 0,
+    "evidence": "task-7-manager-test-final.log:117/117"
+  },
+  {
+    "command": "pnpm --dir manager lint initial",
+    "exit": 1,
+    "evidence": "task-7-manager-lint.log"
+  },
+  {
+    "command": "pnpm --dir manager lint intermediate",
+    "exit": 1,
+    "evidence": "task-7-manager-lint-green.log"
+  },
+  {
+    "command": "pnpm --dir manager lint final",
+    "exit": 0,
+    "evidence": "task-7-manager-lint-final.log"
+  },
+  {
+    "command": "pnpm --dir manager typecheck",
+    "exit": 0,
+    "evidence": "task-7-manager-typecheck.log"
+  },
+  {
+    "command": "pnpm --dir manager build",
+    "exit": 0,
+    "evidence": "task-7-manager-build.log"
+  }
+]

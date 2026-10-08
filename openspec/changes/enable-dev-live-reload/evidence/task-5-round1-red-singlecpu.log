@@ -1,0 +1,24 @@
+=== RUN   TestDevReload
+=== RUN   TestDevReload/PipeOutputReloadAndRecovery
+    dev_reload_test.go:40: timeout waiting for start pipe-reload; events=[{Kind:start Version:one PID:2074086 At:1791471160667206758}]
+    dev_reload_test.go:235: Air output:
+        
+          __    _   ___  
+         / /\  | | | |_) 
+        /_/--\ |_| |_| \_ v1.61.7, built with Go go1.26.0
+        
+        watching .
+        watching docker
+        watching docs
+        watching internal
+        watching internal/storage
+        watching internal/storage/migrations
+        watching manager
+        !exclude tmp
+        building...
+        running...
+--- FAIL: TestDevReload (27.96s)
+    --- FAIL: TestDevReload/PipeOutputReloadAndRecovery (27.95s)
+FAIL
+FAIL	wzap/docker	27.964s
+FAIL

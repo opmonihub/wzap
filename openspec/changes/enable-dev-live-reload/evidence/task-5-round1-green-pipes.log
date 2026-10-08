@@ -1,0 +1,44 @@
+=== RUN   TestDevReload
+=== RUN   TestDevReload/PipeOutputReloadAndRecovery
+    dev_reload_test.go:45: supervisor exit after 5.011099489s (<nil>)
+    dev_reload_test.go:46: +0.000s start version=one pid=2077533
+    dev_reload_test.go:46: +0.319s signal version=one pid=2077533
+    dev_reload_test.go:46: +0.369s exit version=one pid=2077533
+    dev_reload_test.go:46: +5.783s start version=pipe-reload pid=2078068
+    dev_reload_test.go:46: +6.097s signal version=pipe-reload pid=2078068
+    dev_reload_test.go:46: +6.147s exit version=pipe-reload pid=2078068
+    dev_reload_test.go:46: +12.609s start version=pipe-recovered pid=2078588
+    dev_reload_test.go:46: +12.719s signal version=pipe-recovered pid=2078588
+    dev_reload_test.go:46: +12.769s exit version=pipe-recovered pid=2078588
+--- PASS: TestDevReload (18.11s)
+    --- PASS: TestDevReload/PipeOutputReloadAndRecovery (18.11s)
+=== RUN   TestDevReload
+=== RUN   TestDevReload/PipeOutputReloadAndRecovery
+    dev_reload_test.go:45: supervisor exit after 5.008380011s (<nil>)
+    dev_reload_test.go:46: +0.000s start version=one pid=2079020
+    dev_reload_test.go:46: +0.309s signal version=one pid=2079020
+    dev_reload_test.go:46: +0.360s exit version=one pid=2079020
+    dev_reload_test.go:46: +5.750s start version=pipe-reload pid=2079345
+    dev_reload_test.go:46: +6.061s signal version=pipe-reload pid=2079345
+    dev_reload_test.go:46: +6.112s exit version=pipe-reload pid=2079345
+    dev_reload_test.go:46: +11.788s start version=pipe-recovered pid=2079743
+    dev_reload_test.go:46: +11.890s signal version=pipe-recovered pid=2079743
+    dev_reload_test.go:46: +11.940s exit version=pipe-recovered pid=2079743
+--- PASS: TestDevReload (17.23s)
+    --- PASS: TestDevReload/PipeOutputReloadAndRecovery (17.22s)
+=== RUN   TestDevReload
+=== RUN   TestDevReload/PipeOutputReloadAndRecovery
+    dev_reload_test.go:45: supervisor exit after 5.008157211s (<nil>)
+    dev_reload_test.go:46: +0.000s start version=one pid=2080134
+    dev_reload_test.go:46: +0.324s signal version=one pid=2080134
+    dev_reload_test.go:46: +0.374s exit version=one pid=2080134
+    dev_reload_test.go:46: +5.745s start version=pipe-reload pid=2080527
+    dev_reload_test.go:46: +6.047s signal version=pipe-reload pid=2080527
+    dev_reload_test.go:46: +6.097s exit version=pipe-reload pid=2080527
+    dev_reload_test.go:46: +12.444s start version=pipe-recovered pid=2081130
+    dev_reload_test.go:46: +12.547s signal version=pipe-recovered pid=2081130
+    dev_reload_test.go:46: +12.598s exit version=pipe-recovered pid=2081130
+--- PASS: TestDevReload (17.87s)
+    --- PASS: TestDevReload/PipeOutputReloadAndRecovery (17.86s)
+PASS
+ok  	wzap/docker	53.212s

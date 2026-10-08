@@ -1,0 +1,76 @@
+=== RUN   TestDevReload
+=== RUN   TestDevReload/PipeOutputReloadAndRecovery
+    dev_reload_test.go:45: supervisor exit after 5.009196164s (<nil>)
+    dev_reload_test.go:46: +0.000s start version=one pid=555
+    dev_reload_test.go:46: +0.308s signal version=one pid=555
+    dev_reload_test.go:46: +0.358s exit version=one pid=555
+    dev_reload_test.go:46: +5.639s start version=pipe-reload pid=584
+    dev_reload_test.go:46: +5.962s signal version=pipe-reload pid=584
+    dev_reload_test.go:46: +6.012s exit version=pipe-reload pid=584
+    dev_reload_test.go:46: +11.591s start version=pipe-recovered pid=628
+    dev_reload_test.go:46: +11.710s signal version=pipe-recovered pid=628
+    dev_reload_test.go:46: +11.760s exit version=pipe-recovered pid=628
+=== RUN   TestDevReload/Drain
+    dev_reload_test.go:53: supervisor exit after 8.010815668s (<nil>)
+    dev_reload_test.go:54: +0.000s start version=one pid=682
+    dev_reload_test.go:54: +0.369s signal version=one pid=682
+    dev_reload_test.go:54: +8.375s exit version=one pid=682
+    dev_reload_test.go:54: +8.378s start version=two pid=727
+    dev_reload_test.go:54: +8.483s signal version=two pid=727
+    dev_reload_test.go:54: +16.492s exit version=two pid=727
+=== RUN   TestDevReload/DrainAndSuccessiveEdits
+    dev_reload_test.go:65: supervisor exit after 8.057524525s (<nil>)
+    dev_reload_test.go:66: +0.000s start version=one pid=784
+    dev_reload_test.go:66: +0.323s signal version=one pid=784
+    dev_reload_test.go:66: +8.330s exit version=one pid=784
+    dev_reload_test.go:66: +8.333s start version=latest pid=829
+    dev_reload_test.go:66: +8.439s signal version=latest pid=829
+    dev_reload_test.go:66: +16.494s exit version=latest pid=829
+=== RUN   TestDevReload/BuildRecoveryAndWatchScope
+    dev_reload_test.go:101: supervisor exit after 5.011614918s (<nil>)
+    dev_reload_test.go:102: +0.000s start version=one pid=886
+    dev_reload_test.go:102: +1.309s signal version=one pid=886
+    dev_reload_test.go:102: +1.359s exit version=one pid=886
+    dev_reload_test.go:102: +7.302s start version=recovered pid=956
+    dev_reload_test.go:102: +7.608s signal version=recovered pid=956
+    dev_reload_test.go:102: +7.658s exit version=recovered pid=956
+    dev_reload_test.go:102: +12.900s start version=recovered pid=990
+    dev_reload_test.go:102: +13.107s signal version=recovered pid=990
+    dev_reload_test.go:102: +13.157s exit version=recovered pid=990
+    dev_reload_test.go:102: +18.694s start version=recovered pid=1023
+    dev_reload_test.go:102: +18.909s signal version=recovered pid=1023
+    dev_reload_test.go:102: +18.981s exit version=recovered pid=1023
+    dev_reload_test.go:102: +24.195s start version=recovered pid=1057
+    dev_reload_test.go:102: +24.408s signal version=recovered pid=1057
+    dev_reload_test.go:102: +24.458s exit version=recovered pid=1057
+    dev_reload_test.go:102: +29.503s start version=recovered pid=1091
+    dev_reload_test.go:102: +29.713s signal version=recovered pid=1091
+    dev_reload_test.go:102: +29.781s exit version=recovered pid=1091
+    dev_reload_test.go:102: +34.805s start version=recovered pid=1124
+    dev_reload_test.go:102: +34.807s signal version=recovered pid=1124
+    dev_reload_test.go:102: +34.858s exit version=recovered pid=1124
+=== RUN   TestDevReload/StopDuringDrain
+    dev_reload_test.go:109: supervisor exit after 8.007893677s (<nil>)
+    dev_reload_test.go:110: +0.000s start version=one pid=1181
+    dev_reload_test.go:110: +0.322s signal version=one pid=1181
+    dev_reload_test.go:110: +8.330s exit version=one pid=1181
+=== RUN   TestDevReload/SupervisorStop
+    dev_reload_test.go:115: supervisor exit after 8.005952747s (<nil>)
+    dev_reload_test.go:116: +0.000s start version=one pid=1248
+    dev_reload_test.go:116: +0.118s signal version=one pid=1248
+    dev_reload_test.go:116: +8.123s exit version=one pid=1248
+--- PASS: TestDevReload (111.46s)
+    --- PASS: TestDevReload/PipeOutputReloadAndRecovery (17.21s)
+    --- PASS: TestDevReload/Drain (16.89s)
+    --- PASS: TestDevReload/DrainAndSuccessiveEdits (18.58s)
+    --- PASS: TestDevReload/BuildRecoveryAndWatchScope (41.14s)
+    --- PASS: TestDevReload/StopDuringDrain (8.77s)
+    --- PASS: TestDevReload/SupervisorStop (8.87s)
+=== RUN   TestDevSupervisorSignalOnce
+    dev_reload_test.go:152: supervisor exit after 159.802625ms (<nil>)
+    dev_reload_test.go:153: +0.000s start version=synthetic-air pid=1294
+    dev_reload_test.go:153: +0.122s signal version=synthetic-air pid=1294
+    dev_reload_test.go:153: +0.322s exit version=synthetic-air pid=1294
+--- PASS: TestDevSupervisorSignalOnce (0.68s)
+PASS
+ok  	wzap/docker	112.141s

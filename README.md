@@ -556,6 +556,73 @@ curl 127.0.0.1:8081/readyz
 # {"data":{"status":"ready","checks":{"migrations":"ok","nats":"ok","postgres":"ok"}}}
 ```
 
+### Desenvolvimento com recarga automática
+
+Go e Nuxt dev usam o mesmo projeto `wzap`, banco e volumes do modo compilado.
+A API permanece na raiz e o painel em `http://127.0.0.1:8081/manager/`; o Nuxt
+não publica uma porta própria. Na raiz do repositório:
+
+```bash
+# Sem override local: confira a configuração e ative ambos os serviços.
+docker compose -f docker-compose.yml -f docker-compose.dev.yml config
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build wzap manager-dev
+
+# Se existir docker-compose.override.yml, inclua-o ENTRE base e dev.
+docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.dev.yml config
+docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.dev.yml up -d --build wzap manager-dev
+
+# Logs de compilação Go, encerramento e HMR.
+docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f wzap manager-dev
+```
+
+Inclua também o override local no comando de logs quando aplicável. Os comandos
+com `-f` não carregam esse arquivo automaticamente: confira portas, ambiente e
+volumes resolvidos antes da primeira troca. Se ainda existir uma aplicação Go
+do antigo projeto `wzap-dev` usando esse banco, encerre somente essa aplicação
+antes de iniciar o modo novo e preserve seus volumes.
+
+O manager inicia normalmente junto com Go: Node 24 instala pelo lockfile com o
+pnpm fixado no manifest e inicia Nuxt; a primeira instalação/compilação pode
+levar alguns minutos. Air observa Go, módulos e migrações; Vue e CSS recebem
+HMR pela entrada pública, sem gerar o manager manualmente. Uma recarga Go
+interrompe brevemente HTTP, HMR e conexões WhatsApp; o processo anterior encerra
+antes do substituto, e o navegador reconecta. Se Nuxt estiver indisponível,
+`/manager/` retorna `503` e volta a responder quando ele se recuperar.
+
+A recarga cobre edições comuns de código e estilos. Depois de mudar o manifest
+ou lockfile do manager, recrie somente Nuxt para executar a instalação novamente:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate manager-dev
+```
+
+Inclua o override local entre base/dev quando aplicável. Alterações de
+ambiente/Compose exigem reaplicação do comando dev; alterações no Dockerfile
+dev exigem `--build`. Os caches de Go, pnpm, node_modules e saídas Nuxt são
+volumes dev separados dos volumes de dados.
+
+Para voltar ao compilado, pare primeiro Go dev **e** Nuxt, depois construa/suba
+somente a aplicação base. Não remova volumes e não execute outra réplica sobre
+o mesmo banco:
+
+```bash
+# Sem override local.
+docker compose -f docker-compose.yml -f docker-compose.dev.yml stop wzap manager-dev
+docker compose -f docker-compose.yml up -d --build wzap
+
+# Com override local.
+docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.dev.yml stop wzap manager-dev
+docker compose -f docker-compose.yml -f docker-compose.override.yml up -d --build wzap
+```
+
+A imagem de produção gera e embute os assets no binário; serve o painel, rotas
+internas e assets sem Nuxt em execução. `WZAP_MANAGER_DEV_URL` é opcional e vazio
+por padrão; preenchido com uma URL HTTP/HTTPS absoluta sem credenciais, query,
+fragmento ou prefixo de caminho, habilita o encaminhamento dev. Remova-o do
+ambiente de produção. Para Nuxt standalone no host, use `pnpm --dir manager
+install` e `pnpm --dir manager dev`; o proxy da API aponta por padrão para
+`http://127.0.0.1:8081`.
+
 O compose define `WZAP_API_KEY=${WZAP_API_KEY:-dev-wzap-token}`
 (sobrescreva definindo a variável no ambiente ou no `.env` da raiz),
 `WZAP_DATABASE_URL` apontando para o banco `wzap` dentro da rede,

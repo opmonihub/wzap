@@ -1,0 +1,11 @@
+{
+  "before": {
+    "title": "Overview",
+    "color": "oklch(0.21 0.006 285.885)"
+  },
+  "vue_css": {
+    "title": "Final HMR before reload",
+    "color": "rgb(181, 20, 115)"
+  },
+  "go_changed": true
+}

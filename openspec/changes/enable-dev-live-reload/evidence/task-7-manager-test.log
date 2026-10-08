@@ -1,0 +1,178 @@
+$ vitest run
+
+ RUN  v3.2.7 /home/obsidian/dev/wzap/.worktrees/enable-dev-live-reload/manager
+
+stdout | app/components/instances/ProfileCard.test.ts > profile edits > saves only the changed recado "Closed" without requesting unsupported name
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/components/instances/ProfileCard.test.ts (8 tests) 5207ms
+   ✓ profile edits > saves only the changed recado "Closed" without requesting unsupported name  4804ms
+stdout | app/components/accounts/QuotaForms.test.ts > account creation quota > leaves a blank quota undefined out of the API body
+<Suspense> is an experimental feature and its API will likely change.
+
+stdout | app/components/instances/MessageComposer.test.ts > location composition > rejects absent coordinates "", "" before numeric conversion or sending
+<Suspense> is an experimental feature and its API will likely change.
+
+ ❯ app/components/instances/MessageComposer.test.ts (16 tests | 1 failed) 8691ms
+   × location composition > rejects absent coordinates "", "" before numeric conversion or sending 7482ms
+     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   ✓ location composition > rejects absent coordinates "  ", "\t" before numeric conversion or sending 23ms
+   ✓ location composition > rejects absent coordinates "", "0" before numeric conversion or sending 168ms
+   ✓ location composition > rejects absent coordinates "0", "" before numeric conversion or sending 4ms
+   ✓ location composition > rejects absent coordinates " ", "12" before numeric conversion or sending 8ms
+   ✓ location composition > rejects absent coordinates "12", "  " before numeric conversion or sending 99ms
+   ✓ location composition > sends explicit valid coordinates "0", "0" 107ms
+   ✓ location composition > sends explicit valid coordinates " 0 ", " 0 " 85ms
+   ✓ location composition > sends explicit valid coordinates "-90", "180" 8ms
+   ✓ location composition > sends explicit valid coordinates "90", "-180" 14ms
+   ✓ location composition > rejects non-finite or out-of-bounds coordinates "-91", "0" 90ms
+   ✓ location composition > rejects non-finite or out-of-bounds coordinates "91", "0" 107ms
+   ✓ location composition > rejects non-finite or out-of-bounds coordinates "0", "-181" 104ms
+   ✓ location composition > rejects non-finite or out-of-bounds coordinates "0", "181" 101ms
+   ✓ location composition > rejects non-finite or out-of-bounds coordinates "NaN", "0" 2ms
+   ✓ location composition > rejects non-finite or out-of-bounds coordinates "0", "Infinity" 211ms
+ ❯ app/components/accounts/QuotaForms.test.ts (32 tests | 1 failed) 11107ms
+   × account creation quota > leaves a blank quota undefined out of the API body 6981ms
+     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   ✓ account creation quota > leaves a blank quota "" out of the API body 94ms
+   ✓ account creation quota > leaves a blank quota "   " out of the API body  307ms
+   ✓ account creation quota > sends quota 0 as the number 0 213ms
+   ✓ account creation quota > sends quota "0" as the number 0 188ms
+   ✓ account creation quota > sends quota 2 as the number 2 7ms
+   ✓ account creation quota > sends quota "2" as the number 2 85ms
+   ✓ account creation quota > rejects quota -1 with the account guidance before sending 23ms
+   ✓ account creation quota > rejects quota "-1" with the account guidance before sending 5ms
+   ✓ account creation quota > rejects quota 1.5 with the account guidance before sending  383ms
+   ✓ account creation quota > rejects quota "1.5" with the account guidance before sending  303ms
+   ✓ account creation quota > rejects quota null with the account guidance before sending 10ms
+   ✓ account creation quota > rejects quota null with the account guidance before sending 190ms
+   ✓ account creation quota > rejects quota "Infinity" with the account guidance before sending 94ms
+   ✓ account creation quota > rejects quota "quota" with the account guidance before sending 12ms
+   ✓ account creation quota > keeps the entered fields when the server rejects a duplicate email 4ms
+   ✓ editing an account quota > sends quota 0 as the number 0  1189ms
+   ✓ editing an account quota > sends quota "0" as the number 0 8ms
+   ✓ editing an account quota > sends quota 3 as the number 3 4ms
+   ✓ editing an account quota > sends quota "3" as the number 3 193ms
+   ✓ editing an account quota > requires a valid quota for undefined before sending 94ms
+   ✓ editing an account quota > requires a valid quota for "" before sending 108ms
+   ✓ editing an account quota > requires a valid quota for "   " before sending 95ms
+   ✓ editing an account quota > requires a valid quota for -1 before sending 98ms
+   ✓ editing an account quota > requires a valid quota for "-1" before sending 4ms
+   ✓ editing an account quota > requires a valid quota for 1.5 before sending 3ms
+   ✓ editing an account quota > requires a valid quota for "1.5" before sending 2ms
+   ✓ editing an account quota > requires a valid quota for null before sending 288ms
+   ✓ editing an account quota > requires a valid quota for null before sending 3ms
+   ✓ editing an account quota > requires a valid quota for "Infinity" before sending 5ms
+   ✓ editing an account quota > requires a valid quota for "quota" before sending 91ms
+   ✓ editing an account quota > keeps the entered quota and server error when saving fails 11ms
+stdout | app/components/instances/detail/InstanceSectionNav.test.ts > instance section navigation > lets the mobile selector emit each of the seven sections once
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/components/instances/detail/InstanceSectionNav.test.ts (3 tests) 4991ms
+   ✓ instance section navigation > lets the mobile selector emit each of the seven sections once  4681ms
+stdout | app/pages/instances/detail.test.ts > instance detail identity > replaces a renamed alias with a refreshable UUID URL and retains section, other query and hash
+<Suspense> is an experimental feature and its API will likely change.
+
+ ❯ app/pages/instances/detail.test.ts (5 tests | 1 failed) 6384ms
+   × instance detail identity > replaces a renamed alias with a refreshable UUID URL and retains section, other query and hash 5497ms
+     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   ✓ instance detail identity > reloads an unchanged alias by UUID without rewriting its valid URL  490ms
+   ✓ instance detail identity > loads the new route reference when navigating to another instance and then reloads its UUID  314ms
+   ✓ instance detail identity > ignores a lookup that finishes after navigation to another instance 5ms
+   ✓ instance detail identity > ignores an update emitted by the previous instance after navigation 77ms
+stdout | app/components/instances/ChannelsCard.test.ts > own status rows > keeps a image status without caption identifiable and deletable
+<Suspense> is an experimental feature and its API will likely change.
+
+ ❯ app/components/instances/ChannelsCard.test.ts (4 tests | 1 failed) 7976ms
+   × own status rows > keeps a image status without caption identifiable and deletable 7098ms
+     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   ✓ own status rows > keeps a video status without caption identifiable and deletable 191ms
+   ✓ own status rows > shows text and captions alongside status identity and separate delete actions  603ms
+   ✓ own status rows > shows the empty state only when the returned collections are empty 82ms
+stdout | app/components/instances/WebhookCard.test.ts > webhook subscriptions > saves independent event changes in contract order without selecting message
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/components/instances/WebhookCard.test.ts (2 tests) 4902ms
+   ✓ webhook subscriptions > saves independent event changes in contract order without selecting message  4391ms
+   ✓ webhook subscriptions > keeps All, removal and None payloads deterministic  506ms
+stdout | app/components/instances/detail/InstanceSettingsSection.test.ts > authorized key revocation > lets an admin revoke without cached key, storage unavailable: false
+<Suspense> is an experimental feature and its API will likely change.
+
+stdout | app/components/auth/LoginForm.test.ts > login validation > explains missing fields for undefined without a login request
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/components/instances/detail/InstanceSettingsSection.test.ts (8 tests) 5292ms
+   ✓ authorized key revocation > lets an admin revoke without cached key, storage unavailable: false  4426ms
+ ✓ app/composables/useOverview.test.ts (3 tests) 90ms
+ ✓ app/components/auth/LoginForm.test.ts (7 tests) 4194ms
+   ✓ login validation > explains missing fields for undefined without a login request  3416ms
+ ✓ app/composables/useAccounts.test.ts (2 tests) 204ms
+ ✓ app/utils/accountQuota.test.ts (18 tests) 11ms
+ ✓ app/utils/groupLookup.test.ts (2 tests) 13ms
+ ✓ app/utils/tableRowNavigation.test.ts (7 tests) 21ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  app/components/accounts/QuotaForms.test.ts > account creation quota > leaves a blank quota undefined out of the API body
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ app/components/accounts/QuotaForms.test.ts:75:33
+     73| 
+     74| describe('account creation quota', () => {
+     75|   it.each([undefined, '', '   '])('leaves a blank quota %j out of the …
+       |                                 ^
+     76|     const form = await quotaForm('CreateAccountModal')
+     77|     await fillCreation(form, quota)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  app/components/instances/ChannelsCard.test.ts > own status rows > keeps a image status without caption identifiable and deletable
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ app/components/instances/ChannelsCard.test.ts:41:29
+     39| 
+     40| describe('own status rows', () => {
+     41|   it.each(['image', 'video'])('keeps a %s status without caption ident…
+       |                             ^
+     42|     statuses = [{ id: 'media-status-1', type, created_at: '2026-10-07T…
+     43|     const card = await channelsCard()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  app/components/instances/MessageComposer.test.ts > location composition > rejects absent coordinates "", "" before numeric conversion or sending
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ app/components/instances/MessageComposer.test.ts:62:4
+     60|   it.each([
+     61|     ['', ''], ['  ', '\t'], ['', '0'], ['0', ''], [' ', '12'], ['12', …
+     62|   ])('rejects absent coordinates %j, %j before numeric conversion or s…
+       |    ^
+     63|     const composer = await sendCoordinates(latitude, longitude)
+     64|     expect(requests).toHaveLength(0)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  app/pages/instances/detail.test.ts > instance detail identity > replaces a renamed alias with a refreshable UUID URL and retains section, other query and hash
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ app/pages/instances/detail.test.ts:74:3
+     72| 
+     73| describe('instance detail identity', () => {
+     74|   it('replaces a renamed alias with a refreshable UUID URL and retains…
+       |   ^
+     75|     const page = await detailPage()
+     76|     first = fixture(firstId, 'NewName')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  4 failed | 10 passed (14)
+      Tests  4 failed | 113 passed (117)
+   Start at  12:37:03
+   Duration  72.72s (transform 8.79s, setup 0ms, collect 85.36s, tests 59.08s, environment 77ms, prepare 21.16s)
+
+[ELIFECYCLE] Test failed. See above for more details.

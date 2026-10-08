@@ -1,0 +1,29 @@
+{
+  "vite_lifecycle": [
+    "[debug] [vite] connecting...",
+    "[debug] [vite] connected.",
+    "[debug] [vite] connecting...",
+    "[debug] [vite] connected.",
+    "[log] [vite] server connection lost. Polling for restart...",
+    "[debug] [vite] connecting...",
+    "[debug] [vite] connected."
+  ],
+  "reconnected_after_loss": true,
+  "next_vue_without_navigation": {
+    "title": "Final HMR after reload",
+    "color": "rgb(181, 20, 115)",
+    "origin": "http://127.0.0.1:8081",
+    "assets": [
+      "http://127.0.0.1:8081/manager/_nuxt/@fs/src/manager/app/assets/css/main.css",
+      "http://127.0.0.1:8081/manager/_nuxt/@fs/src/manager/.nuxt/nuxt-fonts-global.css",
+      "http://127.0.0.1:8081/manager/_nuxt/src/manager/node_modules/.pnpm/nuxt@4.5.2_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0_supports-color@10.2.2___@_ec95e723ec6815b44f0fd9d0a04bfecc/node_modules/nuxt/dist/app/entry.async.js",
+      "http://127.0.0.1:8081/manager/_nuxt/@vite/client",
+      "http://127.0.0.1:8081/manager/_nuxt/@id/__x00__vite/modulepreload-polyfill.js",
+      "http://127.0.0.1:8081/manager/_nuxt/@fs/src/manager/node_modules/.pnpm/vite@8.2.1_@types+node@24.13.4_esbuild@0.28.0_jiti@2.7.0_terser@5.47.1_yaml@2.9.0/node_modules/vite/dist/client/env.mjs",
+      "http://127.0.0.1:8081/manager/_fonts/GsKUclqeNLJ96g5AU593ug6yanivOiwjW_7zESNPChw-jHA4tBeM1bjF7LATGUpfBuSTyomIFrWBTzjF7txVYfg.woff2",
+      "http://127.0.0.1:8081/manager/_nuxt/@fs/src/manager/node_modules/.pnpm/nuxt@4.5.2_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0_supports-color@10.2.2___@_ec95e723ec6815b44f0fd9d0a04bfecc/node_modules/nuxt/dist/app/entry.js",
+      "http://127.0.0.1:8081/manager/_nuxt/@fs/src/manager/node_modules/.pnpm/nuxt@4.5.2_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0_supports-color@10.2.2___@_ec95e723ec6815b44f0fd9d0a04bfecc/node_modules/nuxt/dist/app/diagnostics/core.js",
+      "http://127.0.0.1:8081/manager/_nuxt/@fs/src/manager/node_modules/.pnpm/nuxt@4.5.2_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0_supports-color@10.2.2___@_ec95e723ec6815b44f0fd9d0a04bfecc/node_modules/nuxt/dist/app/nuxt.js"
+    ]
+  }
+}

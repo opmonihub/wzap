@@ -1,0 +1,15 @@
+$ eslint .
+
+/home/obsidian/dev/wzap/.worktrees/enable-dev-live-reload/manager/app/components/shared/DataTableToolbar.vue
+  9:3  warning  Prop "columnItems" should be optional  vue/no-required-prop-with-default
+
+/home/obsidian/dev/wzap/.worktrees/enable-dev-live-reload/manager/app/components/shared/PageState.vue
+  6:3  warning  Prop "error" should be optional  vue/no-required-prop-with-default
+
+/home/obsidian/dev/wzap/.worktrees/enable-dev-live-reload/manager/nuxt.config.ts
+  5:33  error  Expected config key "$development" to come before "ssr"  nuxt/nuxt-config-keys-order
+
+✖ 3 problems (1 error, 2 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+
+[ELIFECYCLE] Command failed with exit code 1.

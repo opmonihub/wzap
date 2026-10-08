@@ -1,0 +1,11 @@
+=== RUN   TestDevReload
+    dev_reload_test.go:24: set WZAP_TEST_AIR_BIN to the real Air v1.61.7 binary
+--- SKIP: TestDevReload (0.00s)
+=== RUN   TestDevSupervisorSignalOnce
+    dev_reload_test.go:155: supervisor exit after 178.1738ms (<nil>)
+    dev_reload_test.go:156: +0.000s start version=synthetic-air pid=2113761
+    dev_reload_test.go:156: +0.120s signal version=synthetic-air pid=2113761
+    dev_reload_test.go:156: +0.320s exit version=synthetic-air pid=2113761
+--- PASS: TestDevSupervisorSignalOnce (1.32s)
+PASS
+ok  	wzap/docker	1.318s

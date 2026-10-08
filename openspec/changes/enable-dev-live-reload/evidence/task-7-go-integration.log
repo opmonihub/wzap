@@ -1,0 +1,48 @@
+Explicit vars set: Postgres127.0.0.1:5435/wzap_test; NATS127.0.0.1:4224; password omitted. GOMAXPROCS=2
+ok  	wzap/cmd/wzap	27.506s
+ok  	wzap/docker	2.721s
+?   	wzap/docs	[no test files]
+ok  	wzap/internal/app	0.185s
+ok  	wzap/internal/auth	3.608s
+ok  	wzap/internal/chatwoot/client	0.102s
+ok  	wzap/internal/chatwoot/config	0.084s
+ok  	wzap/internal/chatwoot/contacts	0.110s
+ok  	wzap/internal/chatwoot/conversations	0.713s
+ok  	wzap/internal/chatwoot/import	36.110s
+ok  	wzap/internal/chatwoot/inbound	0.024s
+ok  	wzap/internal/chatwoot/mapper	0.083s
+ok  	wzap/internal/chatwoot/mirror	7.297s
+ok  	wzap/internal/config	0.099s
+ok  	wzap/internal/events	0.200s
+ok  	wzap/internal/httpapi	29.391s
+ok  	wzap/internal/httpapi/authsession	0.010s
+?   	wzap/internal/httpapi/channels	[no test files]
+?   	wzap/internal/httpapi/chats	[no test files]
+?   	wzap/internal/httpapi/chatwoot	[no test files]
+?   	wzap/internal/httpapi/contacts	[no test files]
+ok  	wzap/internal/httpapi/core	0.403s
+?   	wzap/internal/httpapi/groups	[no test files]
+?   	wzap/internal/httpapi/instances	[no test files]
+?   	wzap/internal/httpapi/media	[no test files]
+?   	wzap/internal/httpapi/messages	[no test files]
+?   	wzap/internal/httpapi/profile	[no test files]
+ok  	wzap/internal/httpapi/representation	0.085s
+?   	wzap/internal/httpapi/statuses	[no test files]
+?   	wzap/internal/httpapi/users	[no test files]
+ok  	wzap/internal/instance	0.508s
+ok  	wzap/internal/instancelock	0.202s
+ok  	wzap/internal/logger	0.199s
+ok  	wzap/internal/media	0.094s
+ok  	wzap/internal/message	31.701s
+?   	wzap/internal/model	[no test files]
+ok  	wzap/internal/replicalock	0.807s
+ok  	wzap/internal/session	0.087s
+ok  	wzap/internal/session/sessiontest	0.096s
+ok  	wzap/internal/session/whatsmeow	43.103s
+?   	wzap/internal/storage	[no test files]
+?   	wzap/internal/storage/migrations	[no test files]
+ok  	wzap/internal/storage/postgres	247.988s
+ok  	wzap/internal/storage/postgres/postgrestest	0.019s
+?   	wzap/internal/version	[no test files]
+ok  	wzap/internal/webhook	2.002s
+ok  	wzap/manager	0.091s

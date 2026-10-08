@@ -1,0 +1,8 @@
+=== RUN   TestDevSupervisorSignalOnce
+    dev_reload_test.go:155: supervisor exit after 178.505076ms (<nil>)
+    dev_reload_test.go:156: +0.000s start version=synthetic-air pid=2100863
+    dev_reload_test.go:156: +0.121s signal version=synthetic-air pid=2100863
+    dev_reload_test.go:156: +0.321s exit version=synthetic-air pid=2100863
+--- PASS: TestDevSupervisorSignalOnce (0.88s)
+PASS
+ok  	wzap/docker	0.878s

@@ -1,0 +1,147 @@
+=== RUN   TestDevReload
+=== RUN   TestDevReload/Drain
+    dev_reload_test.go:34: supervisor exit after 5.055133946s (<nil>)
+    dev_reload_test.go:35: +0.000s start version=one pid=1986480
+    dev_reload_test.go:35: +0.359s signal version=one pid=1986480
+    dev_reload_test.go:35: +5.992s start version=two pid=1986997
+    dev_reload_test.go:35: replacement 1986997 started before prior children exited: map[1986480:true]
+    dev_reload_test.go:35: +6.109s signal version=two pid=1986997
+    dev_reload_test.go:35: +8.365s exit version=one pid=1986480
+    dev_reload_test.go:35: supervisor exited with active children: map[1986997:true]
+    dev_reload_test.go:184: Air output:
+        
+          __    _   ___  
+         / /\  | | | |_) 
+        /_/--\ |_| |_| \_ v1.61.7, built with Go go1.26.0
+        
+        mkdir /tmp/TestDevReloadDrain3123925514/001/tmp
+        watching .
+        watching docs
+        watching internal
+        watching internal/storage
+        watching internal/storage/migrations
+        watching manager
+        !exclude tmp
+        building...
+        running...
+        main.go has changed
+        building...
+        running...
+        cleaning...
+        deleting /tmp/TestDevReloadDrain3123925514/001/tmp
+        see you again~
+=== RUN   TestDevReload/DrainAndSuccessiveEdits
+    dev_reload_test.go:46: supervisor exit after 5.005537772s (<nil>)
+    dev_reload_test.go:47: +0.000s start version=one pid=1987437
+    dev_reload_test.go:47: +0.324s signal version=one pid=1987437
+    dev_reload_test.go:47: +6.112s start version=latest pid=1988081
+    dev_reload_test.go:47: replacement 1988081 started before prior children exited: map[1987437:true]
+    dev_reload_test.go:47: +6.225s signal version=latest pid=1988081
+    dev_reload_test.go:47: +8.330s exit version=one pid=1987437
+    dev_reload_test.go:47: supervisor exited with active children: map[1988081:true]
+    dev_reload_test.go:184: Air output:
+        
+          __    _   ___  
+         / /\  | | | |_) 
+        /_/--\ |_| |_| \_ v1.61.7, built with Go go1.26.0
+        
+        mkdir /tmp/TestDevReloadDrainAndSuccessiveEdits2344917011/001/tmp
+        watching .
+        watching docs
+        watching internal
+        watching internal/storage
+        watching internal/storage/migrations
+        watching manager
+        !exclude tmp
+        building...
+        running...
+        main.go has changed
+        building...
+        main.go has changed
+        running...
+        cleaning...
+        Process Exit with Code 0
+        deleting /tmp/TestDevReloadDrainAndSuccessiveEdits2344917011/001/tmp
+        see you again~
+=== RUN   TestDevReload/BuildRecoveryAndWatchScope
+    dev_reload_test.go:82: supervisor exit after 5.005280948s (<nil>)
+    dev_reload_test.go:83: +0.000s start version=one pid=1988461
+    dev_reload_test.go:83: +1.325s signal version=one pid=1988461
+    dev_reload_test.go:83: +1.376s exit version=one pid=1988461
+    dev_reload_test.go:83: +6.916s start version=recovered pid=1988986
+    dev_reload_test.go:83: +7.224s signal version=recovered pid=1988986
+    dev_reload_test.go:83: +7.275s exit version=recovered pid=1988986
+    dev_reload_test.go:83: +12.395s start version=recovered pid=1989387
+    dev_reload_test.go:83: +12.599s signal version=recovered pid=1989387
+    dev_reload_test.go:83: +12.649s exit version=recovered pid=1989387
+    dev_reload_test.go:83: +17.684s start version=recovered pid=1989883
+    dev_reload_test.go:83: +17.898s signal version=recovered pid=1989883
+    dev_reload_test.go:83: +17.949s exit version=recovered pid=1989883
+    dev_reload_test.go:83: +23.097s start version=recovered pid=1990352
+    dev_reload_test.go:83: +23.299s signal version=recovered pid=1990352
+    dev_reload_test.go:83: +23.350s exit version=recovered pid=1990352
+    dev_reload_test.go:83: +28.504s start version=recovered pid=1990756
+    dev_reload_test.go:83: +28.724s signal version=recovered pid=1990756
+    dev_reload_test.go:83: +28.774s exit version=recovered pid=1990756
+    dev_reload_test.go:83: +33.784s start version=recovered pid=1991176
+    dev_reload_test.go:83: +33.800s signal version=recovered pid=1991176
+    dev_reload_test.go:83: +33.850s exit version=recovered pid=1991176
+=== RUN   TestDevReload/StopDuringDrain
+    dev_reload_test.go:90: supervisor exit after 4.999402712s (<nil>)
+    dev_reload_test.go:91: +0.000s start version=one pid=1991638
+    dev_reload_test.go:91: +0.326s signal version=one pid=1991638
+    dev_reload_test.go:91: supervisor exited with active children: map[1991638:true]
+    dev_reload_test.go:184: Air output:
+        
+          __    _   ___  
+         / /\  | | | |_) 
+        /_/--\ |_| |_| \_ v1.61.7, built with Go go1.26.0
+        
+        mkdir /tmp/TestDevReloadStopDuringDrain1880093305/001/tmp
+        watching .
+        watching docs
+        watching internal
+        watching internal/storage
+        watching internal/storage/migrations
+        watching manager
+        !exclude tmp
+        building...
+        running...
+        main.go has changed
+        cleaning...
+        building...
+        deleting /tmp/TestDevReloadStopDuringDrain1880093305/001/tmp
+        see you again~
+=== RUN   TestDevReload/SupervisorStop
+    dev_reload_test.go:96: supervisor exit after 5.010593615s (<nil>)
+    dev_reload_test.go:97: +0.000s start version=one pid=1992206
+    dev_reload_test.go:97: +0.109s signal version=one pid=1992206
+    dev_reload_test.go:97: supervisor exited with active children: map[1992206:true]
+    dev_reload_test.go:184: Air output:
+        
+          __    _   ___  
+         / /\  | | | |_) 
+        /_/--\ |_| |_| \_ v1.61.7, built with Go go1.26.0
+        
+        mkdir /tmp/TestDevReloadSupervisorStop4277092663/001/tmp
+        watching .
+        watching docs
+        watching internal
+        watching internal/storage
+        watching internal/storage/migrations
+        watching manager
+        !exclude tmp
+        building...
+        running...
+        cleaning...
+        deleting /tmp/TestDevReloadSupervisorStop4277092663/001/tmp
+        see you again~
+--- FAIL: TestDevReload (74.13s)
+    --- FAIL: TestDevReload/Drain (11.54s)
+    --- FAIL: TestDevReload/DrainAndSuccessiveEdits (11.75s)
+    --- PASS: TestDevReload/BuildRecoveryAndWatchScope (39.58s)
+    --- FAIL: TestDevReload/StopDuringDrain (5.69s)
+    --- FAIL: TestDevReload/SupervisorStop (5.56s)
+FAIL
+FAIL	wzap/docker	74.131s
+FAIL

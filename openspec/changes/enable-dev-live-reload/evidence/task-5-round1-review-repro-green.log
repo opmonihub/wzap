@@ -1,0 +1,20 @@
+Actual protected dev-go.sh; real Air; separate stdout/stderr pipes; quiet synthetic child; one Go edit; 50ms drain.
+Go edit -> replacement: GREEN
+Timeline: [{"Kind": "start", "Version": "one", "PID": 2107502, "At": 1791471617363553958}, {"Kind": "signal", "Version": "one", "PID": 2107502, "At": 1791471617668359444}, {"Kind": "exit", "Version": "one", "PID": 2107502, "At": 1791471617718681479}, {"Kind": "start", "Version": "two", "PID": 2108020, "At": 1791471622964651235}]
+Air stdout before cleanup:
+
+  __    _   ___  
+ / /\  | | | |_) 
+/_/--\ |_| |_| \_ v1.61.7, built with Go go1.26.0
+
+watching .
+!exclude tmp
+building...
+running...
+main.go has changed
+building...
+running...
+
+Air stderr before cleanup:
+
+Fixture supervisor cleaned up: exit code 0

@@ -32,6 +32,10 @@
 
 **Arquitetura:** Go permanece em `127.0.0.1:8081`, API na raiz e manager em `/manager/`; Air e Nuxt dev usam fontes montados; produção continua com assets embutidos; workers permanecem no Go.
 
+## Execution order
+
+Tasks 1, 2, 3, then Task 5 (Air safety), then Tasks 4 and 6 as one integration deliverable (Nuxt + Compose), then Task 7. Original OpenSpec task IDs and acceptance criteria remain unchanged.
+
 ## Preparação para apply
 
 - Criar ou reutilizar `.worktrees/enable-dev-live-reload` na branch `codex/enable-dev-live-reload`, conforme AGENTS; levar esta change para o worktree e preservar todas as alterações preexistentes no checkout principal.

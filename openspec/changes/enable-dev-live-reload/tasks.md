@@ -10,9 +10,9 @@
 
 ## 3. Recarga e encerramento do Air
 
-- [ ] 3.1 Configurar os recursos nativos do Air e verificar os arquivos observados, compilação automática, erro de build e recuperação após corrigir o código usando Air real.
-- [ ] 3.2 Testar encerramento de 8 segundos, edições sucessivas e parada do container com processo controlado, exigindo ausência de sobreposição entre execuções Go e registrando o resultado nativo.
-- [ ] 3.3 Acrescentar proteção mínima somente se a prova nativa falhar e repetir os mesmos cenários até passarem, ou registrar que nenhum wrapper foi necessário se a prova nativa passar integralmente.
+- [x] 3.1 Configurar os recursos nativos do Air e verificar os arquivos observados, compilação automática, erro de build e recuperação após corrigir o código usando Air real.
+- [x] 3.2 Testar encerramento de 8 segundos, edições sucessivas e parada do container com processo controlado, exigindo ausência de sobreposição entre execuções Go e registrando o resultado nativo.
+- [x] 3.3 Acrescentar proteção mínima somente se a prova nativa falhar e repetir os mesmos cenários até passarem, ou registrar que nenhum wrapper foi necessário se a prova nativa passar integralmente.
 
 ## 4. Compose e preservação de dados
 

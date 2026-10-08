@@ -1,0 +1,12 @@
+{
+  "reviewed_head": "1cda2046ae826aab6af9a732e808906f537c1645",
+  "final_review": "PASS",
+  "http_statuses": {
+    "/healthz": 200,
+    "/readyz": 200,
+    "/manager/": 200
+  },
+  "controller_private_scratch_removed": true,
+  "qa_account_and_vault_removed": true,
+  "baseline_auth_vault_removed": true
+}

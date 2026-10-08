@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -107,8 +108,19 @@ func newRouter(cfg config.Config, log zerolog.Logger, deps Deps) *chi.Mux {
 	r.Get("/healthz", handleHealthz)
 	r.Get("/readyz", handleReadyz(deps.ReadyChecker, log))
 	r.Handle("/swagger/*", httpSwagger.WrapHandler)
-	r.Handle("/manager/*", manager.Handler())
-	r.Get("/manager", manager.Handler().ServeHTTP)
+	var managerHandler http.Handler
+	if cfg.ManagerDevURL != "" {
+		// Config.Load validates this origin; parse it once for all requests.
+		target, err := url.Parse(cfg.ManagerDevURL)
+		if err != nil {
+			panic("invalid WZAP_MANAGER_DEV_URL")
+		}
+		managerHandler = manager.DevHandler(target)
+	} else {
+		managerHandler = manager.Handler()
+	}
+	r.Handle("/manager/*", managerHandler)
+	r.Get("/manager", managerHandler.ServeHTTP)
 	authsession.Register(r, deps.Users, deps.JWTSecret, authsession.SecureCookies(cfg.PublicURL), deps.LoginLimiter)
 	publicURL := deps.PublicURL
 	if publicURL == "" {

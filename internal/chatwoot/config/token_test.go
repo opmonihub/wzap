@@ -102,18 +102,25 @@ func TestSealTokenPassesEmptyThrough(t *testing.T) {
 	}
 }
 
-func TestSealTokenNeverDoubleSeals(t *testing.T) {
+func TestSealTokenTreatsPrefixedInputAsPlaintext(t *testing.T) {
 	key := testTokenKey(t)
-	sealed, err := SealToken("chatwoot-secret-token", key)
-	if err != nil {
-		t.Fatalf("SealToken: %v", err)
-	}
-	again, err := SealToken(sealed, key)
-	if err != nil {
-		t.Fatalf("SealToken sealed: %v", err)
-	}
-	if again != sealed {
-		t.Error("SealToken sealed the sealed value again, want idempotent passthrough")
+	for _, plaintext := range []string{"enc:v1:synthetic-plaintext", "enc:v1:", "enc:v1:AAAA"} {
+		t.Run(plaintext, func(t *testing.T) {
+			sealed, err := SealToken(plaintext, key)
+			if err != nil {
+				t.Fatalf("SealToken: %v", err)
+			}
+			if sealed == plaintext {
+				t.Error("plaintext was persisted unchanged")
+			}
+			opened, err := OpenToken(sealed, key)
+			if err != nil || opened != plaintext {
+				t.Fatalf("OpenToken = %q, %v; want input plaintext", opened, err)
+			}
+			if _, err := SealToken(plaintext, nil); err == nil {
+				t.Error("nonempty prefixed plaintext bypassed key validation")
+			}
+		})
 	}
 }
 

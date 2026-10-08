@@ -22,10 +22,10 @@ type InboxLister interface {
 }
 
 // HistoryFeed is the per-instance history-sync feed an import run consumes
-// and clears. session.Session implements it.
+// and acknowledges. session.Session implements it.
 type HistoryFeed interface {
 	HistorySyncSnapshot() session.HistorySyncSnapshot
-	ResetHistorySync()
+	AckHistorySync(snapshot session.HistorySyncSnapshot)
 }
 
 // RunDeps wires one import run over an instance feed snapshot: the pool
@@ -45,8 +45,8 @@ type RunDeps struct {
 
 // RunImport imports one instance feed snapshot into Chatwoot and returns how
 // many messages were written. Contacts import first when flagged, then
-// messages; the accumulator is cleared only on success so a failure keeps
-// the feed for the next trigger. A messages failure returns the partial
+// messages; only the processed snapshot is acknowledged on success so newer
+// chunks and failed batches stay available. A messages failure returns the partial
 // message count written so far with the error. A nil pool (import disabled)
 // or a config with both import flags off is a no-op returning 0, nil.
 func RunImport(ctx context.Context, deps RunDeps) (int, error) {
@@ -91,7 +91,7 @@ func RunImport(ctx context.Context, deps RunDeps) (int, error) {
 			return imported, err
 		}
 	}
-	deps.Feed.ResetHistorySync()
+	deps.Feed.AckHistorySync(snap)
 	postImportNotice(ctx, deps.Poster, fmt.Sprintf("✅ Importação do histórico concluída: %d mensagem(ns) importada(s).", imported))
 	return imported, nil
 }

@@ -252,7 +252,7 @@ func TestResolveCreateConflictFallsBackToIdentifier(t *testing.T) {
 			if r.URL.Query().Get("q") != "5511999999999@s.whatsapp.net" {
 				t.Errorf("search q = %q, want sender jid", r.URL.Query().Get("q"))
 			}
-			_, _ = w.Write([]byte(`{"payload":[{"id":11,"phone_number":"+5511999999999"}]}`))
+			_, _ = w.Write([]byte(`{"payload":[{"id":11,"phone_number":"+5511999999999","identifier":"5511999999999@s.whatsapp.net"}]}`))
 		case strings.HasSuffix(r.URL.Path, "/contacts/11") && r.Method == http.MethodPut:
 			_, _ = w.Write([]byte(`{"id":11,"name":"Nine","phone_number":"+5511999999999"}`))
 		default:

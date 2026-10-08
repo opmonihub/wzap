@@ -133,7 +133,7 @@ func (w *Worker) Dropped() int64 {
 //
 // The NATS relay replays from the DB outbox, NOT through Writer, so fanning
 // out here delivers every persisted event once per successful Write.
-func (w *Worker) Fanout(inner events.Writer) events.Writer {
+func (w *Worker) Fanout(inner events.Writer) events.CommittedWriter {
 	return &fanoutWriter{worker: w, inner: inner}
 }
 
@@ -147,8 +147,14 @@ func (f *fanoutWriter) Write(ctx context.Context, subject string, env events.Env
 	if err := f.inner.Write(ctx, subject, env); err != nil {
 		return err
 	}
-	f.worker.dispatch(env)
+	f.NotifyCommitted(subject, env)
 	return nil
+}
+
+// NotifyCommitted dispatches an envelope persisted by a domain transaction,
+// bypassing Write so the outbox is never inserted a second time.
+func (f *fanoutWriter) NotifyCommitted(_ string, env events.Envelope) {
+	f.worker.dispatch(env)
 }
 
 // dispatch queues env for the worker, dropping it with a counter when the

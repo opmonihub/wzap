@@ -216,12 +216,12 @@ func HandlePublishStatusMedia(instances InstanceService, log zerolog.Logger, max
 		}
 		defer func() { _ = r.MultipartForm.RemoveAll() }()
 
-		kind := strings.TrimSpace(r.FormValue("type"))
+		kind := strings.TrimSpace(r.PostFormValue("type"))
 		if !ValidStatusKind(kind) {
 			core.Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "type must be image or video")
 			return
 		}
-		caption := strings.TrimSpace(r.FormValue("caption"))
+		caption := strings.TrimSpace(r.PostFormValue("caption"))
 		if caption != "" && !StatusTextValid(caption) {
 			core.Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "caption must be max 700 characters")
 			return

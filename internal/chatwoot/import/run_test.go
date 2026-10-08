@@ -15,15 +15,15 @@ import (
 )
 
 // fakeFeed is an in-memory HistoryFeed: the snapshot the run consumes plus a
-// reset counter proving the accumulators are cleared.
+// acknowledgement counter for the consumed snapshot.
 type fakeFeed struct {
-	snap   session.HistorySyncSnapshot
-	resets int
+	snap             session.HistorySyncSnapshot
+	acknowledgements int
 }
 
 func (f *fakeFeed) HistorySyncSnapshot() session.HistorySyncSnapshot { return f.snap }
-func (f *fakeFeed) ResetHistorySync() {
-	f.resets++
+func (f *fakeFeed) AckHistorySync(session.HistorySyncSnapshot) {
+	f.acknowledgements++
 	f.snap = session.HistorySyncSnapshot{}
 }
 
@@ -97,8 +97,8 @@ func TestRunImportNoticesCountsAndClears(t *testing.T) {
 			t.Errorf("notice = %q, want pt-BR import text", notice)
 		}
 	}
-	if feed.resets != 1 {
-		t.Errorf("accumulator resets = %d, want 1 (cleared after import)", feed.resets)
+	if feed.acknowledgements != 1 {
+		t.Errorf("snapshot acknowledgements = %d, want 1 (cleared after import)", feed.acknowledgements)
 	}
 	var total int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM messages`).Scan(&total); err != nil {
@@ -158,8 +158,8 @@ func TestRunImportMessagesOnlyEnsuresContacts(t *testing.T) {
 	if total != 1 {
 		t.Errorf("ensured contacts = %d, want 1", total)
 	}
-	if feed.resets != 1 {
-		t.Errorf("accumulator resets = %d, want 1 (real work clears)", feed.resets)
+	if feed.acknowledgements != 1 {
+		t.Errorf("snapshot acknowledgements = %d, want 1 (real work clears)", feed.acknowledgements)
 	}
 }
 
@@ -188,8 +188,8 @@ func TestRunImportInertWithoutPool(t *testing.T) {
 	if posted != 0 {
 		t.Errorf("notices = %d, want 0 when inert", posted)
 	}
-	if feed.resets != 0 {
-		t.Errorf("resets = %d, want 0 when inert", feed.resets)
+	if feed.acknowledgements != 0 {
+		t.Errorf("acknowledgements = %d, want 0 when inert", feed.acknowledgements)
 	}
 }
 

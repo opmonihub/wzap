@@ -268,9 +268,10 @@ func TestQuotaNilDepsFailClosed(t *testing.T) {
 		}
 	})
 
-	t.Run("admin bypass precedes the nil checks", func(t *testing.T) {
+	t.Run("admin bypass does not require quota keys", func(t *testing.T) {
 		adminID := uuid.New()
-		srv, _ := quotaTestServer(t, 0, nil, nil)
+		users := newFakeUserRepository(quotaUser(adminID, "admin@example.com", "admin", 0))
+		srv, _ := quotaTestServer(t, 0, users, nil)
 
 		adminCookie := rbacSessionCookie(mustSessionToken(t, adminID, "admin"))
 		if rec := serveRBAC(t, srv, http.MethodPost, "/instances", `{"name":"loja"}`, adminCookie, "", nil); rec.Code != http.StatusCreated {

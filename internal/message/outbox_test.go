@@ -19,6 +19,7 @@ import (
 	"wzap/internal/model"
 	"wzap/internal/session"
 	"wzap/internal/session/sessiontest"
+	"wzap/internal/storage"
 )
 
 // retryRecord records one MarkRetrying call.
@@ -44,16 +45,21 @@ type fakeOutboxRepo struct {
 	requeueCount int64
 	requeueErr   error
 
-	markSentErr   error
-	markFailedErr error
-	markRetryErr  error
+	markSentErr     error
+	markFailedErr   error
+	markRetryErr    error
+	markCommitErr   error
+	terminalEvents  []model.OutboxEvent
+	persistedEvents map[uuid.UUID]model.OutboxEvent
+	requeueExcluded [][]uuid.UUID
 }
 
 func newFakeOutboxRepo(messages ...model.OutboundMessage) *fakeOutboxRepo {
 	return &fakeOutboxRepo{
-		queue:  messages,
-		sent:   make(map[uuid.UUID]string),
-		failed: make(map[uuid.UUID]string),
+		queue:           messages,
+		sent:            make(map[uuid.UUID]string),
+		failed:          make(map[uuid.UUID]string),
+		persistedEvents: make(map[uuid.UUID]model.OutboxEvent),
 	}
 }
 
@@ -78,24 +84,56 @@ func (f *fakeOutboxRepo) ClaimQueued(_ context.Context, limit int) ([]model.Outb
 	return claimed, nil
 }
 
-func (f *fakeOutboxRepo) MarkSent(_ context.Context, id uuid.UUID, whatsAppMessageID string) error {
+func (f *fakeOutboxRepo) MarkSent(_ context.Context, id uuid.UUID, whatsAppMessageID string, event model.OutboxEvent) (bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.terminalEvents = append(f.terminalEvents, event)
 	if f.markSentErr != nil {
-		return f.markSentErr
+		return false, f.markSentErr
+	}
+	if storedID, ok := f.sent[id]; ok {
+		if storedID == whatsAppMessageID {
+			return false, nil
+		}
+		return false, storage.ErrMessageOutcomeConflict
+	}
+	if _, ok := f.failed[id]; ok {
+		return false, storage.ErrMessageOutcomeConflict
 	}
 	f.sent[id] = whatsAppMessageID
-	return nil
+	f.persistedEvents[event.ID] = event
+	if f.markCommitErr != nil {
+		err := f.markCommitErr
+		f.markCommitErr = nil
+		return false, err
+	}
+	return true, nil
 }
 
-func (f *fakeOutboxRepo) MarkFailed(_ context.Context, id uuid.UUID, errMsg string) error {
+func (f *fakeOutboxRepo) MarkFailed(_ context.Context, id uuid.UUID, errMsg string, event model.OutboxEvent) (bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.terminalEvents = append(f.terminalEvents, event)
 	if f.markFailedErr != nil {
-		return f.markFailedErr
+		return false, f.markFailedErr
+	}
+	if storedError, ok := f.failed[id]; ok {
+		if storedError == errMsg {
+			return false, nil
+		}
+		return false, storage.ErrMessageOutcomeConflict
+	}
+	if _, ok := f.sent[id]; ok {
+		return false, storage.ErrMessageOutcomeConflict
 	}
 	f.failed[id] = errMsg
-	return nil
+	f.persistedEvents[event.ID] = event
+	if f.markCommitErr != nil {
+		err := f.markCommitErr
+		f.markCommitErr = nil
+		return false, err
+	}
+	return true, nil
 }
 
 func (f *fakeOutboxRepo) MarkRetrying(_ context.Context, id uuid.UUID, errMsg string, nextAttemptAt time.Time) error {
@@ -108,13 +146,14 @@ func (f *fakeOutboxRepo) MarkRetrying(_ context.Context, id uuid.UUID, errMsg st
 	return nil
 }
 
-func (f *fakeOutboxRepo) RequeueStuck(_ context.Context, olderThan time.Time) (int64, error) {
+func (f *fakeOutboxRepo) RequeueStuck(_ context.Context, olderThan time.Time, activeIDs []uuid.UUID) (int64, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.requeueErr != nil {
 		return 0, f.requeueErr
 	}
 	f.requeues = append(f.requeues, olderThan)
+	f.requeueExcluded = append(f.requeueExcluded, append([]uuid.UUID(nil), activeIDs...))
 	return f.requeueCount, nil
 }
 
@@ -158,6 +197,18 @@ func (f *fakeOutboxRepo) claimCallLimits() []int {
 	return append([]int(nil), f.claimLimits...)
 }
 
+func (f *fakeOutboxRepo) terminalAttempts() []model.OutboxEvent {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]model.OutboxEvent(nil), f.terminalEvents...)
+}
+
+func (f *fakeOutboxRepo) recoveryExclusions() [][]uuid.UUID {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([][]uuid.UUID(nil), f.requeueExcluded...)
+}
+
 // writtenEvent is one event handed to the fake writer.
 type writtenEvent struct {
 	subject  string
@@ -169,13 +220,19 @@ type fakeWriter struct {
 	mu       sync.Mutex
 	events   []writtenEvent
 	writeErr error
+	inner    events.Writer
 }
 
-func (f *fakeWriter) Write(_ context.Context, subject string, env events.Envelope) error {
+func (f *fakeWriter) Write(ctx context.Context, subject string, env events.Envelope) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.writeErr != nil {
 		return f.writeErr
+	}
+	if f.inner != nil {
+		if err := f.inner.Write(ctx, subject, env); err != nil {
+			return err
+		}
 	}
 	f.events = append(f.events, writtenEvent{subject: subject, envelope: env})
 	return nil
@@ -185,6 +242,12 @@ func (f *fakeWriter) written() []writtenEvent {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return append([]writtenEvent(nil), f.events...)
+}
+
+func (f *fakeWriter) NotifyCommitted(subject string, env events.Envelope) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.events = append(f.events, writtenEvent{subject: subject, envelope: env})
 }
 
 // outboxFixture wires the outbox under test over the fakes.

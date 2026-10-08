@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -46,7 +47,18 @@ func ParseLimit(raw string, fallback, maxLimit int) int {
 // maxJSONBodyBytes before they are buffered.
 func DecodeJSONBody(w http.ResponseWriter, r *http.Request, target any) error {
 	r.Body = http.MaxBytesReader(w, r.Body, MaxJSONBodyBytes)
-	return json.NewDecoder(r.Body).Decode(target)
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(target); err != nil {
+		return err
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err != nil {
+			return err
+		}
+		return errors.New("request body contains more than one JSON value")
+	}
+	return nil
 }
 
 // WriteJSONBodyError maps a body decoding failure to its HTTP status: an

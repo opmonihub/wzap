@@ -602,8 +602,10 @@ type Session interface {
 	// instance (progress, conversation batches, contacts). The Import plan
 	// consumes it after pairing; each session accumulates only its own feed.
 	HistorySyncSnapshot() HistorySyncSnapshot
-	// ResetHistorySync clears the accumulated history-sync feed after a
-	// successful import, so the next sync starts from zero.
+	// AckHistorySync consumes only the successful import's snapshot,
+	// preserving observations that arrived while it was processed.
+	AckHistorySync(snapshot HistorySyncSnapshot)
+	// ResetHistorySync explicitly discards all accumulated history.
 	ResetHistorySync()
 	// Disconnect asks WhatsApp to log the companion device out, then closes
 	// the connection. A session that was never online or whose device is

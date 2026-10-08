@@ -255,6 +255,27 @@ func TestFanoutQueuesWebhookOnlyAfterOutboxOK(t *testing.T) {
 	}
 }
 
+// A terminal-message transaction already persisted the event. Sending its
+// commit notification through Write would insert it again and skip delivery.
+func TestFanoutCommittedEventSkipsSecondOutboxWrite(t *testing.T) {
+	inner := &stubWriter{writeErr: errors.New("must not insert an already committed event")}
+	worker := instantWorker(newStubLoader(), NewKeyCache(), Deliver, zerolog.Nop())
+	fanout := worker.Fanout(inner)
+	env := testEnvelope(t, "message.status", uuid.New())
+	fanout.NotifyCommitted("wzap.instances.x.message.status", env)
+	if inner.calls() != 0 {
+		t.Error("commit notification wrote the durable event a second time")
+	}
+	select {
+	case queued := <-worker.queue:
+		if queued.eventID != env.EventID || queued.instanceID != env.InstanceID {
+			t.Errorf("commit notification queued another event: %+v", queued)
+		}
+	default:
+		t.Error("committed event was not dispatched to the webhook worker")
+	}
+}
+
 // TestFanoutNonBlockingDropCounted fills the 1000 buffer and proves the next
 // dispatch still returns immediately, dropping the event with a counter.
 func TestFanoutNonBlockingDropCounted(t *testing.T) {

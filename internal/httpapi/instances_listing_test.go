@@ -29,7 +29,7 @@ func TestInstancesListCompleteCollection(t *testing.T) {
 		return rows, nil
 	}}
 	srv := httpapi.New(config.Config{APIKey: f.globalKey, JWTSecret: testJWTSecret}, zerolog.Nop(), httpapi.Deps{
-		Instances: svc, Keys: f.keys, JWTSecret: testJWTSecret,
+		Instances: svc, Users: f.rbacUsers(), Keys: f.keys, JWTSecret: testJWTSecret,
 	})
 	tests := []struct {
 		name   string

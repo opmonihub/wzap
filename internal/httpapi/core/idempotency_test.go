@@ -854,44 +854,24 @@ func TestIdempotencyLargeMultipartFieldsReturn422(t *testing.T) {
 		t.Errorf("handler calls = %d, want 1", calls)
 	}
 }
-func TestFingerprintLargeBodyFallsBackToRouteAndKeepsBody(t *testing.T) {
+func TestFingerprintRejectsOversizedJSON(t *testing.T) {
 	id := uuid.New()
 	large := strings.Repeat("x", core.FingerprintBodyLimit+1)
-	otherLarge := strings.Repeat("y", core.FingerprintBodyLimit+1)
 
 	fingerprint, cleanup, err := core.FingerprintRequest(idempotencyRequest(id, "key-1", large), testMultipartBytes)
-	if err != nil {
-		t.Fatalf("fingerprintRequest: %v", err)
+	var maxErr *http.MaxBytesError
+	if !errors.As(err, &maxErr) {
+		t.Errorf("fingerprintRequest error = %v, want MaxBytesError", err)
+	}
+	if fingerprint != "" {
+		t.Error("oversized JSON still produced an incomplete fingerprint")
 	}
 	if cleanup != nil {
-		t.Error("a JSON body needs no cleanup")
-	}
-	otherFingerprint, _, err := core.FingerprintRequest(idempotencyRequest(id, "key-1", otherLarge), testMultipartBytes)
-	if err != nil {
-		t.Fatalf("fingerprintRequest: %v", err)
-	}
-	if fingerprint != otherFingerprint {
-		t.Error("large bodies were fingerprinted by content, want the documented route-only fallback")
-	}
-
-	req := idempotencyRequest(id, "key-1", large)
-	if _, cleanup, err := core.FingerprintRequest(req, testMultipartBytes); err != nil {
-		t.Fatalf("fingerprintRequest: %v", err)
-	} else if cleanup != nil {
-		t.Error("a JSON body needs no cleanup")
-	}
-	restored, err := io.ReadAll(req.Body)
-	if err != nil {
-		t.Fatalf("read restored body: %v", err)
-	}
-	if string(restored) != large {
-		t.Errorf("restored body length = %d, want %d", len(restored), len(large))
+		t.Error("a rejected JSON body needs no cleanup")
 	}
 }
 
-// TestIdempotencyReplayReturnsStoredBytesPassthrough pins that replay never
-// re-runs the handler and returns the cached status and body verbatim.
-func TestIdempotencyReplayReturnsStoredBytesPassthrough(t *testing.T) {
+func TestIdempotencyReplayRejectsCorruptStoredResponse(t *testing.T) {
 	id := uuid.New()
 	request := idempotencyRequest(id, "key-old", `{"to":"5547"}`)
 	fingerprint, cleanup, err := core.FingerprintRequest(request, testMultipartBytes)
@@ -902,21 +882,35 @@ func TestIdempotencyReplayReturnsStoredBytesPassthrough(t *testing.T) {
 		defer cleanup()
 	}
 
-	cases := map[string][]byte{
-		"truncated json":        []byte(`{"data":{"mess`),
-		"empty body":            nil,
-		"non-envelope object":   []byte(`{"message_id":"m1","status":"queued"}`),
-		"plain text":            []byte(`ok`),
-		"malformed error":       []byte(`{"error":"oops"}`),
-		"array without data":    []byte(`[{"a":1}]`),
-		"envelope missing keys": []byte(`{"result":{"id":"1"}}`),
+	cases := map[string]struct {
+		status int
+		body   string
+	}{
+		"truncated json":            {202, `{"data":{"mess`},
+		"empty body":                {202, ""},
+		"non-envelope object":       {202, `{"message_id":"m1","status":"queued"}`},
+		"null data":                 {202, `{"data":null}`},
+		"scalar data":               {202, `{"data":"corrupt"}`},
+		"array data":                {202, `{"data":[]}`},
+		"plain text":                {202, `ok`},
+		"malformed error":           {500, `{"error":"oops"}`},
+		"error missing code":        {500, `{"error":{"message":"oops"}}`},
+		"error empty message":       {500, `{"error":{"code":"internal_error","message":""}}`},
+		"array without data":        {202, `[{"a":1}]`},
+		"envelope missing keys":     {202, `{"result":{"id":"1"}}`},
+		"zero status":               {0, `{"data":{}}`},
+		"informational status":      {100, `{"data":{}}`},
+		"invalid status":            {600, `{"data":{}}`},
+		"error with success status": {202, `{"error":{"code":"internal_error","message":"oops"}}`},
+		"data with error status":    {500, `{"data":{}}`},
+		"both envelopes":            {202, `{"data":{},"error":{"code":"internal_error","message":"oops"}}`},
 	}
-	for name, body := range cases {
+	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			repo := newFakeIdempotency()
 			repo.putRecord(model.IdempotencyRecord{
 				InstanceID: id, Key: "key-old", Fingerprint: fingerprint,
-				Status: "completed", ResponseStatus: http.StatusAccepted, ResponseBody: body,
+				Status: "completed", ResponseStatus: tc.status, ResponseBody: []byte(tc.body),
 			})
 			calls := 0
 			rec := serveIdempotency(repo, countingHandler(&calls, http.StatusAccepted, "new"),
@@ -925,11 +919,14 @@ func TestIdempotencyReplayReturnsStoredBytesPassthrough(t *testing.T) {
 			if calls != 0 {
 				t.Errorf("handler calls = %d, want 0 (the effect never re-runs)", calls)
 			}
-			if rec.Code != http.StatusAccepted {
-				t.Errorf("status = %d, want 202", rec.Code)
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf("status = %d, want 500", rec.Code)
 			}
-			if !bytes.Equal(rec.Body.Bytes(), body) {
-				t.Errorf("body = %q, want stored %q", rec.Body.Bytes(), body)
+			if code := errorCode(t, rec.Body.Bytes()); code != "internal_error" {
+				t.Errorf("error code = %q, want internal_error", code)
+			}
+			if rec.Header().Get(core.IdempotentReplayHeader) != "" {
+				t.Error("corrupt response marked as a successful replay")
 			}
 			if len(repo.releases) != 0 {
 				t.Errorf("Release calls = %d, want the key kept", len(repo.releases))
@@ -951,22 +948,25 @@ func TestIdempotencyReplayAcceptsBothEnvelopes(t *testing.T) {
 		defer cleanup()
 	}
 
-	for _, body := range [][]byte{
-		[]byte(`{"data":{"message":{"id":"22222222-2222-4222-8222-222222222222","send_status":"queued"}}}`),
-		[]byte(`{"error":{"code":"upstream_error","message":"wa down"}}`),
+	for _, tc := range []struct {
+		status int
+		body   string
+	}{
+		{202, " {\"data\":{\"message\":{\"id\":\"22222222-2222-4222-8222-222222222222\",\"send_status\":\"queued\"}}}\n"},
+		{500, `{"error":{"code":"upstream_error","message":"wa down"}}`},
 	} {
 		repo := newFakeIdempotency()
 		repo.putRecord(model.IdempotencyRecord{
 			InstanceID: id, Key: "key-env", Fingerprint: fingerprint,
-			Status: "completed", ResponseStatus: http.StatusAccepted, ResponseBody: body,
+			Status: "completed", ResponseStatus: tc.status, ResponseBody: []byte(tc.body),
 		})
 		rec := serveIdempotency(repo, countingHandler(new(int), http.StatusAccepted, "new"),
 			idempotencyRequest(id, "key-env", `{"to":"5547"}`))
-		if rec.Code != http.StatusAccepted {
-			t.Errorf("replay of %s = %d, want 202", body, rec.Code)
+		if rec.Code != tc.status {
+			t.Errorf("replay of %s = %d, want %d", tc.body, rec.Code, tc.status)
 		}
-		if rec.Body.String() != string(body) {
-			t.Errorf("replay body = %q, want the stored %q", rec.Body.String(), body)
+		if rec.Body.String() != tc.body {
+			t.Errorf("replay body = %q, want the stored %q", rec.Body.String(), tc.body)
 		}
 	}
 }

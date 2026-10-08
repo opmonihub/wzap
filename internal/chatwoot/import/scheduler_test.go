@@ -150,8 +150,8 @@ func TestSchedulerRunOnceSkipsClearOnInertRun(t *testing.T) {
 	if cleared != 0 {
 		t.Errorf("cleared = %d, want 0 (inert run leaves the cache alone)", cleared)
 	}
-	if feed.resets != 0 {
-		t.Errorf("accumulator resets = %d, want 0 (inert run keeps the feed)", feed.resets)
+	if feed.acknowledgements != 0 {
+		t.Errorf("snapshot acknowledgements = %d, want 0 (inert run keeps the feed)", feed.acknowledgements)
 	}
 	if len(feed.snap.Contacts) != 1 {
 		t.Errorf("feed contacts = %d, want 1 (inert run leaves accumulators intact)", len(feed.snap.Contacts))

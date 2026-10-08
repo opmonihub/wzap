@@ -715,8 +715,8 @@ func TestRestoreAllReflectsFailure(t *testing.T) {
 	if event.status != session.StatusError {
 		t.Errorf("restore failure event status = %q, want %q", event.status, session.StatusError)
 	}
-	if !strings.Contains(event.reason, "whatsapp unreachable") {
-		t.Errorf("restore failure reason = %q, want the cause", event.reason)
+	if !strings.Contains(event.reason, "restore connect") || strings.Contains(event.reason, "whatsapp unreachable") {
+		t.Errorf("restore failure reason = %q, want a safe operation without upstream text", event.reason)
 	}
 	if event.jid != jid.String() {
 		t.Errorf("restore failure JID = %q, want %q", event.jid, jid.String())
@@ -736,8 +736,8 @@ func TestRestoreAllMissingDeviceReflectsErrNoDevice(t *testing.T) {
 	if event.status != session.StatusError {
 		t.Errorf("missing device event status = %q, want %q", event.status, session.StatusError)
 	}
-	if !strings.Contains(event.reason, "5511999999999@s.whatsapp.net") {
-		t.Errorf("missing device reason = %q, want it to name the device", event.reason)
+	if !strings.Contains(event.reason, session.ErrNoDevice.Error()) || strings.Contains(event.reason, "5511999999999@s.whatsapp.net") {
+		t.Errorf("missing device reason = %q, want missing-device classification without its identity", event.reason)
 	}
 }
 
@@ -812,10 +812,10 @@ func createIsolatedSchema(t *testing.T, dsn string) string {
 // newTestManager returns a Manager backed by a fresh, uniquely named schema of
 // the WZAP_TEST_DATABASE_URL database, so integration tests never touch the
 // shared public schema. The test is skipped when the variable is unset.
-func newTestManager(t *testing.T) *Manager {
+func newTestManager(t *testing.T, opts ...ManagerOption) *Manager {
 	t.Helper()
 
-	manager, err := NewManager(context.Background(), createIsolatedSchema(t, requireTestDSN(t)), nil, zerolog.Nop(), nil, testMediaLimit)
+	manager, err := NewManager(context.Background(), createIsolatedSchema(t, requireTestDSN(t)), nil, zerolog.Nop(), nil, testMediaLimit, opts...)
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
 	}

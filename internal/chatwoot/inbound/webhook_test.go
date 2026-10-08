@@ -10,8 +10,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 
 	"wzap/internal/config"
+	"wzap/internal/instance"
 	"wzap/internal/message"
 	"wzap/internal/model"
 	"wzap/internal/session/sessiontest"
@@ -118,8 +120,9 @@ func (f *fakeCorrelations) Put(_ context.Context, msg model.ChatwootMessage) (*m
 
 // fakeInstances returns a fixed instance.
 type fakeInstances struct {
-	inst *model.Instance
-	err  error
+	inst      *model.Instance
+	err       error
+	lifecycle *instance.Service
 }
 
 func (f *fakeInstances) Get(_ context.Context, _ uuid.UUID) (*model.Instance, error) {
@@ -222,6 +225,7 @@ func newFixture(t *testing.T, cfg *model.ChatwootConfig, global config.Chatwoot)
 		Cache:        fx.cache,
 		Global:       global,
 	})
+	fx.instances.lifecycle = instance.NewService(&commandInstanceRepo{inst: fx.instances.inst}, fx.sessions, nil, nil, nil, zerolog.Nop())
 	return fx
 }
 

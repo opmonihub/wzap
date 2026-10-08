@@ -14,6 +14,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"wzap/internal/auth"
+	"wzap/internal/instancelock"
 	"wzap/internal/model"
 	"wzap/internal/session"
 	"wzap/internal/storage"
@@ -141,6 +142,9 @@ type Service struct {
 	groups      storage.GroupMetadataRepository
 	newsletters storage.NewsletterMetadataRepository
 	log         zerolog.Logger
+	// updateLocks only serializes partial instance patches. It is separate
+	// from the WhatsApp send/import locks, which lifecycle callers may hold.
+	updateLocks instancelock.Locker
 }
 
 const (
@@ -325,6 +329,15 @@ func (s *Service) List(ctx context.Context) ([]model.Instance, error) {
 // fields go through UpdateIdentity and the webhook fields through
 // SetWebhook, so neither command can resurrect a stale connection state.
 func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (*model.Instance, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, mapError("update instance", err)
+	}
+	release, err := s.updateLocks.Acquire(ctx, id)
+	if err != nil {
+		return nil, mapError("update instance", err)
+	}
+	defer release()
+
 	instance, err := s.repo.Get(ctx, id)
 	if err != nil {
 		return nil, mapError("update instance", err)
@@ -374,9 +387,12 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 	// webhook side effect already committed. The reverse order would leave a
 	// half-applied patch; a webhook failure after a committed identity write
 	// still leaves a consistent aggregate (500, retry is safe).
-	updated, err := s.repo.UpdateIdentity(ctx, id, name, externalRef)
-	if err != nil {
-		return nil, mapError("update instance", err)
+	updated := instance
+	if input.Name != nil || input.ExternalRef != nil {
+		updated, err = s.repo.UpdateIdentity(ctx, id, name, externalRef)
+		if err != nil {
+			return nil, mapError("update instance", err)
+		}
 	}
 	if webhookChanged {
 		if err := s.repo.SetWebhook(ctx, id, webhookURL, webhookEnabled, webhookEvents); err != nil {

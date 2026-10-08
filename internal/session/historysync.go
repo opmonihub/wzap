@@ -53,6 +53,20 @@ type HistorySyncSnapshot struct {
 	Contacts      []HistorySyncContact
 	Completed     bool
 	UpdatedAt     time.Time
+	// source and through identify the observations in this snapshot. They
+	// stay internal so only snapshots produced by this feed can acknowledge
+	// data; later chunks with the same message/contact IDs remain pending.
+	source  *HistorySyncAccumulator
+	through uint64
+}
+
+type historyObservation struct {
+	sequence  uint64
+	at        time.Time
+	chunk     *HistorySyncChunk
+	preview   int
+	isPreview bool
+	completed bool
 }
 
 // HistorySyncAccumulator merges history-sync chunks of one instance. It is
@@ -72,6 +86,8 @@ type HistorySyncAccumulator struct {
 	contacts   []HistorySyncContact
 	completed  bool
 	updatedAt  time.Time
+	sequence   uint64
+	pending    []historyObservation
 }
 
 // Observe merges chunk into the feed: the chunk counter grows, progress keeps
@@ -81,22 +97,8 @@ type HistorySyncAccumulator struct {
 func (a *HistorySyncAccumulator) Observe(chunk HistorySyncChunk) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.ensureInit()
-
-	a.chunks++
-	if chunk.Progress > a.progress {
-		a.progress = chunk.Progress
-	}
-	if chunk.SyncType != "" {
-		a.syncType = chunk.SyncType
-	}
-	for _, conv := range chunk.Conversations {
-		a.mergeConversation(conv)
-	}
-	for _, contact := range chunk.Contacts {
-		a.mergeContact(contact)
-	}
-	a.updatedAt = time.Now().UTC()
+	owned := cloneHistoryChunk(chunk)
+	a.record(historyObservation{chunk: &owned})
 }
 
 // ObservePreview records the totals announced before the batches arrive;
@@ -104,18 +106,14 @@ func (a *HistorySyncAccumulator) Observe(chunk HistorySyncChunk) {
 func (a *HistorySyncAccumulator) ObservePreview(total int) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if total > a.total {
-		a.total = total
-	}
-	a.updatedAt = time.Now().UTC()
+	a.record(historyObservation{preview: total, isPreview: true})
 }
 
 // MarkComplete flags the feed as fully received.
 func (a *HistorySyncAccumulator) MarkComplete() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.completed = true
-	a.updatedAt = time.Now().UTC()
+	a.record(historyObservation{completed: true})
 }
 
 // Snapshot returns a copy of the accumulated feed.
@@ -130,6 +128,8 @@ func (a *HistorySyncAccumulator) Snapshot() HistorySyncSnapshot {
 		Total:     a.total,
 		Completed: a.completed,
 		UpdatedAt: a.updatedAt,
+		source:    a,
+		through:   a.sequence,
 	}
 	for _, conv := range a.convs {
 		dup := HistorySyncConversation{
@@ -148,6 +148,43 @@ func (a *HistorySyncAccumulator) Snapshot() HistorySyncSnapshot {
 func (a *HistorySyncAccumulator) Reset() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	a.pending = nil
+	a.clearMerged()
+}
+
+// Acknowledge removes only the observations consumed by snap. Rebuilding the
+// merged feed from later observations preserves updates to the same contact,
+// conversation or message, rather than subtracting identities from the union.
+// The sequence survives Reset so an old acknowledgement cannot erase a new
+// feed; acknowledgements from another accumulator are ignored.
+func (a *HistorySyncAccumulator) Acknowledge(snap HistorySyncSnapshot) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if snap.source != a {
+		return
+	}
+	consumed := 0
+	for consumed < len(a.pending) && a.pending[consumed].sequence <= snap.through {
+		consumed++
+	}
+	if consumed == 0 {
+		return
+	}
+	remaining := copy(a.pending, a.pending[consumed:])
+	clear(a.pending[remaining:])
+	a.pending = a.pending[:remaining]
+	if remaining == 0 {
+		a.pending = nil
+	}
+	a.clearMerged()
+	for _, observation := range a.pending {
+		a.apply(observation)
+	}
+}
+
+// clearMerged resets the derived snapshot without discarding the journal or
+// reusing its sequence. Callers hold mu.
+func (a *HistorySyncAccumulator) clearMerged() {
 	a.chunks = 0
 	a.progress = 0
 	a.syncType = ""
@@ -159,6 +196,51 @@ func (a *HistorySyncAccumulator) Reset() {
 	a.contacts = nil
 	a.completed = false
 	a.updatedAt = time.Time{}
+}
+
+func (a *HistorySyncAccumulator) record(observation historyObservation) {
+	a.sequence++
+	observation.sequence = a.sequence
+	observation.at = time.Now().UTC()
+	a.pending = append(a.pending, observation)
+	a.apply(observation)
+}
+
+func (a *HistorySyncAccumulator) apply(observation historyObservation) {
+	if chunk := observation.chunk; chunk != nil {
+		a.ensureInit()
+		a.chunks++
+		if chunk.Progress > a.progress {
+			a.progress = chunk.Progress
+		}
+		if chunk.SyncType != "" {
+			a.syncType = chunk.SyncType
+		}
+		for _, conv := range chunk.Conversations {
+			a.mergeConversation(conv)
+		}
+		for _, contact := range chunk.Contacts {
+			a.mergeContact(contact)
+		}
+	}
+	if observation.isPreview && observation.preview > a.total {
+		a.total = observation.preview
+	}
+	if observation.completed {
+		a.completed = true
+	}
+	a.updatedAt = observation.at
+}
+
+func cloneHistoryChunk(chunk HistorySyncChunk) HistorySyncChunk {
+	owned := chunk
+	owned.Contacts = append([]HistorySyncContact(nil), chunk.Contacts...)
+	owned.Conversations = make([]HistorySyncConversation, len(chunk.Conversations))
+	for i, conv := range chunk.Conversations {
+		owned.Conversations[i] = conv
+		owned.Conversations[i].Messages = append([]HistorySyncMessage(nil), conv.Messages...)
+	}
+	return owned
 }
 
 // ensureInit lazies the merge indexes; the accumulator is usable as a zero

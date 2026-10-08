@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"wzap/internal/events"
 	"wzap/internal/session"
 	"wzap/internal/storage"
@@ -17,9 +19,9 @@ const receiptEventType = "receipt"
 // ReceiptStore records the delivery/read milestones of outbound messages.
 type ReceiptStore interface {
 	// UpdateReceipt maps delivered to delivered_at and read/played to read_at
-	// by WhatsApp message id. It reports false when no message matches or the
-	// status is unknown.
-	UpdateReceipt(ctx context.Context, whatsAppMessageID, status string, at time.Time) (bool, error)
+	// by instance and WhatsApp message id. It reports false when no message
+	// matches or the status is unknown.
+	UpdateReceipt(ctx context.Context, instanceID uuid.UUID, whatsAppMessageID, status string, at time.Time) (bool, error)
 }
 
 // The concrete repository satisfies the receipt contract; the interface
@@ -56,7 +58,7 @@ func (r *Receipts) Apply(ctx context.Context, receipt session.Receipt) error {
 
 	matched := make([]string, 0, len(receipt.MessageIDs))
 	for _, whatsAppID := range receipt.MessageIDs {
-		updated, err := r.repo.UpdateReceipt(ctx, whatsAppID, receipt.Status, at)
+		updated, err := r.repo.UpdateReceipt(ctx, receipt.InstanceID, whatsAppID, receipt.Status, at)
 		if err != nil {
 			return fmt.Errorf("apply receipt %s: %w", whatsAppID, err)
 		}

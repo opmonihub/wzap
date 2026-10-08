@@ -20,7 +20,7 @@ import (
 // createOwnerTestServer wires svc behind Authenticate with both the global key
 // and session cookies accepted, so the create owner/key tests can act as each
 // scope.
-func createOwnerTestServer(t *testing.T, svc httpapi.InstanceService) *http.Server {
+func createOwnerTestServer(t *testing.T, svc httpapi.InstanceService, users ...*model.User) *http.Server {
 	t.Helper()
 	return httpapi.New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret},
@@ -28,7 +28,7 @@ func createOwnerTestServer(t *testing.T, svc httpapi.InstanceService) *http.Serv
 		httpapi.Deps{
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    svc,
-			Users:        newFakeUserRepository(),
+			Users:        newFakeUserRepository(users...),
 			Keys:         &fakeAPIKeyRepository{},
 			JWTSecret:    testJWTSecret,
 		},
@@ -69,8 +69,8 @@ func echoCreateFn(key string) func(context.Context, instance.CreateInput) (*mode
 }
 func TestInstancesCreateByUserSessionEmitsOwnerAndKey(t *testing.T) {
 	svc := &fakeInstanceService{createFn: echoCreateFn("user-key-1")}
-	srv := createOwnerTestServer(t, svc)
 	userID := uuid.New()
+	srv := createOwnerTestServer(t, svc, &model.User{ID: userID, Role: "user"})
 	cookie := rbacSessionCookie(mustSessionToken(t, userID, "user"))
 
 	rec := serveRBAC(t, srv, http.MethodPost, "/instances", `{"name":"loja"}`, cookie, "", nil)
@@ -153,7 +153,7 @@ func TestInstancesCreateWithOwnerOverride(t *testing.T) {
 
 	t.Run("admin session with override", func(t *testing.T) {
 		svc := newSvc()
-		srv := createOwnerTestServer(t, svc)
+		srv := createOwnerTestServer(t, svc, &model.User{ID: adminID, Role: "admin"})
 
 		rec := serveRBAC(t, srv, http.MethodPost, "/instances",
 			`{"name":"loja","owner_user_id":"`+override.String()+`"}`, adminCookie, "", nil)
@@ -176,8 +176,9 @@ func TestInstancesCreateWithOwnerOverride(t *testing.T) {
 }
 func TestInstancesCreateUserOverrideForbidden(t *testing.T) {
 	svc := &fakeInstanceService{createFn: echoCreateFn("must-not-issue")}
-	srv := createOwnerTestServer(t, svc)
-	cookie := rbacSessionCookie(mustSessionToken(t, uuid.New(), "user"))
+	userID := uuid.New()
+	srv := createOwnerTestServer(t, svc, &model.User{ID: userID, Role: "user"})
+	cookie := rbacSessionCookie(mustSessionToken(t, userID, "user"))
 
 	rec := serveRBAC(t, srv, http.MethodPost, "/instances",
 		`{"name":"loja","owner_user_id":"`+uuid.NewString()+`"}`, cookie, "", nil)
@@ -247,7 +248,7 @@ func TestInstancesCreateKeyShownOnce(t *testing.T) {
 			return owned(id), nil
 		},
 	}
-	srv := createOwnerTestServer(t, svc)
+	srv := createOwnerTestServer(t, svc, &model.User{ID: userID, Role: "user"})
 	cookie := rbacSessionCookie(mustSessionToken(t, userID, "user"))
 
 	created := serveRBAC(t, srv, http.MethodPost, "/instances", `{"name":"loja"}`, cookie, "", nil)

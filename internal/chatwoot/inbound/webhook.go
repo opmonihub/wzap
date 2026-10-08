@@ -15,6 +15,7 @@ import (
 
 	"wzap/internal/chatwoot/mapper"
 	"wzap/internal/config"
+	"wzap/internal/instance"
 	"wzap/internal/message"
 	"wzap/internal/model"
 	"wzap/internal/session"
@@ -160,9 +161,11 @@ type Correlations interface {
 	Put(ctx context.Context, msg model.ChatwootMessage) (*model.ChatwootMessage, error)
 }
 
-// Instances reads the instance an operational command reports on.
+// Instances reads and starts the instance through its existing lifecycle.
 type Instances interface {
 	Get(ctx context.Context, id uuid.UUID) (*model.Instance, error)
+	Connect(ctx context.Context, id uuid.UUID) (instance.ConnectResult, error)
+	PairPhone(ctx context.Context, id uuid.UUID, number string) (instance.PairPhoneResult, error)
 }
 
 // Chats posts private failure notes and operational confirmations.
@@ -600,38 +603,34 @@ func (h *Handler) handleOperational(ctx context.Context, instanceID uuid.UUID, c
 			return 200, nil
 		}
 		reply := fmt.Sprintf("Instância %s: %s.", inst.Name, inst.Connection.Status)
-		if strings.TrimSpace(inst.Connection.DeviceJID) != "" {
-			reply += " JID: " + strings.TrimSpace(inst.Connection.DeviceJID)
-		}
 		h.postOperationalConfirm(ctx, cfg, convID, reply)
 		return 200, nil
 	case lower == "init" || strings.HasPrefix(lower, "init:"):
-		sess, ok := h.sessions.Get(instanceID)
-		if !ok {
-			h.postOperationalConfirm(ctx, cfg, convID, "Sessão não encontrada para parear.")
-			return 200, nil
-		}
 		number := ""
 		if idx := strings.Index(content, ":"); idx >= 0 {
 			number = strings.TrimSpace(content[idx+1:])
 		}
-		if number != "" {
-			code, err := sess.PairPhone(ctx, number)
-			if err != nil {
-				h.postOperationalConfirm(ctx, cfg, convID, fmt.Sprintf("Falha ao parear %s: %v", number, err))
-				return 200, nil
-			}
-			h.postOperationalConfirm(ctx, cfg, convID, fmt.Sprintf("Código de pareamento para %s: %s", number, code))
+		result, err := h.instances.Connect(ctx, instanceID)
+		if err != nil {
+			h.postOperationalConfirm(ctx, cfg, convID, "Falha ao iniciar pareamento.")
 			return 200, nil
 		}
-		qr, _, err := sess.Connect(ctx)
-		if err != nil {
-			h.postOperationalConfirm(ctx, cfg, convID, fmt.Sprintf("Falha ao iniciar pareamento: %v", err))
+		if result.Status == session.StatusConnected {
+			h.postOperationalConfirm(ctx, cfg, convID, "WhatsApp já conectado.")
+			return 200, nil
+		}
+		if number != "" {
+			paired, err := h.instances.PairPhone(ctx, instanceID, number)
+			if err != nil {
+				h.postOperationalConfirm(ctx, cfg, convID, "Falha ao solicitar código de pareamento.")
+				return 200, nil
+			}
+			h.postOperationalConfirm(ctx, cfg, convID, fmt.Sprintf("Código de pareamento para %s: %s", number, paired.Code))
 			return 200, nil
 		}
 		reply := "Pareamento pendente. Escaneie o QR Code para conectar o WhatsApp."
-		if strings.TrimSpace(qr) != "" {
-			reply += " QR: " + strings.TrimSpace(qr)
+		if strings.TrimSpace(result.QRCode) != "" {
+			reply += " QR: " + strings.TrimSpace(result.QRCode)
 		}
 		h.postOperationalConfirm(ctx, cfg, convID, reply)
 		return 200, nil

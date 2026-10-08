@@ -9,11 +9,6 @@ import (
 	"strings"
 )
 
-// maxWebhookRedirects capa os saltos seguidos num POST de webhook. O cap é
-// aplicado junto à política SSRF, então uma URL pública não pode quicar para
-// metadata/link-local.
-const maxWebhookRedirects = 3
-
 // lookupIP resolve hostname para endereços na política SSRF. Variável para
 // testes injetarem resolução sem rede.
 var lookupIP = net.LookupIP
@@ -177,14 +172,8 @@ func pinnedDialer(ctx context.Context, network, addr string) (net.Conn, error) {
 	return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0].String(), port))
 }
 
-// checkWebhookRedirect valida cada hop de redirect contra o gate SSRF e capa
-// a cadeia em maxWebhookRedirects.
-func checkWebhookRedirect(req *http.Request, via []*http.Request) error {
-	if len(via) >= maxWebhookRedirects {
-		return fmt.Errorf("webhook redirect rejected: too many redirects")
-	}
-	if err := validateWebhookURL(req.URL.String()); err != nil {
-		return err
-	}
-	return nil
+// checkWebhookRedirect leaves every redirect to Deliver's non-2xx handling.
+// It never forwards an instance key to another URL.
+func checkWebhookRedirect(_ *http.Request, _ []*http.Request) error {
+	return http.ErrUseLastResponse
 }

@@ -28,7 +28,7 @@ func apikeyHashOf(key string) string {
 // apikeyTestServer wires svc and keys behind Authenticate so instance-key
 // assertions exercise the middleware-shaped resolution (old key → 401, new
 // key resolves).
-func apikeyTestServer(t *testing.T, svc httpapi.InstanceService, keys *fakeAPIKeyRepository) *http.Server {
+func apikeyTestServer(t *testing.T, svc httpapi.InstanceService, keys *fakeAPIKeyRepository, users ...*model.User) *http.Server {
 	t.Helper()
 	return httpapi.New(
 		config.Config{HTTPAddr: "127.0.0.1:0", APIKey: testToken, JWTSecret: testJWTSecret},
@@ -37,6 +37,7 @@ func apikeyTestServer(t *testing.T, svc httpapi.InstanceService, keys *fakeAPIKe
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    svc,
 			Keys:         keys,
+			Users:        newFakeUserRepository(users...),
 			JWTSecret:    testJWTSecret,
 		},
 	)
@@ -167,7 +168,8 @@ func TestAPIKeyRotateRevokeForbidden(t *testing.T) {
 	inst := &model.Instance{ID: uuid.New(), Name: "loja", Connection: model.InstanceConnection{Status: "disconnected"}}
 	const ownKey = "own-instance-key-forbidden"
 	keys := &fakeAPIKeyRepository{byHash: map[string]uuid.UUID{apikeyHashOf(ownKey): inst.ID}}
-	srv := apikeyTestServer(t, apikeyInstanceService(inst), keys)
+	srv := apikeyTestServer(t, apikeyInstanceService(inst), keys,
+		&model.User{ID: userID, Role: "user"}, &model.User{ID: adminID, Role: "admin"})
 
 	userToken, err := auth.MintToken(userID, "user", testJWTSecret)
 	if err != nil {
@@ -242,9 +244,10 @@ func TestAPIKeyRotateRevokeNotFound(t *testing.T) {
 	const otherKey = "other-live-instance-key"
 	otherID := uuid.New()
 	keys := &fakeAPIKeyRepository{byHash: map[string]uuid.UUID{apikeyHashOf(otherKey): otherID}}
-	srv := apikeyTestServer(t, svc, keys)
+	userID := uuid.New()
+	srv := apikeyTestServer(t, svc, keys, &model.User{ID: userID, Role: "user"})
 
-	userToken, err := auth.MintToken(uuid.New(), "user", testJWTSecret)
+	userToken, err := auth.MintToken(userID, "user", testJWTSecret)
 	if err != nil {
 		t.Fatalf("MintToken user: %v", err)
 	}

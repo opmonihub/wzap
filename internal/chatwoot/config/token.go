@@ -17,10 +17,11 @@ const SealedTokenPrefix = "enc:v1:"
 
 // SealToken encrypts a Chatwoot token with key (exactly 32 bytes, AES-256)
 // and returns the prefixed base64(nonce|ciphertext) form for storage. Empty
-// tokens pass through (disabled configs carry none), as do values that
-// already carry the prefix, so Put-after-Get can never double-seal.
+// tokens pass through (disabled configs carry none). Every non-empty input
+// is opaque plaintext, including tokens that begin with the storage prefix.
+// Repository reads open the envelope before returning a token to callers.
 func SealToken(plaintext string, key []byte) (string, error) {
-	if plaintext == "" || strings.HasPrefix(plaintext, SealedTokenPrefix) {
+	if plaintext == "" {
 		return plaintext, nil
 	}
 	aead, err := tokenAEAD(key)

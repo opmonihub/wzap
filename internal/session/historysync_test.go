@@ -133,3 +133,52 @@ func TestHistorySyncAccumulatorsAreIndependent(t *testing.T) {
 		t.Errorf("second conversations = %+v, want only bbb", got)
 	}
 }
+
+func TestHistoryAcknowledgementKeepsLaterObservationsAndMetadata(t *testing.T) {
+	var acc HistorySyncAccumulator
+	acc.ObservePreview(10)
+	acc.Observe(HistorySyncChunk{Progress: 100, Conversations: []HistorySyncConversation{{ChatJID: "same-chat", Name: "Old chat", Messages: []HistorySyncMessage{{MessageID: "same-message", Text: "Old text"}}}}, Contacts: []HistorySyncContact{{JID: "same-contact", Name: "Old contact"}}})
+	acc.MarkComplete()
+	processed := acc.Snapshot()
+	chunk := HistorySyncChunk{SyncType: "RECENT", Progress: 20, Conversations: []HistorySyncConversation{{ChatJID: "same-chat", Name: "New chat", Messages: []HistorySyncMessage{{MessageID: "same-message", Text: "New text"}}}}, Contacts: []HistorySyncContact{{JID: "same-contact", Name: "New contact"}}}
+	acc.Observe(chunk)
+	// The caller owns its input: later mutations must not change the journal
+	// that acknowledgement uses to rebuild the pending snapshot.
+	chunk.Conversations[0].Messages[0].Text = "caller mutation"
+	chunk.Contacts[0].Name = "caller mutation"
+	acc.ObservePreview(2)
+	acc.MarkComplete()
+	acc.Acknowledge(processed)
+	remaining := acc.Snapshot()
+	if remaining.Chunks != 1 || remaining.Progress != 20 || remaining.Total != 2 || remaining.SyncType != "RECENT" || !remaining.Completed {
+		t.Fatalf("later metadata lost: %+v", remaining)
+	}
+	if len(remaining.Conversations) != 1 || len(remaining.Conversations[0].Messages) != 1 || remaining.Conversations[0].Name != "New chat" || remaining.Conversations[0].Messages[0].Text != "New text" || len(remaining.Contacts) != 1 || remaining.Contacts[0].Name != "New contact" {
+		t.Errorf("later observation lost: %+v", remaining)
+	}
+	acc.Acknowledge(processed)
+	if got := acc.Snapshot(); got.Chunks != 1 {
+		t.Errorf("repeated acknowledgement erased pending chunks: %+v", got)
+	}
+	acc.Acknowledge(remaining)
+	if got := acc.Snapshot(); got.Chunks != 0 || got.Completed || got.Total != 0 || !got.UpdatedAt.IsZero() {
+		t.Errorf("acknowledged feed still pending: %+v", got)
+	}
+}
+
+func TestHistoryAcknowledgementCannotEraseAnotherFeedOrAfterReset(t *testing.T) {
+	var first, other HistorySyncAccumulator
+	first.Observe(HistorySyncChunk{Contacts: []HistorySyncContact{{JID: "original"}}})
+	old := first.Snapshot()
+	other.Observe(HistorySyncChunk{Contacts: []HistorySyncContact{{JID: "other-instance"}}})
+	other.Acknowledge(old)
+	if got := other.Snapshot(); got.Chunks != 1 || got.Contacts[0].JID != "other-instance" {
+		t.Errorf("foreign acknowledgement erased another instance: %+v", got)
+	}
+	first.Reset()
+	first.Observe(HistorySyncChunk{Contacts: []HistorySyncContact{{JID: "after-reset"}}})
+	first.Acknowledge(old)
+	if got := first.Snapshot(); got.Chunks != 1 || got.Contacts[0].JID != "after-reset" {
+		t.Errorf("stale acknowledgement erased reset feed: %+v", got)
+	}
+}

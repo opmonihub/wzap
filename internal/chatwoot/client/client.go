@@ -37,7 +37,12 @@ func New(baseURL, token, accountID string) *Client {
 		baseURL:   strings.TrimRight(baseURL, "/"),
 		token:     token,
 		accountID: accountID,
-		http:      &http.Client{Timeout: timeout},
+		http: &http.Client{
+			Timeout: timeout,
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		},
 	}
 }
 

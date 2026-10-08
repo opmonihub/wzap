@@ -484,10 +484,10 @@ func HandleSendMedia(instances InstanceService, messages MessageService, mediaSt
 		}
 		defer func() { _ = r.MultipartForm.RemoveAll() }()
 
-		to := strings.TrimSpace(r.FormValue("to"))
-		kind := strings.TrimSpace(r.FormValue("type"))
-		caption := r.FormValue("caption")
-		filename := strings.TrimSpace(r.FormValue("filename"))
+		to := strings.TrimSpace(r.PostFormValue("to"))
+		kind := strings.TrimSpace(r.PostFormValue("type"))
+		caption := r.PostFormValue("caption")
+		filename := strings.TrimSpace(r.PostFormValue("filename"))
 		if to == "" {
 			core.Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "to is required")
 			return
@@ -497,7 +497,7 @@ func HandleSendMedia(instances InstanceService, messages MessageService, mediaSt
 				"type must be image, video, audio, document or sticker")
 			return
 		}
-		ptt, err := ParseFormBool(r.FormValue("ptt"))
+		ptt, err := ParseFormBool(r.PostFormValue("ptt"))
 		if err != nil {
 			core.Error(w, r, http.StatusUnprocessableEntity, "unprocessable_entity", "ptt must be a boolean")
 			return

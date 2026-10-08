@@ -119,19 +119,35 @@ func Recover(log zerolog.Logger) func(http.Handler) http.Handler {
 
 // Authenticate guards handlers with one credential per request, resolved in a
 // fixed order with first hit winning: the wzap_session cookie validated with
-// auth.ParseToken, the apikey header equal to the global key, then the hex
-// sha256 of the apikey header looked up in the key repository. An unusable
+// auth.ParseToken and checked against the current user, the apikey header equal
+// to the global key, then the hex sha256 of the apikey header looked up in the
+// key repository. An unusable
 // cookie (absent, unparseable, expired, wrong secret) counts as absent and
-// falls through to the apikey steps; only when no step resolves does the
-// middleware fail with 401. Authorization: Bearer is never
+// falls through to the apikey steps. A parsed session fails with 401 when its
+// account is missing, and 500 when the account cannot be checked. Requests with
+// no resolved credential fail with 401. Authorization: Bearer is never
 // read. The resolved auth.Scope is injected in the request context for
 // downstream handlers via auth.ContextWithScope.
-func Authenticate(globalKey string, keys storage.APIKeyRepository, jwtSecret string) func(http.Handler) http.Handler {
+func Authenticate(globalKey string, keys storage.APIKeyRepository, jwtSecret string, users storage.UserRepository) func(http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if cookie, err := r.Cookie(auth.SessionCookieName); err == nil {
 				if scope, err := auth.ParseToken(cookie.Value, jwtSecret); err == nil {
+					if users == nil {
+						Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
+						return
+					}
+					user, err := users.GetByID(r.Context(), scope.UserID)
+					switch {
+					case errors.Is(err, storage.ErrNotFound), err == nil && user == nil:
+						Error(w, r, http.StatusUnauthorized, "unauthorized", "missing or invalid credential")
+						return
+					case err != nil:
+						Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
+						return
+					}
+					scope.Role = user.Role
 					next.ServeHTTP(w, r.WithContext(auth.ContextWithScope(r.Context(), scope)))
 					return
 				}

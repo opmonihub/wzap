@@ -463,6 +463,42 @@ func TestChatwootConfigTokenSealedAtRest(t *testing.T) {
 	}
 }
 
+func TestChatwootConfigPrefixedTokenSealedAcrossGetPut(t *testing.T) {
+	ctx := context.Background()
+	pool := postgrestest.NewPool(t)
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	owner := createTestOwner(t, pool)
+	inst, err := NewInstanceRepository(pool).Create(ctx, model.Instance{
+		ID: uuid.New(), Name: "prefixed-token", OwnerUserID: &owner.ID,
+		Connection: model.InstanceConnection{Status: "disconnected"},
+	})
+	if err != nil {
+		t.Fatalf("create instance: %v", err)
+	}
+	repo, _ := NewChatwootRepositories(pool, testChatwootTokenKey(t))
+	const plaintext = "enc:v1:synthetic-opaque-token"
+	cfg := model.ChatwootConfig{InstanceID: inst.ID, Token: plaintext}
+	for attempt := 0; attempt < 2; attempt++ {
+		if _, err := repo.Put(ctx, cfg); err != nil {
+			t.Fatalf("Put: %v", err)
+		}
+		var raw string
+		if err := pool.QueryRow(ctx, `SELECT token FROM chatwoot_configs WHERE instance_id = $1`, inst.ID).Scan(&raw); err != nil {
+			t.Fatalf("read stored token: %v", err)
+		}
+		if raw == plaintext {
+			t.Error("prefixed plaintext stored without encryption")
+		}
+		got, err := repo.Get(ctx, inst.ID)
+		if err != nil || got.Token != plaintext {
+			t.Fatalf("Get = %v, %v; want original plaintext", got, err)
+		}
+		cfg = *got
+	}
+}
+
 // TestChatwootConfigPutRejectsNonEmptyTokenWithoutKey pins the mandatory
 // cipher contract at the write boundary: a non-empty token without a
 // repository key is refused instead of persisting plaintext.

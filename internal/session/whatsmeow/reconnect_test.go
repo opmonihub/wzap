@@ -617,12 +617,24 @@ func TestImmediatePostConnectDropIsTerminal(t *testing.T) {
 // still a transient network blip and schedules the backoff retry.
 func TestDropAfterCompletedLoginStillRetries(t *testing.T) {
 	sink := &recordingSink{}
-	sleeps := &sleepRecorder{}
+	backoffStarted := make(chan struct{})
+	releaseBackoff := make(chan struct{})
+	attempted := make(chan struct{})
 	var reconnects atomic.Int64
-	sess := newDialedSession(t, sink, sleeps.sleep, func(context.Context) error {
+	sess := newDialedSession(t, sink, func(ctx context.Context, _ time.Duration) error {
+		close(backoffStarted)
+		select {
+		case <-releaseBackoff:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}, func(context.Context) error {
 		reconnects.Add(1)
+		close(attempted)
 		return nil
 	})
+	t.Cleanup(sess.cancelReconnect)
 
 	sess.dispatch(&events.Connected{})
 
@@ -638,11 +650,29 @@ func TestDropAfterCompletedLoginStillRetries(t *testing.T) {
 	if event := sink.last(t); event.status != session.StatusDisconnected {
 		t.Fatalf("sink event = %+v, want a transient disconnected event", event)
 	}
+	// Hold the backoff until the assertion observes the scheduled retry. An
+	// immediate fake sleep/reconnect can legitimately finish before this
+	// check and clear reconnectRun, making the old fixture scheduler-sensitive.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	select {
+	case <-backoffStarted:
+	case <-ctx.Done():
+		t.Fatal("a drop after a completed login did not start backoff")
+	}
 	if !reconnectRunning(sess) {
 		t.Error("a drop after a completed login did not schedule a reconnect")
 	}
+	close(releaseBackoff)
+	select {
+	case <-attempted:
+	case <-ctx.Done():
+		t.Fatal("scheduled backoff did not attempt a reconnect")
+	}
+	if got := reconnects.Load(); got != 1 {
+		t.Errorf("reconnect attempts = %d, want 1", got)
+	}
 	sess.cancelReconnect()
-	waitForNoReconnect(t, sess)
 }
 
 func TestNewSessionDisablesLibraryAutoReconnect(t *testing.T) {

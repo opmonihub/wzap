@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -34,10 +35,9 @@ const (
 	IdempotencyTTL = 24 * time.Hour
 	// idempotencyKeyMaxLen caps the key size accepted from clients.
 	IdempotencyKeyMaxLen = 255
-	// fingerprintBodyLimit bounds the JSON body the middleware buffers to
-	// compute the request fingerprint. A bigger body falls back to a
-	// method+route fingerprint.
-	FingerprintBodyLimit = 1 << 20
+	// fingerprintBodyLimit bounds JSON buffering and rejects oversized requests
+	// before the idempotency store is consulted.
+	FingerprintBodyLimit = MaxJSONBodyBytes
 	// fingerprintMultipartOverhead is the slack above the configured upload
 	// limit that still gets an exact multipart fingerprint: the multipart
 	// boundaries, part headers and text fields around the file content.
@@ -51,7 +51,7 @@ const (
 // Idempotency makes a retried send safe: the first request stores its response
 // under the caller's key and a repeat replays it instead of enqueueing the same
 // message twice. It scopes every key to the instance of the route and is meant
-// to wrap only the send POSTs.
+// to wrap explicitly idempotent POST, PUT and PATCH writes.
 //
 // Without the header the request goes straight through. While the original
 // request runs the key is in flight and a repeat gets 409; a key reused with
@@ -74,7 +74,7 @@ func Idempotency(
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != http.MethodPost {
+			if r.Method != http.MethodPost && r.Method != http.MethodPut && r.Method != http.MethodPatch {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -113,7 +113,7 @@ func Idempotency(
 				defer cleanup()
 			}
 			if err != nil {
-				Error(w, r, http.StatusBadRequest, "invalid_request", "invalid request body")
+				WriteJSONBodyError(w, r, err)
 				return
 			}
 
@@ -171,15 +171,36 @@ func Idempotency(
 
 // Replay answers with the stored HTTP status and body for a completed
 // Idempotency key without transforming the cached bytes.
-func Replay(w http.ResponseWriter, _ *http.Request, record *model.IdempotencyRecord) {
-	status := record.ResponseStatus
-	if status == 0 {
-		status = http.StatusOK
+func Replay(w http.ResponseWriter, r *http.Request, record *model.IdempotencyRecord) {
+	if !validReplay(record) {
+		Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
+		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set(IdempotentReplayHeader, "true")
-	w.WriteHeader(status)
+	w.WriteHeader(record.ResponseStatus)
 	_, _ = w.Write(record.ResponseBody)
+}
+
+func validReplay(record *model.IdempotencyRecord) bool {
+	if record == nil || record.ResponseStatus < http.StatusOK || record.ResponseStatus > 599 {
+		return false
+	}
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(record.ResponseBody, &envelope); err != nil {
+		return false
+	}
+	dataBody, hasData := envelope["data"]
+	errorBody, hasError := envelope["error"]
+	if record.ResponseStatus < http.StatusMultipleChoices {
+		var data map[string]json.RawMessage
+		return hasData && !hasError && json.Unmarshal(dataBody, &data) == nil && data != nil
+	}
+	if record.ResponseStatus < http.StatusBadRequest || hasData || !hasError {
+		return false
+	}
+	var body ErrorBody
+	return json.Unmarshal(errorBody, &body) == nil && body.Code != "" && body.Message != ""
 }
 
 // ReleaseKey frees an idempotency key, logging a failure to free it.
@@ -236,8 +257,8 @@ func (c *ResponseCapture) Unwrap() http.ResponseWriter { return c.ResponseWriter
 // configured upload limit falls back to a method+route fingerprint, which is
 // harmless because the handler rejects it before anything is enqueued.
 //
-// A non-multipart body larger than fingerprintBodyLimit is also hashed by
-// method and route only, and is left intact for the handler.
+// A non-multipart body larger than fingerprintBodyLimit is rejected before
+// acquiring or replaying an idempotency key.
 func FingerprintRequest(r *http.Request, multipartLimit int64) (string, func(), error) {
 	contentType := r.Header.Get("Content-Type")
 	if mediaType, params, err := mime.ParseMediaType(contentType); err == nil && strings.HasPrefix(mediaType, "multipart/") {
@@ -249,7 +270,7 @@ func FingerprintRequest(r *http.Request, multipartLimit int64) (string, func(), 
 		return "", nil, err
 	}
 	if !complete {
-		return RouteFingerprint(r), nil, nil
+		return "", nil, &http.MaxBytesError{Limit: FingerprintBodyLimit}
 	}
 
 	sum := sha256.New()
@@ -314,7 +335,7 @@ func RouteFingerprint(r *http.Request) string {
 	return hex.EncodeToString(sum.Sum(nil))
 }
 
-// PartsFingerprint hashes the method, route and sorted multipart parts. Each
+// PartsFingerprint hashes the method, route and canonical multipart parts. Each
 // part is length-prefixed, so a value containing the part separator cannot be
 // re-segmented into a different set of parts.
 func PartsFingerprint(r *http.Request, parts []string) string {
@@ -328,15 +349,33 @@ func PartsFingerprint(r *http.Request, parts []string) string {
 	return hex.EncodeToString(sum.Sum(nil))
 }
 
-// WriteRoute writes the method and route pattern of r into h. The matched
-// pattern is preferred over the raw path so the instance id does not take part
-// in the fingerprint.
+// WriteRoute writes the method and route pattern of r into h. Instance aliases
+// share the pattern; concrete resource parameters still identify their target.
 func WriteRoute(h io.Writer, r *http.Request) {
 	route := r.Pattern
 	if route == "" {
 		route = r.URL.Path
 	}
 	_, _ = fmt.Fprintf(h, "%s\n%s\n", r.Method, route)
+	_, instanceSuffix, _ := strings.Cut(r.Pattern, "/instances/{")
+	instanceParameter, _, _ := strings.Cut(instanceSuffix, "}")
+	remaining := r.Pattern
+	for {
+		_, after, found := strings.Cut(remaining, "{")
+		if !found {
+			return
+		}
+		name, rest, found := strings.Cut(after, "}")
+		if !found {
+			return
+		}
+		remaining = rest
+		if name == instanceParameter {
+			continue
+		}
+		value := PathParam(r, name)
+		_, _ = fmt.Fprintf(h, "%d:%s%d:%s\n", len(name), name, len(value), value)
+	}
 }
 
 // ReadBodyPrefix reads at most fingerprintBodyLimit+1 bytes of the request body
@@ -359,13 +398,14 @@ func ReadBodyPrefix(r *http.Request) ([]byte, bool, error) {
 	return prefix, true, nil
 }
 
-// MultipartParts parses a multipart body and returns its canonical parts as
-// sorted strings. A text field is "field\x00name\x00value"; a file part is
-// "file\x00name\x00filename\x00content-type\x00sha256". Sorting makes the
-// fingerprint independent of the field and part order.
+// MultipartParts sorts distinct multipart fields by kind and name, preserving
+// the order of repeated values/files because handlers consume the first one.
+// A text field is "field\x00name\x00value"; a file part is
+// "file\x00name\x00filename\x00content-type\x00sha256".
 func MultipartParts(boundary string, body io.Reader) ([]string, error) {
+	type canonicalPart struct{ key, value string }
 	reader := multipart.NewReader(body, boundary)
-	parts := []string{}
+	parts := []canonicalPart{}
 	for {
 		part, err := reader.NextPart()
 		if errors.Is(err, io.EOF) {
@@ -380,8 +420,9 @@ func MultipartParts(boundary string, body io.Reader) ([]string, error) {
 			if _, err := io.Copy(sum, part); err != nil {
 				return nil, err
 			}
-			parts = append(parts, "file\x00"+part.FormName()+"\x00"+part.FileName()+
-				"\x00"+part.Header.Get("Content-Type")+"\x00"+hex.EncodeToString(sum.Sum(nil)))
+			key := "file\x00" + part.FormName()
+			parts = append(parts, canonicalPart{key: key, value: key + "\x00" + part.FileName() +
+				"\x00" + part.Header.Get("Content-Type") + "\x00" + hex.EncodeToString(sum.Sum(nil))})
 			continue
 		}
 
@@ -389,8 +430,13 @@ func MultipartParts(boundary string, body io.Reader) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		parts = append(parts, "field\x00"+part.FormName()+"\x00"+string(value))
+		key := "field\x00" + part.FormName()
+		parts = append(parts, canonicalPart{key: key, value: key + "\x00" + string(value)})
 	}
-	slices.Sort(parts)
-	return parts, nil
+	slices.SortStableFunc(parts, func(a, b canonicalPart) int { return strings.Compare(a.key, b.key) })
+	result := make([]string, len(parts))
+	for i, part := range parts {
+		result[i] = part.value
+	}
+	return result, nil
 }

@@ -17,8 +17,12 @@ func (s *instanceSession) HistorySyncSnapshot() session.HistorySyncSnapshot {
 	return s.history.Snapshot()
 }
 
-// ResetHistorySync clears the accumulated history-sync feed after a
-// successful import, so the next sync starts from zero.
+// AckHistorySync acknowledges only the observations a successful import read.
+func (s *instanceSession) AckHistorySync(snapshot session.HistorySyncSnapshot) {
+	s.history.Acknowledge(snapshot)
+}
+
+// ResetHistorySync explicitly discards the accumulated history-sync feed.
 func (s *instanceSession) ResetHistorySync() {
 	s.history.Reset()
 }
@@ -29,7 +33,7 @@ func (s *instanceSession) ResetHistorySync() {
 // backlog as live messages would flood the mirror, the import reads the
 // accumulator deliberately instead.
 func (s *instanceSession) observeHistorySync(evt *events.HistorySync) {
-	if evt == nil || evt.Data == nil {
+	if !s.historyEnabled || evt == nil || evt.Data == nil {
 		return
 	}
 	s.history.Observe(historySyncChunk(evt.Data))

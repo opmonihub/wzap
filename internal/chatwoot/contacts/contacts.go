@@ -62,12 +62,23 @@ func (r *Resolver) Resolve(ctx context.Context, phone string, isGroup bool, name
 	// gives the OR semantic.
 	var found []client.Contact
 	seen := map[int64]bool{}
-	for _, variant := range variants(e164) {
+	phoneVariants := variants(e164)
+	allowed := make(map[string]bool, len(phoneVariants))
+	for _, variant := range phoneVariants {
+		allowed[stripDigits(variant)] = true
+	}
+	for _, variant := range phoneVariants {
 		matches, err := r.client.FindContactByPhone(ctx, strings.TrimPrefix(variant, "+"))
 		if err != nil {
 			return nil, err
 		}
 		for _, match := range matches {
+			// Chatwoot's contains filter can return a different phone whose
+			// digits merely include the requested number. Only exact
+			// normalized variants may take part in selection or merge.
+			if !allowed[stripDigits(match.PhoneNumber)] {
+				continue
+			}
 			if !seen[match.ID] {
 				seen[match.ID] = true
 				found = append(found, match)
@@ -94,10 +105,11 @@ func (r *Resolver) resolveGroup(ctx context.Context, name, avatar, jid string) (
 	if err != nil {
 		return nil, err
 	}
-	if len(matches) == 0 {
+	matched, ok := exactIdentifier(matches, jid)
+	if !ok {
 		return r.createGroup(ctx, name, avatar, jid)
 	}
-	return r.ensureFresh(ctx, matches[0], groupName(name, jid), avatar)
+	return r.ensureFresh(ctx, matched, groupName(name, jid), avatar)
 }
 
 // createIndividual creates a people contact with the +E.164 phone number. A
@@ -114,15 +126,26 @@ func (r *Resolver) createIndividual(ctx context.Context, e164, name, avatar, jid
 	created, err := r.client.CreateContact(ctx, req)
 	if err != nil {
 		if isUnprocessable(err) && strings.TrimSpace(jid) != "" {
-			if matches, serr := r.client.SearchContacts(ctx, jid); serr == nil && len(matches) > 0 {
-				r.log.Info().Int64("contact_id", matches[0].ID).Msg("contact create conflict recovered by identifier search")
-				return r.ensureFresh(ctx, matches[0], name, avatar)
+			if matches, serr := r.client.SearchContacts(ctx, jid); serr == nil {
+				if matched, ok := exactIdentifier(matches, jid); ok {
+					r.log.Info().Int64("contact_id", matched.ID).Msg("contact create conflict recovered by identifier search")
+					return r.ensureFresh(ctx, matched, name, avatar)
+				}
 			}
 		}
 		r.log.Debug().Str("reason", "contact_create_failed").Err(err).Msg("contact creation failed, skipping message mirror")
 		return nil, err
 	}
 	return fromClient(created), nil
+}
+
+func exactIdentifier(matches []client.Contact, jid string) (client.Contact, bool) {
+	for _, match := range matches {
+		if match.Identifier == jid {
+			return match, true
+		}
+	}
+	return client.Contact{}, false
 }
 
 // createGroup creates a group contact keyed by its JID identifier.

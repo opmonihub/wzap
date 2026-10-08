@@ -15,10 +15,9 @@ import (
 // within 5s.
 const deliverTimeout = 5 * time.Second
 
-// webhookClient pins the delivery timeout and the SSRF guard: CheckRedirect
-// revalida cada hop contra o gate (cap em maxWebhookRedirects) e o
-// DialContext resolve uma vez, valida e disca o IP validado (pinning,
-// sem TOCTOU entre validate e connect).
+// webhookClient pins the delivery timeout and SSRF guard. Redirects return
+// their original response so credentials only reach the configured URL.
+// DialContext resolves once, validates and dials the same IP.
 var webhookClient = &http.Client{
 	Timeout:       deliverTimeout,
 	CheckRedirect: checkWebhookRedirect,

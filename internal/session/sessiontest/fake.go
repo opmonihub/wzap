@@ -25,9 +25,10 @@ var (
 // Fake is an in-memory session.Manager. The forced-error fields make failure
 // paths testable and the Calls accessors expose what the code under test did.
 type Fake struct {
-	mu       sync.Mutex
-	sink     session.EventSink
-	sessions map[uuid.UUID]*FakeSession
+	mu             sync.Mutex
+	sink           session.EventSink
+	sessions       map[uuid.UUID]*FakeSession
+	historyEnabled bool
 
 	// RestoreAllErr, CreateErr and RemoveErr, when set, are returned by the
 	// matching method.
@@ -40,10 +41,20 @@ type Fake struct {
 	removeCalls  []uuid.UUID
 }
 
+// Option configures history collection in fake managers and sessions.
+type Option struct{ historyEnabled bool }
+
+// WithHistorySync explicitly enables the import feed; default fakes are inert.
+func WithHistorySync(enabled bool) Option { return Option{historyEnabled: enabled} }
+
 // New returns a fake manager whose sessions emit events to sink (which may be
-// nil).
-func New(sink session.EventSink) *Fake {
-	return &Fake{sink: sink, sessions: make(map[uuid.UUID]*FakeSession)}
+// nil) and only collect history when configured.
+func New(sink session.EventSink, opts ...Option) *Fake {
+	f := &Fake{sink: sink, sessions: make(map[uuid.UUID]*FakeSession)}
+	for _, opt := range opts {
+		f.historyEnabled = opt.historyEnabled
+	}
+	return f
 }
 
 // RestoreAll records the call and returns the forced error, when set.
@@ -79,7 +90,7 @@ func (f *Fake) Create(instance *model.Instance) (session.Session, error) {
 	}
 	sess, ok := f.sessions[instance.ID]
 	if !ok {
-		sess = newFakeSession(instance.ID, f.sink)
+		sess = newFakeSession(instance.ID, f.sink, f.historyEnabled)
 		f.sessions[instance.ID] = sess
 	}
 	return sess, nil
@@ -371,17 +382,22 @@ type FakeSession struct {
 
 	// history accumulates the history-sync feed the Import plan consumes.
 	// The zero value is ready to use.
-	history session.HistorySyncAccumulator
+	history        session.HistorySyncAccumulator
+	historyEnabled bool
 }
 
 // NewSession returns a standalone fake session for tests that do not go
 // through the manager.
-func NewSession(instanceID uuid.UUID, sink session.EventSink) *FakeSession {
-	return newFakeSession(instanceID, sink)
+func NewSession(instanceID uuid.UUID, sink session.EventSink, opts ...Option) *FakeSession {
+	enabled := false
+	for _, opt := range opts {
+		enabled = opt.historyEnabled
+	}
+	return newFakeSession(instanceID, sink, enabled)
 }
 
-func newFakeSession(instanceID uuid.UUID, sink session.EventSink) *FakeSession {
-	return &FakeSession{instanceID: instanceID, sink: sink, status: session.StatusDisconnected}
+func newFakeSession(instanceID uuid.UUID, sink session.EventSink, historyEnabled bool) *FakeSession {
+	return &FakeSession{instanceID: instanceID, sink: sink, status: session.StatusDisconnected, historyEnabled: historyEnabled}
 }
 
 // Connect records the call, moves the session to pairing and returns a stable
@@ -1534,11 +1550,19 @@ func (s *FakeSession) HistorySyncSnapshot() session.HistorySyncSnapshot {
 func (s *FakeSession) ObserveHistorySync(chunk session.HistorySyncChunk) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.history.Observe(chunk)
+	if s.historyEnabled {
+		s.history.Observe(chunk)
+	}
 }
 
-// ResetHistorySync clears the accumulated history-sync feed after a
-// successful import.
+// AckHistorySync consumes only the imported snapshot.
+func (s *FakeSession) AckHistorySync(snapshot session.HistorySyncSnapshot) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.history.Acknowledge(snapshot)
+}
+
+// ResetHistorySync explicitly discards the accumulated history-sync feed.
 func (s *FakeSession) ResetHistorySync() {
 	s.mu.Lock()
 	defer s.mu.Unlock()

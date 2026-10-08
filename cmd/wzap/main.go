@@ -210,7 +210,7 @@ func serve() error {
 	// WhatsApp version bump must not silently break pairing until the library
 	// is updated. A lookup failure only warns and keeps the pinned version.
 	whatsmeow.RefreshWAVersion(ctx, log)
-	sessions, err := whatsmeow.NewManager(ctx, cfg.DatabaseURL, instances, log, runtime, cfg.MaxMediaBytes)
+	sessions, err := whatsmeow.NewManager(ctx, cfg.DatabaseURL, instances, log, runtime, cfg.MaxMediaBytes, whatsmeow.WithHistorySync(cfg.Chatwoot.ImportDBURL != ""))
 	if err != nil {
 		return fmt.Errorf("session manager: %w", err)
 	}

@@ -34,7 +34,7 @@ func aliasFixture(t *testing.T) (*rbacFixture, *fakeInstanceService, *fakeMessag
 	}
 	messages := f.rbacMessages()
 	repo := newFakeIdempotency()
-	srv := httpapi.New(config.Config{APIKey: testToken, MaxMediaBytes: testMaxMediaBytes}, zerolog.Nop(), httpapi.Deps{Instances: svc, Messages: messages, Idempotency: repo, Keys: f.keys, JWTSecret: testJWTSecret})
+	srv := httpapi.New(config.Config{APIKey: testToken, MaxMediaBytes: testMaxMediaBytes}, zerolog.Nop(), httpapi.Deps{Instances: svc, Messages: messages, Idempotency: repo, Users: f.rbacUsers(), Keys: f.keys, JWTSecret: testJWTSecret})
 	return f, svc, messages, repo, srv
 }
 func TestInstanceReferencesResolveAtRouter(t *testing.T) {

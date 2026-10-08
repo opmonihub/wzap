@@ -20,6 +20,7 @@ import (
 	"wzap/internal/auth"
 	"wzap/internal/httpapi/core"
 	"wzap/internal/logger"
+	"wzap/internal/model"
 	"wzap/internal/storage"
 )
 
@@ -53,6 +54,9 @@ func TestAuthenticate(t *testing.T) {
 
 	adminID := uuid.New()
 	userID := uuid.New()
+	users := sessionUserReader{byID: map[uuid.UUID]*model.User{
+		adminID: {ID: adminID, Role: "admin"}, userID: {ID: userID, Role: "user"},
+	}}
 	instanceID := uuid.New()
 
 	const instanceKey = "instance-key-in-clear"
@@ -89,7 +93,7 @@ func TestAuthenticate(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		})
 		rec := httptest.NewRecorder()
-		core.Authenticate(globalKey, keys, jwtSecret)(inner).ServeHTTP(rec, req)
+		core.Authenticate(globalKey, keys, jwtSecret, users)(inner).ServeHTTP(rec, req)
 		if rec.Code != http.StatusOK {
 			return rec, nil
 		}
@@ -210,7 +214,7 @@ func TestAuthenticate(t *testing.T) {
 					w.WriteHeader(http.StatusOK)
 				})
 				rec := httptest.NewRecorder()
-				core.Authenticate(globalKey, keys, jwtSecret)(inner).ServeHTTP(rec, req)
+				core.Authenticate(globalKey, keys, jwtSecret, users)(inner).ServeHTTP(rec, req)
 
 				if rec.Code != http.StatusUnauthorized {
 					t.Fatalf("status = %d, want %d (body %q)", rec.Code, http.StatusUnauthorized, rec.Body.String())
@@ -246,11 +250,23 @@ func TestAuthenticateRejectsEmptyGlobalKey(t *testing.T) {
 	req.Header.Set("apikey", "some-key")
 	rec := httptest.NewRecorder()
 
-	core.Authenticate("", keys, testJWTSecret)(okHandler()).ServeHTTP(rec, req)
+	core.Authenticate("", keys, testJWTSecret, nil)(okHandler()).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
 	}
+}
+
+type sessionUserReader struct {
+	storage.UserRepository
+	byID map[uuid.UUID]*model.User
+}
+
+func (f sessionUserReader) GetByID(_ context.Context, id uuid.UUID) (*model.User, error) {
+	if user, ok := f.byID[id]; ok {
+		return user, nil
+	}
+	return nil, storage.ErrNotFound
 }
 
 // fakeAPIKeyRepository is an in-memory storage.APIKeyRepository keyed by hash.

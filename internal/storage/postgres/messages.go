@@ -205,39 +205,59 @@ func (r *MessageRepository) ClaimQueued(ctx context.Context, limit int) ([]model
 	return claimed, nil
 }
 
-// MarkSent marks the message as sent with its WhatsApp identifier.
-func (r *MessageRepository) MarkSent(ctx context.Context, id uuid.UUID, whatsAppMessageID string) error {
-	tag, err := r.pool.Exec(ctx, `
-		UPDATE message_queue
-		SET send_status = 'sent', wa_id = NULLIF($2, ''),
-		    last_error_code = NULL, last_error_message = NULL, last_error_at = NULL,
-		    updated_at = now()
-		WHERE id = $1`, id, whatsAppMessageID)
-	if err != nil {
-		return fmt.Errorf("mark message sent: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("mark message sent: %w", storage.ErrNotFound)
-	}
-	return nil
+// MarkSent confirms the WhatsApp identifier and its status event together.
+func (r *MessageRepository) MarkSent(ctx context.Context, id uuid.UUID, whatsAppMessageID string, event model.OutboxEvent) (bool, error) {
+	return r.markTerminal(ctx, id, "sent", whatsAppMessageID, "", event)
 }
 
-// MarkFailed marks the message as failed with the definitive reason.
-func (r *MessageRepository) MarkFailed(ctx context.Context, id uuid.UUID, errMsg string) error {
-	tag, err := r.pool.Exec(ctx, `
-		UPDATE message_queue
-		SET send_status = 'failed', last_error_code = CASE WHEN NULLIF($2, '') IS NULL THEN NULL ELSE 'send_failed' END,
-		    last_error_message = NULLIF($2, ''),
-		    last_error_at = CASE WHEN NULLIF($2, '') IS NULL THEN NULL ELSE now() END,
-		    updated_at = now()
-		WHERE id = $1`, id, errMsg)
+// MarkFailed confirms the definitive failure and its status event together.
+func (r *MessageRepository) MarkFailed(ctx context.Context, id uuid.UUID, errMsg string, event model.OutboxEvent) (bool, error) {
+	return r.markTerminal(ctx, id, "failed", "", errMsg, event)
+}
+
+func (r *MessageRepository) markTerminal(ctx context.Context, id uuid.UUID, status, whatsAppMessageID, errMsg string, event model.OutboxEvent) (bool, error) {
+	if event.ID == uuid.Nil || event.Subject == "" || len(event.Envelope) == 0 {
+		return false, fmt.Errorf("mark message %s: status event is required", status)
+	}
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("mark message failed: %w", err)
+		return false, fmt.Errorf("mark message %s: begin: %w", status, err)
 	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("mark message failed: %w", storage.ErrNotFound)
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var storedStatus, storedWhatsAppID, storedError string
+	if err := tx.QueryRow(ctx, `SELECT send_status, COALESCE(wa_id, ''), COALESCE(last_error_message, '')
+		FROM message_queue WHERE id = $1 FOR UPDATE`, id).Scan(&storedStatus, &storedWhatsAppID, &storedError); err != nil {
+		return false, mapMessageError("mark message "+status, err)
 	}
-	return nil
+	if storedStatus == "sent" || storedStatus == "failed" {
+		if storedStatus == status && ((status == "sent" && storedWhatsAppID == whatsAppMessageID) || (status == "failed" && storedError == errMsg)) {
+			// The relay can already have deleted the pending event. A
+			// matching terminal outcome still confirms a retry after an
+			// uncertain commit without inserting or publishing it again.
+			return false, nil
+		}
+		return false, fmt.Errorf("mark message %s: %w", status, storage.ErrMessageOutcomeConflict)
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE message_queue
+		SET send_status = $2,
+		    wa_id = CASE WHEN $2 = 'sent' THEN NULLIF($3, '') ELSE wa_id END,
+		    last_error_code = CASE WHEN NULLIF($4, '') IS NULL THEN NULL ELSE 'send_failed' END,
+		    last_error_message = NULLIF($4, ''),
+		    last_error_at = CASE WHEN NULLIF($4, '') IS NULL THEN NULL ELSE now() END,
+		    updated_at = now()
+		WHERE id = $1`, id, status, whatsAppMessageID, errMsg); err != nil {
+		return false, fmt.Errorf("mark message %s: update: %w", status, err)
+	}
+	if err := enqueueEvent(ctx, tx, event.ID, event.Subject, event.Envelope); err != nil {
+		return false, fmt.Errorf("mark message %s: %w", status, err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("mark message %s: commit: %w", status, err)
+	}
+	return true, nil
 }
 
 // MarkRetrying moves the message back to queued for a later attempt.
@@ -259,17 +279,17 @@ func (r *MessageRepository) MarkRetrying(ctx context.Context, id uuid.UUID, errM
 	return nil
 }
 
-// UpdateReceipt records a delivery or read milestone by WhatsApp message id.
+// UpdateReceipt records a delivery or read milestone by instance and WhatsApp message id.
 func (r *MessageRepository) UpdateReceipt(
-	ctx context.Context, whatsAppMessageID, status string, at time.Time,
+	ctx context.Context, instanceID uuid.UUID, whatsAppMessageID, status string, at time.Time,
 ) (bool, error) {
 	tag, err := r.pool.Exec(ctx, `
 		UPDATE message_queue
-		SET delivered_at = COALESCE(delivered_at, $3),
-		    read_at = CASE WHEN $2 IN ('read', 'played') THEN COALESCE(read_at, $3) ELSE read_at END,
+		SET delivered_at = COALESCE(delivered_at, $4),
+		    read_at = CASE WHEN $3 IN ('read', 'played') THEN COALESCE(read_at, $4) ELSE read_at END,
 		    updated_at = now()
-		WHERE wa_id = $1 AND $2 IN ('delivered', 'read', 'played')`,
-		whatsAppMessageID, status, at)
+		WHERE instance_id = $1 AND wa_id = $2 AND $3 IN ('delivered', 'read', 'played')`,
+		instanceID, whatsAppMessageID, status, at)
 	if err != nil {
 		return false, fmt.Errorf("update message receipt: %w", err)
 	}
@@ -277,12 +297,13 @@ func (r *MessageRepository) UpdateReceipt(
 }
 
 // RequeueStuck moves sending messages last updated before olderThan back to
-// queued and returns how many were recovered.
-func (r *MessageRepository) RequeueStuck(ctx context.Context, olderThan time.Time) (int64, error) {
+// queued, excluding active claims, and returns how many were recovered.
+func (r *MessageRepository) RequeueStuck(ctx context.Context, olderThan time.Time, activeIDs []uuid.UUID) (int64, error) {
 	tag, err := r.pool.Exec(ctx, `
 		UPDATE message_queue
 		SET send_status = 'queued', updated_at = now()
-		WHERE send_status = 'sending' AND updated_at < $1`, olderThan)
+		WHERE send_status = 'sending' AND updated_at < $1
+		    AND NOT (id = ANY(COALESCE($2::uuid[], '{}'::uuid[])))`, olderThan, activeIDs)
 	if err != nil {
 		return 0, fmt.Errorf("requeue stuck messages: %w", err)
 	}

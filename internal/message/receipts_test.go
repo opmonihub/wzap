@@ -14,6 +14,7 @@ import (
 
 // updateReceiptCall records one repository UpdateReceipt call.
 type updateReceiptCall struct {
+	instanceID uuid.UUID
 	whatsAppID string
 	status     string
 	at         time.Time
@@ -28,8 +29,8 @@ type fakeReceiptRepo struct {
 	updateErr error
 }
 
-func (f *fakeReceiptRepo) UpdateReceipt(_ context.Context, whatsAppID, status string, at time.Time) (bool, error) {
-	f.calls = append(f.calls, updateReceiptCall{whatsAppID: whatsAppID, status: status, at: at})
+func (f *fakeReceiptRepo) UpdateReceipt(_ context.Context, instanceID uuid.UUID, whatsAppID, status string, at time.Time) (bool, error) {
+	f.calls = append(f.calls, updateReceiptCall{instanceID: instanceID, whatsAppID: whatsAppID, status: status, at: at})
 	if f.updateErr != nil {
 		return false, f.updateErr
 	}
@@ -68,7 +69,7 @@ func TestReceiptsApplyUpdatesMessageAndEmitsEvent(t *testing.T) {
 	if len(calls) != 1 {
 		t.Fatalf("UpdateReceipt calls = %d, want 1", len(calls))
 	}
-	if calls[0].whatsAppID != "wamid.1" || calls[0].status != "delivered" || !calls[0].at.Equal(at) {
+	if calls[0].instanceID != instanceID || calls[0].whatsAppID != "wamid.1" || calls[0].status != "delivered" || !calls[0].at.Equal(at) {
 		t.Errorf("UpdateReceipt call = %+v, want wamid.1 delivered at %s", calls[0], at)
 	}
 

@@ -40,11 +40,12 @@ const (
 // Manager owns the whatsmeow client of every instance and persists the
 // sessions in the Postgres device store.
 type Manager struct {
-	devices       *sqlstore.Container
-	instances     storage.InstanceRepository
-	log           zerolog.Logger
-	sink          session.EventSink
-	maxMediaBytes int64
+	devices        *sqlstore.Container
+	instances      storage.InstanceRepository
+	log            zerolog.Logger
+	sink           session.EventSink
+	maxMediaBytes  int64
+	historyEnabled bool
 
 	// restoreConnect brings a restored session online; tests replace it to
 	// avoid the network handshake.
@@ -56,11 +57,20 @@ type Manager struct {
 
 var _ session.Manager = (*Manager)(nil)
 
+// ManagerOption configures a manager before any session is created/restored.
+type ManagerOption func(*Manager)
+
+// WithHistorySync enables collection for an explicitly configured import.
+// Managers leave history chunks, previews and completion inert by default.
+func WithHistorySync(enabled bool) ManagerOption {
+	return func(m *Manager) { m.historyEnabled = enabled }
+}
+
 // NewManager opens the whatsmeow device store in the Postgres database
 // addressed by databaseURL. instances lets RestoreAll map persisted devices
 // back to their instance, sink receives the session events and maxMediaBytes
 // caps how much inbound media a download may buffer.
-func NewManager(ctx context.Context, databaseURL string, instances storage.InstanceRepository, log zerolog.Logger, sink session.EventSink, maxMediaBytes int64) (*Manager, error) {
+func NewManager(ctx context.Context, databaseURL string, instances storage.InstanceRepository, log zerolog.Logger, sink session.EventSink, maxMediaBytes int64, opts ...ManagerOption) (*Manager, error) {
 	devices, err := openDeviceStore(ctx, databaseURL, log)
 	if err != nil {
 		return nil, err
@@ -72,6 +82,9 @@ func NewManager(ctx context.Context, databaseURL string, instances storage.Insta
 		sink:          sink,
 		maxMediaBytes: maxMediaBytes,
 		sessions:      make(map[uuid.UUID]*instanceSession),
+	}
+	for _, opt := range opts {
+		opt(manager)
 	}
 	manager.restoreConnect = func(ctx context.Context, sess *instanceSession) error {
 		return sess.connectExisting(ctx)
@@ -117,7 +130,7 @@ func (m *Manager) Create(instance *model.Instance) (session.Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	sess, err := newSession(instance.ID, device, m.log, m.sink, m.maxMediaBytes)
+	sess, err := newSession(instance.ID, device, m.log, m.sink, m.maxMediaBytes, withHistorySync(m.historyEnabled))
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +210,7 @@ func (m *Manager) RestoreAll(ctx context.Context) error {
 				m.log.Warn().Str("instance_id", instance.ID.String()).Err(err).Msg("restore session failed")
 				m.emitConnection(instance.ID, session.StatusError, instance.Connection.DeviceJID, err.Error())
 			} else if sess, ok := m.Get(instance.ID); ok && sess != nil {
-				m.log.Info().Str("instance_id", instance.ID.String()).Str("jid", instance.Connection.DeviceJID).
+				m.log.Info().Str("instance_id", instance.ID.String()).
 					Str("live_status", string(sess.Status())).Bool("socket_connected", sess.IsConnected()).
 					Msg("restore session dialed")
 			} else {
@@ -212,19 +225,19 @@ func (m *Manager) RestoreAll(ctx context.Context) error {
 // restoreAborted reports a restore that the context ended before it could run,
 // so the instance status reflects that it was not restored.
 func (m *Manager) restoreAborted(instance model.Instance, err error) {
-	reason := "restore cancelled: " + err.Error()
-	m.log.Warn().Str("instance_id", instance.ID.String()).Err(err).Msg("restore session cancelled")
-	m.emitConnection(instance.ID, session.StatusError, instance.Connection.DeviceJID, reason)
+	safeErr := safeSessionError("restore cancelled", err)
+	m.log.Warn().Str("instance_id", instance.ID.String()).Err(safeErr).Msg("restore session cancelled")
+	m.emitConnection(instance.ID, session.StatusError, instance.Connection.DeviceJID, safeErr.Error())
 }
 
 // restore attaches the persisted device of instance and brings it online.
 func (m *Manager) restore(ctx context.Context, instance model.Instance) error {
 	device, err := m.loadBoundDevice(ctx, &instance)
 	if err != nil {
-		m.log.Warn().Str("instance_id", instance.ID.String()).Str("jid", instance.BoundDeviceJID()).Err(err).Msg("restore load device failed")
+		m.log.Warn().Str("instance_id", instance.ID.String()).Err(err).Msg("restore load device failed")
 		return err
 	}
-	m.log.Debug().Str("instance_id", instance.ID.String()).Str("jid", instance.BoundDeviceJID()).Bool("deleted", device.ID == nil).Msg("restore device loaded")
+	m.log.Debug().Str("instance_id", instance.ID.String()).Bool("deleted", device.ID == nil).Msg("restore device loaded")
 	return m.attachAndConnect(ctx, instance.ID, device)
 }
 
@@ -233,7 +246,7 @@ func (m *Manager) restore(ctx context.Context, instance model.Instance) error {
 // a no-op, so a client that is not in the manager is never connected: two live
 // clients on the same device would fight over the session.
 func (m *Manager) attachAndConnect(ctx context.Context, instanceID uuid.UUID, device *store.Device) error {
-	sess, err := newSession(instanceID, device, m.log, m.sink, m.maxMediaBytes)
+	sess, err := newSession(instanceID, device, m.log, m.sink, m.maxMediaBytes, withHistorySync(m.historyEnabled))
 	if err != nil {
 		m.log.Warn().Str("instance_id", instanceID.String()).Err(err).Msg("attach new session failed")
 		return err
@@ -253,6 +266,7 @@ func (m *Manager) attachAndConnect(ctx context.Context, instanceID uuid.UUID, de
 	// credentials, so arm the backoff loop and report disconnected
 	// (retrying) instead of an error that needs attention.
 	if err := connect(ctx, sess); err != nil {
+		err = safeSessionError("restore connect", err)
 		m.log.Warn().Str("instance_id", instanceID.String()).Err(err).
 			Str("live_status", string(sess.Status())).Bool("socket_connected", sess.IsConnected()).
 			Msg("attach connectExisting failed")
@@ -312,22 +326,22 @@ func (m *Manager) loadBoundDevice(ctx context.Context, instance *model.Instance)
 			return nil, fmt.Errorf("create session: device jid already bound to instance %s: %w", owner.ID, session.ErrDeviceJIDTaken)
 		}
 		if err != nil && !errors.Is(err, storage.ErrNotFound) {
-			return nil, fmt.Errorf("create session: lookup device jid: %w", err)
+			return nil, safeSessionError("create session: lookup device binding", err)
 		}
 	}
 	jid, err := types.ParseJID(bound)
 	if err != nil {
-		return nil, fmt.Errorf("create session: parse jid %q: %w", bound, err)
+		return nil, safeSessionError("create session: invalid device binding", err)
 	}
 	device, err := m.devices.GetDevice(ctx, jid)
 	if err != nil {
-		return nil, fmt.Errorf("create session: load device %s: %w", jid, err)
+		return nil, safeSessionError("create session: load bound device", err)
 	}
 	if device == nil {
-		return nil, fmt.Errorf("create session: device %s: %w", jid, session.ErrNoDevice)
+		return nil, fmt.Errorf("create session: bound device unavailable: %w", session.ErrNoDevice)
 	}
 	if device.ID != nil && device.ID.String() != bound {
-		return nil, fmt.Errorf("create session: device jid mismatch (store %s, instance %s): %w", device.ID, bound, session.ErrNoDevice)
+		return nil, fmt.Errorf("create session: device jid mismatch: %w", session.ErrNoDevice)
 	}
 	return device, nil
 }
@@ -413,8 +427,9 @@ type instanceSession struct {
 
 	// history accumulates the per-instance history-sync feed the Import plan
 	// consumes. Each session owns one, so feeds never cross instance
-	// boundaries. The zero value is ready to use.
-	history session.HistorySyncAccumulator
+	// boundaries. Collection is explicitly enabled before dispatch begins.
+	history        session.HistorySyncAccumulator
+	historyEnabled bool
 	// statusMu guards statuses, the process-local registry of the own
 	// statuses published through this session. The supported runtime is one
 	// replica, so no shared store is needed.
@@ -454,10 +469,16 @@ type qrResult struct {
 	err       error
 }
 
+type sessionOption func(*instanceSession)
+
+func withHistorySync(enabled bool) sessionOption {
+	return func(s *instanceSession) { s.historyEnabled = enabled }
+}
+
 // newSession wraps device in a connected-aware session and registers the event
 // translation. maxMediaBytes caps how much inbound media a download may
 // buffer.
-func newSession(instanceID uuid.UUID, device *store.Device, log zerolog.Logger, sink session.EventSink, maxMediaBytes int64) (*instanceSession, error) {
+func newSession(instanceID uuid.UUID, device *store.Device, log zerolog.Logger, sink session.EventSink, maxMediaBytes int64, opts ...sessionOption) (*instanceSession, error) {
 	if device == nil {
 		return nil, errors.New("new session: nil device")
 	}
@@ -473,6 +494,9 @@ func newSession(instanceID uuid.UUID, device *store.Device, log zerolog.Logger, 
 			max:    reconnectMaxDelay,
 			jitter: defaultJitter,
 		},
+	}
+	for _, opt := range opts {
+		opt(sess)
 	}
 	client := whatsmeow.NewClient(device, newWALogger(log))
 	// wzap drives its own exponential backoff; the library reconnect would
@@ -799,10 +823,11 @@ func (s *instanceSession) connectExisting(ctx context.Context) error {
 			s.log.Debug().Str("instance_id", s.instanceID.String()).Msg("session already connected")
 			return nil
 		}
+		err = classifySessionError(err)
 		s.log.Warn().Str("instance_id", s.instanceID.String()).Err(err).
 			Bool("socket_connected", s.client.IsConnected()).Str("live_status", string(s.Status())).
 			Msg("connect existing session failed")
-		return classifySessionError(err)
+		return err
 	}
 	s.markDialed()
 	s.log.Debug().Str("instance_id", s.instanceID.String()).
@@ -828,9 +853,9 @@ func classifySessionError(err error) error {
 		return nil
 	}
 	if errors.Is(err, whatsmeow.ErrNotConnected) || errors.Is(err, whatsmeow.ErrNotLoggedIn) {
-		return fmt.Errorf("%w: %v", session.ErrNotConnected, err)
+		return safeSessionError("session request", errors.Join(session.ErrNotConnected, err))
 	}
-	return fmt.Errorf("%w: %v", session.ErrTransient, err)
+	return safeSessionError("session request", errors.Join(session.ErrTransient, err))
 }
 
 // outboundPayload is the JSON body shared by every message type. QuotedID is

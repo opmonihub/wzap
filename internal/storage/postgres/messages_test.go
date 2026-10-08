@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"wzap/internal/events"
 	"wzap/internal/model"
 	"wzap/internal/storage"
 )
@@ -32,6 +33,21 @@ func createTestMessage(t *testing.T, repo storage.MessageRepository, instanceID 
 		t.Fatalf("create message: %v", err)
 	}
 	return message
+}
+
+func testTerminalEvent(t *testing.T, message *model.OutboundMessage, status, whatsAppID, errMsg string) model.OutboxEvent {
+	t.Helper()
+	env, err := events.New("message.status", message.InstanceID, map[string]any{
+		"message_id": message.ID, "status": status, "whatsapp_id": whatsAppID, "error": errMsg,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return model.OutboxEvent{ID: env.EventID, Subject: events.Subjects.MessageStatus(message.InstanceID), Envelope: data}
 }
 
 func setNextAttemptAt(t *testing.T, pool *pgxpool.Pool, id uuid.UUID, at time.Time) {
@@ -585,7 +601,8 @@ func TestMessageRepositoryMarkSent(t *testing.T) {
 	}
 
 	start := time.Now()
-	if err := messages.MarkSent(ctx, message.ID, "wamid.SENT"); err != nil {
+	event := testTerminalEvent(t, message, "sent", "wamid.SENT", "")
+	if _, err := messages.MarkSent(ctx, message.ID, "wamid.SENT", event); err != nil {
 		t.Fatalf("MarkSent: %v", err)
 	}
 
@@ -604,7 +621,7 @@ func TestMessageRepositoryMarkSent(t *testing.T) {
 	}
 	requireTimeBetween(t, "MarkSent: UpdatedAt", got.UpdatedAt, start.Add(-time.Second), time.Now().Add(time.Second))
 
-	if err := messages.MarkSent(ctx, uuid.New(), "wamid.SENT"); !errors.Is(err, storage.ErrNotFound) {
+	if _, err := messages.MarkSent(ctx, uuid.New(), "wamid.SENT", event); !errors.Is(err, storage.ErrNotFound) {
 		t.Errorf("MarkSent(unknown) error = %v, want ErrNotFound", err)
 	}
 }
@@ -617,7 +634,8 @@ func TestMessageRepositoryMarkFailed(t *testing.T) {
 	instance := createTestInstance(t, pool, instances, "messages", "")
 	message := createTestMessage(t, messages, instance.ID, `{"text":"hi"}`)
 
-	if err := messages.MarkFailed(ctx, message.ID, "recipient not registered"); err != nil {
+	event := testTerminalEvent(t, message, "failed", "", "recipient not registered")
+	if _, err := messages.MarkFailed(ctx, message.ID, "recipient not registered", event); err != nil {
 		t.Fatalf("MarkFailed: %v", err)
 	}
 
@@ -632,7 +650,7 @@ func TestMessageRepositoryMarkFailed(t *testing.T) {
 		t.Errorf("LastError = %q, want recipient not registered", got.LastError)
 	}
 
-	if err := messages.MarkFailed(ctx, uuid.New(), "boom"); !errors.Is(err, storage.ErrNotFound) {
+	if _, err := messages.MarkFailed(ctx, uuid.New(), "boom", event); !errors.Is(err, storage.ErrNotFound) {
 		t.Errorf("MarkFailed(unknown) error = %v, want ErrNotFound", err)
 	}
 }
@@ -707,12 +725,12 @@ func TestMessageRepositoryUpdateReceipt(t *testing.T) {
 	if _, err := messages.ClaimQueued(ctx, 1); err != nil {
 		t.Fatalf("ClaimQueued: %v", err)
 	}
-	if err := messages.MarkSent(ctx, message.ID, "wamid.RECEIPTS"); err != nil {
+	if _, err := messages.MarkSent(ctx, message.ID, "wamid.RECEIPTS", testTerminalEvent(t, message, "sent", "wamid.RECEIPTS", "")); err != nil {
 		t.Fatalf("MarkSent: %v", err)
 	}
 
 	deliveredAt := time.Now().Add(-2 * time.Minute).UTC()
-	updated, err := messages.UpdateReceipt(ctx, "wamid.RECEIPTS", "delivered", deliveredAt)
+	updated, err := messages.UpdateReceipt(ctx, instance.ID, "wamid.RECEIPTS", "delivered", deliveredAt)
 	if err != nil {
 		t.Fatalf("UpdateReceipt(delivered): %v", err)
 	}
@@ -730,7 +748,7 @@ func TestMessageRepositoryUpdateReceipt(t *testing.T) {
 	}
 
 	readAt := deliveredAt.Add(30 * time.Second)
-	updated, err = messages.UpdateReceipt(ctx, "wamid.RECEIPTS", "read", readAt)
+	updated, err = messages.UpdateReceipt(ctx, instance.ID, "wamid.RECEIPTS", "read", readAt)
 	if err != nil {
 		t.Fatalf("UpdateReceipt(read): %v", err)
 	}
@@ -746,7 +764,7 @@ func TestMessageRepositoryUpdateReceipt(t *testing.T) {
 	requireTimePtrNear(t, "DeliveredAt after read", got.DeliveredAt, deliveredAt)
 
 	playedAt := readAt.Add(time.Minute)
-	updated, err = messages.UpdateReceipt(ctx, "wamid.RECEIPTS", "played", playedAt)
+	updated, err = messages.UpdateReceipt(ctx, instance.ID, "wamid.RECEIPTS", "played", playedAt)
 	if err != nil {
 		t.Fatalf("UpdateReceipt(played): %v", err)
 	}
@@ -760,7 +778,7 @@ func TestMessageRepositoryUpdateReceipt(t *testing.T) {
 	}
 	requireTimePtrNear(t, "ReadAt after played", got.ReadAt, readAt)
 
-	updated, err = messages.UpdateReceipt(ctx, "wamid.UNKNOWN", "read", readAt)
+	updated, err = messages.UpdateReceipt(ctx, instance.ID, "wamid.UNKNOWN", "read", readAt)
 	if err != nil {
 		t.Fatalf("UpdateReceipt(unknown message): %v", err)
 	}
@@ -768,7 +786,7 @@ func TestMessageRepositoryUpdateReceipt(t *testing.T) {
 		t.Error("UpdateReceipt(unknown message) = true, want false")
 	}
 
-	updated, err = messages.UpdateReceipt(ctx, "wamid.RECEIPTS", "server", readAt)
+	updated, err = messages.UpdateReceipt(ctx, instance.ID, "wamid.RECEIPTS", "server", readAt)
 	if err != nil {
 		t.Fatalf("UpdateReceipt(unknown status): %v", err)
 	}
@@ -801,7 +819,7 @@ func TestMessageRepositoryRequeueStuck(t *testing.T) {
 
 	backdateUpdatedAt(t, pool, stuck.ID, time.Now().Add(-10*time.Minute))
 
-	requeued, err := messages.RequeueStuck(ctx, time.Now().Add(-5*time.Minute))
+	requeued, err := messages.RequeueStuck(ctx, time.Now().Add(-5*time.Minute), nil)
 	if err != nil {
 		t.Fatalf("RequeueStuck: %v", err)
 	}
@@ -833,7 +851,7 @@ func TestMessageRepositoryRequeueStuck(t *testing.T) {
 		t.Errorf("ClaimQueued after requeue = %+v, want [%s]", claimed, stuck.ID)
 	}
 
-	requeued, err = messages.RequeueStuck(ctx, time.Now().Add(-5*time.Minute))
+	requeued, err = messages.RequeueStuck(ctx, time.Now().Add(-5*time.Minute), nil)
 	if err != nil {
 		t.Fatalf("RequeueStuck second call: %v", err)
 	}

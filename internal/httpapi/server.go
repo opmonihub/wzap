@@ -72,7 +72,7 @@ func New(cfg config.Config, log zerolog.Logger, deps Deps) *http.Server {
 func newRouter(cfg config.Config, log zerolog.Logger, deps Deps) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(core.RequestID, core.Logging(log), core.Recover(log), chimiddleware.GetHead)
-	authenticate := core.Authenticate(cfg.APIKey, deps.Keys, deps.JWTSecret)
+	authenticate := core.Authenticate(cfg.APIKey, deps.Keys, deps.JWTSecret, deps.Users)
 	r.Use(func(next http.Handler) http.Handler {
 		protected := authenticate(next)
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

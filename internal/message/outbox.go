@@ -42,11 +42,13 @@ const (
 type OutboxStore interface {
 	// ClaimQueued atomically moves due queued messages to sending.
 	ClaimQueued(ctx context.Context, limit int) ([]model.OutboundMessage, error)
-	MarkSent(ctx context.Context, id uuid.UUID, whatsAppMessageID string) error
-	MarkFailed(ctx context.Context, id uuid.UUID, errMsg string) error
+	// Terminal outcomes and their status event are committed together.
+	// False confirms an already persisted, matching terminal outcome.
+	MarkSent(ctx context.Context, id uuid.UUID, whatsAppMessageID string, event model.OutboxEvent) (bool, error)
+	MarkFailed(ctx context.Context, id uuid.UUID, errMsg string, event model.OutboxEvent) (bool, error)
 	MarkRetrying(ctx context.Context, id uuid.UUID, errMsg string, nextAttemptAt time.Time) error
-	// RequeueStuck moves sending messages updated before olderThan to queued.
-	RequeueStuck(ctx context.Context, olderThan time.Time) (int64, error)
+	// RequeueStuck moves stale sending messages to queued, excluding active claims.
+	RequeueStuck(ctx context.Context, olderThan time.Time, activeIDs []uuid.UUID) (int64, error)
 }
 
 // The concrete repository satisfies the outbox contract; the interface
@@ -59,7 +61,7 @@ var _ OutboxStore = (storage.MessageRepository)(nil)
 type Outbox struct {
 	repo      OutboxStore
 	manager   session.Manager
-	writer    events.Writer
+	notifier  events.CommittedNotifier
 	log       zerolog.Logger
 	workers   int
 	lock      *instancelock.Locker
@@ -75,6 +77,11 @@ type Outbox struct {
 	mu        sync.Mutex
 	lastWarn  map[string]time.Time
 	warnEvery time.Duration // default time.Minute, test-overridable field
+
+	// Claims and recovery share this guard, preventing recovery from
+	// requeuing a live send or a terminal result awaiting persistence.
+	queueMu sync.Mutex
+	active  map[uuid.UUID]struct{}
 }
 
 // NewOutbox builds the outbox over its dependencies. A nil locker falls back
@@ -84,7 +91,7 @@ type Outbox struct {
 func NewOutbox(
 	repo OutboxStore,
 	manager session.Manager,
-	writer events.Writer,
+	notifier events.CommittedNotifier,
 	media MediaPathResolver,
 	log zerolog.Logger,
 	workers int,
@@ -100,7 +107,7 @@ func NewOutbox(
 	return &Outbox{
 		repo:             repo,
 		manager:          manager,
-		writer:           writer,
+		notifier:         notifier,
 		log:              log,
 		workers:          workers,
 		lock:             lock,
@@ -113,6 +120,7 @@ func NewOutbox(
 		sleep:            sleepContext,
 		lastWarn:         make(map[string]time.Time),
 		warnEvery:        time.Minute,
+		active:           make(map[uuid.UUID]struct{}),
 	}
 }
 
@@ -156,7 +164,13 @@ func (o *Outbox) Run(ctx context.Context) {
 
 // StartRecovery requeues the messages stuck in sending past stuckThreshold.
 func (o *Outbox) StartRecovery(ctx context.Context) {
-	recovered, err := o.repo.RequeueStuck(ctx, o.now().Add(-stuckThreshold))
+	o.queueMu.Lock()
+	activeIDs := make([]uuid.UUID, 0, len(o.active))
+	for id := range o.active {
+		activeIDs = append(activeIDs, id)
+	}
+	recovered, err := o.repo.RequeueStuck(ctx, o.now().Add(-stuckThreshold), activeIDs)
+	o.queueMu.Unlock()
 	if err != nil {
 		if ctx.Err() != nil {
 			return
@@ -194,7 +208,7 @@ func (o *Outbox) worker(ctx context.Context) {
 			return
 		}
 
-		claimed, err := o.repo.ClaimQueued(ctx, o.batchSize)
+		claimed, err := o.claimQueued(ctx)
 		if err != nil {
 			if ctx.Err() != nil {
 				return
@@ -210,9 +224,11 @@ func (o *Outbox) worker(ctx context.Context) {
 
 		for i := range claimed {
 			if ctx.Err() != nil {
+				o.releaseClaims(claimed[i:])
 				return
 			}
 			o.process(ctx, claimed[i])
+			o.releaseClaims(claimed[i : i+1])
 		}
 
 		if len(claimed) < o.batchSize {
@@ -220,6 +236,27 @@ func (o *Outbox) worker(ctx context.Context) {
 				return
 			}
 		}
+	}
+}
+
+func (o *Outbox) claimQueued(ctx context.Context) ([]model.OutboundMessage, error) {
+	o.queueMu.Lock()
+	defer o.queueMu.Unlock()
+	claimed, err := o.repo.ClaimQueued(ctx, o.batchSize)
+	if err != nil {
+		return nil, err
+	}
+	for _, msg := range claimed {
+		o.active[msg.ID] = struct{}{}
+	}
+	return claimed, nil
+}
+
+func (o *Outbox) releaseClaims(claimed []model.OutboundMessage) {
+	o.queueMu.Lock()
+	defer o.queueMu.Unlock()
+	for _, msg := range claimed {
+		delete(o.active, msg.ID)
 	}
 }
 
@@ -314,28 +351,22 @@ func (o *Outbox) handleSendError(ctx context.Context, msg model.OutboundMessage,
 	o.fail(ctx, msg, cause.Error())
 }
 
-// complete records a delivered message and enqueues its status event.
+// complete persists the successful send and its status event together.
 func (o *Outbox) complete(ctx context.Context, msg model.OutboundMessage, whatsappID string) {
-	if err := o.repo.MarkSent(ctx, msg.ID, whatsappID); err != nil {
-		o.log.Error().Str("message_id", msg.ID.String()).Err(err).Msg("mark message sent")
-		return
-	}
-	o.emit(ctx, msg, StatusSent, whatsappID, "")
+	o.persistTerminal(ctx, msg, StatusSent, whatsappID, "")
 }
 
-// fail records a definitive failure and enqueues its status event.
+// fail persists the definitive failure and its status event together.
 func (o *Outbox) fail(ctx context.Context, msg model.OutboundMessage, errMsg string) {
-	if err := o.repo.MarkFailed(ctx, msg.ID, errMsg); err != nil {
-		o.log.Error().Str("message_id", msg.ID.String()).Err(err).Msg("mark message failed")
-		return
-	}
-	o.emit(ctx, msg, StatusFailed, "", errMsg)
+	o.persistTerminal(ctx, msg, StatusFailed, "", errMsg)
 }
 
-// emit enqueues the message.status event. A write failure is logged and
-// dropped: the message state is already persisted and the wakeup is best
-// effort.
-func (o *Outbox) emit(ctx context.Context, msg model.OutboundMessage, status, whatsappID, errMsg string) {
+// persistTerminal retains the send outcome and one envelope while retrying
+// only database persistence. The active claim keeps recovery from sending
+// it again in this process. Cancellation before confirmation still leaves a
+// crash window: a later process can recover a sending message whose external
+// send already succeeded.
+func (o *Outbox) persistTerminal(ctx context.Context, msg model.OutboundMessage, status, whatsappID, errMsg string) {
 	env, err := events.New(messageStatusEventType, msg.InstanceID, messageStatusPayload{
 		MessageID:  msg.ID,
 		Status:     status,
@@ -346,8 +377,44 @@ func (o *Outbox) emit(ctx context.Context, msg model.OutboundMessage, status, wh
 		o.log.Error().Str("message_id", msg.ID.String()).Err(err).Msg("build message status event")
 		return
 	}
-	if err := o.writer.Write(ctx, events.Subjects.MessageStatus(msg.InstanceID), env); err != nil {
-		o.log.Warn().Str("message_id", msg.ID.String()).Err(err).Msg("enqueue message status event")
+	data, err := json.Marshal(env)
+	if err != nil {
+		o.log.Error().Str("message_id", msg.ID.String()).Err(err).Msg("marshal message status event")
+		return
+	}
+	subject := events.Subjects.MessageStatus(msg.InstanceID)
+	event := model.OutboxEvent{ID: env.EventID, Subject: subject, Envelope: data}
+
+	for attempt := 0; ctx.Err() == nil; attempt++ {
+		var changed bool
+		if status == StatusSent {
+			changed, err = o.repo.MarkSent(ctx, msg.ID, whatsappID, event)
+		} else {
+			changed, err = o.repo.MarkFailed(ctx, msg.ID, errMsg, event)
+		}
+		if err == nil {
+			// A retry can acknowledge a commit whose response was lost.
+			// The store confirms the matching outcome before returning
+			// false. Normal repeated calls skip fan-out; a local retry
+			// acknowledges and notifies exactly once in this execution.
+			if changed || attempt > 0 {
+				o.notifier.NotifyCommitted(subject, env)
+			}
+			return
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		if errors.Is(err, storage.ErrNotFound) || errors.Is(err, storage.ErrMessageOutcomeConflict) {
+			o.log.Error().Str("message_id", msg.ID.String()).Err(err).Msg("persist terminal message outcome")
+			return
+		}
+		o.warnThrottled("terminal", "persist terminal message outcome", func(e *zerolog.Event) *zerolog.Event {
+			return e.Str("message_id", msg.ID.String()).Str("event_id", env.EventID.String()).Err(err)
+		})
+		if o.wait(ctx, retryDelay(attempt)) != nil {
+			return
+		}
 	}
 }
 

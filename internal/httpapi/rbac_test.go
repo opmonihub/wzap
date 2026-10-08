@@ -102,6 +102,14 @@ func (f *rbacFixture) instancesByID() map[uuid.UUID]*model.Instance {
 	}
 }
 
+func (f *rbacFixture) rbacUsers() *fakeUserRepository {
+	return newFakeUserRepository(
+		&model.User{ID: f.admin, Email: "admin@example.com", Role: "admin"},
+		&model.User{ID: f.userA, Email: "user-a@example.com", Role: "user"},
+		&model.User{ID: f.userB, Email: "user-b@example.com", Role: "user"},
+	)
+}
+
 // rbacInstances returns an InstanceService answering Get from the fixture and
 // List with all three rows; mutating calls succeed.
 func (f *rbacFixture) rbacInstances() *fakeInstanceService {
@@ -163,7 +171,7 @@ func (f *rbacFixture) rbacServer(t *testing.T) *http.Server {
 			Media:        f.rbacMedia(),
 			Numbers:      &fakeNumberResolver{resolveFn: func(context.Context, uuid.UUID, string) (string, error) { return "5547988359190@s.whatsapp.net", nil }},
 			Idempotency:  newFakeIdempotency(),
-			Users:        newFakeUserRepository(),
+			Users:        f.rbacUsers(),
 			Keys:         f.keys,
 			JWTSecret:    testJWTSecret,
 		},
@@ -295,6 +303,7 @@ func TestRBACInstanceKeyForeignProbeSkipsDBLoad(t *testing.T) {
 			Media:       f.rbacMedia(),
 			Numbers:     &fakeNumberResolver{},
 			Idempotency: newFakeIdempotency(),
+			Users:       f.rbacUsers(),
 			Keys:        f.keys,
 			JWTSecret:   testJWTSecret,
 		},
@@ -353,6 +362,7 @@ func TestRBACRandomUUIDIsNotFound(t *testing.T) {
 			Media:       &fakeMediaStore{},
 			Numbers:     &fakeNumberResolver{},
 			Idempotency: newFakeIdempotency(),
+			Users:       f.rbacUsers(),
 			Keys:        f.keys,
 			JWTSecret:   testJWTSecret,
 		},
@@ -647,7 +657,7 @@ func TestRBACCreateGating(t *testing.T) {
 			ReadyChecker: checkFunc(func(context.Context) error { return nil }),
 			Instances:    svc,
 			Keys:         f.keys,
-			Users:        newFakeUserRepository(),
+			Users:        f.rbacUsers(),
 			JWTSecret:    testJWTSecret,
 		},
 	)

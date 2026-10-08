@@ -29,6 +29,19 @@ type Writer interface {
 	Write(ctx context.Context, subject string, env Envelope) error
 }
 
+// CommittedNotifier fans out an envelope already persisted by the caller's
+// transaction. It must not enqueue the durable event a second time.
+type CommittedNotifier interface {
+	NotifyCommitted(subject string, env Envelope)
+}
+
+// CommittedWriter supports ordinary event writes and notification after a
+// domain transaction commits its own event.
+type CommittedWriter interface {
+	Writer
+	CommittedNotifier
+}
+
 // OutboxWriter is the storage-backed Writer.
 type OutboxWriter struct {
 	outbox storage.EventOutboxRepository

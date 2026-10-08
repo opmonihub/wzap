@@ -1,6 +1,7 @@
 package whatsmeow
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/uuid"
@@ -12,6 +13,7 @@ import (
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
+	"wzap/internal/model"
 )
 
 func historyWebMessage(id, chat string, fromMe bool, text string, timestamp uint64, participant string) *waWeb.WebMessageInfo {
@@ -69,7 +71,7 @@ func synthesizedHistorySync() *events.HistorySync {
 // Import plan consumes: one lib chunk becomes progress plus conversation
 // batches plus contacts in the per-instance accumulator.
 func TestDispatchHistorySyncAccumulatesBatchesAndContacts(t *testing.T) {
-	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit, withHistorySync(true))
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
@@ -121,7 +123,7 @@ func TestDispatchHistorySyncAccumulatesBatchesAndContacts(t *testing.T) {
 // TestDispatchHistorySyncMergesChunks pins that repeated chunks accumulate
 // without duplicating messages.
 func TestDispatchHistorySyncMergesChunks(t *testing.T) {
-	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit, withHistorySync(true))
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
@@ -145,7 +147,7 @@ func TestDispatchHistorySyncMergesChunks(t *testing.T) {
 // TestDispatchHistorySyncGroupMessageKeepsParticipant pins that group history
 // attributes the message to its author, not the group.
 func TestDispatchHistorySyncGroupMessageKeepsParticipant(t *testing.T) {
-	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit, withHistorySync(true))
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
@@ -171,7 +173,7 @@ func TestDispatchHistorySyncGroupMessageKeepsParticipant(t *testing.T) {
 // TestDispatchOfflineSyncPreviewAndCompleted pins the progress lifecycle:
 // preview totals then the completion flag.
 func TestDispatchOfflineSyncPreviewAndCompleted(t *testing.T) {
-	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit, withHistorySync(true))
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
@@ -193,11 +195,11 @@ func TestDispatchOfflineSyncPreviewAndCompleted(t *testing.T) {
 // TestHistorySyncSnapshotsArePerInstance pins accumulator isolation across
 // sessions: each instance feeds only its own snapshot.
 func TestHistorySyncSnapshotsArePerInstance(t *testing.T) {
-	first, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
+	first, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit, withHistorySync(true))
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
-	second, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
+	second, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit, withHistorySync(true))
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
@@ -215,7 +217,7 @@ func TestHistorySyncSnapshotsArePerInstance(t *testing.T) {
 // TestDispatchHistorySyncNilDataIsDropped pins the guard: a chunk without data
 // never poisons the accumulator.
 func TestDispatchHistorySyncNilDataIsDropped(t *testing.T) {
-	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit, withHistorySync(true))
 	if err != nil {
 		t.Fatalf("newSession: %v", err)
 	}
@@ -223,5 +225,64 @@ func TestDispatchHistorySyncNilDataIsDropped(t *testing.T) {
 	sess.dispatch(&events.HistorySync{})
 	if got := sess.HistorySyncSnapshot().Chunks; got != 0 {
 		t.Errorf("snapshot chunks = %d, want none for dataless sync", got)
+	}
+}
+
+func TestHistorySyncDisabledSessionDropsChunksPreviewAndCompletion(t *testing.T) {
+	t.Setenv("WZAP_CHATWOOT_IMPORT_DB_URL", "")
+	sess, err := newSession(uuid.New(), &store.Device{}, zerolog.Nop(), nil, testMediaLimit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess.dispatch(synthesizedHistorySync())
+	sess.dispatch(&events.OfflineSyncPreview{Total: 7})
+	sess.dispatch(&events.OfflineSyncCompleted{Count: 7})
+	snap := sess.HistorySyncSnapshot()
+	if snap.Chunks != 0 || snap.Total != 0 || snap.Completed || !snap.UpdatedAt.IsZero() || len(snap.Contacts) != 0 || len(snap.Conversations) != 0 {
+		t.Errorf("disabled history retained data: %+v", snap)
+	}
+}
+
+func TestManagerHistoryOptionAppliesToCreatedAndRestoredSessions(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		name := "disabled"
+		if enabled {
+			name = "enabled"
+		}
+		t.Run(name, func(t *testing.T) {
+			// The explicit constructor option controls sessions even when the
+			// environment disagrees; boot is responsible for mapping the URI.
+			t.Setenv("WZAP_CHATWOOT_IMPORT_DB_URL", "ignored-environment")
+			m := newTestManager(t, WithHistorySync(enabled))
+			created, err := m.Create(&model.Instance{ID: uuid.New()})
+			if err != nil {
+				t.Fatal(err)
+			}
+			deviceJID := saveTestDevice(t, m.devices, "5511555555555")
+			device, err := m.devices.GetDevice(context.Background(), deviceJID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			m.restoreConnect = func(context.Context, *instanceSession) error { return nil }
+			restoredID := uuid.New()
+			if err := m.attachAndConnect(context.Background(), restoredID, device); err != nil {
+				t.Fatal(err)
+			}
+			restored, _ := m.Get(restoredID)
+			for _, candidate := range []any{created, restored} {
+				sess := candidate.(*instanceSession)
+				sess.dispatch(synthesizedHistorySync())
+				sess.dispatch(&events.OfflineSyncPreview{Total: 7})
+				sess.dispatch(&events.OfflineSyncCompleted{Count: 7})
+				snap := sess.HistorySyncSnapshot()
+				if enabled {
+					if snap.Chunks != 1 || snap.Total != 7 || !snap.Completed || len(snap.Contacts) != 2 || len(snap.Conversations) != 2 {
+						t.Errorf("enabled manager failed to collect history: %+v", snap)
+					}
+				} else if snap.Chunks != 0 || snap.Total != 0 || snap.Completed || len(snap.Contacts) != 0 || len(snap.Conversations) != 0 {
+					t.Errorf("disabled manager retained history: %+v", snap)
+				}
+			}
+		})
 	}
 }

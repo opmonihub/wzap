@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"wzap/internal/model"
@@ -30,7 +31,17 @@ func NewEventOutboxRepository(pool *pgxpool.Pool) *EventOutboxRepository {
 
 // Enqueue appends an event to the outbox.
 func (r *EventOutboxRepository) Enqueue(ctx context.Context, id uuid.UUID, subject string, envelope []byte) error {
-	if _, err := r.pool.Exec(ctx,
+	return enqueueEvent(ctx, r.pool, id, subject, envelope)
+}
+
+// eventInserter accepts either the pool or the transaction owning a domain
+// update, so both paths use the same event insert.
+type eventInserter interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+}
+
+func enqueueEvent(ctx context.Context, db eventInserter, id uuid.UUID, subject string, envelope []byte) error {
+	if _, err := db.Exec(ctx,
 		`INSERT INTO event_outbox (id, subject, envelope) VALUES ($1, $2, $3)`,
 		id, subject, envelope); err != nil {
 		return fmt.Errorf("enqueue event: %w", err)

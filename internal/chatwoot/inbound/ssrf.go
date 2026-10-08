@@ -70,7 +70,7 @@ func validateAttachmentURL(rawURL, chatwootURL string) error {
 			return fmt.Errorf("attachment URL rejected: host %q resolves to blocked address", host)
 		}
 	}
-	if chatwootHostMatches(host, ips, chatwootURL) {
+	if chatwootHostMatches(host, chatwootURL) {
 		return nil
 	}
 	for _, ip := range ips {
@@ -148,7 +148,7 @@ func pinnedAttachmentDialContext(allowHost string) func(ctx context.Context, net
 				return nil, fmt.Errorf("attachment dial rejected: host %q resolves to blocked address", host)
 			}
 		}
-		if !chatwootHostMatches(trimmed, ips, allowHost) {
+		if !chatwootHostMatches(trimmed, allowHost) {
 			for _, ip := range ips {
 				if isBlockedIP(ip) {
 					return nil, fmt.Errorf("attachment dial rejected: host %q resolves to non-public address", host)
@@ -163,9 +163,11 @@ func pinnedAttachmentDialContext(allowHost string) func(ctx context.Context, net
 }
 
 // chatwootHostMatches reports the self-hosted exception: host equals the
-// configured Chatwoot url host (case-insensitive), or one of its resolved
-// IPs overlaps the attachment IPs.
-func chatwootHostMatches(host string, ips []net.IP, chatwootURL string) bool {
+// configured Chatwoot URL host (case-insensitive). A different hostname is
+// never trusted because its DNS can overlap a public Chatwoot address while
+// also resolving to a private address. URL validation and every dial apply
+// this same identity check before allowing non-public addresses.
+func chatwootHostMatches(host, chatwootURL string) bool {
 	trimmed := strings.TrimSpace(chatwootURL)
 	if trimmed == "" {
 		return false
@@ -178,19 +180,10 @@ func chatwootHostMatches(host string, ips []net.IP, chatwootURL string) bool {
 	if want == "" {
 		return false
 	}
-	if host == want {
-		return true
+	// Different textual forms of the same literal IP are the same trusted
+	// identity. DNS aliases still require the configured hostname itself.
+	if configuredIP, targetIP := net.ParseIP(want), net.ParseIP(host); configuredIP != nil && targetIP != nil {
+		return configuredIP.Equal(targetIP)
 	}
-	resolved, err := resolveAttachmentHost(want)
-	if err != nil {
-		return false
-	}
-	for _, ip := range ips {
-		for _, other := range resolved {
-			if ip.Equal(other) {
-				return true
-			}
-		}
-	}
-	return false
+	return host == want
 }

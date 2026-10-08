@@ -39,6 +39,9 @@ var (
 	// ErrInProgress reports that an idempotency key is owned by a request that
 	// has not completed yet.
 	ErrInProgress = errors.New("idempotency key in progress")
+	// ErrMessageOutcomeConflict reports an attempt to replace a confirmed
+	// terminal message outcome with a different one.
+	ErrMessageOutcomeConflict = errors.New("message terminal outcome conflict")
 )
 
 // InstanceRepository persists WhatsApp instances. The aggregate reads join the
@@ -98,15 +101,20 @@ type MessageRepository interface {
 	// ClaimQueued selects queued messages whose next_attempt_at is due, oldest
 	// first, and atomically moves them to sending with FOR UPDATE SKIP LOCKED.
 	ClaimQueued(ctx context.Context, limit int) ([]model.OutboundMessage, error)
-	MarkSent(ctx context.Context, id uuid.UUID, whatsAppMessageID string) error
-	MarkFailed(ctx context.Context, id uuid.UUID, errMsg string) error
+	// MarkSent and MarkFailed persist the terminal outcome and its event in
+	// one transaction. They return false for the same confirmed outcome,
+	// without recreating an event the relay may already have published.
+	MarkSent(ctx context.Context, id uuid.UUID, whatsAppMessageID string, event model.OutboxEvent) (bool, error)
+	MarkFailed(ctx context.Context, id uuid.UUID, errMsg string, event model.OutboxEvent) (bool, error)
 	// MarkRetrying moves a message back to queued, incrementing attempts.
 	MarkRetrying(ctx context.Context, id uuid.UUID, errMsg string, nextAttemptAt time.Time) error
-	// UpdateReceipt maps delivered to delivered_at and read/played to read_at.
+	// UpdateReceipt maps delivered to delivered_at and read/played to read_at
+	// only for the originating instance and WhatsApp message ID.
 	// It reports false when no message matches or the status is unknown.
-	UpdateReceipt(ctx context.Context, whatsAppMessageID, status string, at time.Time) (bool, error)
-	// RequeueStuck moves sending messages updated before olderThan back to queued.
-	RequeueStuck(ctx context.Context, olderThan time.Time) (int64, error)
+	UpdateReceipt(ctx context.Context, instanceID uuid.UUID, whatsAppMessageID, status string, at time.Time) (bool, error)
+	// RequeueStuck moves sending messages updated before olderThan back to queued,
+	// except messages still owned by a running outbox worker.
+	RequeueStuck(ctx context.Context, olderThan time.Time, activeIDs []uuid.UUID) (int64, error)
 }
 
 // MediaRepository persists media metadata. The content itself lives in an

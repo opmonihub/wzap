@@ -15,7 +15,7 @@ import (
 // comparison per attempt.
 const DefaultLoginLimit = 10
 
-// MaxLoginBuckets caps the limiter map before expired entries are swept, so
+// MaxLoginBuckets caps the number of active IP budgets, so
 // a distributed scan cannot grow memory without bound (single replica by
 // design, same as the Chatwoot webhook limiter).
 const MaxLoginBuckets = 1024
@@ -28,6 +28,7 @@ type LoginRateLimiter struct {
 	mu     sync.Mutex
 	limit  int
 	window time.Duration
+	now    func() time.Time
 	hits   map[string]*rateWindow
 }
 
@@ -37,7 +38,7 @@ func NewLoginRateLimiter(limit int, window time.Duration) *LoginRateLimiter {
 	if window <= 0 {
 		window = time.Minute
 	}
-	return &LoginRateLimiter{limit: limit, window: window, hits: make(map[string]*rateWindow)}
+	return &LoginRateLimiter{limit: limit, window: window, now: time.Now, hits: make(map[string]*rateWindow)}
 }
 
 // Allow consumes 1 of the IP budget and reports whether the attempt may
@@ -46,9 +47,9 @@ func (l *LoginRateLimiter) Allow(ip string) bool {
 	if l == nil || l.limit <= 0 {
 		return true
 	}
-	now := time.Now()
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	now := l.now()
 	if len(l.hits) >= MaxLoginBuckets {
 		for key, w := range l.hits {
 			if !now.Before(w.reset) {
@@ -57,6 +58,9 @@ func (l *LoginRateLimiter) Allow(ip string) bool {
 		}
 	}
 	w, ok := l.hits[ip]
+	if !ok && len(l.hits) >= MaxLoginBuckets {
+		return false
+	}
 	if !ok || !now.Before(w.reset) {
 		l.hits[ip] = &rateWindow{count: 1, reset: now.Add(l.window)}
 		return true

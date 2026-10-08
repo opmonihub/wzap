@@ -118,9 +118,13 @@ func (s *instanceSession) dispatch(evt any) {
 	case *events.HistorySync:
 		s.observeHistorySync(e)
 	case *events.OfflineSyncPreview:
-		s.history.ObservePreview(e.Total)
+		if s.historyEnabled {
+			s.history.ObservePreview(e.Total)
+		}
 	case *events.OfflineSyncCompleted:
-		s.history.MarkComplete()
+		if s.historyEnabled {
+			s.history.MarkComplete()
+		}
 	case *events.PairSuccess:
 		s.setStatus(session.StatusConnected, e.ID.String(), "")
 	default:

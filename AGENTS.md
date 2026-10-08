@@ -16,6 +16,7 @@ authenticated REST API, and publishes durable events through NATS JetStream.
 - `go vet ./...`, then `golangci-lint run`, then `go test ./...`, then `go build ./...` - CI order in `.github/workflows/ci.yml` (lint is v2.13.2, only govet/staticcheck/errcheck/ineffassign/unused in `.golangci.yml`).
 - `gofmt -l .` must print nothing; `gofmt -w <files>` to fix.
 - `docker compose up -d wzap` - start Postgres, NATS, and wzap locally (service at `127.0.0.1:8081`, global API key defaults to `dev-wzap-token`).
+- `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build wzap manager-dev` — Air + Nuxt at `127.0.0.1:8081/manager/`; insert local override between base/dev when present
 - `docker compose exec postgres createdb -U wzap wzap_test` - create the test database once (auto-created only on a fresh Postgres volume).
 
 Go 1.26 is pinned in `go.mod`. Postgres integration tests are skipped when

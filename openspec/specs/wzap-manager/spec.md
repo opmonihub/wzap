@@ -219,7 +219,7 @@ O overview SHALL exibir stats por status (total, connected, disconnected/pairing
 
 ### Requirement: Listas e detalhe no padrão do template
 
-As listas SHALL manter dados, filtros, ordenação, seleção e paginação atuais adotando o `ui` de tabela do template customers (bordas arredondadas, header com fundo) e footer com contagem de selecionados + paginação; o detalhe SHALL adotar header + faixa de stats + navegação por seções via `UNavigationMenu` horizontal no toolbar (padrão `settings.vue`) com 7 seções (overview, messages, groups, channels, profile, integrations, settings), mantendo os fluxos atuais de pairing, nome, key, webhook, envio e danger; a seção messages SHALL usar o split inbox full-width (lista selecionável + painel de detalhe + composer no rodapé, `USlideover` no mobile) e as demais seções SHALL centralizar forms em `lg:max-w-2xl`.
+As listas SHALL manter dados, filtros, ordenação, seleção e paginação atuais adotando o `ui` de tabela do template customers (bordas arredondadas, header com fundo) e footer com contagem de selecionados + paginação; o detalhe SHALL adotar header + faixa de stats + navegação por seções via `UNavigationMenu` horizontal no toolbar em desktop (padrão `settings.vue`) e seletor nomeado e legível no mobile, com as mesmas 7 seções (overview, messages, groups, channels, profile, integrations, settings), mantendo os fluxos atuais de pairing, nome, key, webhook, envio e danger; a seção messages SHALL usar o split inbox full-width (lista selecionável + painel de detalhe + composer no rodapé, `USlideover` no mobile) e as demais seções SHALL centralizar forms em `lg:max-w-2xl`.
 
 #### Scenario: Lista preservada
 
@@ -396,3 +396,123 @@ Create, edit and overview forms SHALL explain and validate the same name grammar
 #### Scenario: Name already occupied
 - **WHEN** the API returns instance_name_taken
 - **THEN** the form reports the instance-name conflict instead of an external-reference conflict
+
+### Requirement: Perfil editado por campos alterados
+
+O manager SHALL permitir alterar ou limpar somente o recado sem enviar nome inalterado. Nome/foto não suportados SHALL continuar apresentando o aviso 501; o manager MUST NOT informar sucesso parcial silencioso quando nome e recado são alterados juntos.
+
+#### Scenario: Apenas recado
+- **WHEN** o operador altera ou limpa o recado mantendo o nome
+- **THEN** o pedido contém apenas status_text, inclusive vazio explícito, e o recado é aplicado
+
+#### Scenario: Nome realmente alterado
+- **WHEN** nome alterado recebe 501, isolado ou junto ao recado
+- **THEN** o manager apresenta o aviso sem anunciar atualização concluída
+
+### Requirement: Navegação preservada após rename por alias
+
+Após rename em um detalhe aberto por alias, o manager SHALL recarregar usando identidade válida e SHALL manter URL atualizável com section preservada.
+
+#### Scenario: Ação posterior ao rename
+- **WHEN** o detalhe aberto pelo nome antigo é renomeado e depois recarregado ou atualizado
+- **THEN** o pedido usa o UUID válido e refresh da URL mantém a instância e a seção
+
+### Requirement: Coordenadas explícitas no envio de localização
+
+O formulário SHALL exigir latitude e longitude presentes antes da conversão numérica. Vazio ou espaços MUST NOT ser interpretados como zero; zero explícito SHALL permanecer válido.
+
+#### Scenario: Coordenada ausente
+- **WHEN** pelo menos uma coordenada está vazia ou contém apenas espaços
+- **THEN** o manager mostra erro e não chama a API
+
+#### Scenario: Origem explícita
+- **WHEN** latitude e longitude são preenchidas explicitamente com zero
+- **THEN** o payload contém zero em ambos os campos
+
+### Requirement: Status visível sem legenda
+
+Todo status existente SHALL manter linha identificável e ação de remoção, mesmo sem text/caption. Estado vazio SHALL depender de coleção vazia e não de ausência de legenda.
+
+#### Scenario: Mídia sem legenda
+- **WHEN** o status de imagem ou vídeo não possui texto nem legenda
+- **THEN** a linha identifica o status e mantém Delete disponível
+
+### Requirement: Revogação independente do cache de key
+
+A disponibilidade de revogação SHALL depender da autorização administrativa e estado da operação, sem exigir reconhecimento da key no cache local. Key recém-rotacionada SHALL poder ser revogada; confirmação e apresentação única SHALL ser preservadas.
+
+#### Scenario: Outro navegador
+- **WHEN** admin acessa settings sem cache local ou com storage indisponível
+- **THEN** pode confirmar a revogação sem rotacionar antes
+
+#### Scenario: Key recém-rotacionada
+- **WHEN** admin revoga a key ainda apresentada uma única vez
+- **THEN** sucesso limpa a exibição/cache e falha conserva estado para nova tentativa
+
+### Requirement: Usable form validation
+
+The manager SHALL accept non-negative whole numeric quotas, preserve an explicitly entered zero as unlimited, omit a blank creation quota, and reject invalid quota values before a write request; login validation SHALL describe missing fields without exposing internal validator types.
+
+#### Scenario: Numeric input creation and editing
+- **WHEN** an administrator enters 0 or a positive whole quota using the numeric input and submits an otherwise valid account form
+- **THEN** the form sends that exact numeric quota and completes successfully
+
+#### Scenario: Empty and invalid quota
+- **WHEN** a creation quota is blank or any quota is negative or fractional
+- **THEN** a blank creation quota is omitted and an invalid value prevents a write with a readable field error
+
+#### Scenario: Empty sign-in
+- **WHEN** a visitor submits an untouched sign-in form
+- **THEN** the email and password fields show readable instructions and no login request is sent
+
+### Requirement: Correct accessible control targets
+
+The manager SHALL provide distinct label targets for individual webhook events and accessible names describing icon navigation, file picker and selection controls.
+
+#### Scenario: Webhook event label
+- **WHEN** the operator clicks the visible label for a webhook event
+- **THEN** only that event's selection changes and its accessible name identifies that event
+
+#### Scenario: Named controls
+- **WHEN** assistive technology encounters the instance back action, a photo or message file picker, or the confirmed unnamed selects
+- **THEN** it announces the action or field name in the manager's locale
+
+#### Scenario: Selected file preview
+- **WHEN** the operator selects an image in a photo or message file picker
+- **THEN** the thumbnail has valid alternative text or decorative image semantics, and file name and removal remain available
+
+### Requirement: Legible theme and responsive instance navigation
+
+The manager SHALL keep normal semantic text at a contrast ratio of at least 4.5:1 against its rendered background and keep every instance section label readable and reachable at 320px and wider without page-level horizontal overflow.
+
+#### Scenario: Light semantic colors
+- **WHEN** a visitor uses primary actions, active navigation or semantic feedback in light mode
+- **THEN** the text meets the contrast requirement including hover states
+
+#### Scenario: Narrow instance navigation
+- **WHEN** the instance detail is opened on a narrow viewport
+- **THEN** the seven sections remain readable and can be selected, with the current section visible
+
+### Requirement: Available column controls
+
+The manager SHALL show a column-display control only when the current table has optional columns; required instance identity and status columns SHALL remain visible.
+
+#### Scenario: Required instance columns
+- **WHEN** the instance table contains only required columns
+- **THEN** no empty column-display menu is offered
+
+#### Scenario: Optional account columns
+- **WHEN** the account table has optional columns
+- **THEN** its display menu allows toggling those columns while retaining row selection and actions
+
+### Requirement: Accessible table row actions
+
+Instance tables SHALL preserve native row semantics so the row's links, selection checkbox and action buttons remain individually accessible; pointer navigation and checkbox keyboard selection SHALL retain the displayed instance identity after filtering and sorting.
+
+#### Scenario: Nested row controls
+- **WHEN** an operator traverses an instance table row using assistive technology
+- **THEN** its name link, checkbox and actions keep their own accessible roles and names without a containing button role
+
+#### Scenario: Displayed row identity
+- **WHEN** an operator filters or sorts the table and opens the displayed instance
+- **THEN** navigation targets that displayed instance and checkbox selection remains independent

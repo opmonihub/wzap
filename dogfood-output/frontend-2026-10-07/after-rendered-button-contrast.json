@@ -1,0 +1,686 @@
+[
+  {
+    "background": "oklab(0.444 0.15785 0.0800782 / 0.15)",
+    "color": "oklch(0.444 0.177 26.899)",
+    "foreground": [
+      159,
+      7,
+      18
+    ],
+    "hover": true,
+    "hoverMedia": true,
+    "label": "Retry",
+    "layers": [
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "HTML"
+      },
+      {
+        "color": "rgb(255, 255, 255)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "BODY"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "ASIDE"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgb(255, 255, 255)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "oklab(0.444 0.15785 0.0800782 / 0.1)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "oklab(0.444 0.15785 0.0800782 / 0.15)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "BUTTON"
+      }
+    ],
+    "ratio": 5.26984603999594,
+    "renderedBackground": [
+      232.4890272971934,
+      196.7853133410227,
+      199.5902345251826
+    ],
+    "theme": "light"
+  },
+  {
+    "background": "oklab(0.704 0.176821 0.072217 / 0.1)",
+    "color": "oklch(0.704 0.191 22.216)",
+    "foreground": [
+      255,
+      100,
+      103
+    ],
+    "hover": true,
+    "hoverMedia": true,
+    "label": "Retry",
+    "layers": [
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "HTML"
+      },
+      {
+        "color": "oklch(0.21 0.006 285.885)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "BODY"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "ASIDE"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "oklch(0.21 0.006 285.885)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "oklab(0.704 0.176821 0.072217 / 0.1)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "oklab(0.704 0.176821 0.072217 / 0.1)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "BUTTON"
+      }
+    ],
+    "ratio": 4.6490681077834966,
+    "renderedBackground": [
+      68.7044059976932,
+      38.32089196462899,
+      40.740315263360245
+    ],
+    "theme": "dark"
+  },
+  {
+    "background": "oklch(0.704 0.191 22.216)",
+    "color": "oklch(0.21 0.006 285.885)",
+    "foreground": [
+      24,
+      24,
+      27
+    ],
+    "hover": false,
+    "hoverMedia": true,
+    "label": "Delete permanently",
+    "layers": [
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "HTML"
+      },
+      {
+        "color": "oklch(0.21 0.006 285.885)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "BODY"
+      },
+      {
+        "color": "oklch(0.21 0.006 285.885)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "oklch(0.704 0.191 22.216)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "BUTTON"
+      }
+    ],
+    "ratio": 6.133985393777291,
+    "renderedBackground": [
+      255,
+      100,
+      103
+    ],
+    "theme": "dark"
+  },
+  {
+    "background": "oklab(0.704 0.176821 0.072217 / 0.9)",
+    "color": "oklch(0.21 0.006 285.885)",
+    "foreground": [
+      24,
+      24,
+      27
+    ],
+    "hover": true,
+    "hoverMedia": true,
+    "label": "Delete permanently",
+    "layers": [
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "HTML"
+      },
+      {
+        "color": "oklch(0.21 0.006 285.885)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "BODY"
+      },
+      {
+        "color": "oklch(0.21 0.006 285.885)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "oklab(0.704 0.176821 0.072217 / 0.9)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "BUTTON"
+      }
+    ],
+    "ratio": 5.197076053134767,
+    "renderedBackground": [
+      232.35294117647055,
+      92.54901960784316,
+      95.54901960784314
+    ],
+    "theme": "dark"
+  },
+  {
+    "background": "oklab(0.444 0.15785 0.0800782 / 0.75)",
+    "color": "rgb(255, 255, 255)",
+    "foreground": [
+      255,
+      255,
+      255
+    ],
+    "hover": true,
+    "hoverMedia": true,
+    "label": "Delete permanently",
+    "layers": [
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "HTML"
+      },
+      {
+        "color": "rgb(255, 255, 255)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "BODY"
+      },
+      {
+        "color": "rgb(255, 255, 255)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "oklab(0.444 0.15785 0.0800782 / 0.75)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "BUTTON"
+      }
+    ],
+    "ratio": 5.27714906820339,
+    "renderedBackground": [
+      183.0941176470588,
+      69.24313725490197,
+      76.73333333333333
+    ],
+    "theme": "light"
+  },
+  {
+    "background": "rgb(1, 101, 56)",
+    "color": "rgb(255, 255, 255)",
+    "foreground": [
+      255,
+      255,
+      255
+    ],
+    "hover": false,
+    "hoverMedia": true,
+    "label": "Save",
+    "layers": [
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "HTML"
+      },
+      {
+        "color": "rgb(255, 255, 255)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "BODY"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "oklab(0.967 0.000281923 -0.000959437 / 0.5)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "FORM"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgb(1, 101, 56)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "BUTTON"
+      }
+    ],
+    "ratio": 7.192107119313828,
+    "renderedBackground": [
+      1,
+      101,
+      56
+    ],
+    "theme": "light"
+  },
+  {
+    "background": "rgb(10, 83, 49)",
+    "color": "rgb(255, 255, 255)",
+    "foreground": [
+      255,
+      255,
+      255
+    ],
+    "hover": true,
+    "hoverMedia": true,
+    "label": "Save",
+    "layers": [
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "HTML"
+      },
+      {
+        "color": "rgb(255, 255, 255)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "BODY"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "oklab(0.967 0.000281923 -0.000959437 / 0.5)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "FORM"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgb(10, 83, 49)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "BUTTON"
+      }
+    ],
+    "ratio": 9.152086274759156,
+    "renderedBackground": [
+      10,
+      83,
+      49
+    ],
+    "theme": "light"
+  },
+  {
+    "background": "oklab(0.786145 -0.174855 0.0792278 / 0.75)",
+    "color": "oklch(0.21 0.006 285.885)",
+    "foreground": [
+      24,
+      24,
+      27
+    ],
+    "hover": true,
+    "hoverMedia": true,
+    "label": "Save",
+    "layers": [
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "HTML"
+      },
+      {
+        "color": "oklch(0.21 0.006 285.885)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "BODY"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "oklab(0.274 0.00165715 -0.00576662 / 0.5)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "FORM"
+      },
+      {
+        "color": "rgba(0, 0, 0, 0)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "DIV"
+      },
+      {
+        "color": "oklab(0.786145 -0.174855 0.0792278 / 0.75)",
+        "image": "none",
+        "opacity": "1",
+        "tag": "BUTTON"
+      }
+    ],
+    "ratio": 6.062249686042556,
+    "renderedBackground": [
+      8.03924644367551,
+      172.82356016916572,
+      106.78777393310266
+    ],
+    "theme": "dark"
+  }
+]

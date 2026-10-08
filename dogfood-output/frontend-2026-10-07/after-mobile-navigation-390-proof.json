@@ -1,0 +1,72 @@
+[
+  {
+    "section": "overview",
+    "url": "http://127.0.0.1:3101/manager/instances/5dc5f4a0-9fe6-4c8a-be73-4bfb7d38fd39",
+    "focusRole": "combobox",
+    "height": 44,
+    "pageWidth": 390,
+    "selected": "Overview",
+    "viewport": 390,
+    "width": 358
+  },
+  {
+    "section": "messages",
+    "url": "http://127.0.0.1:3101/manager/instances/5dc5f4a0-9fe6-4c8a-be73-4bfb7d38fd39?section=messages",
+    "focusRole": "combobox",
+    "height": 44,
+    "pageWidth": 390,
+    "selected": "Messages",
+    "viewport": 390,
+    "width": 358
+  },
+  {
+    "section": "groups",
+    "url": "http://127.0.0.1:3101/manager/instances/5dc5f4a0-9fe6-4c8a-be73-4bfb7d38fd39?section=groups",
+    "focusRole": "combobox",
+    "height": 44,
+    "pageWidth": 390,
+    "selected": "Groups",
+    "viewport": 390,
+    "width": 358
+  },
+  {
+    "section": "channels",
+    "url": "http://127.0.0.1:3101/manager/instances/5dc5f4a0-9fe6-4c8a-be73-4bfb7d38fd39?section=channels",
+    "focusRole": "combobox",
+    "height": 44,
+    "pageWidth": 390,
+    "selected": "Channels",
+    "viewport": 390,
+    "width": 358
+  },
+  {
+    "section": "profile",
+    "url": "http://127.0.0.1:3101/manager/instances/5dc5f4a0-9fe6-4c8a-be73-4bfb7d38fd39?section=profile",
+    "focusRole": "combobox",
+    "height": 44,
+    "pageWidth": 390,
+    "selected": "Profile",
+    "viewport": 390,
+    "width": 358
+  },
+  {
+    "section": "integrations",
+    "url": "http://127.0.0.1:3101/manager/instances/5dc5f4a0-9fe6-4c8a-be73-4bfb7d38fd39?section=integrations",
+    "focusRole": "option",
+    "height": 44,
+    "pageWidth": 390,
+    "selected": "Integrations",
+    "viewport": 390,
+    "width": 358
+  },
+  {
+    "section": "settings",
+    "url": "http://127.0.0.1:3101/manager/instances/5dc5f4a0-9fe6-4c8a-be73-4bfb7d38fd39?section=settings",
+    "focusRole": "combobox",
+    "height": 44,
+    "pageWidth": 390,
+    "selected": "Settings",
+    "viewport": 390,
+    "width": 358
+  }
+]

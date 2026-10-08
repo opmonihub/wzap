@@ -1,0 +1,15 @@
+✔ accepts exact ASCII names, case variants and the 64-character boundary (1.373722ms)
+✔ rejects whitespace, non-ASCII, punctuation and names outside the bounds (0.26476ms)
+✔ reserves stats and all UUID forms accepted as identities (0.214285ms)
+✔ reserves canonical UUIDs wrapped in arbitrary characters accepted by Go UUID parsing (0.165812ms)
+✔ keeps unchanged legacy names and omits them from updates (0.792305ms)
+✔ renames preserve exact input and validate changes rather than trimmed equivalents (0.603759ms)
+✔ name validation and conflicts use name messages without swallowing other errors (0.208573ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 148.430121

@@ -1,0 +1,18 @@
+{
+  "interactive": false,
+  "rows": [
+    {
+      "role": null,
+      "tabindex": null,
+      "text": "fresh-baseline-7disconnectedConnect"
+    },
+    {
+      "role": null,
+      "tabindex": null,
+      "text": "browser-qa-renamed-20261007disconnectedConnect"
+    }
+  ],
+  "x": 1166,
+  "y": 388,
+  "resultUrl": "http://127.0.0.1:3101/manager/instances/5dc5f4a0-9fe6-4c8a-be73-4bfb7d38fd39"
+}

@@ -1,0 +1,85 @@
+{
+  "events": [
+    {
+      "checked": "false",
+      "id": "v-0-0-2-message",
+      "name": "message",
+      "role": "checkbox"
+    },
+    {
+      "checked": "true",
+      "id": "v-0-0-2-receipt",
+      "name": "receipt",
+      "role": "checkbox"
+    },
+    {
+      "checked": "false",
+      "id": "v-0-0-2-connection",
+      "name": "connection",
+      "role": "checkbox"
+    },
+    {
+      "checked": "false",
+      "id": "v-0-0-2-message.status",
+      "name": "message.status",
+      "role": "checkbox"
+    },
+    {
+      "checked": "false",
+      "id": "v-0-0-2-poll.vote",
+      "name": "poll.vote",
+      "role": "checkbox"
+    },
+    {
+      "checked": "false",
+      "id": "v-0-0-2-message.reaction",
+      "name": "message.reaction",
+      "role": "checkbox"
+    },
+    {
+      "checked": "false",
+      "id": "v-0-0-2-interactive.response",
+      "name": "interactive.response",
+      "role": "checkbox"
+    },
+    {
+      "checked": "false",
+      "id": "v-0-0-2-group.participants",
+      "name": "group.participants",
+      "role": "checkbox"
+    },
+    {
+      "checked": "true",
+      "id": "v-0-0-2-group.info",
+      "name": "group.info",
+      "role": "checkbox"
+    },
+    {
+      "checked": "false",
+      "id": "v-0-0-2-call.offer",
+      "name": "call.offer",
+      "role": "checkbox"
+    }
+  ],
+  "writes": [
+    {
+      "method": "PATCH",
+      "path": "/instances/5dc5f4a0-9fe6-4c8a-be73-4bfb7d38fd39",
+      "status": 200,
+      "fields": [
+        "name"
+      ],
+      "adapted": false
+    },
+    {
+      "method": "PATCH",
+      "path": "/instances/5dc5f4a0-9fe6-4c8a-be73-4bfb7d38fd39",
+      "status": 200,
+      "fields": [
+        "webhook"
+      ],
+      "adapted": false
+    }
+  ],
+  "mock": false
+}

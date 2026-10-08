@@ -1,0 +1,9 @@
+$ eslint .
+
+/home/obsidian/dev/wzap/.worktrees/fix-frontend-qa/manager/app/components/shared/DataTableToolbar.vue
+  9:3  warning  Prop "columnItems" should be optional  vue/no-required-prop-with-default
+
+/home/obsidian/dev/wzap/.worktrees/fix-frontend-qa/manager/app/components/shared/PageState.vue
+  6:3  warning  Prop "error" should be optional  vue/no-required-prop-with-default
+
+✖ 2 problems (0 errors, 2 warnings)

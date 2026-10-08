@@ -1,0 +1,24 @@
+{
+  "removed": [
+    {
+      "worktree": "/home/obsidian/dev/wzap/.worktrees/review-residual-implementations",
+      "branch": "codex/review-residual-implementations",
+      "archive": "/home/obsidian/dev/wzap/openspec/changes/archive/2026-10-08-review-residual-implementations",
+      "preserved_dirty_files": 119,
+      "preserved_notes": 15,
+      "bundle_sha256": "27fa9967a6cb04a4408ba68f24581b8b30c2b0ae53e40817345c25dfdf96b9c1"
+    },
+    {
+      "worktree": "/home/obsidian/dev/wzap/.worktrees/fix-frontend-qa",
+      "branch": "codex/fix-frontend-qa",
+      "archive": "/home/obsidian/dev/wzap/openspec/changes/archive/2026-10-08-fix-frontend-qa",
+      "preserved_dirty_files": 49,
+      "preserved_notes": 29,
+      "bundle_sha256": "fe70010cdff79d2f55e7e9c5b718b356434356312621e8128ba6e0f945b094ce"
+    }
+  ],
+  "forced_removal": false,
+  "user_baseline_preserved": true,
+  "unchanged_source_files": 509,
+  "remaining_worktrees": "worktree /home/obsidian/dev/wzap\nHEAD 06a2abf6a1efd6f5c3680a5cfdb4ff69e0d3c733\nbranch refs/heads/main\n\n"
+}

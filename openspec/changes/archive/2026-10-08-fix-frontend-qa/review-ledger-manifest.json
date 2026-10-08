@@ -1,0 +1,501 @@
+{
+  "change": "fix-frontend-qa",
+  "former_worktree": "/home/obsidian/dev/wzap/.worktrees/fix-frontend-qa",
+  "branch": "codex/fix-frontend-qa",
+  "base": "f9d1300c9d0d6909a3f44ee79d49ae0f9d0477cc",
+  "bundle": "review-ledger.tar.gz",
+  "bundle_sha256": "fe70010cdff79d2f55e7e9c5b718b356434356312621e8128ba6e0f945b094ce",
+  "notes": [
+    {
+      "path": "sdd/.gitignore",
+      "sha256": "cdbcae15105d6b781e620813c79c7e868740d4e9cc53ce6f5fcbbc12387adf4b",
+      "size": 2
+    },
+    {
+      "path": "sdd/plan/changed-files.json",
+      "sha256": "d8fcc500d9fe8ac3e3fdb5a8496659ee603b3d4720275d4b4a56b34595115f5b",
+      "size": 1404
+    },
+    {
+      "path": "sdd/plan/current-review-package.md",
+      "sha256": "2d9fc660b2df34ab02d1bc4d4deec18e62f0344c7be7387dd4ebef5fd811e084",
+      "size": 56378
+    },
+    {
+      "path": "sdd/plan/final-review-package.md",
+      "sha256": "0c7bea9ea80628094b5e0b7bfb339482b894fbc14922a788543f16c7720674f6",
+      "size": 40730
+    },
+    {
+      "path": "sdd/plan/final-review.md",
+      "sha256": "5fbe9eb96b4768503b36df96cbd55f80d2549778e3cc57ea76d0a6034424abf4",
+      "size": 6676
+    },
+    {
+      "path": "sdd/plan/plan-path",
+      "sha256": "17115d9144a3dd66cb7130e165a263da8d0d02bc738748c3c11081dc653482f9",
+      "size": 41
+    },
+    {
+      "path": "sdd/plan/progress.md",
+      "sha256": "a69d63d6081142f490f64277e1ff5695642d372d45f4f06f45051926390f7d8b",
+      "size": 2368
+    },
+    {
+      "path": "sdd/plan/task-1-brief.md",
+      "sha256": "9c048e99b3440d7df7af4a6e74621407c3905892d0c1d8bcb3486bef0d9f9577",
+      "size": 1040
+    },
+    {
+      "path": "sdd/plan/task-1-green.log",
+      "sha256": "e71d57377538fc1a03488a087b36156eb1ae32766de27ff8f37f8d55326fc164",
+      "size": 1148
+    },
+    {
+      "path": "sdd/plan/task-1-lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "sdd/plan/task-1-red.log",
+      "sha256": "29c73a622919420587c384c312f34d8a97aab09dd985af8a42e87ef097d0d910",
+      "size": 21238
+    },
+    {
+      "path": "sdd/plan/task-1-report.md",
+      "sha256": "ea0ee0eabb9e41dfc06a1721a53134d218f1bbd43e81e6762384b2805d22b029",
+      "size": 8362
+    },
+    {
+      "path": "sdd/plan/task-1-review-package.md",
+      "sha256": "864e1f3509125366d569eabf6f33169f967894132fffc4057477ce1b00db55c8",
+      "size": 19117
+    },
+    {
+      "path": "sdd/plan/task-1-review.md",
+      "sha256": "29c550627fb4cc92e389b298366a443eff964718a7dc33349b9f8302cb9b80a1",
+      "size": 3995
+    },
+    {
+      "path": "sdd/plan/task-2-brief.md",
+      "sha256": "6759386fc694d76527a3dd4421a975a42ecf57c3a0bb7879966be42569408cad",
+      "size": 1650
+    },
+    {
+      "path": "sdd/plan/task-2-report.md",
+      "sha256": "0a5ad1d64efe5fac76c7061d351c13432fdfffc3f0ada040886a8a3d83d019d5",
+      "size": 3814
+    },
+    {
+      "path": "sdd/plan/task-2-review-package.md",
+      "sha256": "742199f59d86eda612bd781f739c96b997b31af63c2abad77349241daa1d1b4e",
+      "size": 31152
+    },
+    {
+      "path": "sdd/plan/task-2-review.md",
+      "sha256": "f61f8a3dc78eb29acff4b272945abe2f23b4551574929802d7d7ffb0d5ef6cd1",
+      "size": 4497
+    },
+    {
+      "path": "sdd/plan/task-3-brief.md",
+      "sha256": "da63c537155ae9a6704cb25951b73d69f92fab27db4723a4e38666cf3b37f7ac",
+      "size": 1261
+    },
+    {
+      "path": "sdd/plan/task-3-report.md",
+      "sha256": "2c82537cf4aca7ad5d51cee64845e2249460c50e7c9e48cc6748ebea1d926a57",
+      "size": 3382
+    },
+    {
+      "path": "sdd/plan/task-3-review-package.md",
+      "sha256": "0c7bea9ea80628094b5e0b7bfb339482b894fbc14922a788543f16c7720674f6",
+      "size": 40730
+    },
+    {
+      "path": "sdd/plan/task-3-review.md",
+      "sha256": "8176dd7d270f19fd0e864a7e4173d4af99b9c674e08a58df0d4d3d8c6fe3e9a4",
+      "size": 4652
+    },
+    {
+      "path": "sdd/plan/task-7-brief.md",
+      "sha256": "2cee283125a09276dabae43840634e4aff61094bd18ebece1d6cabbc8159712a",
+      "size": 1157
+    },
+    {
+      "path": "sdd/plan/task-7-report.md",
+      "sha256": "f5eb03907fae4771469b50069fbd1d2a8a5a96cdb483575e8f2277131f02de48",
+      "size": 3567
+    },
+    {
+      "path": "sdd/plan/task-7-review-package.md",
+      "sha256": "584a5ae0381fa3c4940884da8d09aed1eeed15bd6f66c4a28b4c85037da8a377",
+      "size": 18359
+    },
+    {
+      "path": "sdd/plan/task-7-review.md",
+      "sha256": "bfff2d1b6a76000d713d28f312c53d37266e0ffa65f55ea8cf18d7f9adaa18a7",
+      "size": 5317
+    },
+    {
+      "path": "sdd/plan/task-8-9-review.md",
+      "sha256": "6bb23a7a9e918b6b69599970c402b4cb174124d38358bffbdf6d227730ffded9",
+      "size": 7349
+    },
+    {
+      "path": "sdd/plan/task-8-report.md",
+      "sha256": "208e45ef20360eb1859592937862a4596dfe349aca03338d128a6cede700bfb4",
+      "size": 5443
+    },
+    {
+      "path": "sdd/plan/task-9-report.md",
+      "sha256": "5d34467db7e01881c086f339225cc3584891e3f9f182a51aff32201d5b132c1b",
+      "size": 3290
+    }
+  ],
+  "worktree_files": [
+    {
+      "status": " M",
+      "path": "AGENTS.md",
+      "worktree_sha256": "d031354904948c521bb487b038b5b2e3ce9ad958e88eb8513ce87a5acb9e1bc2",
+      "main_sha256": "d031354904948c521bb487b038b5b2e3ce9ad958e88eb8513ce87a5acb9e1bc2",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/app.config.ts",
+      "worktree_sha256": "aedd9ee74ec457d7edbf51502cafdc530da1da340d3492277cad1993bb4b17fa",
+      "main_sha256": "aedd9ee74ec457d7edbf51502cafdc530da1da340d3492277cad1993bb4b17fa",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/assets/css/main.css",
+      "worktree_sha256": "d675332c10f01860e1c1d075c710a3aa29e4a1d18c39a9354de7f60fc0472aae",
+      "main_sha256": "d675332c10f01860e1c1d075c710a3aa29e4a1d18c39a9354de7f60fc0472aae",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/components/accounts/CreateAccountModal.vue",
+      "worktree_sha256": "4aff7aeed836598616631f601edbcc31c7c9a831b9b5fcd62669db9f31cfd568",
+      "main_sha256": "4aff7aeed836598616631f601edbcc31c7c9a831b9b5fcd62669db9f31cfd568",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/components/accounts/EditQuotaModal.vue",
+      "worktree_sha256": "fddc40d11330648b3aa8e46acd4e45b9b8c96ef663aef9d6025b190f8e64289c",
+      "main_sha256": "fddc40d11330648b3aa8e46acd4e45b9b8c96ef663aef9d6025b190f8e64289c",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/components/auth/LoginForm.vue",
+      "worktree_sha256": "14632c3cef026ba2d0818938f3f5c4a550a1a82422a3c6d370526d28a4fb97d9",
+      "main_sha256": "14632c3cef026ba2d0818938f3f5c4a550a1a82422a3c6d370526d28a4fb97d9",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/components/instances/ChannelsCard.vue",
+      "worktree_sha256": "42d03972ef0eb04a1f2ae96d36c184e4b49c6002f450bbddbffb67d060de84de",
+      "main_sha256": "42d03972ef0eb04a1f2ae96d36c184e4b49c6002f450bbddbffb67d060de84de",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/components/instances/GroupDetail.vue",
+      "worktree_sha256": "d988e14a6faa511422e8c96c6abf9408381b4fce78d862d2e8aa2bb95ac90fe1",
+      "main_sha256": "d988e14a6faa511422e8c96c6abf9408381b4fce78d862d2e8aa2bb95ac90fe1",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/components/instances/InstancesTable.vue",
+      "worktree_sha256": "6f03d96eb032c3ae89bdc01a777d9aff35fc6974b37f2a685cd1f1c1574d2ab1",
+      "main_sha256": "6f03d96eb032c3ae89bdc01a777d9aff35fc6974b37f2a685cd1f1c1574d2ab1",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/components/instances/MessageComposer.vue",
+      "worktree_sha256": "2bf734eeca0ec2a324e6b361a577f6359ace63cdec5aae28b4aa80fa67f4dc52",
+      "main_sha256": "2bf734eeca0ec2a324e6b361a577f6359ace63cdec5aae28b4aa80fa67f4dc52",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/components/instances/ProfileCard.vue",
+      "worktree_sha256": "553e8515a42f745cd07d5e3cdd600758462fca09bbfe6178ee211233de5748c2",
+      "main_sha256": "553e8515a42f745cd07d5e3cdd600758462fca09bbfe6178ee211233de5748c2",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/components/instances/TestSendCard.vue",
+      "worktree_sha256": "f570e022d7e5c8d8496a659fa14ef85bec2ce7dc8160b879f2204a5a057fcea2",
+      "main_sha256": "f570e022d7e5c8d8496a659fa14ef85bec2ce7dc8160b879f2204a5a057fcea2",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/components/instances/WebhookCard.vue",
+      "worktree_sha256": "4dfdf0ece82951764243b6e1958e31aa8fffb087ad07e76b526914d09bc8d34c",
+      "main_sha256": "4dfdf0ece82951764243b6e1958e31aa8fffb087ad07e76b526914d09bc8d34c",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/components/instances/detail/InstanceSectionNav.vue",
+      "worktree_sha256": "8360131a02c6f0c6bf15c0e47586db5a3e0657cd06be7efc92e4538f960ce667",
+      "main_sha256": "8360131a02c6f0c6bf15c0e47586db5a3e0657cd06be7efc92e4538f960ce667",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/components/instances/detail/InstanceSettingsSection.vue",
+      "worktree_sha256": "e6d875a63eb6d7cf81e165ce0555573026f86d1c871b9a46ef0052a5e61cdf66",
+      "main_sha256": "e6d875a63eb6d7cf81e165ce0555573026f86d1c871b9a46ef0052a5e61cdf66",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/components/shared/DataTableToolbar.vue",
+      "worktree_sha256": "59edaaa2a3eac496975afddea9840193a5a099613c6366c0ffa04c4f2a0e76f2",
+      "main_sha256": "59edaaa2a3eac496975afddea9840193a5a099613c6366c0ffa04c4f2a0e76f2",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/pages/instances/[id].vue",
+      "worktree_sha256": "6aba1a4792ad7c3e604d582a3f347b96974b4ccecae401b1a027049c55237f9f",
+      "main_sha256": "6aba1a4792ad7c3e604d582a3f347b96974b4ccecae401b1a027049c55237f9f",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/utils/accountQuota.ts",
+      "worktree_sha256": "22aeead88f4c44f3584bff2b45858e8d6c1ee7d3f80dcb19237c787677602f24",
+      "main_sha256": "22aeead88f4c44f3584bff2b45858e8d6c1ee7d3f80dcb19237c787677602f24",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/i18n/locales/en.json",
+      "worktree_sha256": "213aa7c324d465f9480eceeda3112f2f3bb789dfc6a717fe1094d0416fe771bf",
+      "main_sha256": "213aa7c324d465f9480eceeda3112f2f3bb789dfc6a717fe1094d0416fe771bf",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/package.json",
+      "worktree_sha256": "8833ce2c5e2afa10cd0d61aea864e6f3f40086199a57b8c19d3e53b9830f53fd",
+      "main_sha256": "8833ce2c5e2afa10cd0d61aea864e6f3f40086199a57b8c19d3e53b9830f53fd",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "openspec/specs/wzap-instances/spec.md",
+      "worktree_sha256": "d761238a3fc51cae40cf253d267ccfe238abab6531b675ae6e11481de6aa2374",
+      "main_sha256": "d761238a3fc51cae40cf253d267ccfe238abab6531b675ae6e11481de6aa2374",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "openspec/specs/wzap-manager/spec.md",
+      "worktree_sha256": "f037fd203257a4dd8ad735a2ce297d8609e70e1c5acd948c321824b20c1d55b8",
+      "main_sha256": "f037fd203257a4dd8ad735a2ce297d8609e70e1c5acd948c321824b20c1d55b8",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "openspec/specs/wzap-outbound-messaging/spec.md",
+      "worktree_sha256": "7eef560bac775e13c1353b7b737a18b1650af6472446a7d53d244c2b27e8f2d8",
+      "main_sha256": "7eef560bac775e13c1353b7b737a18b1650af6472446a7d53d244c2b27e8f2d8",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "openspec/specs/wzap-response-contract/spec.md",
+      "worktree_sha256": "1523b2088952509149a26f7468266f2ba72b8a472f57cf2c2333403f697633d9",
+      "main_sha256": "1523b2088952509149a26f7468266f2ba72b8a472f57cf2c2333403f697633d9",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "manager/AGENTS.md",
+      "worktree_sha256": "1d9c7cc1554bc614f3086b9cc419066533aa3be430f4654462ba5481fe286d2a",
+      "main_sha256": "1d9c7cc1554bc614f3086b9cc419066533aa3be430f4654462ba5481fe286d2a",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "manager/app/components/accounts/QuotaForms.test.ts",
+      "worktree_sha256": "65c0e05c36eba637a253267ef6725c267db9316ceaae7bae462b48d332bc2886",
+      "main_sha256": "65c0e05c36eba637a253267ef6725c267db9316ceaae7bae462b48d332bc2886",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "manager/app/components/auth/LoginForm.test.ts",
+      "worktree_sha256": "23861c7a453598afbbbe86973b46f44ae3259861d34a39637c7653588b7e5622",
+      "main_sha256": "23861c7a453598afbbbe86973b46f44ae3259861d34a39637c7653588b7e5622",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "manager/app/components/instances/ChannelsCard.test.ts",
+      "worktree_sha256": "0fdc781f159ab4b058f9e3fe369a0d6b3b4cd1c30f2a392a77d7edfca8beda24",
+      "main_sha256": "0fdc781f159ab4b058f9e3fe369a0d6b3b4cd1c30f2a392a77d7edfca8beda24",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "manager/app/components/instances/MessageComposer.test.ts",
+      "worktree_sha256": "3c88bb3acf09ac173c7d9d727d631eb14a9127ad530d52e9261865b8e1ff14a4",
+      "main_sha256": "3c88bb3acf09ac173c7d9d727d631eb14a9127ad530d52e9261865b8e1ff14a4",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "manager/app/components/instances/ProfileCard.test.ts",
+      "worktree_sha256": "7f046d17245c77f1e03d94325c3c40c06cc24d6a8b66e4a485c2e6431be12672",
+      "main_sha256": "7f046d17245c77f1e03d94325c3c40c06cc24d6a8b66e4a485c2e6431be12672",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "manager/app/components/instances/WebhookCard.test.ts",
+      "worktree_sha256": "2d3f742e0f2c94c27715f674fdd4d531f86bfa503fd052395bc48fd85f6c3a36",
+      "main_sha256": "2d3f742e0f2c94c27715f674fdd4d531f86bfa503fd052395bc48fd85f6c3a36",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "manager/app/components/instances/detail/InstanceSectionNav.test.ts",
+      "worktree_sha256": "67fc7b3a9d3ebbcd9d6c72deb1ce367d9676a3baaceed86cc0d28fcbcdb418ab",
+      "main_sha256": "67fc7b3a9d3ebbcd9d6c72deb1ce367d9676a3baaceed86cc0d28fcbcdb418ab",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "manager/app/components/instances/detail/InstanceSettingsSection.test.ts",
+      "worktree_sha256": "fd321c4adcd2b3271e4b49324654638f5341539583d4c228d3422d8a45214a3b",
+      "main_sha256": "fd321c4adcd2b3271e4b49324654638f5341539583d4c228d3422d8a45214a3b",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "manager/app/components/shared/FileUploadPreview.vue",
+      "worktree_sha256": "5a99f2eade6bb5f26bd812cef81d677b4726ffdbb1889e5d4e2e0295b61d908a",
+      "main_sha256": "5a99f2eade6bb5f26bd812cef81d677b4726ffdbb1889e5d4e2e0295b61d908a",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "manager/app/pages/instances/detail.test.ts",
+      "worktree_sha256": "1acf4d7f048e16523b37ca7703941d2468297b995521edf6b347d8f51302d2f3",
+      "main_sha256": "1acf4d7f048e16523b37ca7703941d2468297b995521edf6b347d8f51302d2f3",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "manager/app/utils/accountQuota.test.ts",
+      "worktree_sha256": "9dfc9ade6aa75aa151e6bf7e3bea4a376a761abd087cda9ef14c1a7e6c415e08",
+      "main_sha256": "9dfc9ade6aa75aa151e6bf7e3bea4a376a761abd087cda9ef14c1a7e6c415e08",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "manager/app/utils/tableRowNavigation.test.ts",
+      "worktree_sha256": "7ee73297f4da4deec720ea7bfd2c037bbd5cd1bb5c39ba20339ec7ec75857b3c",
+      "main_sha256": "7ee73297f4da4deec720ea7bfd2c037bbd5cd1bb5c39ba20339ec7ec75857b3c",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "manager/app/utils/tableRowNavigation.ts",
+      "worktree_sha256": "c08965fe35a1d1a12d1e7309992d0e2b5232838e49dc811ba67f099f4dac8f23",
+      "main_sha256": "c08965fe35a1d1a12d1e7309992d0e2b5232838e49dc811ba67f099f4dac8f23",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "manager/scripts/preserve-embed-placeholder.mjs",
+      "worktree_sha256": "6e33e5e0189b813488c31e73a997c230c5692bc3e2ed147436b8945ecd60e22f",
+      "main_sha256": "6e33e5e0189b813488c31e73a997c230c5692bc3e2ed147436b8945ecd60e22f",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "manager/tests/componentHarness.ts",
+      "worktree_sha256": "c80bc6cfe17f3191dbdaac0a660c31b5a184cca6f18aca309bb4c4dcc5cc2c5f",
+      "main_sha256": "c80bc6cfe17f3191dbdaac0a660c31b5a184cca6f18aca309bb4c4dcc5cc2c5f",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "openspec/changes/fix-frontend-qa/.openspec.yaml",
+      "worktree_sha256": "ec3a1b167d0ccdb9f7a3f8f370ba8038feb637051c90a0b3fbcc5e9cef45d7a5",
+      "main_sha256": "ec3a1b167d0ccdb9f7a3f8f370ba8038feb637051c90a0b3fbcc5e9cef45d7a5",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "openspec/changes/fix-frontend-qa/design.md",
+      "worktree_sha256": "e406a9b706715f2b158d010419cae454cf23d2141e5842862411bf6567c9af29",
+      "main_sha256": "e406a9b706715f2b158d010419cae454cf23d2141e5842862411bf6567c9af29",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "openspec/changes/fix-frontend-qa/plan.md",
+      "worktree_sha256": "ac5aeab0a4be59ba0029aad2957e676654bd51a840d209087783aff78d77dca9",
+      "main_sha256": "ac5aeab0a4be59ba0029aad2957e676654bd51a840d209087783aff78d77dca9",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "openspec/changes/fix-frontend-qa/proposal.md",
+      "worktree_sha256": "c1e1d8c59d5cd63c423788211304e468f42256ec692d77e8b9facd9a556b1a23",
+      "main_sha256": "c1e1d8c59d5cd63c423788211304e468f42256ec692d77e8b9facd9a556b1a23",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "openspec/changes/fix-frontend-qa/retrospective.md",
+      "worktree_sha256": "37c6972475b05e26041083c6fc930b9986b8a0d567cc663446b47d13a52984af",
+      "main_sha256": "37c6972475b05e26041083c6fc930b9986b8a0d567cc663446b47d13a52984af",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "openspec/changes/fix-frontend-qa/specs/wzap-manager/spec.md",
+      "worktree_sha256": "96c08066e60dce0c7a6483bf13cf970cfd7b6bc09bacdcf6f3fcfe31b13dbba8",
+      "main_sha256": "96c08066e60dce0c7a6483bf13cf970cfd7b6bc09bacdcf6f3fcfe31b13dbba8",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "openspec/changes/fix-frontend-qa/tasks.md",
+      "worktree_sha256": "4da4fca0413c6d08cc263c36d507b6b61ebd1f85657972ee0ccc8bf52544160e",
+      "main_sha256": "4da4fca0413c6d08cc263c36d507b6b61ebd1f85657972ee0ccc8bf52544160e",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "openspec/changes/fix-frontend-qa/verify.md",
+      "worktree_sha256": "f552a96010e14d709b06fb7f0e671ad91cb5fd30973ac0e6382e24683ce5119c",
+      "main_sha256": "f552a96010e14d709b06fb7f0e671ad91cb5fd30973ac0e6382e24683ce5119c",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "openspec/specs/wzap-http-routing/spec.md",
+      "worktree_sha256": "77ee6f47cb003b0af2a01e6b38e65e6d5a4a4f9577c57444e9ba1973d92d64e0",
+      "main_sha256": "77ee6f47cb003b0af2a01e6b38e65e6d5a4a4f9577c57444e9ba1973d92d64e0",
+      "state": "identical"
+    }
+  ],
+  "working_diff": "review-artifacts/worktree-final.patch"
+}

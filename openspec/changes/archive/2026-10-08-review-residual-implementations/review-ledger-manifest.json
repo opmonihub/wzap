@@ -1,0 +1,921 @@
+{
+  "change": "review-residual-implementations",
+  "former_worktree": "/home/obsidian/dev/wzap/.worktrees/review-residual-implementations",
+  "branch": "codex/review-residual-implementations",
+  "base": "f9d1300c9d0d6909a3f44ee79d49ae0f9d0477cc",
+  "bundle": "review-ledger.tar.gz",
+  "bundle_sha256": "27fa9967a6cb04a4408ba68f24581b8b30c2b0ae53e40817345c25dfdf96b9c1",
+  "notes": [
+    {
+      "path": "sdd/.gitignore",
+      "sha256": "cdbcae15105d6b781e620813c79c7e868740d4e9cc53ce6f5fcbbc12387adf4b",
+      "size": 2
+    },
+    {
+      "path": "sdd/plan/plan-path",
+      "sha256": "32a5d2288efd4c45f8dbc3f53fd498920a4b493e64781b80535126e3aaafe55d",
+      "size": 57
+    },
+    {
+      "path": "sdd/plan/progress.md",
+      "sha256": "8143a01b0b91e170d72e76a6537fc9dd92e4e7678272a065c73c85d8145fcd03",
+      "size": 4858
+    },
+    {
+      "path": "sdd/plan/task-1-brief.md",
+      "sha256": "acc5074ea49ff67885db96a29f1d706332273ede969fb2cf23724f83a4729b97",
+      "size": 2716
+    },
+    {
+      "path": "sdd/plan/task-1-report.md",
+      "sha256": "8e8fc2d774edf42b535fbd931fa7543009f8ef2bbbabb4a5f38f0d465af492ac",
+      "size": 12511
+    },
+    {
+      "path": "sdd/plan/task-1-review.diff",
+      "sha256": "e50b79df13bfea3720c897a9d740758eacedb2ceb9af1ac77cda023c1b939af3",
+      "size": 77090
+    },
+    {
+      "path": "sdd/plan/task-2-brief.md",
+      "sha256": "2dc4fc5d3884e7046445212bcff54eccc0243ee12a51ce49c5d0ac63a5d5d043",
+      "size": 3708
+    },
+    {
+      "path": "sdd/plan/task-2-report.md",
+      "sha256": "a78888147eba31ac11077144c4a7f2705b39f07edb19510a819bfe67195bd673",
+      "size": 11124
+    },
+    {
+      "path": "sdd/plan/task-2-review.diff",
+      "sha256": "d37021ac97c2179a0ed65eaab0f385366dcd1f1debecf28f63dfe261d8f4df11",
+      "size": 123918
+    },
+    {
+      "path": "sdd/plan/task-3-brief.md",
+      "sha256": "2e2555b896f0c2f18274d8225ab5bb04d77ea23360a4bc05b38702bf8fe29c3e",
+      "size": 2344
+    },
+    {
+      "path": "sdd/plan/task-3-report.md",
+      "sha256": "c9c028929f81fe4ba3828e4ca5ee6365faeb3b454be462b125a6d21a6498d892",
+      "size": 10312
+    },
+    {
+      "path": "sdd/plan/task-3-review.diff",
+      "sha256": "4e08bdc6466b75d877f6e2b52f0400529cec367ff42b7b580eaa28c6571c09c4",
+      "size": 53745
+    },
+    {
+      "path": "sdd/plan/task-6-brief.md",
+      "sha256": "b99d32ac3fe7db8b43e233ff71457c4f04626b4f2c6c134ca416b392f67f5c92",
+      "size": 1867
+    },
+    {
+      "path": "sdd/plan/task-6-report.md",
+      "sha256": "0eebf4e9601a606f9b37feb1c1b72576fadc5926f01dbda55c75d7fc6e006288",
+      "size": 9384
+    },
+    {
+      "path": "sdd/plan/task-6-review.diff",
+      "sha256": "cf78774beb868de79a41a3935ef77e1f95064be120e08b637a28197469785843",
+      "size": 71118
+    }
+  ],
+  "worktree_files": [
+    {
+      "status": " M",
+      "path": "AGENTS.md",
+      "worktree_sha256": "523cb6c7c51212eb6002d7bb4ceb4ab1d04837607f0bd2d5ee077ba9f4ae1194",
+      "main_sha256": "d031354904948c521bb487b038b5b2e3ce9ad958e88eb8513ce87a5acb9e1bc2",
+      "state": "different"
+    },
+    {
+      "status": " M",
+      "path": "cmd/wzap/main.go",
+      "worktree_sha256": "663492332780e9a4bc444baa164a143e2e4335b96c96ebec9b424442a996a3d6",
+      "main_sha256": "663492332780e9a4bc444baa164a143e2e4335b96c96ebec9b424442a996a3d6",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/chatwoot/client/client.go",
+      "worktree_sha256": "ec811fbf1410962afc73be16a18fac5adba79df658344dc636d0235f90d25f76",
+      "main_sha256": "ec811fbf1410962afc73be16a18fac5adba79df658344dc636d0235f90d25f76",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "internal/chatwoot/client/redirect_test.go",
+      "worktree_sha256": "002bcb285cf16b48c87ad272fa99fe21302eeb9479c095cfbe20914392f778fd",
+      "main_sha256": "002bcb285cf16b48c87ad272fa99fe21302eeb9479c095cfbe20914392f778fd",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/chatwoot/config/token.go",
+      "worktree_sha256": "d41b88c1ec14902b93b7e4881fea43f757b616333604e6f6842557e671eae40a",
+      "main_sha256": "d41b88c1ec14902b93b7e4881fea43f757b616333604e6f6842557e671eae40a",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/chatwoot/config/token_test.go",
+      "worktree_sha256": "4f2eb4b494a6cfd6cd01807521e026f4db7a94439a4b1a98d86a8198deaca682",
+      "main_sha256": "4f2eb4b494a6cfd6cd01807521e026f4db7a94439a4b1a98d86a8198deaca682",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/chatwoot/contacts/contacts.go",
+      "worktree_sha256": "beeb412c2de7b2df7825f9d94940d96d6f7f99847982b54c1bd1bf66666ecd8b",
+      "main_sha256": "beeb412c2de7b2df7825f9d94940d96d6f7f99847982b54c1bd1bf66666ecd8b",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/chatwoot/contacts/contacts_test.go",
+      "worktree_sha256": "2615474b235a0a755cf997341f54b1627560e6d32f71a5ad7b1093b05684e4da",
+      "main_sha256": "2615474b235a0a755cf997341f54b1627560e6d32f71a5ad7b1093b05684e4da",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "internal/chatwoot/contacts/resolve_exact_test.go",
+      "worktree_sha256": "5116541289b0ba686952636232b120e801c35ab117c140f6580ee017c45cb3b5",
+      "main_sha256": "5116541289b0ba686952636232b120e801c35ab117c140f6580ee017c45cb3b5",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/chatwoot/import/run.go",
+      "worktree_sha256": "707b51b2a25bcb187980f81855eec7818abe2a78f2f0f232011a132b10cb891c",
+      "main_sha256": "707b51b2a25bcb187980f81855eec7818abe2a78f2f0f232011a132b10cb891c",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/chatwoot/import/run_test.go",
+      "worktree_sha256": "16e6c42d53aed3bd4eb26d82bb5764f33bf7d105d7028e917b21241f025ce02f",
+      "main_sha256": "16e6c42d53aed3bd4eb26d82bb5764f33bf7d105d7028e917b21241f025ce02f",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/chatwoot/import/scheduler_test.go",
+      "worktree_sha256": "3f42301475d03dd371caa6e2c3715565b16ec9dd3d0f647994c0f9c3c5ae6dcd",
+      "main_sha256": "3f42301475d03dd371caa6e2c3715565b16ec9dd3d0f647994c0f9c3c5ae6dcd",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "internal/chatwoot/import/snapshot_concurrency_test.go",
+      "worktree_sha256": "b17f3ae1d2602a45162986d7ab68a1070dc0b8ae2c6c94a8b1f8239bf1856460",
+      "main_sha256": "b17f3ae1d2602a45162986d7ab68a1070dc0b8ae2c6c94a8b1f8239bf1856460",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "internal/chatwoot/inbound/command_lifecycle_test.go",
+      "worktree_sha256": "a12c031108380a16b89e2f14dc0ed8b67939d186861e4c6713ede04f8c2e9daf",
+      "main_sha256": "a12c031108380a16b89e2f14dc0ed8b67939d186861e4c6713ede04f8c2e9daf",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/chatwoot/inbound/ssrf.go",
+      "worktree_sha256": "a3c121f2b322a862aad837a70486c2d241a26f0031571a1eb6bf79ed9bf53a62",
+      "main_sha256": "a3c121f2b322a862aad837a70486c2d241a26f0031571a1eb6bf79ed9bf53a62",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "internal/chatwoot/inbound/ssrf_identity_test.go",
+      "worktree_sha256": "6d1c0cb57a6547c60fc41bc2f08315ccd3d8a8777b740e8b59f7ade4c865ff2a",
+      "main_sha256": "6d1c0cb57a6547c60fc41bc2f08315ccd3d8a8777b740e8b59f7ade4c865ff2a",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/chatwoot/inbound/webhook.go",
+      "worktree_sha256": "d033ad4e9a66bc6864cfa35fb661ae234a51eb114860edb3b9760b2877151d89",
+      "main_sha256": "d033ad4e9a66bc6864cfa35fb661ae234a51eb114860edb3b9760b2877151d89",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/chatwoot/inbound/webhook_test.go",
+      "worktree_sha256": "ed4a9aa7622ab9c7f8bea9d8973de3c9a1b2ae08ddd2e507b8f227533f498e6f",
+      "main_sha256": "ed4a9aa7622ab9c7f8bea9d8973de3c9a1b2ae08ddd2e507b8f227533f498e6f",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/events/relay.go",
+      "worktree_sha256": "7f657c04e7088db3a11e1b3e340c3df128156b560f1bc101bf6ddde747885728",
+      "main_sha256": "7f657c04e7088db3a11e1b3e340c3df128156b560f1bc101bf6ddde747885728",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/httpapi/apikeys_test.go",
+      "worktree_sha256": "96ab38d6730bda888db16c747003e2ed71bb3344883874ee4e3067f3f42de9ab",
+      "main_sha256": "96ab38d6730bda888db16c747003e2ed71bb3344883874ee4e3067f3f42de9ab",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "internal/httpapi/authsession/login_capacity_test.go",
+      "worktree_sha256": "238c96fc0b353a9a73ff40a8a47b53505a4be026351e19ea748144d66bf20cc2",
+      "main_sha256": "238c96fc0b353a9a73ff40a8a47b53505a4be026351e19ea748144d66bf20cc2",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/httpapi/authsession/login_ratelimit.go",
+      "worktree_sha256": "2ad5cbb36a43de6600d28656e41505d476da54ff942eff3dab9efebed3d8b8fd",
+      "main_sha256": "2ad5cbb36a43de6600d28656e41505d476da54ff942eff3dab9efebed3d8b8fd",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/httpapi/core/idempotency.go",
+      "worktree_sha256": "e95235ec40eb3407c8f27e0186fcb40df688cf5630ad0977cd8977068163fd4f",
+      "main_sha256": "e95235ec40eb3407c8f27e0186fcb40df688cf5630ad0977cd8977068163fd4f",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/httpapi/core/idempotency_test.go",
+      "worktree_sha256": "80a8ad59be91f5efe6cafbdbf392c7c38d5ac43c1016731f36c72b3000acd79b",
+      "main_sha256": "80a8ad59be91f5efe6cafbdbf392c7c38d5ac43c1016731f36c72b3000acd79b",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/httpapi/core/instances.go",
+      "worktree_sha256": "a03f4f48ce1ba26f0d849e7d15caad0022f7af8680903915b681cb7e334a87f1",
+      "main_sha256": "a03f4f48ce1ba26f0d849e7d15caad0022f7af8680903915b681cb7e334a87f1",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/httpapi/core/middleware.go",
+      "worktree_sha256": "012c9809d49a7c8482f9e7a0c9973dece1d35134da603a606b5c232d5a1ce6c0",
+      "main_sha256": "012c9809d49a7c8482f9e7a0c9973dece1d35134da603a606b5c232d5a1ce6c0",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/httpapi/core/middleware_test.go",
+      "worktree_sha256": "89d0c57611fa2f4b67dc0860f3c52f8153a21149a025f507acb7b7bd727674d9",
+      "main_sha256": "89d0c57611fa2f4b67dc0860f3c52f8153a21149a025f507acb7b7bd727674d9",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "internal/httpapi/idempotency_routes_test.go",
+      "worktree_sha256": "485265681c16d4fdd6ba3af955cd3728b1be12563e9e3db6d4f556d7db655782",
+      "main_sha256": "485265681c16d4fdd6ba3af955cd3728b1be12563e9e3db6d4f556d7db655782",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/httpapi/instance_reference_test.go",
+      "worktree_sha256": "1fa0751bf444f05bbecff3097e27d0164bcc5f3d73c86aca87c85a392235363d",
+      "main_sha256": "1fa0751bf444f05bbecff3097e27d0164bcc5f3d73c86aca87c85a392235363d",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/httpapi/instances_create_test.go",
+      "worktree_sha256": "90e3f2270fc43d0d781a63f190d47c4327afbb53b40009a6c23c87cbfb31edf0",
+      "main_sha256": "90e3f2270fc43d0d781a63f190d47c4327afbb53b40009a6c23c87cbfb31edf0",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/httpapi/instances_listing_test.go",
+      "worktree_sha256": "da245467289ed7184b5148a6b4f8bb08b49be56c31ff11f6a38be93433433d19",
+      "main_sha256": "da245467289ed7184b5148a6b4f8bb08b49be56c31ff11f6a38be93433433d19",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/httpapi/messages/messages.go",
+      "worktree_sha256": "a11933d609168b51b175b7edc37b7d88eca5403660db10e00a713f84fd9f2e7b",
+      "main_sha256": "a11933d609168b51b175b7edc37b7d88eca5403660db10e00a713f84fd9f2e7b",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "internal/httpapi/multipart_integrity_test.go",
+      "worktree_sha256": "b82b5ef32774fc30854e98867394a1798f37403e8d4f6ad42a88078d50cf0baf",
+      "main_sha256": "b82b5ef32774fc30854e98867394a1798f37403e8d4f6ad42a88078d50cf0baf",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/httpapi/quotas_test.go",
+      "worktree_sha256": "0ea79414ce2b9790a33853e45b306058c65da8f2a3468043f4f203ba35d13447",
+      "main_sha256": "0ea79414ce2b9790a33853e45b306058c65da8f2a3468043f4f203ba35d13447",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/httpapi/rbac_test.go",
+      "worktree_sha256": "0c407efaa1e9a9e8fecb5f912896cb37d1686bf64cebee6fe3a4b88df1727004",
+      "main_sha256": "0c407efaa1e9a9e8fecb5f912896cb37d1686bf64cebee6fe3a4b88df1727004",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "internal/httpapi/request_integrity_test.go",
+      "worktree_sha256": "1fd17f1a5d2eb9851d7b56f55ac962a9c8e6b12c674d0ca5b4adf1b7a93f7198",
+      "main_sha256": "1fd17f1a5d2eb9851d7b56f55ac962a9c8e6b12c674d0ca5b4adf1b7a93f7198",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/httpapi/server.go",
+      "worktree_sha256": "93147c2e8ae01c482baa71abf516142f546390aeb1d984d167e86c5011af418d",
+      "main_sha256": "93147c2e8ae01c482baa71abf516142f546390aeb1d984d167e86c5011af418d",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "internal/httpapi/session_account_test.go",
+      "worktree_sha256": "d5f3ad1887a6c13223f451cc38b3f65c4e37e30cf8af4118351514f69ea573a6",
+      "main_sha256": "d5f3ad1887a6c13223f451cc38b3f65c4e37e30cf8af4118351514f69ea573a6",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/httpapi/statuses/status.go",
+      "worktree_sha256": "0fbec9066cb23061be3144247dbe89e15b06ef3d771533f4c3312af64a0996f9",
+      "main_sha256": "0fbec9066cb23061be3144247dbe89e15b06ef3d771533f4c3312af64a0996f9",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/instance/service.go",
+      "worktree_sha256": "7cb21811d647efb26efe73404b5089676a0a5c8febcc3f4ba2601751bad67696",
+      "main_sha256": "7cb21811d647efb26efe73404b5089676a0a5c8febcc3f4ba2601751bad67696",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "internal/instance/update_concurrency_test.go",
+      "worktree_sha256": "d55c8a7f0ca893a298988157a9013eb3f347a3f12b56a110fd79d52b0d454527",
+      "main_sha256": "d55c8a7f0ca893a298988157a9013eb3f347a3f12b56a110fd79d52b0d454527",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/message/outbox.go",
+      "worktree_sha256": "8e30ad79ca732384903ab0f82af9bed6af9a5e6b00af0ac2539ed4c5c016d9e3",
+      "main_sha256": "8e30ad79ca732384903ab0f82af9bed6af9a5e6b00af0ac2539ed4c5c016d9e3",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "internal/message/outbox_durability_test.go",
+      "worktree_sha256": "2c8e57976ceb07e0b22d8f5cd76ffa19a58d7f00e9e8719a93eda6c8b0ccb6c7",
+      "main_sha256": "2c8e57976ceb07e0b22d8f5cd76ffa19a58d7f00e9e8719a93eda6c8b0ccb6c7",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "internal/message/outbox_postgres_test.go",
+      "worktree_sha256": "cfef87b77bd0e4f712cab381da4f2c58d0102349424c42d86b799c5e285a5592",
+      "main_sha256": "cfef87b77bd0e4f712cab381da4f2c58d0102349424c42d86b799c5e285a5592",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/message/outbox_test.go",
+      "worktree_sha256": "ae4a8a1a043f57079ffab3319afdfc45324c8d1d2f0b90fc0ddd95112a63c2d9",
+      "main_sha256": "ae4a8a1a043f57079ffab3319afdfc45324c8d1d2f0b90fc0ddd95112a63c2d9",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/message/receipts.go",
+      "worktree_sha256": "821b77b9eb77b81ea087578dc34c6d8462caae881fe8710b513c973b2ffa2a80",
+      "main_sha256": "821b77b9eb77b81ea087578dc34c6d8462caae881fe8710b513c973b2ffa2a80",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/message/receipts_test.go",
+      "worktree_sha256": "52a4c8917fce966b0a8138e3e9cb143402e2767ba88dd3af8d2617a9cbc5f38b",
+      "main_sha256": "52a4c8917fce966b0a8138e3e9cb143402e2767ba88dd3af8d2617a9cbc5f38b",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/session/historysync.go",
+      "worktree_sha256": "6324dc624d6855b31695c7bd6b73c757f1ec3e629625fde40128b1dcc4c7ce40",
+      "main_sha256": "6324dc624d6855b31695c7bd6b73c757f1ec3e629625fde40128b1dcc4c7ce40",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/session/historysync_test.go",
+      "worktree_sha256": "737ce75ce483ced8ab28ed72e34613caed07e3cd7e54139b6f03033bc3fd863f",
+      "main_sha256": "737ce75ce483ced8ab28ed72e34613caed07e3cd7e54139b6f03033bc3fd863f",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/session/session.go",
+      "worktree_sha256": "a1e92926887680cf6eac20bac1a5a9b2f786abf11946e907652d1a7d9cf9f676",
+      "main_sha256": "a1e92926887680cf6eac20bac1a5a9b2f786abf11946e907652d1a7d9cf9f676",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/session/sessiontest/fake.go",
+      "worktree_sha256": "95568b687c91979fe91b2e5bc1819278be8f6659297a9a0b9d1ba8c088a27c64",
+      "main_sha256": "95568b687c91979fe91b2e5bc1819278be8f6659297a9a0b9d1ba8c088a27c64",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/session/sessiontest/historysync_test.go",
+      "worktree_sha256": "2e7e3fb0dd88319073d85f4162a12ca4b3d3b552051fcd24749d52a779335362",
+      "main_sha256": "2e7e3fb0dd88319073d85f4162a12ca4b3d3b552051fcd24749d52a779335362",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "internal/session/whatsmeow/errors.go",
+      "worktree_sha256": "575757ccac536475cff61472630496bca7271a8acd4dfa9c0a67acfe487b6a58",
+      "main_sha256": "575757ccac536475cff61472630496bca7271a8acd4dfa9c0a67acfe487b6a58",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/session/whatsmeow/events.go",
+      "worktree_sha256": "e47bdd090d4a57aa2db1419621154f38c6e95b8122cec8d72077c68f0384c5f9",
+      "main_sha256": "e47bdd090d4a57aa2db1419621154f38c6e95b8122cec8d72077c68f0384c5f9",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/session/whatsmeow/historysync.go",
+      "worktree_sha256": "f9c0927a4fda1a781202a42a73c185a5a8c8779e5bd2a7e6214eb504e5cab0e8",
+      "main_sha256": "f9c0927a4fda1a781202a42a73c185a5a8c8779e5bd2a7e6214eb504e5cab0e8",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/session/whatsmeow/historysync_test.go",
+      "worktree_sha256": "58def2fc6627d91c38e0ed7019f824012282665894536d86b5fe7e1c8343de88",
+      "main_sha256": "58def2fc6627d91c38e0ed7019f824012282665894536d86b5fe7e1c8343de88",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/session/whatsmeow/manager.go",
+      "worktree_sha256": "f8f137dda23383687e7657c63adee8537c827652bf2227167b913ea95b3fefaa",
+      "main_sha256": "f8f137dda23383687e7657c63adee8537c827652bf2227167b913ea95b3fefaa",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/session/whatsmeow/manager_test.go",
+      "worktree_sha256": "4731e74e01ba209ce582d054dee23f792dcc02365dd1af09c39f51e1ac1bd9de",
+      "main_sha256": "4731e74e01ba209ce582d054dee23f792dcc02365dd1af09c39f51e1ac1bd9de",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/session/whatsmeow/reconnect_test.go",
+      "worktree_sha256": "3ea8c74d582ecdf9dfc95a1a15c37f217aefb01d4845c8e8816390f4e458071b",
+      "main_sha256": "3ea8c74d582ecdf9dfc95a1a15c37f217aefb01d4845c8e8816390f4e458071b",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "internal/session/whatsmeow/restore_privacy_test.go",
+      "worktree_sha256": "ec4044440f62489a21939ad0c6d8cf05caa2e0d7d55523a81972858701b7c86c",
+      "main_sha256": "ec4044440f62489a21939ad0c6d8cf05caa2e0d7d55523a81972858701b7c86c",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/storage/postgres/chatwoot_test.go",
+      "worktree_sha256": "2efd9d9e64d6b91639c11743cea1ad3982a086f35893a0f978e152409ef42999",
+      "main_sha256": "2efd9d9e64d6b91639c11743cea1ad3982a086f35893a0f978e152409ef42999",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/storage/postgres/events.go",
+      "worktree_sha256": "040e39c5b08b5f607d664e12fdff6ddfbfa4be282ba4aa178d4fea6c49d5446f",
+      "main_sha256": "040e39c5b08b5f607d664e12fdff6ddfbfa4be282ba4aa178d4fea6c49d5446f",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/storage/postgres/messages.go",
+      "worktree_sha256": "5ec575099e0b163d6227282029299cb2d5a4f57306a25497fe89ae60f544d7b6",
+      "main_sha256": "5ec575099e0b163d6227282029299cb2d5a4f57306a25497fe89ae60f544d7b6",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "internal/storage/postgres/messages_receipts_test.go",
+      "worktree_sha256": "4313d093ff357ef255c55545d5b438e15dc81afe143c46ec1e09da8391c0a759",
+      "main_sha256": "4313d093ff357ef255c55545d5b438e15dc81afe143c46ec1e09da8391c0a759",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "internal/storage/postgres/messages_terminal_test.go",
+      "worktree_sha256": "c8f192f21eb6206556aa1b5a64a9cf70ff11f62c2d1e3f3981fcec0a7b848b37",
+      "main_sha256": "c8f192f21eb6206556aa1b5a64a9cf70ff11f62c2d1e3f3981fcec0a7b848b37",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/storage/postgres/messages_test.go",
+      "worktree_sha256": "2cf2dee120ce6cb4c3c67e1a63b51abec517aecc59023f7e4671e79f4aa52e9f",
+      "main_sha256": "2cf2dee120ce6cb4c3c67e1a63b51abec517aecc59023f7e4671e79f4aa52e9f",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/storage/repository.go",
+      "worktree_sha256": "cb4c0fdd9c931a132e01b071f5b56e5ff1b7187bf8b9f45a1e6b038ec91d43dd",
+      "main_sha256": "cb4c0fdd9c931a132e01b071f5b56e5ff1b7187bf8b9f45a1e6b038ec91d43dd",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/webhook/deliver.go",
+      "worktree_sha256": "4f87a614f20fc48ef522fdbda136d68574040fde54002dfc4588ecb124bdac25",
+      "main_sha256": "4f87a614f20fc48ef522fdbda136d68574040fde54002dfc4588ecb124bdac25",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "internal/webhook/redirect_test.go",
+      "worktree_sha256": "b843dbaf292a417d6f74dfdd33ed30c425236258d588501d2a38c800709444a4",
+      "main_sha256": "b843dbaf292a417d6f74dfdd33ed30c425236258d588501d2a38c800709444a4",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/webhook/ssrf.go",
+      "worktree_sha256": "3829fe08335d367a7984c84057af5e575b82a89e553c0cf99f9cdf2e7a2f6ade",
+      "main_sha256": "3829fe08335d367a7984c84057af5e575b82a89e553c0cf99f9cdf2e7a2f6ade",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/webhook/worker.go",
+      "worktree_sha256": "812d08a24bde3a7f1da913d1b30adf17c4d595fc4bc2bf09262213194f3bb55f",
+      "main_sha256": "812d08a24bde3a7f1da913d1b30adf17c4d595fc4bc2bf09262213194f3bb55f",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "internal/webhook/worker_test.go",
+      "worktree_sha256": "2816c55d790ca5429c53968929b69d7f4be90b3b91da792240658ee33b1e0497",
+      "main_sha256": "2816c55d790ca5429c53968929b69d7f4be90b3b91da792240658ee33b1e0497",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "manager/.output/public/.gitkeep",
+      "worktree_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "main_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "manager/app/components/instances/ChannelsCard.test.ts",
+      "worktree_sha256": "0fdc781f159ab4b058f9e3fe369a0d6b3b4cd1c30f2a392a77d7edfca8beda24",
+      "main_sha256": "0fdc781f159ab4b058f9e3fe369a0d6b3b4cd1c30f2a392a77d7edfca8beda24",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/components/instances/ChannelsCard.vue",
+      "worktree_sha256": "e4e612c6043d112d2584ed18937d7586c1f2fcd993175b6792296a3f6fa970cd",
+      "main_sha256": "42d03972ef0eb04a1f2ae96d36c184e4b49c6002f450bbddbffb67d060de84de",
+      "state": "different"
+    },
+    {
+      "status": " A",
+      "path": "manager/app/components/instances/MessageComposer.test.ts",
+      "worktree_sha256": "3c88bb3acf09ac173c7d9d727d631eb14a9127ad530d52e9261865b8e1ff14a4",
+      "main_sha256": "3c88bb3acf09ac173c7d9d727d631eb14a9127ad530d52e9261865b8e1ff14a4",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/components/instances/MessageComposer.vue",
+      "worktree_sha256": "4eec221b4c7121daad90d4f4797640c54b9f903a1f8047a42e4e7ab232d173ef",
+      "main_sha256": "2bf734eeca0ec2a324e6b361a577f6359ace63cdec5aae28b4aa80fa67f4dc52",
+      "state": "different"
+    },
+    {
+      "status": " A",
+      "path": "manager/app/components/instances/ProfileCard.test.ts",
+      "worktree_sha256": "7f046d17245c77f1e03d94325c3c40c06cc24d6a8b66e4a485c2e6431be12672",
+      "main_sha256": "7f046d17245c77f1e03d94325c3c40c06cc24d6a8b66e4a485c2e6431be12672",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/components/instances/ProfileCard.vue",
+      "worktree_sha256": "a68147059736313b9297d17c8c62e2e1b6ae78c9efd98da98d4bd24f61ada76f",
+      "main_sha256": "553e8515a42f745cd07d5e3cdd600758462fca09bbfe6178ee211233de5748c2",
+      "state": "different"
+    },
+    {
+      "status": " A",
+      "path": "manager/app/components/instances/detail/InstanceSettingsSection.test.ts",
+      "worktree_sha256": "fd321c4adcd2b3271e4b49324654638f5341539583d4c228d3422d8a45214a3b",
+      "main_sha256": "fd321c4adcd2b3271e4b49324654638f5341539583d4c228d3422d8a45214a3b",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/components/instances/detail/InstanceSettingsSection.vue",
+      "worktree_sha256": "963a16ec6df2a45abba37638918b780f0ec8c751c32b5f14246467ec1ad2e2f6",
+      "main_sha256": "e6d875a63eb6d7cf81e165ce0555573026f86d1c871b9a46ef0052a5e61cdf66",
+      "state": "different"
+    },
+    {
+      "status": " M",
+      "path": "manager/app/pages/instances/[id].vue",
+      "worktree_sha256": "95de8ded96886b79960d246172ee66da793101b14dea2fb89673494f9075b2a3",
+      "main_sha256": "6aba1a4792ad7c3e604d582a3f347b96974b4ccecae401b1a027049c55237f9f",
+      "state": "different"
+    },
+    {
+      "status": " A",
+      "path": "manager/app/pages/instances/detail.test.ts",
+      "worktree_sha256": "1acf4d7f048e16523b37ca7703941d2468297b995521edf6b347d8f51302d2f3",
+      "main_sha256": "1acf4d7f048e16523b37ca7703941d2468297b995521edf6b347d8f51302d2f3",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "manager/i18n/locales/en.json",
+      "worktree_sha256": "e6c0277beb06a5af037b8abf199d5455141880179ed918e6984cfe2311a5da9f",
+      "main_sha256": "213aa7c324d465f9480eceeda3112f2f3bb789dfc6a717fe1094d0416fe771bf",
+      "state": "different"
+    },
+    {
+      "status": " M",
+      "path": "manager/package.json",
+      "worktree_sha256": "8833ce2c5e2afa10cd0d61aea864e6f3f40086199a57b8c19d3e53b9830f53fd",
+      "main_sha256": "8833ce2c5e2afa10cd0d61aea864e6f3f40086199a57b8c19d3e53b9830f53fd",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "manager/scripts/preserve-embed-placeholder.mjs",
+      "worktree_sha256": "6e33e5e0189b813488c31e73a997c230c5692bc3e2ed147436b8945ecd60e22f",
+      "main_sha256": "6e33e5e0189b813488c31e73a997c230c5692bc3e2ed147436b8945ecd60e22f",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "manager/tests/componentHarness.ts",
+      "worktree_sha256": "7ff402f06233107bb879733d14fa0bf1332052f1416001c81cdab31d381b1a95",
+      "main_sha256": "c80bc6cfe17f3191dbdaac0a660c31b5a184cca6f18aca309bb4c4dcc5cc2c5f",
+      "state": "different"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/.openspec.yaml",
+      "worktree_sha256": "720b3de6231f9647898feba395449b03234e0c4fa3bd4ce47fc3bb341b0f16d6",
+      "main_sha256": "720b3de6231f9647898feba395449b03234e0c4fa3bd4ce47fc3bb341b0f16d6",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/brainstorm.md",
+      "worktree_sha256": "b544f99d210b953c4ffd71fb1f448ef8300f4883b4f1b00750ee6aebce2c6303",
+      "main_sha256": "b544f99d210b953c4ffd71fb1f448ef8300f4883b4f1b00750ee6aebce2c6303",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/design.md",
+      "worktree_sha256": "e461822581057bbab1889cd6e2f67cad4e7e0ba3f167fd91dc5b2a125204e70b",
+      "main_sha256": "e461822581057bbab1889cd6e2f67cad4e7e0ba3f167fd91dc5b2a125204e70b",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/implementation/api.md",
+      "worktree_sha256": "8e8fc2d774edf42b535fbd931fa7543009f8ef2bbbabb4a5f38f0d465af492ac",
+      "main_sha256": "8e8fc2d774edf42b535fbd931fa7543009f8ef2bbbabb4a5f38f0d465af492ac",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/implementation/core.md",
+      "worktree_sha256": "a78888147eba31ac11077144c4a7f2705b39f07edb19510a819bfe67195bd673",
+      "main_sha256": "a78888147eba31ac11077144c4a7f2705b39f07edb19510a819bfe67195bd673",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/implementation/durability.md",
+      "worktree_sha256": "0eebf4e9601a606f9b37feb1c1b72576fadc5926f01dbda55c75d7fc6e006288",
+      "main_sha256": "0eebf4e9601a606f9b37feb1c1b72576fadc5926f01dbda55c75d7fc6e006288",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/implementation/manager.md",
+      "worktree_sha256": "c9c028929f81fe4ba3828e4ca5ee6365faeb3b454be462b125a6d21a6498d892",
+      "main_sha256": "c9c028929f81fe4ba3828e4ca5ee6365faeb3b454be462b125a6d21a6498d892",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/implementation/operations.md",
+      "worktree_sha256": "87b3ac142a329195d0d8906b62c91d5730b83ca87633dce9ccd97ca8a676429b",
+      "main_sha256": "87b3ac142a329195d0d8906b62c91d5730b83ca87633dce9ccd97ca8a676429b",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/plan.md",
+      "worktree_sha256": "8bfc1324af2d21ef26729457da979dcf20061d0c00fc29e769bb5b499f821cbf",
+      "main_sha256": "8bfc1324af2d21ef26729457da979dcf20061d0c00fc29e769bb5b499f821cbf",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/proposal.md",
+      "worktree_sha256": "bc3dae06c190847cd3e7f14455c26b5a5ff947d024776c5c6823b144aca5eda2",
+      "main_sha256": "bc3dae06c190847cd3e7f14455c26b5a5ff947d024776c5c6823b144aca5eda2",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/retrospective.md",
+      "worktree_sha256": "2eafa9e508cd1a947f8df8a63509864ff24fcfaf68ac9ecd4616f5eafcb11b89",
+      "main_sha256": "2eafa9e508cd1a947f8df8a63509864ff24fcfaf68ac9ecd4616f5eafcb11b89",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/review.md",
+      "worktree_sha256": "191235f13ca827021385bd14ce61114591d659b246a59b007b1f5991146cf5cd",
+      "main_sha256": "191235f13ca827021385bd14ce61114591d659b246a59b007b1f5991146cf5cd",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/specs/wzap-accounts/spec.md",
+      "worktree_sha256": "177116a25bdc325cb7d6e5108ef05fbc58e70dedfd3b5fe5a54d57d4a99b3bee",
+      "main_sha256": "177116a25bdc325cb7d6e5108ef05fbc58e70dedfd3b5fe5a54d57d4a99b3bee",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/specs/wzap-chatwoot-config/spec.md",
+      "worktree_sha256": "94a7b8cb58b8c7c80173d9b92ef7a9d9f7385e9f0310f788c6a6b5dba9865b36",
+      "main_sha256": "94a7b8cb58b8c7c80173d9b92ef7a9d9f7385e9f0310f788c6a6b5dba9865b36",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/specs/wzap-chatwoot-contacts/spec.md",
+      "worktree_sha256": "0f836a31d84ebfc2ff8fa91935f72e5fc8bd1a94a809b63c62328a6fdddf6ac1",
+      "main_sha256": "0f836a31d84ebfc2ff8fa91935f72e5fc8bd1a94a809b63c62328a6fdddf6ac1",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/specs/wzap-chatwoot-import/spec.md",
+      "worktree_sha256": "447df44ae180baff6d9d4284166ebfa5bedf247d1b5590654e80077f0679faf7",
+      "main_sha256": "447df44ae180baff6d9d4284166ebfa5bedf247d1b5590654e80077f0679faf7",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/specs/wzap-chatwoot-inbound/spec.md",
+      "worktree_sha256": "c560f5548f071daa9d15eed6f175cf2d7e28d95b19d68a049533aed3dc719736",
+      "main_sha256": "c560f5548f071daa9d15eed6f175cf2d7e28d95b19d68a049533aed3dc719736",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/specs/wzap-inbound-events/spec.md",
+      "worktree_sha256": "bd40cce53f7d234d8c21efb0f4750a7ec651b2d6acb8a611e376958b78c82927",
+      "main_sha256": "bd40cce53f7d234d8c21efb0f4750a7ec651b2d6acb8a611e376958b78c82927",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/specs/wzap-instances/spec.md",
+      "worktree_sha256": "14399db7ee109262a1a241549a754fded9fc591fc0ec817149e71c840c17e034",
+      "main_sha256": "14399db7ee109262a1a241549a754fded9fc591fc0ec817149e71c840c17e034",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/specs/wzap-manager/spec.md",
+      "worktree_sha256": "e0b8a32dde5503591edc43482fb9dcb7f7bd623b2ccb2cbd923ad12ebe713a48",
+      "main_sha256": "e0b8a32dde5503591edc43482fb9dcb7f7bd623b2ccb2cbd923ad12ebe713a48",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/specs/wzap-message-lifecycle/spec.md",
+      "worktree_sha256": "08ec3d1a5ca9db7935d323b644361b8af56180577c6c5e29b067a85e6bb11556",
+      "main_sha256": "08ec3d1a5ca9db7935d323b644361b8af56180577c6c5e29b067a85e6bb11556",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/specs/wzap-operations/spec.md",
+      "worktree_sha256": "e06407ff83414e580e6c5365f919e8c8094be8bc5334e973fe09646ad692e039",
+      "main_sha256": "e06407ff83414e580e6c5365f919e8c8094be8bc5334e973fe09646ad692e039",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/specs/wzap-response-contract/spec.md",
+      "worktree_sha256": "d9da8940582cac58c1c7bc986e8f3a76ac27754e09aea2616e043f506f99f6a1",
+      "main_sha256": "d9da8940582cac58c1c7bc986e8f3a76ac27754e09aea2616e043f506f99f6a1",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/specs/wzap-webhooks/spec.md",
+      "worktree_sha256": "c18d94edbc3bb436e52b67d5215c5bb1161107b2aaac629afc24fa1b6f18584c",
+      "main_sha256": "c18d94edbc3bb436e52b67d5215c5bb1161107b2aaac629afc24fa1b6f18584c",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/tasks.md",
+      "worktree_sha256": "c33fb4d32e025f938c01adb519f2713ba738a4045702809246836275342f0981",
+      "main_sha256": "c33fb4d32e025f938c01adb519f2713ba738a4045702809246836275342f0981",
+      "state": "identical"
+    },
+    {
+      "status": " A",
+      "path": "openspec/changes/review-residual-implementations/verify.md",
+      "worktree_sha256": "f966c92bcee8ec183259fba033e70c9a93c383f473a8b651d3cb04d9cefca39c",
+      "main_sha256": "f966c92bcee8ec183259fba033e70c9a93c383f473a8b651d3cb04d9cefca39c",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "openspec/specs/wzap-instances/spec.md",
+      "worktree_sha256": "d761238a3fc51cae40cf253d267ccfe238abab6531b675ae6e11481de6aa2374",
+      "main_sha256": "d761238a3fc51cae40cf253d267ccfe238abab6531b675ae6e11481de6aa2374",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "openspec/specs/wzap-manager/spec.md",
+      "worktree_sha256": "f037fd203257a4dd8ad735a2ce297d8609e70e1c5acd948c321824b20c1d55b8",
+      "main_sha256": "f037fd203257a4dd8ad735a2ce297d8609e70e1c5acd948c321824b20c1d55b8",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "openspec/specs/wzap-outbound-messaging/spec.md",
+      "worktree_sha256": "7eef560bac775e13c1353b7b737a18b1650af6472446a7d53d244c2b27e8f2d8",
+      "main_sha256": "7eef560bac775e13c1353b7b737a18b1650af6472446a7d53d244c2b27e8f2d8",
+      "state": "identical"
+    },
+    {
+      "status": " M",
+      "path": "openspec/specs/wzap-response-contract/spec.md",
+      "worktree_sha256": "1523b2088952509149a26f7468266f2ba72b8a472f57cf2c2333403f697633d9",
+      "main_sha256": "1523b2088952509149a26f7468266f2ba72b8a472f57cf2c2333403f697633d9",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "manager/AGENTS.md",
+      "worktree_sha256": "1d9c7cc1554bc614f3086b9cc419066533aa3be430f4654462ba5481fe286d2a",
+      "main_sha256": "1d9c7cc1554bc614f3086b9cc419066533aa3be430f4654462ba5481fe286d2a",
+      "state": "identical"
+    },
+    {
+      "status": "??",
+      "path": "openspec/specs/wzap-http-routing/spec.md",
+      "worktree_sha256": "77ee6f47cb003b0af2a01e6b38e65e6d5a4a4f9577c57444e9ba1973d92d64e0",
+      "main_sha256": "77ee6f47cb003b0af2a01e6b38e65e6d5a4a4f9577c57444e9ba1973d92d64e0",
+      "state": "identical"
+    }
+  ],
+  "working_diff": "review-artifacts/worktree-final.patch"
+}

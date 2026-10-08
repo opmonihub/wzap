@@ -1,0 +1,94 @@
+$ nuxt generate && node scripts/preserve-embed-placeholder.mjs
+┌  Building Nuxt for production...
+│
+●  Nuxt 4.5.2 (with Nitro 2.13.4, Vite 8.2.1 and Vue 3.5.42)
+ℹ Nuxt Icon server bundle mode is set to local
+│
+●  Nitro preset: static
+ℹ Nuxt Icon client bundle consist of 43 icons with 10.40KB(uncompressed) in size
+ℹ Building client...
+ℹ vite v8.2.1 building client environment for production...
+[2Ktransforming...✓ 3115 modules transformed.
+rendering chunks...
+computing gzip size...
+ℹ node_modules/.cache/nuxt/.nuxt/dist/client/manifest.json              11.30 kB │ gzip:  1.73 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/pages.yXThIp-9.css    0.40 kB │ gzip:  0.18 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/entry.otX3nxT0.css  225.27 kB │ gzip: 31.65 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/8oxnEY1e.js           0.07 kB │ gzip:  0.09 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/BwHV4EzZ2.js          0.37 kB │ gzip:  0.27 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/DhcqWIT_.js           0.37 kB │ gzip:  0.25 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/lNcj1cVB.js           0.54 kB │ gzip:  0.36 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/hePW80VL.js           0.71 kB │ gzip:  0.42 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/D55ue4Bm.js           0.77 kB │ gzip:  0.49 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/CWxTI_l0.js           0.83 kB │ gzip:  0.46 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/CPadnQQ4.js           0.90 kB │ gzip:  0.55 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/DfxkW9Rt.js           1.05 kB │ gzip:  0.56 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/CaladjK_.js           1.05 kB │ gzip:  0.48 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/D4sLrpo1.js           1.26 kB │ gzip:  0.63 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/DFtFKYpE.js           1.53 kB │ gzip:  0.67 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/CYzUIOaO.js           2.05 kB │ gzip:  0.79 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/Ceh8YXC62.js          3.17 kB │ gzip:  1.28 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/CYNWXMNB2.js          3.60 kB │ gzip:  1.62 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/CyLGitRD.js           6.25 kB │ gzip:  1.74 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/WzIaiSHL.js           6.58 kB │ gzip:  2.67 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/COQGRfhb2.js          7.28 kB │ gzip:  2.29 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/iC_SzHXM.js           9.57 kB │ gzip:  3.02 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/DhCqMhSk.js          11.04 kB │ gzip:  3.11 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/D4aIacBI.js          14.03 kB │ gzip:  5.41 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/B4gSM7gz.js          14.09 kB │ gzip:  4.61 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/t7d7Q3hO.js          15.10 kB │ gzip:  5.54 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/DVOcXRaZ.js          15.53 kB │ gzip:  4.98 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/CuscHC5y.js          17.93 kB │ gzip:  5.16 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/tl1hDG2T.js          18.00 kB │ gzip:  4.80 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/DFXgJATg.js          21.77 kB │ gzip:  6.57 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/BOsZ7sf5.js          22.26 kB │ gzip:  6.63 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/CORur8J32.js         28.02 kB │ gzip:  8.04 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/BYT1nKNO2.js         31.45 kB │ gzip:  6.60 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/dsTjWvvL.js          45.33 kB │ gzip: 16.50 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/BtoMjEMp.js          49.99 kB │ gzip: 13.32 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/DRyIzxqW.js          50.84 kB │ gzip: 16.23 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/DFqe21o5.js          57.16 kB │ gzip: 13.44 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/NU0eNQaB2.js         64.74 kB │ gzip: 16.21 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/Bix7C-zd.js          65.28 kB │ gzip: 11.75 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/Bb3r0a2c.js          66.90 kB │ gzip: 17.62 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/BMcrizs3.js          74.33 kB │ gzip: 23.65 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/Ci0rNzab.js          93.37 kB │ gzip: 28.39 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/BC-hH5vm.js          95.58 kB │ gzip: 32.16 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/B6vCyKbx.js         111.26 kB │ gzip: 31.08 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/D7gCAgVl.js         117.61 kB │ gzip: 41.27 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/jbuWDPKz.js         143.17 kB │ gzip: 54.60 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/Bd_x_6CP2.js        192.49 kB │ gzip: 47.20 kB
+node_modules/.cache/nuxt/.nuxt/dist/client/_nuxt/D2jjuQLk2.js        238.84 kB │ gzip: 76.16 kB
+
+ℹ ✓ built in 26.70s
+✔ Client built in 26722ms
+ℹ Building server...
+ℹ vite v8.2.1 building ssr environment for production...
+[2Ktransforming...✓ 2 modules transformed.
+rendering chunks...
+ℹ node_modules/.cache/nuxt/.nuxt/dist/server/styles.mjs  0.06 kB
+node_modules/.cache/nuxt/.nuxt/dist/server/server.mjs  0.33 kB │ map: 0.48 kB
+
+ℹ ✓ built in 34ms
+✔ Server built in 108ms
+[nitro] ℹ Initializing prerenderer
+
+ WARN  "H3Error", "H3Event" and "deleteCookie" are imported from external module "file:///home/obsidian/dev/wzap/manager/node_modules/.pnpm/h3@1.15.11/node_modules/h3/dist/index.mjs" but never used in "../../../manager/node_modules/.pnpm/@nuxt+nitro-server@4.5.2_1533c3d508c08de1566b061cac36ce44/node_modules/@nuxt/nitro-server/dist/h3.mjs".
+
+[nitro] ℹ Prerendering 7 initial routes with crawler
+[nitro]   ├─ /accounts (35ms)
+[nitro]   ├─ /login (35ms)
+[nitro]   ├─ /instances (34ms)
+[nitro]   ├─ /200.html (36ms)
+[nitro]   ├─ / (35ms)
+[nitro]   ├─ /404.html (36ms)
+[nitro]   ├─ /index.html (37ms)
+[nitro] ℹ Prerendered 7 routes in 4.325 seconds
+[nitro] ✔ Generated public .output/public
+[nitro] ✔ You can preview this build using npx serve .output/public
+│
+▲  HTML content not prerendered because ssr: false was set.
+│
+●  You can read more in https://nuxt.com/docs/getting-started/deployment#static-hosting.
+│
+└  ✨ You can now deploy .output/public to any static hosting!

@@ -1,0 +1,29 @@
+{
+  "results": [
+    {
+      "suite": "go",
+      "exit_code": 0,
+      "seconds": 122.29
+    },
+    {
+      "suite": "frontend",
+      "exit_code": 0,
+      "seconds": 60.77
+    },
+    {
+      "suite": "names",
+      "exit_code": 0,
+      "seconds": 0.99
+    }
+  ],
+  "go_cases_passed": 3044,
+  "go_failures": [],
+  "go_skipped": [
+    "TestObjectStoreS3Integration"
+  ],
+  "nats_integration_passed": true,
+  "database": "wzap_test",
+  "postgres_enabled": true,
+  "disposable_nats": true,
+  "source_files_unchanged": 509
+}

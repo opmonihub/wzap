@@ -1,0 +1,35 @@
+{
+  "deleted": [
+    {
+      "kind": "instance",
+      "id": "5dc5f4a0-9fe6-4c8a-be73-4bfb7d38fd39",
+      "delete_status": 204
+    },
+    {
+      "kind": "user",
+      "id": "9f14b954-e133-4136-ba6c-185bf2ae621b",
+      "delete_status": 204
+    },
+    {
+      "kind": "user",
+      "id": "3545cfb4-789c-415a-a6e2-9a94457326a0",
+      "delete_status": 204
+    },
+    {
+      "kind": "user",
+      "id": "8248099a-fbcc-4faa-913a-e9ef9b747eac",
+      "delete_status": 204
+    },
+    {
+      "kind": "user",
+      "id": "00b9bad8-8a8e-4237-b1b2-a559c93dd7e4",
+      "delete_status": 204
+    }
+  ],
+  "allOwnedInstanceIdsReturn404": true,
+  "ownedUserIdsAbsent": true,
+  "originalInstancesRetained": 1,
+  "originalUsersRetained": 1,
+  "originalIdentityFieldsUnchanged": true,
+  "mock": false
+}

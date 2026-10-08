@@ -1,0 +1,59 @@
+{
+  "success": true,
+  "data": {
+    "axeVersion": "4.12.1",
+    "counts": {
+      "inapplicable": 37,
+      "incomplete": 1,
+      "passes": 22,
+      "violations": 0
+    },
+    "incomplete": [
+      {
+        "help": "Page must have means to bypass repeated blocks",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/bypass?application=axeAPI",
+        "id": "bypass",
+        "impact": "serious",
+        "nodeCount": 1,
+        "nodes": [
+          {
+            "failureSummary": "Fix any of the following:\n  No valid skip link found\n  Page does not have a heading\n  Page does not have a landmark region",
+            "html": "<html class=\"dark\" lang=\"en\">",
+            "target": [
+              "html"
+            ]
+          }
+        ],
+        "tags": [
+          "cat.keyboard",
+          "wcag2a",
+          "wcag241",
+          "section508",
+          "section508.22.o",
+          "TTv5",
+          "TT9.a",
+          "EN-301-549",
+          "EN-9.2.4.1",
+          "RGAAv4",
+          "RGAA-12.7.1"
+        ]
+      }
+    ],
+    "lifecycle": {
+      "effectiveLaunch": {
+        "browserLaunched": true,
+        "engine": "chrome",
+        "launchHash": 14824934104116554991
+      },
+      "launched": false,
+      "relaunchedBrowser": false,
+      "restartedBackground": false,
+      "restoreStatus": "not_configured",
+      "reused": true,
+      "saveStatus": "not_attempted"
+    },
+    "url": "http://127.0.0.1:3101/manager/login",
+    "violations": []
+  },
+  "error": null
+}

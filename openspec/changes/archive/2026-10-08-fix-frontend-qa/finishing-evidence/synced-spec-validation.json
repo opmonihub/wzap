@@ -1,0 +1,352 @@
+{
+  "items": [
+    {
+      "id": "fix-frontend-qa",
+      "type": "change",
+      "valid": true,
+      "issues": [],
+      "durationMs": 493
+    },
+    {
+      "id": "review-residual-implementations",
+      "type": "change",
+      "valid": true,
+      "issues": [],
+      "durationMs": 505
+    },
+    {
+      "id": "wzap-accounts",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 13
+    },
+    {
+      "id": "wzap-api-keys",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 6
+    },
+    {
+      "id": "wzap-blocklist",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 5
+    },
+    {
+      "id": "wzap-chat-settings",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 0
+    },
+    {
+      "id": "wzap-chatwoot-config",
+      "type": "spec",
+      "valid": true,
+      "issues": [
+        {
+          "level": "INFO",
+          "path": "requirements[0]",
+          "message": "Requirement text is very long (>500 characters). Consider breaking it down."
+        }
+      ],
+      "durationMs": 94
+    },
+    {
+      "id": "wzap-chatwoot-contacts",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 21
+    },
+    {
+      "id": "wzap-chatwoot-import",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 1
+    },
+    {
+      "id": "wzap-chatwoot-inbound",
+      "type": "spec",
+      "valid": true,
+      "issues": [
+        {
+          "level": "INFO",
+          "path": "requirements[1]",
+          "message": "Requirement text is very long (>500 characters). Consider breaking it down."
+        }
+      ],
+      "durationMs": 0
+    },
+    {
+      "id": "wzap-chatwoot-mirror",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 1
+    },
+    {
+      "id": "wzap-contacts-directory",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 1
+    },
+    {
+      "id": "wzap-group-moderation",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 0
+    },
+    {
+      "id": "wzap-groups",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 0
+    },
+    {
+      "id": "wzap-http-routing",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 88
+    },
+    {
+      "id": "wzap-inbound-events",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 5
+    },
+    {
+      "id": "wzap-instances",
+      "type": "spec",
+      "valid": true,
+      "issues": [
+        {
+          "level": "INFO",
+          "path": "requirements[0]",
+          "message": "Requirement text is very long (>500 characters). Consider breaking it down."
+        },
+        {
+          "level": "INFO",
+          "path": "requirements[9]",
+          "message": "Requirement text is very long (>500 characters). Consider breaking it down."
+        },
+        {
+          "level": "INFO",
+          "path": "requirements[13]",
+          "message": "Requirement text is very long (>500 characters). Consider breaking it down."
+        }
+      ],
+      "durationMs": 5
+    },
+    {
+      "id": "wzap-manager",
+      "type": "spec",
+      "valid": true,
+      "issues": [
+        {
+          "level": "INFO",
+          "path": "requirements[2]",
+          "message": "Requirement text is very long (>500 characters). Consider breaking it down."
+        },
+        {
+          "level": "INFO",
+          "path": "requirements[10]",
+          "message": "Requirement text is very long (>500 characters). Consider breaking it down."
+        },
+        {
+          "level": "INFO",
+          "path": "requirements[14]",
+          "message": "Requirement text is very long (>500 characters). Consider breaking it down."
+        }
+      ],
+      "durationMs": 4
+    },
+    {
+      "id": "wzap-media",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 1
+    },
+    {
+      "id": "wzap-message-edits",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 1
+    },
+    {
+      "id": "wzap-message-lifecycle",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 1
+    },
+    {
+      "id": "wzap-newsletter-ops",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 0
+    },
+    {
+      "id": "wzap-newsletters",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 3
+    },
+    {
+      "id": "wzap-operations",
+      "type": "spec",
+      "valid": true,
+      "issues": [
+        {
+          "level": "INFO",
+          "path": "requirements[2]",
+          "message": "Requirement text is very long (>500 characters). Consider breaking it down."
+        },
+        {
+          "level": "INFO",
+          "path": "requirements[14]",
+          "message": "Requirement text is very long (>500 characters). Consider breaking it down."
+        }
+      ],
+      "durationMs": 3
+    },
+    {
+      "id": "wzap-outbound-messaging",
+      "type": "spec",
+      "valid": true,
+      "issues": [
+        {
+          "level": "INFO",
+          "path": "requirements[8]",
+          "message": "Requirement text is very long (>500 characters). Consider breaking it down."
+        }
+      ],
+      "durationMs": 2
+    },
+    {
+      "id": "wzap-phone-pairing",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 2
+    },
+    {
+      "id": "wzap-presence",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 2
+    },
+    {
+      "id": "wzap-profile-privacy",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 1
+    },
+    {
+      "id": "wzap-response-contract",
+      "type": "spec",
+      "valid": true,
+      "issues": [
+        {
+          "level": "INFO",
+          "path": "requirements[0]",
+          "message": "Requirement text is very long (>500 characters). Consider breaking it down."
+        },
+        {
+          "level": "INFO",
+          "path": "requirements[1]",
+          "message": "Requirement text is very long (>500 characters). Consider breaking it down."
+        },
+        {
+          "level": "INFO",
+          "path": "requirements[3]",
+          "message": "Requirement text is very long (>500 characters). Consider breaking it down."
+        },
+        {
+          "level": "INFO",
+          "path": "requirements[6]",
+          "message": "Requirement text is very long (>500 characters). Consider breaking it down."
+        }
+      ],
+      "durationMs": 1
+    },
+    {
+      "id": "wzap-rich-messaging",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 1
+    },
+    {
+      "id": "wzap-status-calls",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 0
+    },
+    {
+      "id": "wzap-storage-model",
+      "type": "spec",
+      "valid": true,
+      "issues": [],
+      "durationMs": 0
+    },
+    {
+      "id": "wzap-webhooks",
+      "type": "spec",
+      "valid": true,
+      "issues": [
+        {
+          "level": "INFO",
+          "path": "requirements[0]",
+          "message": "Requirement text is very long (>500 characters). Consider breaking it down."
+        },
+        {
+          "level": "INFO",
+          "path": "requirements[3]",
+          "message": "Requirement text is very long (>500 characters). Consider breaking it down."
+        }
+      ],
+      "durationMs": 0
+    }
+  ],
+  "summary": {
+    "totals": {
+      "items": 33,
+      "passed": 33,
+      "failed": 0
+    },
+    "byType": {
+      "change": {
+        "items": 2,
+        "passed": 2,
+        "failed": 0
+      },
+      "spec": {
+        "items": 31,
+        "passed": 31,
+        "failed": 0
+      }
+    }
+  },
+  "version": "1.0",
+  "root": {
+    "path": "/home/obsidian/dev/wzap",
+    "source": "nearest"
+  }
+}

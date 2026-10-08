@@ -1,0 +1,15 @@
+{
+  "method": "POST",
+  "path": "/instances/5dc5f4a0-9fe6-4c8a-be73-4bfb7d38fd39/messages/location",
+  "status": 202,
+  "fields": [
+    "latitude",
+    "longitude",
+    "to"
+  ],
+  "mocked": true,
+  "safe_values": {
+    "latitude": 0,
+    "longitude": 0
+  }
+}

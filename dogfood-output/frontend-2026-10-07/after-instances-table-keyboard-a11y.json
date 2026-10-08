@@ -1,0 +1,87 @@
+{
+  "success": true,
+  "data": {
+    "axeVersion": "4.12.1",
+    "counts": {
+      "inapplicable": 34,
+      "incomplete": 2,
+      "passes": 25,
+      "violations": 0
+    },
+    "incomplete": [
+      {
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI",
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodeCount": 1,
+        "nodes": [
+          {
+            "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+            "html": "<span data-slot=\"linkLabel\" class=\"truncate\">Instances<!----></span>",
+            "target": [
+              ".before\\:bg-elevated > .truncate[data-slot=\"linkLabel\"]"
+            ]
+          }
+        ],
+        "tags": [
+          "cat.color",
+          "wcag2aa",
+          "wcag143",
+          "TTv5",
+          "TT13.c",
+          "EN-301-549",
+          "EN-9.1.4.3",
+          "ACT",
+          "RGAAv4",
+          "RGAA-3.2.1"
+        ]
+      },
+      {
+        "help": "Table headers in a data table must refer to data cells",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/th-has-data-cells?application=axeAPI",
+        "id": "th-has-data-cells",
+        "impact": "serious",
+        "nodeCount": 1,
+        "nodes": [
+          {
+            "failureSummary": "Fix all of the following:\n  Table data cells are missing or empty",
+            "html": "<table data-slot=\"base\" class=\"min-w-full overflow-clip table-fixed border-separate border-spacing-0\">",
+            "target": [
+              "table"
+            ]
+          }
+        ],
+        "tags": [
+          "cat.tables",
+          "wcag2a",
+          "wcag131",
+          "section508",
+          "section508.22.g",
+          "TTv5",
+          "TT14.b",
+          "EN-301-549",
+          "EN-9.1.3.1",
+          "RGAAv4",
+          "RGAA-5.7.1"
+        ]
+      }
+    ],
+    "lifecycle": {
+      "effectiveLaunch": {
+        "browserLaunched": true,
+        "engine": "chrome",
+        "launchHash": 14824934104116554991
+      },
+      "launched": false,
+      "relaunchedBrowser": false,
+      "restartedBackground": false,
+      "restoreStatus": "not_configured",
+      "reused": true,
+      "saveStatus": "not_attempted"
+    },
+    "url": "http://127.0.0.1:3101/manager/instances",
+    "violations": []
+  },
+  "error": null
+}

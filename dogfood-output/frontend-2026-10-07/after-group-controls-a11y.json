@@ -1,0 +1,92 @@
+{
+  "success": true,
+  "data": {
+    "axeVersion": "4.12.1",
+    "counts": {
+      "inapplicable": 33,
+      "incomplete": 2,
+      "passes": 27,
+      "violations": 0
+    },
+    "incomplete": [
+      {
+        "help": "ARIA hidden element must not be focusable or contain focusable elements",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/aria-hidden-focus?application=axeAPI",
+        "id": "aria-hidden-focus",
+        "impact": "serious",
+        "nodeCount": 2,
+        "nodes": [
+          {
+            "failureSummary": "Fix all of the following:\n  Check that focusable elements are not tabbable in the current state",
+            "html": "<span aria-hidden=\"true\" tabindex=\"0\" style=\"position: fixed; border: 0px; width: 1px; height: 1px; padding: 0px; margin: -1px; overflow: hidden; clip: rect(0px, 0px, 0px, 0px); clip-path: inset(50%); white-space: nowrap; overflow-wrap: normal; top: -1px; left: -1px;\"></span>",
+            "target": [
+              "div[role=\"region\"] > span[aria-hidden=\"true\"]:nth-child(1)"
+            ]
+          },
+          {
+            "failureSummary": "Fix all of the following:\n  Check that focusable elements are not tabbable in the current state",
+            "html": "<span aria-hidden=\"true\" tabindex=\"0\" style=\"position: fixed; border: 0px; width: 1px; height: 1px; padding: 0px; margin: -1px; overflow: hidden; clip: rect(0px, 0px, 0px, 0px); clip-path: inset(50%); white-space: nowrap; overflow-wrap: normal; top: -1px; left: -1px;\"></span>",
+            "target": [
+              "div[role=\"region\"] > span[aria-hidden=\"true\"]:nth-child(3)"
+            ]
+          }
+        ],
+        "tags": [
+          "cat.name-role-value",
+          "wcag2a",
+          "wcag412",
+          "TTv5",
+          "TT6.a",
+          "EN-301-549",
+          "EN-9.4.1.2",
+          "RGAAv4",
+          "RGAA-10.8.1"
+        ]
+      },
+      {
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI",
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodeCount": 1,
+        "nodes": [
+          {
+            "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element",
+            "html": "<div data-slot=\"label\" class=\"font-medium text-default mt-2\">Photo</div>",
+            "target": [
+              ".mt-2"
+            ]
+          }
+        ],
+        "tags": [
+          "cat.color",
+          "wcag2aa",
+          "wcag143",
+          "TTv5",
+          "TT13.c",
+          "EN-301-549",
+          "EN-9.1.4.3",
+          "ACT",
+          "RGAAv4",
+          "RGAA-3.2.1"
+        ]
+      }
+    ],
+    "lifecycle": {
+      "effectiveLaunch": {
+        "browserLaunched": true,
+        "engine": "chrome",
+        "launchHash": 14824934104116554991
+      },
+      "launched": false,
+      "relaunchedBrowser": false,
+      "restartedBackground": false,
+      "restoreStatus": "not_configured",
+      "reused": true,
+      "saveStatus": "not_attempted"
+    },
+    "url": "http://127.0.0.1:3101/manager/instances/5dc5f4a0-9fe6-4c8a-be73-4bfb7d38fd39?section=groups",
+    "violations": []
+  },
+  "error": null
+}

@@ -1,0 +1,60 @@
+$ vitest run
+
+ RUN  v3.2.7 /home/obsidian/dev/wzap/.worktrees/fix-frontend-qa/manager
+
+stdout | app/components/accounts/QuotaForms.test.ts > account creation quota > leaves a blank quota undefined out of the API body
+<Suspense> is an experimental feature and its API will likely change.
+
+stdout | app/components/instances/MessageComposer.test.ts > location composition > rejects absent coordinates "", "" before numeric conversion or sending
+<Suspense> is an experimental feature and its API will likely change.
+
+stdout | app/components/instances/detail/InstanceSettingsSection.test.ts > authorized key revocation > lets an admin revoke without cached key, storage unavailable: false
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/components/instances/detail/InstanceSettingsSection.test.ts (8 tests) 3500ms
+   ✓ authorized key revocation > lets an admin revoke without cached key, storage unavailable: false  3113ms
+ ✓ app/components/instances/MessageComposer.test.ts (16 tests) 4207ms
+   ✓ location composition > rejects absent coordinates "", "" before numeric conversion or sending  3485ms
+ ✓ app/components/accounts/QuotaForms.test.ts (32 tests) 3888ms
+   ✓ account creation quota > leaves a blank quota undefined out of the API body  2494ms
+   ✓ editing an account quota > sends quota 0 as the number 0  499ms
+stdout | app/pages/instances/detail.test.ts > instance detail identity > replaces a renamed alias with a refreshable UUID URL and retains section, other query and hash
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/pages/instances/detail.test.ts (5 tests) 2073ms
+   ✓ instance detail identity > replaces a renamed alias with a refreshable UUID URL and retains section, other query and hash  1880ms
+stdout | app/components/instances/WebhookCard.test.ts > webhook subscriptions > saves independent event changes in contract order without selecting message
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/components/instances/WebhookCard.test.ts (2 tests) 2010ms
+   ✓ webhook subscriptions > saves independent event changes in contract order without selecting message  1900ms
+stdout | app/components/instances/ChannelsCard.test.ts > own status rows > keeps a image status without caption identifiable and deletable
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/components/instances/ChannelsCard.test.ts (4 tests) 3098ms
+   ✓ own status rows > keeps a image status without caption identifiable and deletable  2905ms
+stdout | app/components/auth/LoginForm.test.ts > login validation > explains missing fields for undefined without a login request
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/components/auth/LoginForm.test.ts (7 tests) 1485ms
+   ✓ login validation > explains missing fields for undefined without a login request  1315ms
+stdout | app/components/instances/detail/InstanceSectionNav.test.ts > instance section navigation > lets the mobile selector emit each of the seven sections once
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/components/instances/detail/InstanceSectionNav.test.ts (3 tests) 1289ms
+   ✓ instance section navigation > lets the mobile selector emit each of the seven sections once  1189ms
+stdout | app/components/instances/ProfileCard.test.ts > profile edits > saves only the changed recado "Closed" without requesting unsupported name
+<Suspense> is an experimental feature and its API will likely change.
+
+ ✓ app/components/instances/ProfileCard.test.ts (8 tests) 2004ms
+   ✓ profile edits > saves only the changed recado "Closed" without requesting unsupported name  1793ms
+ ✓ app/composables/useOverview.test.ts (3 tests) 12ms
+ ✓ app/composables/useAccounts.test.ts (2 tests) 75ms
+ ✓ app/utils/tableRowNavigation.test.ts (7 tests) 73ms
+ ✓ app/utils/accountQuota.test.ts (18 tests) 5ms
+ ✓ app/utils/groupLookup.test.ts (2 tests) 5ms
+
+ Test Files  14 passed (14)
+      Tests  117 passed (117)
+   Start at  01:07:18
+   Duration  28.79s (transform 2.41s, setup 0ms, collect 32.74s, tests 23.73s, environment 5ms, prepare 6.76s)

@@ -1,0 +1,226 @@
+[
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-accounts/spec.md",
+    "requirement": "Autoriza\u00e7\u00e3o de sess\u00e3o vinculada \u00e0 conta atual",
+    "operation": "ADDED Requirements",
+    "scenario_count": 3,
+    "block_sha256": "5f3754f1095b1a13a16f436adb9bf778544df881c1e6c5b3f308f7c1a0fa5a47"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-accounts/spec.md",
+    "requirement": "Capacidade limitada da prote\u00e7\u00e3o de login",
+    "operation": "ADDED Requirements",
+    "scenario_count": 1,
+    "block_sha256": "80c1f4539d127c3ba14b46e06c5868b98da6850ae4ec2bf7e00450dad3249f04"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-chatwoot-config/spec.md",
+    "requirement": "Token opaco sempre cifrado na persist\u00eancia",
+    "operation": "ADDED Requirements",
+    "scenario_count": 1,
+    "block_sha256": "44fb56d71700867ff92e65caaec078bd12e4be7954eb6f53c63f7a6af490e069"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-chatwoot-config/spec.md",
+    "requirement": "Token de acesso sem transfer\u00eancia por redirect",
+    "operation": "ADDED Requirements",
+    "scenario_count": 1,
+    "block_sha256": "e063c631ce1a6cf5ae36a894d602d8f5613714d459b9db603d433f6131648082"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-chatwoot-contacts/spec.md",
+    "requirement": "Correspond\u00eancia exata antes de sele\u00e7\u00e3o e merge",
+    "operation": "ADDED Requirements",
+    "scenario_count": 2,
+    "block_sha256": "fb6853e860eaa4620f1dec52170bf4bc2012b135cbb65d395c6dbee2fabedf9a"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-chatwoot-import/spec.md",
+    "requirement": "Reconhecimento somente do lote importado",
+    "operation": "ADDED Requirements",
+    "scenario_count": 2,
+    "block_sha256": "41f5fec2efd3e95d04f9e5417d7ea1c49aee08ea4d2e14aa794c0b64e556a85c"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-chatwoot-import/spec.md",
+    "requirement": "Coleta de hist\u00f3rico condicionada \u00e0 URI",
+    "operation": "ADDED Requirements",
+    "scenario_count": 1,
+    "block_sha256": "00518caf7fe2c10bfaa9b33fa73292fcde3044f81f093fdad613c6c10a52c190"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-chatwoot-inbound/spec.md",
+    "requirement": "Exce\u00e7\u00e3o privada de anexos sem sobreposi\u00e7\u00e3o parcial de DNS",
+    "operation": "ADDED Requirements",
+    "scenario_count": 2,
+    "block_sha256": "d392d9675de25cc4b62cf5a832f11c76eb0b4ab192decf0a081e39d3e6b5991c"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-chatwoot-inbound/spec.md",
+    "requirement": "Comando init usa lifecycle da inst\u00e2ncia fresca",
+    "operation": "ADDED Requirements",
+    "scenario_count": 3,
+    "block_sha256": "37e256be16274380177624d41eb196f1d62edf86f726e3548054fb52a7c79f73"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-inbound-events/spec.md",
+    "requirement": "Confirma\u00e7\u00e3o terminal com evento dur\u00e1vel",
+    "operation": "ADDED Requirements",
+    "scenario_count": 2,
+    "block_sha256": "dcb9899cd4074a087106f30064a13b512b9b7a17ee5a3d5b7e04349a3a00b230"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-instances/spec.md",
+    "requirement": "Preserva\u00e7\u00e3o de campos omitidos em PATCH concorrente",
+    "operation": "ADDED Requirements",
+    "scenario_count": 3,
+    "block_sha256": "6438200f2d24154f13ff322428e87a399a66d8b9bb2d935f54e7d5f6496319ac"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-manager/spec.md",
+    "requirement": "Perfil editado por campos alterados",
+    "operation": "ADDED Requirements",
+    "scenario_count": 2,
+    "block_sha256": "27f78b9ca78de98d1004aaf6db6a4105a07bfaaee65a7e9a7a345b967ed4ee93"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-manager/spec.md",
+    "requirement": "Navega\u00e7\u00e3o preservada ap\u00f3s rename por alias",
+    "operation": "ADDED Requirements",
+    "scenario_count": 1,
+    "block_sha256": "8d0e98d0ed6a3aad0e06ad5a23b0145f59a5c1155a5397002a4fc526c70a7ac2"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-manager/spec.md",
+    "requirement": "Coordenadas expl\u00edcitas no envio de localiza\u00e7\u00e3o",
+    "operation": "ADDED Requirements",
+    "scenario_count": 2,
+    "block_sha256": "880ead52d5c54ee5df9c1686e00afe8bfe8f243fa6d92a18ec18740db4867bb5"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-manager/spec.md",
+    "requirement": "Status vis\u00edvel sem legenda",
+    "operation": "ADDED Requirements",
+    "scenario_count": 1,
+    "block_sha256": "7070681117eaf4ba56d256a731c1eec22259280c9fa30ee740b0d62cba83367d"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-manager/spec.md",
+    "requirement": "Revoga\u00e7\u00e3o independente do cache de key",
+    "operation": "ADDED Requirements",
+    "scenario_count": 2,
+    "block_sha256": "d1e001ef47cdb64de9feb8cd9bbf14ef3492c95068202d279d66ca6569f99535"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-message-lifecycle/spec.md",
+    "requirement": "Recibos isolados pela inst\u00e2ncia de origem",
+    "operation": "ADDED Requirements",
+    "scenario_count": 1,
+    "block_sha256": "09574e7ab2d6fb7700a02c55008792afa28eec83b461b5dad84216ab3029ab7d"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-operations/spec.md",
+    "requirement": "Erros de restaura\u00e7\u00e3o sem identificador interno de dispositivo",
+    "operation": "ADDED Requirements",
+    "scenario_count": 1,
+    "block_sha256": "b02d75590e2010353b22e6ca578b4139775c6bfe3ca809c35742454dcc623f4e"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-operations/spec.md",
+    "requirement": "Build Go sem assets da console",
+    "operation": "ADDED Requirements",
+    "scenario_count": 1,
+    "block_sha256": "909e39a5f4aa7c7159529707383cc28afcd8a06bc0b26f47d985f6acb0d976c9"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-response-contract/spec.md",
+    "requirement": "Identidade efetiva e integridade da requisi\u00e7\u00e3o idempotente",
+    "operation": "ADDED Requirements",
+    "scenario_count": 6,
+    "block_sha256": "95de85fbb81df2554e1c979c7cd28a166cb522aab8d10f2eaf4114ecd09b52ab"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-response-contract/spec.md",
+    "requirement": "Falha segura do replay corrompido",
+    "operation": "ADDED Requirements",
+    "scenario_count": 2,
+    "block_sha256": "ce84694507a1511bea932a728e2758dfbb7c446b46a0fd9769018e0037ccfbd5"
+  },
+  {
+    "change": "review-residual-implementations",
+    "spec": "wzap-webhooks/spec.md",
+    "requirement": "Confidencialidade da credencial perante redirects",
+    "operation": "ADDED Requirements",
+    "scenario_count": 2,
+    "block_sha256": "3dac6e135b9a8f517b2b70ce491c0f4d93951bde3b3b825e42a6fdafb3595556"
+  },
+  {
+    "change": "fix-frontend-qa",
+    "spec": "wzap-manager/spec.md",
+    "requirement": "Usable form validation",
+    "operation": "ADDED Requirements",
+    "scenario_count": 3,
+    "block_sha256": "e2e53abcfaecf4e9fee0a132ad6aee6bc61996940ba35a2a081a627499d50777"
+  },
+  {
+    "change": "fix-frontend-qa",
+    "spec": "wzap-manager/spec.md",
+    "requirement": "Correct accessible control targets",
+    "operation": "ADDED Requirements",
+    "scenario_count": 3,
+    "block_sha256": "522e1a443c824fa964c2129b85349fe19292f5117e657703a17dc9fc46070b8f"
+  },
+  {
+    "change": "fix-frontend-qa",
+    "spec": "wzap-manager/spec.md",
+    "requirement": "Legible theme and responsive instance navigation",
+    "operation": "ADDED Requirements",
+    "scenario_count": 2,
+    "block_sha256": "3e63cf56973b2d0694185e06eef48a426756ad191a53bc7463c811f99a1203a7"
+  },
+  {
+    "change": "fix-frontend-qa",
+    "spec": "wzap-manager/spec.md",
+    "requirement": "Available column controls",
+    "operation": "ADDED Requirements",
+    "scenario_count": 2,
+    "block_sha256": "49ac1eea22013c69ed47056c8222a77dc1a3d541ea56abeb69ac825043be6d8a"
+  },
+  {
+    "change": "fix-frontend-qa",
+    "spec": "wzap-manager/spec.md",
+    "requirement": "Accessible table row actions",
+    "operation": "ADDED Requirements",
+    "scenario_count": 2,
+    "block_sha256": "d60a56367d63afa06b0638265b224f14eb8be980e31c3e64d663739148d42573"
+  },
+  {
+    "change": "fix-frontend-qa",
+    "spec": "wzap-manager/spec.md",
+    "requirement": "Listas e detalhe no padr\u00e3o do template",
+    "operation": "MODIFIED Requirements",
+    "scenario_count": 3,
+    "block_sha256": "0513f5c2513525e2efcfc6590e63442b32f89333534f9ac8eb66705c57e2921b"
+  }
+]

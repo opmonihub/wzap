@@ -1,11 +1,12 @@
 <script setup lang="ts">
+import FileUploadPreview from '~/components/shared/FileUploadPreview.vue'
 import { ApiError } from '~/composables/useApi'
 import type { InstanceStatus, Newsletter, OwnStatus } from '~/types/api'
 
 // Newsletters (follow/unfollow + lookup + followed list with title/channel +
 // follower count) and own statuses (text publish, image|video media publish
-// fire-and-forget, own list rendered as bubbles only where text/caption
-// exists, delete). Text/caption validate 1..700 characters.
+// fire-and-forget, own list with identity/type and optional text/caption
+// bubbles, delete). Text/caption validate 1..700 characters.
 const props = defineProps<{
   instanceId: string
   status: InstanceStatus
@@ -200,10 +201,15 @@ watch(() => [props.instanceId, props.status] as const, () => {
           @click="onUnfollow(item.channel)"
         />
       </li>
-      <li v-for="item in statuses.filter(entry => (entry.text ?? '') !== '' || (entry.caption ?? '') !== '')" :key="item.id" class="flex min-w-0 items-center gap-3 px-4 py-3 sm:px-6">
-        <span class="min-w-0 flex-1 rounded-2xl bg-elevated px-3 py-2 text-sm text-highlighted">
-          {{ item.text || item.caption }}
-        </span>
+      <li v-for="item in statuses" :key="item.id" class="flex min-w-0 items-center gap-3 px-4 py-3 sm:px-6">
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-xs text-muted">
+            {{ t('instances.channels.statusType', { type: item.type }) }} · {{ item.id }}
+          </p>
+          <p v-if="item.text || item.caption" class="mt-1 rounded-2xl bg-elevated px-3 py-2 text-sm text-highlighted">
+            {{ item.text || item.caption }}
+          </p>
+        </div>
         <UButton
           :disabled="!canAct"
           size="xs"
@@ -235,11 +241,21 @@ watch(() => [props.instanceId, props.status] as const, () => {
         <div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
           <USelect
             v-model="statusKind"
+            :aria-label="t('instances.channels.statusKind')"
             :items="statusKinds"
             :placeholder="t('instances.channels.statusKind')"
             class="w-full sm:w-32"
           />
-          <UFileUpload v-model="statusFile" accept="image/*,video/*" class="w-full" />
+          <UFileUpload
+            v-model="statusFile"
+            :label="t('instances.send.file')"
+            accept="image/*,video/*"
+            class="w-full"
+          >
+            <template #file-leading="{ file, ui }">
+              <FileUploadPreview :file="file" :class="ui.fileLeadingAvatar()" />
+            </template>
+          </UFileUpload>
           <UInput
             v-model="statusCaption"
             maxlength="700"

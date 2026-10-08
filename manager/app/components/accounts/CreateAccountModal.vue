@@ -18,7 +18,9 @@ const createSchema = z.object({
   email: z.string().min(1, t('accounts.create.emailRequired')).max(255),
   password: z.string().min(1, t('accounts.create.passwordRequired')),
   role: z.enum(['admin', 'user']),
-  instance_limit: z.string()
+  instance_limit: z.union([z.string(), z.number()], { error: t('accounts.create.quotaInvalid') })
+    .optional()
+    .refine(value => parseQuota(value) !== null, t('accounts.create.quotaInvalid'))
 })
 type CreateSchema = z.output<typeof createSchema>
 const createState = reactive<Partial<CreateSchema>>({ email: '', password: '', role: 'user', instance_limit: '' })

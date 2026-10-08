@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import FileUploadPreview from '~/components/shared/FileUploadPreview.vue'
 import { ApiError } from '~/composables/useApi'
-import type { InstanceStatus, Profile } from '~/types/api'
+import type { InstanceStatus, Profile, UpdateProfileInput } from '~/types/api'
 
 const props = defineProps<{
   instanceId: string
@@ -22,8 +23,8 @@ const canAct = computed(() => props.status === 'connected')
 async function load() {
   try {
     profile.value = await getProfile(props.instanceId)
-    name.value = profile.value.name
-    recado.value = profile.value.status_text
+    name.value = profile.value.name ?? ''
+    recado.value = profile.value.status_text ?? ''
   } catch (error) {
     failure.value = error instanceof ApiError ? error.message : t('instances.messages.loadFailed')
   }
@@ -33,16 +34,28 @@ async function onSave() {
   failure.value = null
   unsupported.value = false
   const trimmedName = name.value.trim()
-  if ([...trimmedName].length === 0 || [...trimmedName].length > 100) {
+  const input: UpdateProfileInput = {}
+  if (trimmedName !== (profile.value?.name ?? '').trim()) {
+    input.name = trimmedName
+  }
+  if (recado.value !== (profile.value?.status_text ?? '')) {
+    input.status_text = recado.value
+  }
+  if (input.name !== undefined && ([...input.name].length === 0 || [...input.name].length > 100)) {
     failure.value = t('instances.profile.nameHint')
     return
   }
-  if ([...recado.value].length > 500) {
+  if (input.status_text !== undefined && [...input.status_text].length > 500) {
     failure.value = t('instances.profile.recadoHint')
     return
   }
+  if (input.name === undefined && input.status_text === undefined) {
+    return
+  }
   try {
-    profile.value = await updateProfile(props.instanceId, { name: trimmedName, status_text: recado.value })
+    profile.value = await updateProfile(props.instanceId, input)
+    name.value = profile.value.name ?? ''
+    recado.value = profile.value.status_text ?? ''
     toast.add({ title: t('instances.profile.saved'), icon: 'i-lucide-check', color: 'success' })
   } catch (error) {
     if (error instanceof ApiError && error.status === 501) {
@@ -120,7 +133,16 @@ watch(() => [props.instanceId, props.status] as const, () => {
         <UButton :disabled="!canAct" :label="t('common.save')" @click="onSave" />
       </div>
       <UFormField :label="t('instances.profile.photo')" :hint="t('instances.profile.photoHint')">
-        <UFileUpload v-model="photoFile" accept="image/*" variant="area" />
+        <UFileUpload
+          v-model="photoFile"
+          :label="t('instances.profile.photo')"
+          accept="image/*"
+          variant="area"
+        >
+          <template #file-leading="{ file, ui }">
+            <FileUploadPreview :file="file" :class="ui.fileLeadingAvatar()" />
+          </template>
+        </UFileUpload>
       </UFormField>
       <div class="flex justify-end">
         <UButton

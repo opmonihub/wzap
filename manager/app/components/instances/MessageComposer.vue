@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FileUploadPreview from '~/components/shared/FileUploadPreview.vue'
 import { ApiError } from '~/composables/useApi'
 import type { InstanceStatus, MediaKind } from '~/types/api'
 
@@ -141,6 +142,10 @@ async function onSend() {
         break
       }
       case 'location': {
+        if (latitude.value.trim() === '' || longitude.value.trim() === '') {
+          failure.value = t('instances.send.invalidLocation')
+          return
+        }
         const lat = Number(latitude.value)
         const lng = Number(longitude.value)
         if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
@@ -289,7 +294,16 @@ watch(() => props.instanceId, () => {
         class="w-full"
       />
       <div v-else-if="tab === 'media'" class="flex flex-col gap-2">
-        <UFileUpload v-model="mediaFile" accept="image/*,video/*,audio/*,.pdf,.txt,.doc,.docx" variant="area" />
+        <UFileUpload
+          v-model="mediaFile"
+          :label="t('instances.send.file')"
+          accept="image/*,video/*,audio/*,.pdf,.txt,.doc,.docx"
+          variant="area"
+        >
+          <template #file-leading="{ file, ui }">
+            <FileUploadPreview :file="file" :class="ui.fileLeadingAvatar()" />
+          </template>
+        </UFileUpload>
         <UInput v-model="mediaCaption" :placeholder="t('instances.send.caption')" class="w-full" />
       </div>
       <div v-else-if="tab === 'location'" class="flex flex-col gap-2 sm:flex-row">

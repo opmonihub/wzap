@@ -39,6 +39,7 @@ watch(filter, (value) => {
       <slot name="bulk" />
       <slot name="filters" />
       <UDropdownMenu
+        v-if="columnItems.length > 0"
         :items="[columnItems]"
         :content="{ align: 'end' }"
       >

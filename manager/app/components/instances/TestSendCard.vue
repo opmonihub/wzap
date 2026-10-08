@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FileUploadPreview from '~/components/shared/FileUploadPreview.vue'
 import * as z from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
 import { ApiError } from '~/composables/useApi'
@@ -539,10 +540,15 @@ onUnmounted(() => {
         >
           <UFileUpload
             v-model="mediaFile"
+            :label="t('instances.send.file')"
             accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
             variant="area"
             @update:model-value="onFileChange"
-          />
+          >
+            <template #file-leading="{ file, ui }">
+              <FileUploadPreview :file="file" :class="ui.fileLeadingAvatar()" />
+            </template>
+          </UFileUpload>
         </UFormField>
         <p v-if="mediaKind" class="font-mono text-sm text-muted">
           {{ mediaName }} — {{ t('instances.send.detectedKind', { kind: mediaKind }) }}

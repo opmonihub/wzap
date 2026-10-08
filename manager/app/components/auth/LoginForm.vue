@@ -29,8 +29,10 @@ const pending = ref(false)
 const failure = ref<string | null>(null)
 
 const schema = z.object({
-  email: z.email(),
-  password: z.string().min(1)
+  email: z.email({
+    error: issue => issue.input === undefined || issue.input === '' ? t('auth.emailRequired') : t('auth.emailInvalid')
+  }),
+  password: z.string({ error: t('auth.passwordRequired') }).min(1, t('auth.passwordRequired'))
 })
 type Schema = z.output<typeof schema>
 

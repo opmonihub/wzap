@@ -18,7 +18,12 @@ const toast = useToast()
 const { updateUserQuota } = useAccounts()
 
 const quotaSchema = z.object({
-  instance_limit: z.string()
+  instance_limit: z.union([z.string(), z.number()], { error: t('accounts.quota.quotaInvalid') })
+    .optional()
+    .refine((value) => {
+      const quota = parseQuota(value)
+      return quota !== null && quota !== undefined
+    }, t('accounts.quota.quotaInvalid'))
 })
 type QuotaSchema = z.output<typeof quotaSchema>
 const quotaState = reactive<Partial<QuotaSchema>>({ instance_limit: '' })

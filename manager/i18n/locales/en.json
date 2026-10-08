@@ -17,6 +17,9 @@
     "loginSubtitle": "Use your manager account to continue.",
     "email": "Email",
     "password": "Password",
+    "emailRequired": "Enter your email.",
+    "emailInvalid": "Enter a valid email address.",
+    "passwordRequired": "Enter your password.",
     "submit": "Sign in",
     "signingIn": "Signing in...",
     "loginFailed": "Sign in failed. Check your email and password.",
@@ -184,6 +187,7 @@
       "createdToast": "Instance created as disconnected."
     },
     "detail": {
+      "back": "Back to instances",
       "loadFailed": "Could not load the instance.",
       "notFound": "Instance not found.",
       "saved": "Instance updated.",
@@ -342,6 +346,7 @@
       "readAt": "Read"
     },
     "sections": {
+      "label": "Instance section",
       "overview": "Overview",
       "messages": "Messages",
       "groups": "Groups",
@@ -424,6 +429,7 @@
       "publish": "Publish status",
       "statusText": "Status text",
       "statusKind": "Kind",
+      "statusType": "Status: {type}",
       "published": "Status published.",
       "publishFailed": "Could not publish the status.",
       "delete": "Delete",

@@ -6,6 +6,7 @@ import InstancesTableNameCell from '~/components/instances/InstancesTableNameCel
 import InstancesTableStatusCell from '~/components/instances/InstancesTableStatusCell.vue'
 import DataTableFooter from '~/components/shared/DataTableFooter.vue'
 import DataTableToolbar from '~/components/shared/DataTableToolbar.vue'
+import { tableRowNavigation } from '~/utils/tableRowNavigation'
 import type { Instance, InstanceStatus } from '~/types/api'
 
 const props = defineProps<{
@@ -32,6 +33,7 @@ interface InstancesTableColumn {
 }
 
 interface InstancesTableApi {
+  getRowModel: () => { rows: TableRow<Instance>[] }
   getFilteredRowModel: () => { rows: TableRow<Instance>[] }
   getFilteredSelectedRowModel: () => { rows: TableRow<Instance>[] }
   setPageIndex: (index: number) => void
@@ -59,7 +61,7 @@ const {
   paginationOptions
 } = useInstancesTable(itemsRef, isAdminRef)
 
-const table = useTemplateRef<{ tableApi?: InstancesTableApi }>('table')
+const table = useTemplateRef<{ tableApi?: InstancesTableApi, tableRef?: HTMLTableElement }>('table')
 
 // The remodeled public instance hides owner_user_id, external_ref and
 // whatsapp_jid, so only name/status/actions remain: the column-visibility
@@ -210,12 +212,12 @@ function openDetails(instance: Instance) {
   void navigateTo(`/instances/${instance.id}`)
 }
 
-function onRowSelect(event: Event, row: { original: Instance }) {
-  const target = event.target as HTMLElement | null
-  if (target?.closest('a, button, input, [role="menuitem"], [role="menuitemcheckbox"]')) {
-    return
-  }
-  openDetails(row.original)
+function onTableClick(event: MouseEvent) {
+  // UTable's onSelect turns native rows into buttons containing controls.
+  // Delegate pointer clicks instead; this unpinned, unexpanded table renders
+  // native body rows in the current filtered/sorted/paginated model order.
+  const row = tableRowNavigation(event, table.value?.tableRef, table.value?.tableApi?.getRowModel().rows ?? [])
+  if (row) openDetails(row.original)
 }
 </script>
 
@@ -272,7 +274,6 @@ function onRowSelect(event: Event, row: { original: Instance }) {
       :pagination-options="paginationOptions"
       :get-row-id="getRowId"
       :auto-reset-all="false"
-      :on-select="onRowSelect"
       class="shrink-0"
       :ui="{
         base: 'table-fixed border-separate border-spacing-0',
@@ -282,6 +283,7 @@ function onRowSelect(event: Event, row: { original: Instance }) {
         td: 'border-b border-default',
         separator: 'h-0'
       }"
+      @click="onTableClick"
     >
       <template #select-header="{ table: api }">
         <UCheckbox

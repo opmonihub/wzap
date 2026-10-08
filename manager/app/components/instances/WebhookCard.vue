@@ -21,6 +21,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const toast = useToast()
+const eventCheckboxId = useId()
 const { updateInstanceWebhook } = useInstances()
 
 const schema = z.object({
@@ -154,6 +155,7 @@ watch(() => props.instance.id, () => {
           <div class="flex flex-col gap-2">
             <UCheckbox
               v-for="type in WEBHOOK_EVENT_TYPES"
+              :id="`${eventCheckboxId}-${type}`"
               :key="type"
               :model-value="isSubscribed(type)"
               :label="type"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FileUploadPreview from '~/components/shared/FileUploadPreview.vue'
 import { ApiError } from '~/composables/useApi'
 import { groupLookupJIDOrNull } from '~/utils/groupLookup'
 import type { Group, InstanceStatus } from '~/types/api'
@@ -311,10 +312,15 @@ async function onLeave() {
       <div class="flex flex-col gap-2">
         <UFileUpload
           v-model="photoFile"
+          :label="t('instances.groups.photo')"
           accept="image/*"
           :hint="t('instances.groups.photoHint')"
           variant="area"
-        />
+        >
+          <template #file-leading="{ file, ui }">
+            <FileUploadPreview :file="file" :class="ui.fileLeadingAvatar()" />
+          </template>
+        </UFileUpload>
         <div class="flex justify-end">
           <UButton
             :disabled="!canAct || !photoFile"
@@ -327,6 +333,7 @@ async function onLeave() {
       <div class="flex flex-col gap-2">
         <USelect
           v-model="participantAction"
+          :aria-label="t('instances.groups.participantsAction')"
           :items="participantActions"
           :placeholder="t('instances.groups.participantsAction')"
           class="w-full"

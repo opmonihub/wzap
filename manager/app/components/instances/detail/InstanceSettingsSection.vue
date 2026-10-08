@@ -80,7 +80,7 @@ async function onGenerate() {
 // surface as toasts, while keyFailure stays owned by the generate path whose
 // alert renders in the card.
 async function onRevoke() {
-  if (revoking.value) {
+  if (!props.isAdmin || revoking.value || generating.value) {
     return
   }
   const confirmed = await confirmDelete({
@@ -88,7 +88,7 @@ async function onRevoke() {
     description: t('instances.key.revokeConfirmBody'),
     confirmLabel: t('instances.key.revoke')
   })
-  if (!confirmed || revoking.value) {
+  if (!confirmed || !props.isAdmin || revoking.value || generating.value) {
     return
   }
   const instanceId = props.instance.id
@@ -188,6 +188,7 @@ const isConnected = computed(() => props.instance.connection.status === 'connect
           <div class="flex flex-wrap items-end gap-2">
             <USelect
               v-model="disappearingChoice"
+              :aria-label="t('instances.settings.defaultDisappearing')"
               :items="disappearingOptions"
               class="min-w-48"
             />
@@ -233,24 +234,26 @@ const isConnected = computed(() => props.instance.connection.status === 'connect
           <p v-else class="text-sm text-muted">
             {{ t('instances.key.rotateHint') }}
           </p>
-
-          <div class="flex flex-wrap gap-2">
-            <UButton
-              icon="i-lucide-key-round"
-              :loading="generating"
-              :label="generating ? t('instances.key.generating') : t('instances.key.generate')"
-              @click="onGenerate"
-            />
-            <UButton
-              v-if="keySeen"
-              color="error"
-              variant="soft"
-              :loading="revoking"
-              :label="revoking ? t('instances.key.revoking') : t('instances.key.revoke')"
-              @click="onRevoke"
-            />
-          </div>
         </template>
+
+        <div class="flex flex-wrap gap-2">
+          <UButton
+            v-if="!freshKey"
+            icon="i-lucide-key-round"
+            :disabled="revoking"
+            :loading="generating"
+            :label="generating ? t('instances.key.generating') : t('instances.key.generate')"
+            @click="onGenerate"
+          />
+          <UButton
+            color="error"
+            variant="soft"
+            :disabled="generating"
+            :loading="revoking"
+            :label="revoking ? t('instances.key.revoking') : t('instances.key.revoke')"
+            @click="onRevoke"
+          />
+        </div>
       </div>
     </UPageCard>
 

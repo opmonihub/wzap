@@ -23,6 +23,7 @@ const { getInstance } = useInstances()
 const id = computed(() => String(route.params.id ?? ''))
 
 const instance = ref<Instance | null>(null)
+const loadedReference = ref<string | null>(null)
 const pending = ref(true)
 const notFound = ref(false)
 const failure = ref<string | null>(null)
@@ -58,25 +59,49 @@ useSeoMeta({
 })
 
 async function load(options?: { silent?: boolean }) {
+  const reference = id.value
+  const target = loadedReference.value === reference ? instance.value?.id ?? reference : reference
   if (!options?.silent) {
     pending.value = true
   }
   notFound.value = false
   failure.value = null
   try {
-    instance.value = await getInstance(id.value)
+    const loaded = await getInstance(target)
+    if (id.value !== reference) {
+      return
+    }
+    instance.value = loaded
+    loadedReference.value = reference
   } catch (error) {
+    if (id.value !== reference) {
+      return
+    }
     if (error instanceof ApiError && error.status === 404) {
       notFound.value = true
     } else {
       failure.value = error instanceof ApiError ? error.message : t('instances.detail.loadFailed')
     }
   } finally {
-    if (!options?.silent) {
+    if (!options?.silent && id.value === reference) {
       pending.value = false
     }
   }
 }
+
+async function onInstanceUpdated(value: Instance) {
+  if (loadedReference.value !== id.value || instance.value?.id !== value.id) {
+    return
+  }
+  instance.value = value
+  if (id.value !== value.id && id.value !== value.name) {
+    await router.replace({ path: `/instances/${value.id}`, query: { ...route.query }, hash: route.hash })
+  }
+}
+
+watch(id, () => {
+  void load()
+})
 
 function refreshInstance() {
   return load({ silent: true })
@@ -100,6 +125,7 @@ await load()
             color="neutral"
             variant="ghost"
             icon="i-lucide-arrow-left"
+            :aria-label="t('instances.detail.back')"
             @click="navigateTo('/instances')"
           />
         </template>
@@ -148,7 +174,7 @@ await load()
               v-if="section === 'overview'"
               :instance="instance"
               @paired="refreshInstance"
-              @updated="(value: Instance) => { instance = value }"
+              @updated="onInstanceUpdated"
               @changed="load"
             />
 
@@ -173,7 +199,7 @@ await load()
             <InstanceIntegrationsSection
               v-else-if="section === 'integrations'"
               :instance="instance"
-              @webhook-updated="(value: Instance) => { instance = value }"
+              @webhook-updated="onInstanceUpdated"
             />
 
             <InstanceSettingsSection

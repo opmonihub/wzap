@@ -6,6 +6,10 @@ authenticated REST API, and publishes durable events through NATS JetStream.
 ## Commands
 
 - `go test ./... -count=1` - run the complete test suite.
+- After every frontend interface change, use `agent-browser` against the updated
+  local UI to manually exercise affected flows and visually validate rendering,
+  relevant states and responsive layouts before declaring completion. Capture
+  screenshots and record the tested flows/results as evidence.
 - `WZAP_TEST_DATABASE_URL='postgres://wzap:secret@127.0.0.1:5432/wzap_test?sslmode=disable' go test ./... -count=1` - include Postgres integration tests.
 - `WZAP_TEST_NATS_URL='nats://127.0.0.1:4222' go test ./internal/events/ -count=1` - include the NATS publisher integration test.
 - `go test ./internal/<package> -run TestName -count=1` - run a focused test.

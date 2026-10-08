@@ -4,6 +4,7 @@ package docker_test
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,6 +27,24 @@ func TestDevReload(t *testing.T) {
 	if err != nil || !strings.Contains(string(version), "v1.61.7") {
 		t.Fatalf("Air v1.61.7 required: %s: %v", version, err)
 	}
+	t.Run("PipeOutputReloadAndRecovery", func(t *testing.T) {
+		if os.Getenv("WZAP_TEST_AIR_NATIVE") == "1" {
+			t.Skip("native lifecycle characterization uses append capture; pipe output requires runtime protection")
+		}
+		// A single CPU makes the competing PTY-copy readers take the adverse
+		// lock order reliably, as can happen in a CPU-limited dev container.
+		t.Setenv("GOMAXPROCS", "1")
+		f := newReloadFixture(t, air, "50ms")
+		f.waitEvent("start", "one", 20*time.Second)
+		f.source("pipe-reload")
+		f.waitEvent("start", "pipe-reload", 12*time.Second)
+		f.write("main.go", "package main\ninvalid Go\n")
+		f.waitLog("failed to build", 12*time.Second)
+		f.source("pipe-recovered")
+		f.waitEvent("start", "pipe-recovered", 12*time.Second)
+		f.stop()
+		f.assertLifecycle()
+	})
 	t.Run("Drain", func(t *testing.T) {
 		f := newReloadFixture(t, air, "8s")
 		f.waitEvent("start", "one", 20*time.Second)
@@ -98,6 +117,45 @@ func TestDevReload(t *testing.T) {
 	})
 }
 
+// Check the parent forwarding path without Air's own one-shot signal handler
+// concealing a repeated delivery. The controlled child acts only as Air here.
+func TestDevSupervisorSignalOnce(t *testing.T) {
+	f := &reloadFixture{t: t, dir: t.TempDir(), done: make(chan error, 1), drain: 200 * time.Millisecond}
+	script, err := os.ReadFile("dev-go.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.write("docker/dev-go.sh", string(script))
+	f.source("synthetic-air")
+	build := exec.Command("go", "build", "-o", "synthetic-air", "main.go")
+	build.Dir = f.dir
+	if output, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build synthetic Air: %s: %v", output, err)
+	}
+	f.cmd = exec.Command("bash", "docker/dev-go.sh", "./synthetic-air")
+	f.cmd.Dir = f.dir
+	f.cmd.Env = append(os.Environ(), "FIXTURE_DRAIN=200ms")
+	f.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := f.cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	go func() { f.done <- f.cmd.Wait() }()
+	t.Cleanup(func() {
+		if !f.stopped {
+			_ = syscall.Kill(-f.cmd.Process.Pid, syscall.SIGKILL)
+			<-f.done
+		}
+	})
+	f.waitEvent("start", "synthetic-air", 10*time.Second)
+	if err := f.cmd.Process.Signal(syscall.SIGTERM); err != nil {
+		t.Fatal(err)
+	}
+	f.waitEvent("signal", "synthetic-air", time.Second)
+	// A second parent signal while its exact Air child drains must stay local.
+	f.stop()
+	f.assertLifecycle()
+}
+
 type reloadEvent struct {
 	Kind, Version string
 	PID           int
@@ -153,18 +211,52 @@ func newReloadFixture(t *testing.T, air, drain string) *reloadFixture {
 	f.cmd.Dir = f.dir
 	f.cmd.Env = append(os.Environ(), "FIXTURE_DRAIN="+drain)
 	f.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	// Append mode prevents Go zero-copy from locking stdout while waiting on
-	// Air's shared PTY reader; ordinary log writes must remain independent.
 	log, err := os.OpenFile(filepath.Join(f.dir, "air.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = log.Close() })
 	f.cmd.Stdout = log
 	f.cmd.Stderr = log
+	var pipes []*os.File
+	var copied []chan error
+	if !native {
+		// Match Docker's separate output pipes. Only the collector's file has
+		// O_APPEND; Air must get pipe descriptors so runtime protection, rather
+		// than fixture-only flags, prevents its shared-PTY zero-copy deadlock.
+		for _, output := range []*io.Writer{&f.cmd.Stdout, &f.cmd.Stderr} {
+			reader, writer, err := os.Pipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = reader.Close(); _ = writer.Close() })
+			*output = writer
+			pipes = append(pipes, writer)
+			done := make(chan error, 1)
+			copied = append(copied, done)
+			go func() {
+				_, err := io.Copy(log, reader)
+				_ = reader.Close()
+				done <- err
+			}()
+		}
+	}
 	if err := f.cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	go func() { err := f.cmd.Wait(); _ = log.Close(); f.done <- err }()
+	for _, writer := range pipes {
+		_ = writer.Close()
+	}
+	go func() {
+		err := f.cmd.Wait()
+		for _, done := range copied {
+			if copyErr := <-done; err == nil {
+				err = copyErr
+			}
+		}
+		_ = log.Close()
+		f.done <- err
+	}()
 	t.Cleanup(func() {
 		if !f.stopped {
 			_ = f.cmd.Process.Signal(syscall.SIGTERM)

@@ -22,16 +22,21 @@ fi
 # signals Go. Keep the container alive until the inherited Go lock is released.
 air_pid=
 stopping=0
+signal_sent=0
 stop_air() {
-    if [[ $stopping == 0 ]]; then
-        stopping=1
-        [[ -z $air_pid ]] || kill -TERM "$air_pid" 2>/dev/null || true
+    stopping=1
+    if [[ -n $air_pid && $signal_sent == 0 ]]; then
+        signal_sent=1
+        kill -TERM "$air_pid" 2>/dev/null || true
     fi
 }
 trap stop_air INT TERM
-"$@" &
+# Air copies one shared PTY through two readers. Reopen its output in append
+# mode so Go skips zero-copy locking that can stall reloads on quiet children.
+# The inherited stdout/stderr destinations, including pipes, stay separate.
+"$@" >>/proc/self/fd/1 2>>/proc/self/fd/2 &
 air_pid=$!
-[[ $stopping == 0 ]] || kill -TERM "$air_pid" 2>/dev/null || true
+[[ $stopping == 0 ]] || stop_air
 status=0
 while true; do
     wait "$air_pid"

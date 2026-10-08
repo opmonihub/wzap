@@ -29,6 +29,8 @@ FROM gcr.io/distroless/static-debian12:nonroot
 
 COPY --from=build /out/wzap /wzap
 COPY --from=build --chown=65532:65532 /out/data /data
+COPY --from=build /src/THIRD_PARTY_NOTICES.md /THIRD_PARTY_NOTICES.md
+COPY --from=build /src/manager/LICENSE /manager-LICENSE
 
 USER nonroot:nonroot
 
